@@ -8,7 +8,7 @@ use crate::cube::Cube;
 use crate::vec::{self, IVec2};
 use crate::packedvertex::{self, PackedVertex};
 use crate::cube::CubeSide;
-
+use rand::Rng;
 pub struct ChunkGeo {
     pub data32: Vec<u32>,
     pub data8: Vec<u8>,
@@ -95,7 +95,15 @@ impl ChunkSystem {
         }
     }
     pub fn blockat(&self, _spot: vec::IVec3) -> u32 {
-        return 0;
+        //Random for now
+        let mut rng = rand::thread_rng();
+
+        let n1: u8 = rng.gen();
+        if n1 > 128 {
+            1
+        } else {
+            0
+        }
     }
     pub fn new(radius: u8) -> ChunkSystem {
         let mut cs = ChunkSystem {

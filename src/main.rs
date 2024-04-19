@@ -14,7 +14,7 @@ mod game;
 
 fn main() {
     let mut wak_context = WindowAndKeyContext::new("Barkaroo");
-    let mut game = Game::new();
+    let game = Game::new();
 
     wak_context.game = Some(game);
 

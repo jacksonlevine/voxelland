@@ -12,7 +12,9 @@ use rand::Rng;
 pub struct ChunkGeo {
     pub data32: Vec<u32>,
     pub data8: Vec<u8>,
-    pub pos: vec::IVec2
+    pub pos: vec::IVec2,
+    pub vbo32: gl::types::GLuint,
+    pub vbo8: gl::types::GLuint,
 }
 impl ChunkGeo {
     pub fn clear(&mut self) {
@@ -57,7 +59,8 @@ impl ChunkSystem {
     }
 
     pub fn rebuild_index(&mut self, index: usize) {
-        let chunk: &ChunkFacade = &self.chunks[index];
+        let chunk: &mut ChunkFacade = &mut self.chunks[index];
+        chunk.used = true;
 
         self.geobank[index].clear();
 
@@ -65,10 +68,10 @@ impl ChunkSystem {
             for k in 0..CW {
                 for j in 0..CH {
                     let spot = vec::IVec3{x:(chunk.pos.x * CW)+i, y:j, z:(chunk.pos.y * CW)+k };
-                    let block =  self.blockat(spot);
+                    let block =  ChunkSystem::blockat(spot);
                     if block != 0 {
                         for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
-                            let neigh_block = self.blockat(spot + *neigh);
+                            let neigh_block = ChunkSystem::blockat(spot + *neigh);
                             let cubeside = CubeSide::from_primitive(indie);
 
                             if neigh_block == 0 {
@@ -89,12 +92,13 @@ impl ChunkSystem {
             }
         }
         self.geoqueue.push(index);
-
+        
         if !self.takencare.contains_key(&chunk.pos) {
             self.takencare.insert(chunk.pos,*chunk);
         }
     }
-    pub fn blockat(&self, _spot: vec::IVec3) -> u32 {
+
+    pub fn blockat(_spot: vec::IVec3) -> u32 {
         //Random for now
         let mut rng = rand::thread_rng();
 
@@ -113,8 +117,16 @@ impl ChunkSystem {
             geoqueue: lockfree::queue::Queue::new()
         };
 
-        for _ in 0..radius*2 {
-            for _ in 0..radius*2 {
+        let mut vbo32: gl::types::GLuint = 0;
+        let mut vbo8: gl::types::GLuint = 0;
+
+        unsafe {
+            gl::CreateBuffers(1, &mut vbo32);
+            gl::CreateBuffers(1, &mut vbo8);
+        }
+        
+        for _ in 0..=radius*2 {
+            for _ in 0..=radius*2 {
                 cs.chunks.push(ChunkFacade {
                     geo_index: cs.geobank.len(),
                     used: false,
@@ -124,6 +136,8 @@ impl ChunkSystem {
                     data32: Vec::new(),
                     data8: Vec::new(),
                     pos: IVec2{x:0, y:0},
+                    vbo32,
+                    vbo8
                 });
             }
         }

@@ -11,8 +11,6 @@ pub struct Shader {
 }
 
 
-
-
 impl Shader {
     pub fn new(vertpath: &str, fragpath: &str) -> Shader {
         let vertex_shader = Self::compile_shader(vertpath, gl::VERTEX_SHADER);
@@ -26,7 +24,7 @@ impl Shader {
 
         let mut vao: u32 = 0;
         unsafe {
-            gl::GenVertexArrays(1, &mut vao);
+            gl::CreateVertexArrays(1, &mut vao);
         }
 
         Shader {

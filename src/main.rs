@@ -12,6 +12,7 @@ mod packedvertex;
 mod windowandkey;
 mod game;
 mod camera;
+mod texture;
 
 fn main() {
     let mut wak_context = WindowAndKeyContext::new("Barkaroo");

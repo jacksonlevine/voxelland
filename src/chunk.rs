@@ -41,7 +41,8 @@ pub struct ChunkSystem {
     pub chunks: Vec<ChunkFacade>,
     pub geobank: Vec<ChunkGeo>,
     pub takencare: HashMap<vec::IVec2, ChunkFacade>,
-    pub geoqueue: lockfree::queue::Queue<usize>
+    pub geoqueue: lockfree::queue::Queue<usize>,
+    pub radius: u8
 }
 
 impl ChunkSystem {
@@ -114,7 +115,8 @@ impl ChunkSystem {
             chunks: Vec::new(),
             geobank: Vec::new(),
             takencare: HashMap::new(),
-            geoqueue: lockfree::queue::Queue::new()
+            geoqueue: lockfree::queue::Queue::new(),
+            radius
         };
 
         let mut vbo32: gl::types::GLuint = 0;

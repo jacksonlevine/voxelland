@@ -1,5 +1,6 @@
 
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use num_enum::FromPrimitive;
 use lockfree::queue;
 use crate::worldgeometry::WorldGeometry;
@@ -38,37 +39,45 @@ static CH: i32 = 128;
 
 
 pub struct ChunkSystem {
-    pub chunks: Vec<ChunkFacade>,
-    pub geobank: Vec<ChunkGeo>,
-    pub takencare: HashMap<vec::IVec2, ChunkFacade>,
-    pub geoqueue: lockfree::queue::Queue<usize>,
+    pub chunks: Vec<Arc<Mutex<ChunkFacade>>>,
+    pub geobank: Vec<Arc<Mutex<ChunkGeo>>>,
+    pub takencare: Arc<Mutex<HashMap<vec::IVec2, ChunkFacade>>>,
+    pub geoqueue: Arc<lockfree::queue::Queue<usize>>,
     pub radius: u8
 }
 
 impl ChunkSystem {
-    pub fn move_and_rebuild(&mut self, index: usize, cpos: vec::IVec2) {
-        if !self.takencare.contains_key(&cpos) {
-            let chunk: &mut ChunkFacade = &mut self.chunks[index];
-            if self.takencare.contains_key(&chunk.pos) {
-                self.takencare.remove(&chunk.pos);
+    pub fn move_and_rebuild(&self, index: usize, cpos: vec::IVec2) {
+        let takencare = self.takencare.clone();
+        let mut takencarelock = takencare.lock().unwrap();
+
+        if !takencarelock.contains_key(&cpos) {
+            let chunkarc = self.chunks[index].clone();
+            let mut chunklock = chunkarc.lock().unwrap();
+
+            if takencarelock.contains_key(&chunklock.pos) {
+                takencarelock.remove(&chunklock.pos);
             }
-            chunk.pos = cpos;
+            chunklock.pos = cpos;
             self.rebuild_index(index);
         } else {
-            self.rebuild_index(self.takencare.get(&cpos).unwrap().geo_index);
+            self.rebuild_index(takencarelock.get(&cpos).unwrap().geo_index);
         }
     }
 
-    pub fn rebuild_index(&mut self, index: usize) {
-        let chunk: &mut ChunkFacade = &mut self.chunks[index];
-        chunk.used = true;
+    pub fn rebuild_index(&self, index: usize) {
+        let chunkarc = self.chunks[index].clone();
+        let mut chunklock = chunkarc.lock().unwrap();
+        chunklock.used = true;
 
-        self.geobank[index].clear();
+        let geobankarc = self.geobank[index].clone();
+        let mut geobanklock = geobankarc.lock().unwrap();
+        geobanklock.clear();
 
         for i in 0..CW {
             for k in 0..CW {
                 for j in 0..CH {
-                    let spot = vec::IVec3{x:(chunk.pos.x * CW)+i, y:j, z:(chunk.pos.y * CW)+k };
+                    let spot = vec::IVec3{x:(chunklock.pos.x * CW)+i, y:j, z:(chunklock.pos.y * CW)+k };
                     let block =  ChunkSystem::blockat(spot);
                     if block != 0 {
                         for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
@@ -84,18 +93,22 @@ impl ChunkSystem {
                                     packed32[ind] = pack.0;
                                     packed8[ind] = pack.1;
                                 }
-                                self.geobank[index].data32.extend_from_slice(packed32.as_slice());
-                                self.geobank[index].data8.extend_from_slice(packed8.as_slice());
+                                geobanklock.data32.extend_from_slice(packed32.as_slice());
+                                geobanklock.data8.extend_from_slice(packed8.as_slice());
                             }
                         }
                     }
                 }
             }
         }
-        self.geoqueue.push(index);
+        let mut gqarc = self.geoqueue.clone();
+        gqarc.push(index);
+
+        let takencare = self.takencare.clone();
+        let mut takencarelock = takencare.lock().unwrap();
         
-        if !self.takencare.contains_key(&chunk.pos) {
-            self.takencare.insert(chunk.pos,*chunk);
+        if !takencarelock.contains_key(&chunklock.pos) {
+            takencarelock.insert(chunklock.pos,*chunklock);
         }
     }
 
@@ -114,8 +127,8 @@ impl ChunkSystem {
         let mut cs = ChunkSystem {
             chunks: Vec::new(),
             geobank: Vec::new(),
-            takencare: HashMap::new(),
-            geoqueue: lockfree::queue::Queue::new(),
+            takencare: Arc::new(Mutex::new(HashMap::new())),
+            geoqueue: Arc::new(lockfree::queue::Queue::new()),
             radius
         };
 
@@ -129,18 +142,18 @@ impl ChunkSystem {
         
         for _ in 0..=radius*2 {
             for _ in 0..=radius*2 {
-                cs.chunks.push(ChunkFacade {
+                cs.chunks.push(Arc::new(Mutex::new(ChunkFacade {
                     geo_index: cs.geobank.len(),
                     used: false,
                     pos: IVec2{x:0, y:0},
-                });
-                cs.geobank.push(ChunkGeo {
+                })));
+                cs.geobank.push(Arc::new(Mutex::new(ChunkGeo {
                     data32: Vec::new(),
                     data8: Vec::new(),
                     pos: IVec2{x:0, y:0},
                     vbo32,
                     vbo8
-                });
+                })));
             }
         }
 

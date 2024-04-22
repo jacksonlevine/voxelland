@@ -11,11 +11,11 @@ use crate::shader::Shader;
 use crate::camera::Camera;
 
 pub struct Game {
-    chunksys: Arc<Mutex<ChunkSystem>>,
+    chunksys: Arc<ChunkSystem>,
     shader0: Shader,
     camera: Arc<Mutex<Camera>>,
     worldtexture: Texture,
-    run_chunk_thread: AtomicBool,
+    run_chunk_thread: Arc<AtomicBool>,
     chunk_thread: Option<thread::JoinHandle<()>>
 }
 
@@ -30,11 +30,11 @@ impl Game {
         let worldtexture = Texture::new("assets/world.png").unwrap();
         worldtexture.add_to_unit(0);
         Game {
-            chunksys: Arc::new(Mutex::new(ChunkSystem::new(8))),
+            chunksys: Arc::new(ChunkSystem::new(8)),
             shader0,
             camera: Arc::new(Mutex::new(Camera::new())),
             worldtexture,
-            run_chunk_thread: AtomicBool::new(true),
+            run_chunk_thread: Arc::new(AtomicBool::new(true)),
             chunk_thread: None
         }
     }
@@ -50,19 +50,21 @@ impl Game {
             gl::BindVertexArray(self.shader0.vao);
         }
 
-        let c_lock = self.chunksys.lock().unwrap();
-        match c_lock.geoqueue.pop() {
+        let gqarc = self.chunksys.geoqueue.clone();
+
+        match gqarc.pop() {
             Some(index) => {
+                let bankarc = self.chunksys.geobank[index].clone();
+                let banklock = bankarc.lock().unwrap();
                 WorldGeometry::bind_geometry(
-                    c_lock.geobank[index].vbo32,
-                    c_lock.geobank[index].vbo8, true,
-                    &self.shader0, &c_lock.geobank[index]);
+                    banklock.vbo32,
+                    banklock.vbo8, true,
+                    &self.shader0, &banklock);
             },
             None => {
 
             }
         }
-        drop(c_lock);
 
         static mut C_POS_LOC: i32 = 0;
         static mut MVP_LOC: i32 = 0;
@@ -94,25 +96,39 @@ impl Game {
             gl::Uniform3f(CAM_DIR_LOC, cam_lock.direction.x, cam_lock.direction.y, cam_lock.direction.z);
             gl::Uniform1f(SUNSET_LOC, 0.0);
             gl::Uniform1f(SUNRISE_LOC, 0.0);
-            gl::Uniform1i(gl::GetUniformLocation(self.shader0.shader_id, b"ourTexture\0".as_ptr() as *const i8), 0)
+            gl::Uniform1i(gl::GetUniformLocation(self.shader0.shader_id, b"ourTexture\0".as_ptr() as *const i8), 0);
             drop(cam_lock);
         }
-        let c_lock = self.chunksys.lock().unwrap();
-        for cf in &c_lock.chunks {
-            if cf.used {
-                let cgeo = &c_lock.geobank[cf.geo_index];
-                WorldGeometry::bind_geometry(cgeo.vbo32, cgeo.vbo8, false, &self.shader0, cgeo);
-                unsafe {
-                    gl::Uniform2f(C_POS_LOC, cgeo.pos.x as f32, cgeo.pos.y as f32);
-                    gl::DrawArrays(gl::TRIANGLES, 0, cgeo.data32.len() as i32);
+        for cfarc in &self.chunksys.chunks {
+            match cfarc.try_lock() {
+                Ok(cfl) => {
+                    if cfl.used {
+                        let bankarc = self.chunksys.geobank[cfl.geo_index].clone();
+                        let banklock = bankarc.lock().unwrap();
+
+                        WorldGeometry::bind_geometry(banklock.vbo32, banklock.vbo8, false, &self.shader0, &banklock);
+                        unsafe {
+                            gl::Uniform2f(C_POS_LOC, banklock.pos.x as f32, banklock.pos.y as f32);
+                            gl::DrawArrays(gl::TRIANGLES, 0, banklock.data32.len() as i32);
+                        }
+                    }
+                },
+                Err(e) => {
+
                 }
             }
+            
         }
     }
 
     pub fn start_world(&mut self) {
-        let handle = thread::spawn(|| {
-            self.chunk_thread_function();
+
+        let rctarc = self.run_chunk_thread.clone();
+        let carc = self.camera.clone();
+        let csysarc = self.chunksys.clone();
+
+        let handle = thread::spawn(move || {
+            Game::chunk_thread_function(&rctarc, carc, csysarc);
         });
         self.chunk_thread = Some(handle);
     }
@@ -125,17 +141,29 @@ impl Game {
             let user_cpos = IVec2{x: (cam_lock.position.x / 15.0).floor() as i32, y: (cam_lock.position.y / 15.0).floor() as i32};
             drop(cam_lock);
 
+            let tcarc = csys_arc.takencare.clone();
+            let tclock = tcarc.lock().unwrap();
             for i in -(csys_arc.radius as i8)..(csys_arc.radius as i8) {
                 for k in -(csys_arc.radius as i8)..(csys_arc.radius as i8) {
                     let this_spot = IVec2{x: user_cpos.x + i as i32, y: user_cpos.y + k as i32};
-                    if !csys_arc.takencare.contains_key(&this_spot) {
+                    if !tclock.contains_key(&this_spot) {
                         neededspots.push(this_spot);
                     }
                 }
             }
 
             let mut sorted_chunk_facades: Vec<ChunkFacade> = Vec::new();
-            sorted_chunk_facades.extend_from_slice(&csys_arc.chunks);
+
+            for carc in &csys_arc.chunks {
+                match carc.try_lock() {
+                    Ok(cf) => {
+                        sorted_chunk_facades.push(*cf);
+                    },
+                    Err(_) => {
+
+                    }
+                }
+            }
 
 
             let (unused_or_distant, used_and_close): (Vec<ChunkFacade>, Vec<ChunkFacade>) = sorted_chunk_facades.drain(..)

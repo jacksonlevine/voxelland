@@ -136,7 +136,7 @@ impl ChunkSystem {
         let mut rng = rand::thread_rng();
 
         let n1: u8 = rng.gen();
-        if n1 > 128 {
+        if n1 > 250 {
             1
         } else {
             0
@@ -168,7 +168,6 @@ impl ChunkSystem {
                                         println!("OpenGL Error after creating chunk system buffers: {}", error);
                                     }
                 }
-
 
                 cs.chunks.push(Arc::new(Mutex::new(ChunkFacade {
                     geo_index: cs.geobank.len(),

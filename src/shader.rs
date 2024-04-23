@@ -25,6 +25,10 @@ impl Shader {
         let mut vao: u32 = 0;
         unsafe {
             gl::CreateVertexArrays(1, &mut vao);
+            let error = unsafe { gl::GetError() };
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after creating vertex array: {}", error);
+                            }
         }
 
         Shader {

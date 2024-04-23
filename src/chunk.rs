@@ -151,16 +151,25 @@ impl ChunkSystem {
             radius
         };
 
-        let mut vbo32: gl::types::GLuint = 0;
-        let mut vbo8: gl::types::GLuint = 0;
-
-        unsafe {
-            gl::CreateBuffers(1, &mut vbo32);
-            gl::CreateBuffers(1, &mut vbo8);
-        }
+        
         
         for _ in 0..=radius*2 {
             for _ in 0..=radius*2 {
+
+
+                let mut vbo32: gl::types::GLuint = 0;
+                let mut vbo8: gl::types::GLuint = 0;
+
+                unsafe {
+                    gl::CreateBuffers(1, &mut vbo32);
+                    gl::CreateBuffers(1, &mut vbo8);
+                    let error = unsafe { gl::GetError() };
+                                    if error != gl::NO_ERROR {
+                                        println!("OpenGL Error after creating chunk system buffers: {}", error);
+                                    }
+                }
+
+
                 cs.chunks.push(Arc::new(Mutex::new(ChunkFacade {
                     geo_index: cs.geobank.len(),
                     used: false,

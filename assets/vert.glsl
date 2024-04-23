@@ -1,10 +1,10 @@
 #version 450 core
 layout (location = 0) in uint u32;
-layout (location = 1) in uint u8;
+layout (location = 1) in uint eightbit;
 out vec3 vertexColor;
 out vec2 TexCoord;
 out vec3 pos;
-uniform vec3 chunkpos;
+uniform vec2 chunkpos;
 uniform mat4 mvp;
 uniform vec3 camPos;
 uniform float ambientBrightMult;
@@ -15,7 +15,7 @@ void main()
     float ly = float((u32 >> 20) & 0xFF);      // Next 8 bits for y
     float lz = float((u32 >> 16) & 0xF);       // Next 4 bits for z
 
-    vec3 position = vec3(lx, ly, lz) + (chunkpos * 15);
+    vec3 position = vec3(lx, ly, lz) + (vec3(chunkpos.x, 0, chunkpos.y) * 15);
 
     uint cornerID = ((u32 >> 12) & 0xF);  // Next 4 bits for corner
     float ambientBright = float((u32 >> 8) & 0xF); // Next 4 bits for al
@@ -34,9 +34,9 @@ void main()
         vec2(onePixel, -onePixel)
     };
 
-    // Unpack from the u8 and cast to float
-    float u = float((u8 >> 4) & 0xF);  // Top 4 bits for u
-    float v = float(u8 & 0xF);         // Lower 4 bits for v
+    // Unpack from the eightbit and cast to float
+    float u = float((eightbit >> 4) & 0xF);  // Top 4 bits for u
+    float v = float(eightbit & 0xF);         // Lower 4 bits for v
 
     vec2 uvOffset = texOffsets[cornerID];
     vec2 uv = vec2((u/16.0) + uvOffset.x, (v/16.0) + uvOffset.y);

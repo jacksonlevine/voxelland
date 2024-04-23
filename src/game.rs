@@ -43,6 +43,10 @@ impl Game {
         let shader0 = Shader::new("assets/vert.glsl", "assets/frag.glsl");
         unsafe {
             gl::BindVertexArray(shader0.vao);
+            let error = unsafe { gl::GetError() };
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after binding vertex array: {}", error);
+                            }
         }
         let worldtexture = Texture::new("assets/world.png").unwrap();
         worldtexture.add_to_unit(0);
@@ -72,88 +76,201 @@ impl Game {
         self.camera.lock().unwrap().respond_to_controls(&self.controls);
     }
 
+    fn print_matrix(mvp: &glam::Mat4) {
+        println!("MVP Matrix:");
+        for i in 0..4 {
+            println!(
+                "[{:>10.3}, {:>10.3}, {:>10.3}, {:>10.3}]",
+                mvp.col(i).x, mvp.col(i).y, mvp.col(i).z, mvp.col(i).w
+            );
+        }
+    }
+
     pub fn draw(&self) {
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT);
+            let error = unsafe { gl::GetError() };
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after clear color bit: {}", error);
+                            }
             gl::ClearColor(0.5, 0.5, 1.0, 1.0);
+            let error = unsafe { gl::GetError() };
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after clear color: {}", error);
+                            }
             gl::BindVertexArray(self.shader0.vao);
+            let error = unsafe { gl::GetError() };
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after binding v array: {}", error);
+                            }
             gl::UseProgram(self.shader0.shader_id);
+            let error = unsafe { gl::GetError() };
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after saying to use shader rogram: {}", error);
+                            }
         }
 
         let gqarc = self.chunksys.geoqueue.clone();
 
-        match gqarc.pop() {
-            Some(index) => {
-                let bankarc = self.chunksys.geobank[index].clone();
-                let banklock = bankarc.lock().unwrap();
-                WorldGeometry::bind_geometry(
-                    banklock.vbo32,
-                    banklock.vbo8, true,
-                    &self.shader0, &banklock);
-                    #[cfg(feature = "yap_about_chunks")]
-                    println!("Chunk popped!");
-            },
-            None => {
-
-            }
-        }
-
-        static mut C_POS_LOC: i32 = 0;
-        static mut MVP_LOC: i32 = 0;
-        static mut CAM_POS_LOC: i32 = 0;
-        static mut AMBIENT_BRIGHT_MULT_LOC: i32 = 0;
-        static mut VIEW_DISTANCE_LOC: i32 = 0;
-        static mut UNDERWATER_LOC: i32 = 0;
-        static mut CAM_DIR_LOC: i32 = 0;
-        static mut SUNSET_LOC: i32 = 0;
-        static mut SUNRISE_LOC: i32 = 0;
-        unsafe {
-            if C_POS_LOC == 0 {
-                C_POS_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"chunkpos\0".as_ptr() as *const i8);
-                MVP_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"mvp\0".as_ptr() as *const i8);
-                CAM_POS_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"camPos\0".as_ptr() as *const i8);
-                AMBIENT_BRIGHT_MULT_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"ambientBrightMult\0".as_ptr() as *const i8);
-                VIEW_DISTANCE_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"viewDistance\0".as_ptr() as *const i8);
-                UNDERWATER_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"underWater\0".as_ptr() as *const i8);
-                CAM_DIR_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"camDir\0".as_ptr() as *const i8);
-                SUNSET_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"sunset\0".as_ptr() as *const i8);
-                SUNRISE_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"sunrise\0".as_ptr() as *const i8);
-            }
-            let cam_lock = self.camera.lock().unwrap();
-            gl::UniformMatrix4fv(MVP_LOC, 1, gl::FALSE, cam_lock.mvp.to_cols_array().as_ptr());
-            gl::Uniform3f(CAM_POS_LOC, cam_lock.position.x, cam_lock.position.y, cam_lock.position.z);
-            gl::Uniform1f(AMBIENT_BRIGHT_MULT_LOC, 1.0);
-            gl::Uniform1f(VIEW_DISTANCE_LOC, 8.0);
-            gl::Uniform1f(UNDERWATER_LOC, 0.0);
-            gl::Uniform3f(CAM_DIR_LOC, cam_lock.direction.x, cam_lock.direction.y, cam_lock.direction.z);
-            gl::Uniform1f(SUNSET_LOC, 0.0);
-            gl::Uniform1f(SUNRISE_LOC, 0.0);
-            gl::Uniform1i(gl::GetUniformLocation(self.shader0.shader_id, b"ourTexture\0".as_ptr() as *const i8), 0);
-            drop(cam_lock);
-        }
-        for cfarc in &self.chunksys.chunks {
-            match cfarc.try_lock() {
-                Ok(cfl) => {
-                    if cfl.used {
-                        let bankarc = self.chunksys.geobank[cfl.geo_index].clone();
-                        let banklock = bankarc.lock().unwrap();
-
-                        // WorldGeometry::bind_geometry(banklock.vbo32, banklock.vbo8, false, &self.shader0, &banklock);
-                        // unsafe {
-                        //     gl::Uniform2f(C_POS_LOC, banklock.pos.x as f32, banklock.pos.y as f32);
-                        //     println!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
-                        //     gl::DrawArrays(gl::TRIANGLES, 0, banklock.data32.len() as i32);
-                        //    // println!("Chunk rending!");
-                           
-                        // }
-                    }
-                },
-                Err(e) => {
-
-                }
-            }
+        // static mut TEMP_COUNT: i32 = 0;
+        // unsafe {
             
-        }
+        //     if TEMP_COUNT == 0 {
+
+                match gqarc.pop() {
+                    Some(index) => {
+                        let bankarc = self.chunksys.geobank[index].clone();
+                        let banklock = bankarc.lock().unwrap();
+                        WorldGeometry::bind_geometry(
+                            banklock.vbo32,
+                            banklock.vbo8, true,
+                            &self.shader0, &banklock);
+                            #[cfg(feature = "yap_about_chunks")]
+                            println!("Chunk popped!");
+                            //TEMP_COUNT += 1;
+                    },
+                    None => {
+
+                    }
+                } 
+
+
+                static mut C_POS_LOC: i32 = 0;
+                static mut MVP_LOC: i32 = 0;
+                static mut CAM_POS_LOC: i32 = 0;
+                static mut AMBIENT_BRIGHT_MULT_LOC: i32 = 0;
+                static mut VIEW_DISTANCE_LOC: i32 = 0;
+                static mut UNDERWATER_LOC: i32 = 0;
+                static mut CAM_DIR_LOC: i32 = 0;
+                static mut SUNSET_LOC: i32 = 0;
+                static mut SUNRISE_LOC: i32 = 0;
+                unsafe {
+                    if C_POS_LOC == 0 {
+                        C_POS_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"chunkpos\0".as_ptr() as *const i8);
+                        MVP_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"mvp\0".as_ptr() as *const i8);
+                        //println!("MVP LOC: {}", MVP_LOC);
+                        CAM_POS_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"camPos\0".as_ptr() as *const i8);
+                        AMBIENT_BRIGHT_MULT_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"ambientBrightMult\0".as_ptr() as *const i8);
+                        VIEW_DISTANCE_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"viewDistance\0".as_ptr() as *const i8);
+                        UNDERWATER_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"underWater\0".as_ptr() as *const i8);
+                        CAM_DIR_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"camDir\0".as_ptr() as *const i8);
+                        SUNSET_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"sunset\0".as_ptr() as *const i8);
+                        SUNRISE_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"sunrise\0".as_ptr() as *const i8);
+                    }
+                    let cam_lock = self.camera.lock().unwrap();
+                    //Game::print_matrix(&cam_lock.mvp);
+                    //while gl::GetError() != gl::NO_ERROR {}
+
+
+                    gl::UniformMatrix4fv(MVP_LOC, 1, gl::FALSE, cam_lock.mvp.to_cols_array().as_ptr());
+
+                    let error = unsafe { gl::GetError() };
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after uniforming mvp: {}", error);
+                            }
+
+                    gl::Uniform3f(CAM_POS_LOC, cam_lock.position.x, cam_lock.position.y, cam_lock.position.z);
+
+                    let error = unsafe { gl::GetError() };
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after uniforming campos: {}", error);
+                            }
+
+
+                    gl::Uniform1f(AMBIENT_BRIGHT_MULT_LOC, 1.0);
+
+                    let error = unsafe { gl::GetError() };
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after uniforming amb bright: {}", error);
+                            }
+
+
+                    gl::Uniform1f(VIEW_DISTANCE_LOC, 8.0);
+
+                    let error = unsafe { gl::GetError() };
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after uniforming view dist: {}", error);
+                            }
+
+
+                    gl::Uniform1f(UNDERWATER_LOC, 0.0);
+
+                    let error = unsafe { gl::GetError() };
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after uniforming uw: {}", error);
+                            }
+
+
+                    gl::Uniform3f(CAM_DIR_LOC, cam_lock.direction.x, cam_lock.direction.y, cam_lock.direction.z);
+
+                    let error = unsafe { gl::GetError() };
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after uniforming cam dir: {}", error);
+                            }
+
+
+                    gl::Uniform1f(SUNSET_LOC, 0.0);
+
+                    let error = unsafe { gl::GetError() };
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after uniforming sunset: {}", error);
+                            }
+
+
+                    gl::Uniform1f(SUNRISE_LOC, 0.0);
+
+                    let error = unsafe { gl::GetError() };
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after uniforming sunrise: {}", error);
+                            }
+
+
+                    gl::Uniform1i(gl::GetUniformLocation(self.shader0.shader_id, b"ourTexture\0".as_ptr() as *const i8), 0);
+
+                    let error = unsafe { gl::GetError() };
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after uniforming ourTexture unit number: {}", error);
+                            }
+
+
+                    drop(cam_lock);
+                }
+                for cfarc in &self.chunksys.chunks {
+                    match cfarc.try_lock() {
+                        Ok(cfl) => {
+                            if cfl.used {
+                                let bankarc = self.chunksys.geobank[cfl.geo_index].clone();
+                                let banklock = bankarc.lock().unwrap();
+
+                                WorldGeometry::bind_geometry(banklock.vbo32, banklock.vbo8, true, &self.shader0, &banklock);
+                                unsafe {
+                                    gl::Uniform2f(C_POS_LOC, banklock.pos.x as f32, banklock.pos.y as f32);
+                                    let error = unsafe { gl::GetError() };
+                                    if error != gl::NO_ERROR {
+                                        println!("OpenGL Error after uniforming the chunk pos: {}", error);
+                                    }
+                                    //println!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
+                                    gl::DrawArrays(gl::TRIANGLES, 0, banklock.data32.len() as i32);
+                                    let error = unsafe { gl::GetError() };
+                                    if error != gl::NO_ERROR {
+                                        println!("OpenGL Error after drawing arrays: {}", error);
+                                    }
+                                   // println!("Chunk rending!");
+                                
+                                }
+                            }
+                        },
+                        Err(e) => {
+
+                        }
+                    }
+                    
+                }
+
+                
+        //     }
+        // }
+            
     }
 
     pub fn start_world(&mut self) {
@@ -172,6 +289,9 @@ impl Game {
     }
 
     pub fn chunk_thread_function(runcheck: &AtomicBool, cam_arc: Arc<Mutex<Camera>>, csys_arc: Arc<ChunkSystem>) {
+
+        //static mut TEMP_COUNT: i32 = 0;
+
         while runcheck.load(Ordering::Relaxed) {
             #[cfg(feature = "yap_about_chunks")]
             println!("Chunk thread running!");
@@ -234,7 +354,13 @@ impl Game {
             #[cfg(feature = "yap_about_chunks")]
             println!("Gonna rebuild the needed ones");
             for (index, ns) in neededspots.iter().enumerate() {
-                csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns) 
+                //unsafe {
+                 //   if TEMP_COUNT == 0 {
+                        csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns);
+                   //     TEMP_COUNT += 1;
+                  //  }
+               // }
+                
             }
             #[cfg(feature = "yap_about_chunks")]
             println!("Finished rebuilding, sleeping");

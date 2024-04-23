@@ -3,7 +3,6 @@ layout (location = 0) in uint u32;
 layout (location = 1) in uint u8;
 out vec3 vertexColor;
 out vec2 TexCoord;
-out vec2 TexBase;
 out vec3 pos;
 uniform vec3 chunkpos;
 uniform mat4 mvp;
@@ -54,6 +53,5 @@ void main()
 
     vertexColor = vec3(bright/16.0f, bright/16.0f, bright/16.0f);
     TexCoord = uv;
-    TexBase = uvbase;
     pos = position;
 }

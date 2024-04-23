@@ -13,3 +13,7 @@ image = "0.25.1"
 lockfree = "0.5.1"
 num_enum = "0.7.2"
 rand = "0.8.5"
+
+[features]
+yap_about_chunks = []
+show_cam_pos = []

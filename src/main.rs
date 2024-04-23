@@ -20,7 +20,8 @@ fn main() {
     let game = Game::new();
 
     wak_context.game = Some(game);
-
+    wak_context.game.as_mut().unwrap().set_mouse_focused(true);
+    wak_context.game.as_mut().unwrap().start_world();
     while !wak_context.window.should_close() {
         wak_context.run();
     }

@@ -32,6 +32,8 @@ impl WindowAndKeyContext {
         window.set_key_polling(true);
         window.set_framebuffer_size_polling(true);
         window.set_mouse_button_polling(true);
+        window.set_cursor_pos_polling(true);
+        window.make_current();
 
         let wak = WindowAndKeyContext{
             width,
@@ -60,8 +62,12 @@ impl WindowAndKeyContext {
         for (_, event) in glfw::flush_messages(&self.events) {
             match event {
 
-                glfw::WindowEvent::MouseButton(_mousebutton, _action, _) => {
-                    
+                glfw::WindowEvent::MouseButton(mousebutton, action, _) => {
+                    if mousebutton == glfw::MouseButtonLeft {
+                        self.window.set_cursor_mode(glfw::CursorMode::Disabled);
+                        self.game.as_mut().unwrap().set_mouse_focused(true);
+                    }
+                    self.game.as_mut().unwrap().mouse_button(mousebutton, action);
                 },
                 glfw::WindowEvent::FramebufferSize(wid, hei) => {
                     self.width = wid as u32;
@@ -69,6 +75,18 @@ impl WindowAndKeyContext {
                     unsafe {
                         gl::Viewport(0, 0, wid, hei);
                     }
+                },
+                glfw::WindowEvent::CursorPos(xpos, ypos) => {
+                    self.game.as_mut().unwrap().cursor_pos(xpos, ypos);
+
+
+                },
+                glfw::WindowEvent::Key(key, scancode, action, modifiers) => {
+                    if key == Key::Escape {
+                        self.window.set_cursor_mode(glfw::CursorMode::Normal);
+                        self.game.as_mut().unwrap().set_mouse_focused(false);
+                    }
+                    self.game.as_mut().unwrap().keyboard(key, action);
                 }
                 _ => {}
             }

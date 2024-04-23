@@ -1,4 +1,5 @@
 use glam::{Vec3, Mat4};
+use crate::game::ControlsState;
 pub struct Camera {
     pub yaw: f32,
     pub pitch: f32,
@@ -49,5 +50,28 @@ impl Camera {
             far,
             near
         }
+    }
+    pub fn recalculate(&mut self) {
+        self.right = Vec3::new(0.0, 1.0, 0.0).cross(self.direction).normalize();
+        self.up = self.direction.cross(self.right);
+        self.view = Mat4::look_at_rh(self.position, self.position + self.direction, self.up);
+        self.mvp = self.projection * self.model * self.view;
+    }
+    pub fn respond_to_controls(&mut self, cs: &ControlsState) {
+        if cs.forward {
+            self.position += self.direction * 0.1;
+        }
+        if cs.left {
+            self.position += self.right * -0.1;
+        }
+        if cs.back {
+            self.position += self.direction * -0.1;
+        }
+        if cs.right {
+            self.position += self.right * 0.1;
+        }
+        self.recalculate();
+        #[cfg(feature = "show_cam_pos")]
+        println!("Cam pos: {}, {}, {}", self.position.x, self.position.y, self.position.z);
     }
 }

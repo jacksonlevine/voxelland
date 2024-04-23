@@ -59,21 +59,34 @@ impl ChunkSystem {
                 takencarelock.remove(&chunklock.pos);
             }
             chunklock.pos = cpos;
+            drop(chunklock);
+            drop(takencarelock);
+            let chunkgeoarc = self.geobank[index].clone();
+            let mut chunkgeolock = chunkgeoarc.lock().unwrap();
+            chunkgeolock.pos = cpos;
+            drop(chunkgeolock);
             self.rebuild_index(index);
         } else {
-            self.rebuild_index(takencarelock.get(&cpos).unwrap().geo_index);
+            let ind = takencarelock.get(&cpos).unwrap().geo_index;
+            drop(takencarelock);
+            self.rebuild_index(ind);
         }
     }
 
     pub fn rebuild_index(&self, index: usize) {
+        #[cfg(feature = "yap_about_chunks")]
+        println!("Rebuild index {}", index);
+        
         let chunkarc = self.chunks[index].clone();
         let mut chunklock = chunkarc.lock().unwrap();
         chunklock.used = true;
-
+        #[cfg(feature = "yap_about_chunks")]
+        println!("Got past chunk lock");
         let geobankarc = self.geobank[index].clone();
         let mut geobanklock = geobankarc.lock().unwrap();
         geobanklock.clear();
-
+        #[cfg(feature = "yap_about_chunks")]
+        println!("Got past clearing geobank");
         for i in 0..CW {
             for k in 0..CW {
                 for j in 0..CH {
@@ -93,6 +106,7 @@ impl ChunkSystem {
                                     packed32[ind] = pack.0;
                                     packed8[ind] = pack.1;
                                 }
+
                                 geobanklock.data32.extend_from_slice(packed32.as_slice());
                                 geobanklock.data8.extend_from_slice(packed8.as_slice());
                             }
@@ -101,14 +115,19 @@ impl ChunkSystem {
                 }
             }
         }
+        #[cfg(feature = "yap_about_chunks")]
+        println!("Got past traversal");
         let mut gqarc = self.geoqueue.clone();
         gqarc.push(index);
 
         let takencare = self.takencare.clone();
         let mut takencarelock = takencare.lock().unwrap();
-        
+        #[cfg(feature = "yap_about_chunks")]
+        println!("Got past tclock 2");
         if !takencarelock.contains_key(&chunklock.pos) {
             takencarelock.insert(chunklock.pos,*chunklock);
+            #[cfg(feature = "yap_about_chunks")]
+            println!("Inserting into taken care ");
         }
     }
 

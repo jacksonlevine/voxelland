@@ -77,6 +77,7 @@ impl Game {
             gl::Clear(gl::COLOR_BUFFER_BIT);
             gl::ClearColor(0.5, 0.5, 1.0, 1.0);
             gl::BindVertexArray(self.shader0.vao);
+            gl::UseProgram(self.shader0.shader_id);
         }
 
         let gqarc = self.chunksys.geoqueue.clone();
@@ -137,13 +138,14 @@ impl Game {
                         let bankarc = self.chunksys.geobank[cfl.geo_index].clone();
                         let banklock = bankarc.lock().unwrap();
 
-                        WorldGeometry::bind_geometry(banklock.vbo32, banklock.vbo8, false, &self.shader0, &banklock);
-                        unsafe {
-                            gl::Uniform2f(C_POS_LOC, banklock.pos.x as f32, banklock.pos.y as f32);
-                            println!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
-                            gl::DrawArrays(gl::TRIANGLES, 0, banklock.data32.len() as i32);
-                           // println!("Chunk rending!");
-                        }
+                        // WorldGeometry::bind_geometry(banklock.vbo32, banklock.vbo8, false, &self.shader0, &banklock);
+                        // unsafe {
+                        //     gl::Uniform2f(C_POS_LOC, banklock.pos.x as f32, banklock.pos.y as f32);
+                        //     println!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
+                        //     gl::DrawArrays(gl::TRIANGLES, 0, banklock.data32.len() as i32);
+                        //    // println!("Chunk rending!");
+                           
+                        // }
                     }
                 },
                 Err(e) => {

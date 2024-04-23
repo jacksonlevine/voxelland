@@ -172,12 +172,12 @@ impl ChunkSystem {
                 cs.chunks.push(Arc::new(Mutex::new(ChunkFacade {
                     geo_index: cs.geobank.len(),
                     used: false,
-                    pos: IVec2{x:0, y:0},
+                    pos: IVec2{x:999999, y:999999},
                 })));
                 cs.geobank.push(Arc::new(Mutex::new(ChunkGeo {
                     data32: Vec::new(),
                     data8: Vec::new(),
-                    pos: IVec2{x:0, y:0},
+                    pos: IVec2{x:999999, y:999999},
                     vbo32,
                     vbo8
                 })));

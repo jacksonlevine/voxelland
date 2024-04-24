@@ -10,6 +10,7 @@ use crate::vec::{self, IVec2};
 use crate::packedvertex::{self, PackedVertex};
 use crate::cube::CubeSide;
 use rand::Rng;
+use crate::blockinfo::Blocks;
 pub struct ChunkGeo {
     pub data32: Vec<u32>,
     pub data8: Vec<u8>,
@@ -122,8 +123,11 @@ impl ChunkSystem {
                                 let side = Cube::get_side(cubeside);
                                 let mut packed32: [u32; 6] = [0,0,0,0,0,0];
                                 let mut packed8: [u8; 6] = [0,0,0,0,0,0];
+
+                                let texcoord = Blocks::get_tex_coords(block, cubeside);
                                 for (ind, v) in side.chunks(4).enumerate() {
-                                    let pack = PackedVertex::pack(i as u8 + v[0], j as u8 + v[1], k as u8 + v[2], ind as u8, v[3], 0, 1, 0);
+                                    let pack = PackedVertex::pack(i as u8 + v[0], j as u8 + v[1], k as u8 + v[2], ind as u8, v[3], 
+                                        0, texcoord.0, texcoord.1);
                                     packed32[ind] = pack.0;
                                     packed8[ind] = pack.1;
                                 }
@@ -158,7 +162,7 @@ impl ChunkSystem {
 
         let n1: u8 = rng.gen();
         if n1 > 250 {
-            1
+            return rng.gen_range(1..=9);
         } else {
             0
         }

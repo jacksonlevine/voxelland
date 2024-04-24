@@ -27,6 +27,7 @@ void main()
     //Texture stuff
     float onePixel = 0.00183823529411764705882352941176f;     //  1/544      Padding
     float textureWidth = 0.02941176470588235294117647058824f; // 16/544      16 pixel texture width
+    float texSlotWidth = 0.03308823529411764705882352941176f;
 
     vec2 texOffsets[6] = {
         vec2(onePixel, -onePixel),
@@ -43,7 +44,7 @@ void main()
     float v = float(eightbit & 0xF);         // Lower 4 bits for v
 
     vec2 uvOffset = texOffsets[cornerID];
-    vec2 uv = vec2((u/16.0) + uvOffset.x, (1.0f - (v/16.0)) + uvOffset.y);
+    vec2 uv = vec2((u * texSlotWidth) + uvOffset.x, (1.0f - (v * texSlotWidth)) + uvOffset.y);
     
 
     float ambBright = ambientBrightMult * ambientBright;

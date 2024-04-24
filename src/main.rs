@@ -13,6 +13,7 @@ mod windowandkey;
 mod game;
 mod camera;
 mod texture;
+mod blockinfo;
 
 #[cfg(test)]
 mod tests;

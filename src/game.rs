@@ -23,7 +23,8 @@ pub struct ControlsState {
 
 pub struct GameVariables {
     first_mouse: bool,
-    mouse_focused: bool
+    mouse_focused: bool,
+    sensitivity: f32
 }
 
 pub struct Game {
@@ -60,7 +61,8 @@ impl Game {
             chunk_thread: None,
             vars: GameVariables {
                 first_mouse: true,
-                mouse_focused: false
+                mouse_focused: false,
+                sensitivity: 0.25
             },
             controls: ControlsState {
                 left: false,
@@ -419,8 +421,8 @@ impl Game {
             }
 
             unsafe {
-                let x_offset = (xpos - LASTX);
-                let y_offset = (LASTY - ypos);
+                let x_offset = (xpos - LASTX) * self.vars.sensitivity as f64;
+                let y_offset = (LASTY - ypos) * self.vars.sensitivity as f64;
 
                 LASTY = ypos;
                 LASTX = xpos;

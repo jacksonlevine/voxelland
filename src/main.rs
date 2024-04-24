@@ -14,6 +14,9 @@ mod game;
 mod camera;
 mod texture;
 
+#[cfg(test)]
+mod tests;
+
 fn main() {
     let mut wak_context = WindowAndKeyContext::new("Barkaroo");
     

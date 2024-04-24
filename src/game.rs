@@ -339,20 +339,17 @@ impl Game {
         //static mut TEMP_COUNT: i32 = 0;
 
         while runcheck.load(Ordering::Relaxed) {
-            #[cfg(feature = "yap_about_chunks")]
-            println!("Chunk thread running!");
+            
             let mut neededspots: Vec<IVec2> = Vec::new();
 
             let cam_lock = cam_arc.lock().unwrap();
-            let user_cpos = IVec2{x: (cam_lock.position.x / 15.0).floor() as i32, y: (cam_lock.position.y / 15.0).floor() as i32};
+            let user_cpos = IVec2{x: (cam_lock.position.x / 15.0).floor() as i32, y: (cam_lock.position.z / 15.0).floor() as i32};
             drop(cam_lock);
-            #[cfg(feature = "yap_about_chunks")]
-            println!("Got past camera spot");
 
             let tcarc = csys_arc.takencare.clone();
             let tclock = tcarc.lock().unwrap();
-            for i in -(csys_arc.radius as i8)..(csys_arc.radius as i8) {
-                for k in -(csys_arc.radius as i8)..(csys_arc.radius as i8) {
+            for i in -(csys_arc.radius as i32)..(csys_arc.radius as i32) {
+                for k in -(csys_arc.radius as i32)..(csys_arc.radius as i32) {
                     let this_spot = IVec2{x: user_cpos.x + i as i32, y: user_cpos.y + k as i32};
                     if !tclock.contains_key(&this_spot) {
                         neededspots.push(this_spot);
@@ -360,8 +357,6 @@ impl Game {
                 }
             }
             drop(tclock);
-            #[cfg(feature = "yap_about_chunks")]
-            println!("Got past tc lock spot");
 
             let mut sorted_chunk_facades: Vec<ChunkFacade> = Vec::new();
 
@@ -381,8 +376,6 @@ impl Game {
                     }
                 }
             }
-            #[cfg(feature = "yap_about_chunks")]
-            println!("Got past carc locks");
 
             let (unused_or_distant, used_and_close): (Vec<ChunkFacade>, Vec<ChunkFacade>) = sorted_chunk_facades.drain(..)
                 .partition(|chunk| {
@@ -397,8 +390,8 @@ impl Game {
 
             sorted_chunk_facades.extend(unused_or_distant);
             sorted_chunk_facades.extend(used_and_close);
-            #[cfg(feature = "yap_about_chunks")]
-            println!("Gonna rebuild the needed ones");
+
+
             for (index, ns) in neededspots.iter().enumerate() {
                 //unsafe {
                  //   if TEMP_COUNT == 0 {
@@ -408,8 +401,6 @@ impl Game {
                // }
                 
             }
-            #[cfg(feature = "yap_about_chunks")]
-            println!("Finished rebuilding, sleeping");
             thread::sleep(time::Duration::from_secs(2));
         }
     }

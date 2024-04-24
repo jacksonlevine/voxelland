@@ -18,6 +18,27 @@ pub struct ChunkGeo {
     pub vbo8: gl::types::GLuint,
 }
 impl ChunkGeo {
+    pub fn new() -> ChunkGeo {
+        let mut vbo32: gl::types::GLuint = 0;
+        let mut vbo8: gl::types::GLuint = 0;
+
+        unsafe {
+            gl::CreateBuffers(1, &mut vbo32);
+            gl::CreateBuffers(1, &mut vbo8);
+            let error = unsafe { gl::GetError() };
+            if error != gl::NO_ERROR {
+                println!("OpenGL Error after creating chunk system buffers: {}", error);
+            }
+        }
+
+        ChunkGeo {
+            data32: Vec::new(),
+            data8: Vec::new(),
+            pos: IVec2{x:999999, y:999999},
+            vbo32,
+            vbo8
+        }
+    }
     pub fn clear(&mut self) {
         self.data32.clear();
         self.data8.clear();
@@ -101,8 +122,8 @@ impl ChunkSystem {
                                 let side = Cube::get_side(cubeside);
                                 let mut packed32: [u32; 6] = [0,0,0,0,0,0];
                                 let mut packed8: [u8; 6] = [0,0,0,0,0,0];
-                                for (ind, v) in side.chunks(3).enumerate() {
-                                    let pack = PackedVertex::pack(i as u8 + v[0], j as u8 + v[1], k as u8 + v[2], ind as u8, 15, 0, 1, 0);
+                                for (ind, v) in side.chunks(4).enumerate() {
+                                    let pack = PackedVertex::pack(i as u8 + v[0], j as u8 + v[1], k as u8 + v[2], ind as u8, v[3], 0, 1, 0);
                                     packed32[ind] = pack.0;
                                     packed8[ind] = pack.1;
                                 }
@@ -153,36 +174,22 @@ impl ChunkSystem {
 
         
         
-        for _ in 0..=radius*2 {
-            for _ in 0..=radius*2 {
+        for _ in 0..radius*2+5 {
+            for _ in 0..radius*2+5 {
 
 
-                let mut vbo32: gl::types::GLuint = 0;
-                let mut vbo8: gl::types::GLuint = 0;
-
-                unsafe {
-                    gl::CreateBuffers(1, &mut vbo32);
-                    gl::CreateBuffers(1, &mut vbo8);
-                    let error = unsafe { gl::GetError() };
-                                    if error != gl::NO_ERROR {
-                                        println!("OpenGL Error after creating chunk system buffers: {}", error);
-                                    }
-                }
+                
 
                 cs.chunks.push(Arc::new(Mutex::new(ChunkFacade {
                     geo_index: cs.geobank.len(),
                     used: false,
                     pos: IVec2{x:999999, y:999999},
                 })));
-                cs.geobank.push(Arc::new(Mutex::new(ChunkGeo {
-                    data32: Vec::new(),
-                    data8: Vec::new(),
-                    pos: IVec2{x:999999, y:999999},
-                    vbo32,
-                    vbo8
-                })));
+                cs.geobank.push(Arc::new(Mutex::new(ChunkGeo::new())));
             }
         }
+
+        println!("Amount of chunkgeo buffers: {}", 2 * cs.geobank.len());
 
         cs
         

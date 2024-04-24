@@ -51,5 +51,4 @@ void main()
     }
 
     FragColor = mix(FragColor, fogColor, min(1, max(distance, 0)));
-    FragColor = mix(vec4(1.0, 0.0, 0.0, 1.0), FragColor, 0.0011);
 }

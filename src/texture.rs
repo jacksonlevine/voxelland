@@ -20,8 +20,8 @@ impl Texture {
                             }
             gl::TextureParameteri(tex.id, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
             gl::TextureParameteri(tex.id, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
-            gl::TextureParameteri(tex.id, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-            gl::TextureParameteri(tex.id, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            gl::TextureParameteri(tex.id, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+            gl::TextureParameteri(tex.id, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
             let error = unsafe { gl::GetError() };
                             if error != gl::NO_ERROR {
                                 println!("OpenGL Error after texture params: {}", error);

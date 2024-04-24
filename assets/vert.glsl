@@ -11,15 +11,18 @@ uniform float ambientBrightMult;
 uniform float viewDistance;
 void main()
 {
-    float lx = float((u32 >> 28) & 0xF);       // Top 4 bits for x
-    float ly = float((u32 >> 20) & 0xFF);      // Next 8 bits for y
-    float lz = float((u32 >> 16) & 0xF);       // Next 4 bits for z
+
+    
+
+    float lx = float((u32 >> 28) & 0x0000000F);       // Top 4 bits for x
+    float ly = float((u32 >> 20) & 0x000000FF);      // Next 8 bits for y
+    float lz = float((u32 >> 16) & 0x0000000F);       // Next 4 bits for z
 
     vec3 position = vec3(lx, ly, lz) + (vec3(chunkpos.x, 0, chunkpos.y) * 15);
 
-    uint cornerID = ((u32 >> 12) & 0xF);  // Next 4 bits for corner
-    float ambientBright = float((u32 >> 8) & 0xF); // Next 4 bits for al
-    float blockBright = float((u32 >> 4) & 0xF);   // Next 4 bits for bl
+    uint cornerID = ((u32 >> 12) & 0x0000000F);  // Next 4 bits for corner
+    float ambientBright = float((u32 >> 8) & 0x0000000F); // Next 4 bits for al
+    float blockBright = float((u32 >> 4) & 0x0000000F);   // Next 4 bits for bl
 
     //Texture stuff
     float onePixel = 0.00183823529411764705882352941176f;     //  1/544      Padding
@@ -34,12 +37,13 @@ void main()
         vec2(onePixel, -onePixel)
     };
 
+
     // Unpack from the eightbit and cast to float
     float u = float((eightbit >> 4) & 0xF);  // Top 4 bits for u
     float v = float(eightbit & 0xF);         // Lower 4 bits for v
 
     vec2 uvOffset = texOffsets[cornerID];
-    vec2 uv = vec2((u/16.0) + uvOffset.x, (v/16.0) + uvOffset.y);
+    vec2 uv = vec2((u/16.0) + uvOffset.x, (1.0f - (v/16.0)) + uvOffset.y);
     
 
     float ambBright = ambientBrightMult * ambientBright;
@@ -52,6 +56,7 @@ void main()
     
 
     vertexColor = vec3(bright/16.0f, bright/16.0f, bright/16.0f);
+    //vertexColor = vec3(lx / 10.0, ly / 10.0, 1.0);  // Assuming maximum values for normalization
     TexCoord = uv;
     pos = position;
 }

@@ -5,7 +5,8 @@ use std::thread;
 use glfw::{Action, Context, Glfw, GlfwReceiver, Key, MouseButton, PWindow, Window, WindowEvent};
 use glam::Vec3;
 
-use crate::chunk::{ChunkFacade, ChunkSystem};
+use crate::chunk::{ChunkFacade, ChunkGeo, ChunkSystem};
+use crate::packedvertex::PackedVertex;
 use crate::texture::Texture;
 use crate::vec::IVec2;
 use crate::worldgeometry::WorldGeometry; 
@@ -266,6 +267,51 @@ impl Game {
                     }
                     
                 }
+
+                // static mut geo: ChunkGeo = ChunkGeo{
+                //     data32: Vec::new(),
+                //     data8: Vec::new(),
+                //     pos: IVec2{x:0, y:0},
+                //     vbo32: 0,
+                //     vbo8: 0
+                // };
+                // unsafe {
+                //     if geo.vbo32 == 0 {
+                //         unsafe {
+                //             gl::CreateBuffers(1, &mut geo.vbo32);
+                //             gl::CreateBuffers(1, &mut geo.vbo8);
+                //         }
+                //         geo.data32 = vec![
+                //             PackedVertex::pack(0, 0, 0, 0, 15, 0, 0, 0).0,
+                //             PackedVertex::pack(10, 0, 0, 1, 15, 0, 0, 0).0,
+                //             PackedVertex::pack(10, 10, 0, 2, 15, 0, 0, 0).0,
+
+                //             PackedVertex::pack(10, 10, 0, 3, 15, 0, 0, 0).0,
+                //             PackedVertex::pack(0, 10, 0, 4, 15, 0, 0, 0).0,
+                //             PackedVertex::pack(0, 0, 0, 5, 15, 0, 0, 0).0,
+                //         ];
+
+                //         geo.data8 = vec![
+                //             PackedVertex::pack(0, 0, 0, 0, 15, 0, 0, 0).1,
+                //             PackedVertex::pack(10, 0, 0, 1, 15, 0, 0, 0).1,
+                //             PackedVertex::pack(10, 10, 0, 2, 15, 0, 0, 0).1,
+
+                //             PackedVertex::pack(10, 10, 0, 3, 15, 0, 0, 0).1,
+                //             PackedVertex::pack(0, 10, 0, 4, 15, 0, 0, 0).1,
+                //             PackedVertex::pack(0, 0, 0, 5, 15, 0, 0, 0).1,
+                //         ];
+                //     }
+                // }
+                
+
+                
+
+                // unsafe {
+                //     gl::Uniform2f(C_POS_LOC, 0 as f32, 0 as f32);
+                //     WorldGeometry::bind_geometry(geo.vbo32, geo.vbo8, true, &self.shader0, &geo);
+                //     gl::DrawArrays(gl::TRIANGLES, 0, geo.data32.len() as i32);
+                // }
+
 
                 
         //     }

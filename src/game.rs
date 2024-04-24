@@ -88,7 +88,7 @@ impl Game {
 
     pub fn draw(&self) {
         unsafe {
-            gl::Clear(gl::COLOR_BUFFER_BIT);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             let error = unsafe { gl::GetError() };
                             if error != gl::NO_ERROR {
                                 println!("OpenGL Error after clear color bit: {}", error);

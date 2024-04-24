@@ -28,12 +28,20 @@ impl WindowAndKeyContext {
         let (mut window, events) = glfw.create_window(width, height, windowname, glfw::WindowMode::Windowed)
             .expect("Failed to create GLFW window.");
         gl::load_with(|s| window.get_proc_address(s) as *const _);
-
+        
+        
         window.set_key_polling(true);
         window.set_framebuffer_size_polling(true);
         window.set_mouse_button_polling(true);
         window.set_cursor_pos_polling(true);
         window.make_current();
+
+        unsafe {
+            gl::Enable(gl::DEPTH_TEST);
+            gl::DepthFunc(gl::LESS);
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        }
 
         let wak = WindowAndKeyContext{
             width,

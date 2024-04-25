@@ -110,7 +110,6 @@ impl Game {
     }
 
     pub fn update(&mut self) {
-
             
         let current_time = unsafe { glfwGetTime() as f32 };
         self.delta_time = current_time - self.prev_time; 
@@ -131,20 +130,13 @@ impl Game {
             if(self.faders.read().unwrap()[FaderNames::FovFader as usize].mode) {
                 self.faders.write().unwrap()[FaderNames::FovFader as usize].down();
             }
-                
         }
-            
-                
-
-        
         self.draw();
 
         let mut camlock = self.camera.lock().unwrap();
 
         let cc_center = camlock.position + Vec3::new(0.0, -1.0, 0.0);
         self.coll_cage.update_readings(cc_center);
-
-
 
         let mut proposed = camlock.respond_to_controls(&self.controls, &self.delta_time, 10.0);
         self.user_bound_box.set_center(proposed + Vec3::new(0.0, -0.5, 0.0), 0.85, 0.2);
@@ -240,77 +232,15 @@ impl Game {
                     }
                     let cam_lock = self.camera.lock().unwrap();
 
-
                     gl::UniformMatrix4fv(MVP_LOC, 1, gl::FALSE, cam_lock.mvp.to_cols_array().as_ptr());
-
-                    let error = unsafe { gl::GetError() };
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after uniforming mvp: {}", error);
-                            }
-
                     gl::Uniform3f(CAM_POS_LOC, cam_lock.position.x, cam_lock.position.y, cam_lock.position.z);
-
-                    let error = unsafe { gl::GetError() };
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after uniforming campos: {}", error);
-                            }
-
-
                     gl::Uniform1f(AMBIENT_BRIGHT_MULT_LOC, 1.0);
-
-                    let error = unsafe { gl::GetError() };
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after uniforming amb bright: {}", error);
-                            }
-
-
                     gl::Uniform1f(VIEW_DISTANCE_LOC, 8.0);
-
-                    let error = unsafe { gl::GetError() };
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after uniforming view dist: {}", error);
-                            }
-
-
                     gl::Uniform1f(UNDERWATER_LOC, 0.0);
-
-                    let error = unsafe { gl::GetError() };
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after uniforming uw: {}", error);
-                            }
-
-
                     gl::Uniform3f(CAM_DIR_LOC, cam_lock.direction.x, cam_lock.direction.y, cam_lock.direction.z);
-
-                    let error = unsafe { gl::GetError() };
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after uniforming cam dir: {}", error);
-                            }
-
-
                     gl::Uniform1f(SUNSET_LOC, 0.0);
-
-                    let error = unsafe { gl::GetError() };
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after uniforming sunset: {}", error);
-                            }
-
-
                     gl::Uniform1f(SUNRISE_LOC, 0.0);
-
-                    let error = unsafe { gl::GetError() };
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after uniforming sunrise: {}", error);
-                            }
-
-
                     gl::Uniform1i(gl::GetUniformLocation(self.shader0.shader_id, b"ourTexture\0".as_ptr() as *const i8), 0);
-
-                    let error = unsafe { gl::GetError() };
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after uniforming ourTexture unit number: {}", error);
-                            }
-
 
                     drop(cam_lock);
                 }
@@ -421,13 +351,7 @@ impl Game {
 
 
             for (index, ns) in neededspots.iter().enumerate() {
-                //unsafe {
-                 //   if TEMP_COUNT == 0 {
-                        csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns);
-                   //     TEMP_COUNT += 1;
-                  //  }
-               // }
-                
+                csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns);
             }
             thread::sleep(time::Duration::from_secs(2));
         }
@@ -442,7 +366,6 @@ impl Game {
                     LASTX = xpos;
                     LASTY = ypos;
                 }
-                
                 self.vars.first_mouse = false;
             }
 
@@ -502,7 +425,6 @@ impl Game {
                 }
             },
             Key::S => {
-                
                 if action == Action::Press || action == Action::Repeat {
                     self.controls.back= true;
                 } else {
@@ -510,13 +432,11 @@ impl Game {
                 }
             },
             Key::D => {
-                
                 if action == Action::Press || action == Action::Repeat {
                     self.controls.right = true;
                 } else {
                     self.controls.right = false;
                 }
-
             },
             Key::Num0 => {
                 let mut camlock = self.camera.lock().unwrap();

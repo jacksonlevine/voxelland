@@ -26,7 +26,7 @@ impl ChunkGeo {
         unsafe {
             gl::CreateBuffers(1, &mut vbo32);
             gl::CreateBuffers(1, &mut vbo8);
-            let error = unsafe { gl::GetError() };
+            let error = gl::GetError();
             if error != gl::NO_ERROR {
                 println!(
                     "OpenGL Error after creating chunk system buffers: {}",

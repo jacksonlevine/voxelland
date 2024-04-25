@@ -27,15 +27,13 @@ pub struct ControlsState {
 pub struct GameVariables {
     first_mouse: bool,
     mouse_focused: bool,
-    sensitivity: f32,
-    movement_fov_cooldown: f32,
+    sensitivity: f32
 }
 
 pub struct Game {
     chunksys: Arc<ChunkSystem>,
     shader0: Shader,
     camera: Arc<Mutex<Camera>>,
-    worldtexture: Texture,
     run_chunk_thread: Arc<AtomicBool>,
     chunk_thread: Option<thread::JoinHandle<()>>,
     vars: GameVariables,
@@ -64,13 +62,13 @@ impl Game {
 
         unsafe {
             gl::BindVertexArray(shader0.vao);
-            let error = unsafe { gl::GetError() };
+            let error = gl::GetError();
             if error != gl::NO_ERROR {
                 println!("OpenGL Error after binding vertex array: {}", error);
             }
         }
-        let worldtexture = Texture::new("assets/world.png").unwrap();
-        worldtexture.add_to_unit(0);
+        let tex = Texture::new("assets/world.png").unwrap();
+        tex.add_to_unit(0);
 
         let chunksys = Arc::new(ChunkSystem::new(8));
 
@@ -84,14 +82,12 @@ impl Game {
             chunksys,
             shader0,
             camera: cam,
-            worldtexture,
             run_chunk_thread: Arc::new(AtomicBool::new(true)),
             chunk_thread: None,
             vars: GameVariables {
                 first_mouse: true,
                 mouse_focused: false,
-                sensitivity: 0.25,
-                movement_fov_cooldown: 0.1,
+                sensitivity: 0.25
             },
             controls: ControlsState {
                 left: false,
@@ -274,13 +270,13 @@ impl Game {
                         );
                         unsafe {
                             gl::Uniform2f(C_POS_LOC, banklock.pos.x as f32, banklock.pos.y as f32);
-                            let error = unsafe { gl::GetError() };
+                            let error = gl::GetError();
                             if error != gl::NO_ERROR {
                                 println!("OpenGL Error after uniforming the chunk pos: {}", error);
                             }
                             //println!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
                             gl::DrawArrays(gl::TRIANGLES, 0, banklock.data32.len() as i32);
-                            let error = unsafe { gl::GetError() };
+                            let error = gl::GetError();
                             if error != gl::NO_ERROR {
                                 println!("OpenGL Error after drawing arrays: {}", error);
                             }

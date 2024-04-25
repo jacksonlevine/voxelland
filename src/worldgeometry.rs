@@ -21,7 +21,7 @@ impl WorldGeometry {
                     gl::STATIC_DRAW,
                 );
 
-                let error = unsafe { gl::GetError() };
+                let error = gl::GetError();
                 if error != gl::NO_ERROR {
                     println!(
                         "OpenGL Error after named buffering of vbo32 with upload true: {}",
@@ -37,7 +37,7 @@ impl WorldGeometry {
                 0,
                 std::mem::size_of::<u32>() as i32,
             );
-            let error = unsafe { gl::GetError() };
+            let error = gl::GetError();
             if error != gl::NO_ERROR {
                 println!("OpenGL Error after associating vbo32 with vao: {}", error);
             }
@@ -47,18 +47,18 @@ impl WorldGeometry {
                         as gl::types::GLuint;
 
                 gl::EnableVertexArrayAttrib(shader.vao, u32one_attrib);
-                let error = unsafe { gl::GetError() };
+                let error = gl::GetError();
                 if error != gl::NO_ERROR {
                     println!("OpenGL Error after u32 array attrib: {}", error);
                 }
 
                 gl::VertexArrayAttribIFormat(shader.vao, u32one_attrib, 1, gl::UNSIGNED_INT, 0);
-                let error = unsafe { gl::GetError() };
+                let error = gl::GetError();
                 if error != gl::NO_ERROR {
                     println!("OpenGL Error after u32 attrib format: {}", error);
                 }
                 gl::VertexArrayAttribBinding(shader.vao, u32one_attrib, 0);
-                let error = unsafe { gl::GetError() };
+                let error = gl::GetError();
                 if error != gl::NO_ERROR {
                     println!("OpenGL Error after u32 attrib binding: {}", error);
                 }
@@ -70,7 +70,7 @@ impl WorldGeometry {
                     gl::STATIC_DRAW,
                 );
 
-                let error = unsafe { gl::GetError() };
+                let error = gl::GetError();
                 if error != gl::NO_ERROR {
                     println!(
                         "OpenGL Error after named buffering of vbo8 with upload true: {}",
@@ -85,7 +85,7 @@ impl WorldGeometry {
                 0,
                 std::mem::size_of::<u8>() as i32,
             );
-            let error = unsafe { gl::GetError() };
+            let error = gl::GetError();
             if error != gl::NO_ERROR {
                 println!("OpenGL Error after associating vbo8 with vao: {}", error);
             }
@@ -96,19 +96,19 @@ impl WorldGeometry {
                 //println!("U8 attrib location: {}", u8_attrib);
                 gl::EnableVertexArrayAttrib(shader.vao, u8_attrib);
 
-                let error = unsafe { gl::GetError() };
+                let error = gl::GetError();
                 if error != gl::NO_ERROR {
                     println!("OpenGL Error after u8 array attrib: {}", error);
                 }
 
                 gl::VertexArrayAttribIFormat(shader.vao, u8_attrib, 1, gl::UNSIGNED_BYTE, 0);
-                let error = unsafe { gl::GetError() };
+                let error = gl::GetError();
                 if error != gl::NO_ERROR {
                     println!("OpenGL Error after u8 array attrib format: {}", error);
                 }
 
                 gl::VertexArrayAttribBinding(shader.vao, u8_attrib, 1);
-                let error = unsafe { gl::GetError() };
+                let error = gl::GetError();
                 if error != gl::NO_ERROR {
                     println!("OpenGL Error after u8 array attrib binding: {}", error);
                 }

@@ -365,13 +365,8 @@ impl Game {
             for carc in &csys_arc.chunks {
                 match carc.try_lock() {
                     Ok(cf) => {
-                        let cf2 = ChunkFacade {
-                            geo_index: cf.geo_index,
-                            used: cf.used,
-                            pos: cf.pos
-                        };
-                        sorted_chunk_facades.push(cf2);
-                        drop(cf);
+
+                        sorted_chunk_facades.push(*cf);
                     },
                     Err(_) => {
 

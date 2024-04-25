@@ -419,6 +419,7 @@ impl Game {
             self.vars.mouse_focused = true;
         } else {
             self.vars.mouse_focused = false;
+            self.vars.first_mouse = true;
         }
     }
     pub fn mouse_button(&mut self, _mb: MouseButton, _a: Action) {}

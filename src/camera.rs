@@ -62,13 +62,9 @@ impl Camera {
         self.view = Mat4::look_at_rh(self.position, self.position + self.direction, self.up);
         self.mvp = self.projection * self.model * self.view;
     }
-    pub fn respond_to_controls(&mut self, cs: &ControlsState, delta: &f32, speed_mult: f32) {
+    pub fn respond_to_controls(&mut self, cs: &ControlsState, delta: &f32, speed_mult: f32) -> Vec3 {
 
-        if self.velocity.length() > 0.0 {
-            let amt_to_subtract = self.velocity * *delta * speed_mult;
-            self.position += amt_to_subtract;
-            self.velocity -= amt_to_subtract;
-        }
+
 
         if cs.forward {
             self.velocity += self.direction * *delta * speed_mult;
@@ -83,6 +79,16 @@ impl Camera {
             self.velocity += self.right * -*delta * speed_mult;
         }
         self.recalculate();
+
+        if self.velocity.length() > 0.0 {
+            let amt_to_subtract = self.velocity * *delta * speed_mult;
+            
+            self.velocity -= amt_to_subtract;
+
+            return self.position + amt_to_subtract;
+        } else {
+            return self.position;
+        }
 
         #[cfg(feature = "show_cam_pos")]
         println!("Cam pos: {}, {}, {}", self.position.x, self.position.y, self.position.z);

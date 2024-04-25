@@ -9,12 +9,13 @@ use glam::Vec3;
 use crate::chunk::{ChunkFacade, ChunkGeo, ChunkSystem};
 use crate::packedvertex::PackedVertex;
 use crate::texture::Texture;
-use crate::vec::IVec2;
+use crate::vec::{self, IVec2};
 use crate::worldgeometry::WorldGeometry; 
 use crate::shader::Shader;
 use crate::camera::Camera;
 use crate::fader::Fader;
 use std::sync::RwLock;
+use crate::collisioncage::*;
 
 pub struct ControlsState {
     pub left: bool,
@@ -42,7 +43,9 @@ pub struct Game {
     controls: ControlsState,
     faders: Arc<RwLock<Vec<Fader>>>,
     prev_time: f32,
-    delta_time: f32
+    delta_time: f32,
+    user_bound_box: BoundBox,
+    coll_cage: CollCage 
 }
 
 enum FaderNames {
@@ -70,8 +73,17 @@ impl Game {
         }
         let worldtexture = Texture::new("assets/world.png").unwrap();
         worldtexture.add_to_unit(0);
+
+        let chunksys = Arc::new(ChunkSystem::new(8));
+
+        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
+            let csys_arc = Arc::clone(&chunksys);
+            Box::new(move |v: vec::IVec3| {
+                return csys_arc.blockat(v) != 0;
+            })
+        };
         Game {
-            chunksys: Arc::new(ChunkSystem::new(8)),
+            chunksys,
             shader0,
             camera: cam,
             worldtexture,
@@ -91,7 +103,9 @@ impl Game {
             },
             faders: Arc::new(faders),
             prev_time: 0.0,
-            delta_time: 0.0
+            delta_time: 0.0,
+            user_bound_box: BoundBox::new(Vec3::new(0.0,0.0,0.0), Vec3::new(0.0,0.0,0.0)),
+            coll_cage: CollCage::new(solid_pred)
         }
     }
 
@@ -124,7 +138,28 @@ impl Game {
 
         
         self.draw();
-        self.camera.lock().unwrap().respond_to_controls(&self.controls, &self.delta_time, 10.0);
+
+        let mut camlock = self.camera.lock().unwrap();
+
+        let cc_center = camlock.position + Vec3::new(0.0, -1.0, 0.0);
+        self.coll_cage.update_readings(cc_center);
+
+
+
+        let mut proposed = camlock.respond_to_controls(&self.controls, &self.delta_time, 10.0);
+        self.user_bound_box.set_center(proposed + Vec3::new(0.0, -0.5, 0.0), 0.85, 0.2);
+        self.coll_cage.update_colliding(&self.user_bound_box);
+        let mut corr_made: Vec<Vec3> = Vec::new();
+        if self.coll_cage.colliding.len() > 0 {
+            for side in &self.coll_cage.colliding {
+                if !corr_made.contains(&self.coll_cage.normals[*side as usize]) {
+                    proposed += self.coll_cage.normals[*side as usize] * self.coll_cage.penetrations[*side as usize];
+                    corr_made.push(self.coll_cage.normals[*side as usize]);
+                }
+            }
+        }
+        camlock.position = proposed;
+        camlock.recalculate();
     }
 
     fn print_matrix(mvp: &glam::Mat4) {

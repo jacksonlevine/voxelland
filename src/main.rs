@@ -15,6 +15,7 @@ mod camera;
 mod texture;
 mod blockinfo;
 mod fader;
+mod collisioncage;
 
 #[cfg(test)]
 mod tests;

@@ -104,7 +104,7 @@ impl Game {
             faders: Arc::new(faders),
             prev_time: 0.0,
             delta_time: 0.0,
-            user_bound_box: BoundBox::new(Vec3::new(0.0,0.0,0.0), Vec3::new(0.0,0.0,0.0)),
+            user_bound_box: BoundBox::new(Vec3::new(0.0,0.0,0.0)),
             coll_cage: CollCage::new(solid_pred)
         }
     }
@@ -139,7 +139,7 @@ impl Game {
         self.coll_cage.update_readings(cc_center);
 
         let mut proposed = camlock.respond_to_controls(&self.controls, &self.delta_time, 10.0);
-        self.user_bound_box.set_center(proposed + Vec3::new(0.0, -0.5, 0.0), 0.85, 0.2);
+        self.user_bound_box.set_center(proposed + Vec3::new(0.0, -0.5, 0.0), 0.2, 0.85);
         self.coll_cage.update_colliding(&self.user_bound_box);
         let mut corr_made: Vec<Vec3> = Vec::new();
         if self.coll_cage.colliding.len() > 0 {
@@ -154,38 +154,12 @@ impl Game {
         camlock.recalculate();
     }
 
-    fn print_matrix(mvp: &glam::Mat4) {
-        println!("MVP Matrix:");
-        for i in 0..4 {
-            println!(
-                "[{:>10.3}, {:>10.3}, {:>10.3}, {:>10.3}]",
-                mvp.col(i).x, mvp.col(i).y, mvp.col(i).z, mvp.col(i).w
-            );
-        }
-    }
-
     pub fn draw(&self) {
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-            let error = unsafe { gl::GetError() };
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after clear color bit: {}", error);
-                            }
             gl::ClearColor(0.5, 0.7, 1.0, 1.0);
-            let error = unsafe { gl::GetError() };
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after clear color: {}", error);
-                            }
             gl::BindVertexArray(self.shader0.vao);
-            let error = unsafe { gl::GetError() };
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after binding v array: {}", error);
-                            }
             gl::UseProgram(self.shader0.shader_id);
-            let error = unsafe { gl::GetError() };
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after saying to use shader rogram: {}", error);
-                            }
         }
 
         let gqarc = self.chunksys.geoqueue.clone();

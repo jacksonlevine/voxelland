@@ -48,7 +48,6 @@ pub enum Side
 }
 
 pub struct BoundBox {
-    normal: Vec3,
     center: Vec3,
     min_corner: Vec3,
     max_corner: Vec3
@@ -67,9 +66,8 @@ pub struct CollCage {
 }
 
 impl BoundBox {
-    pub fn new(center: Vec3, colnormal: Vec3) -> BoundBox {
+    pub fn new(center: Vec3) -> BoundBox {
         BoundBox {
-            normal:colnormal,
             center,
             min_corner: center + Vec3::new(-0.5, -0.5, -0.5),
             max_corner: center + Vec3::new(0.5, 0.5, 0.5),
@@ -244,30 +242,30 @@ impl CollCage {
             glam::IVec3::new(0, -1, -1),
         ];
         let boxes: Vec<BoundBox> = vec![
-            BoundBox::new(positions[0].as_vec3(), normals[0]),
-            BoundBox::new(positions[1].as_vec3(), normals[1]),
-            BoundBox::new(positions[2].as_vec3(), normals[2]),
-            BoundBox::new(positions[3].as_vec3(), normals[3]),
-            BoundBox::new(positions[4].as_vec3(), normals[4]),
-            BoundBox::new(positions[5].as_vec3(), normals[5]),
-            BoundBox::new(positions[6].as_vec3(), normals[6]),
-            BoundBox::new(positions[7].as_vec3(), normals[7]),
-            BoundBox::new(positions[8].as_vec3(), normals[8]),
-            BoundBox::new(positions[9].as_vec3(), normals[9]),
-            BoundBox::new(positions[10].as_vec3(), normals[10]),
-            BoundBox::new(positions[11].as_vec3(), normals[11]),
-            BoundBox::new(positions[12].as_vec3(), normals[12]),
-            BoundBox::new(positions[13].as_vec3(), normals[13]),
-            BoundBox::new(positions[14].as_vec3(), normals[14]),
-            BoundBox::new(positions[15].as_vec3(), normals[15]),
-            BoundBox::new(positions[16].as_vec3(), normals[16]),
-            BoundBox::new(positions[17].as_vec3(), normals[17]),
-            BoundBox::new(positions[18].as_vec3(), normals[18]),
-            BoundBox::new(positions[19].as_vec3(), normals[19]),
-            BoundBox::new(positions[20].as_vec3(), normals[20]),
-            BoundBox::new(positions[21].as_vec3(), normals[21]),
-            BoundBox::new(positions[22].as_vec3(), normals[22]),
-            BoundBox::new(positions[23].as_vec3(), normals[23]),
+            BoundBox::new(positions[0].as_vec3()),
+            BoundBox::new(positions[1].as_vec3()),
+            BoundBox::new(positions[2].as_vec3()),
+            BoundBox::new(positions[3].as_vec3()),
+            BoundBox::new(positions[4].as_vec3()),
+            BoundBox::new(positions[5].as_vec3()),
+            BoundBox::new(positions[6].as_vec3()),
+            BoundBox::new(positions[7].as_vec3()),
+            BoundBox::new(positions[8].as_vec3()),
+            BoundBox::new(positions[9].as_vec3()),
+            BoundBox::new(positions[10].as_vec3()),
+            BoundBox::new(positions[11].as_vec3()),
+            BoundBox::new(positions[12].as_vec3()),
+            BoundBox::new(positions[13].as_vec3()),
+            BoundBox::new(positions[14].as_vec3()),
+            BoundBox::new(positions[15].as_vec3()),
+            BoundBox::new(positions[16].as_vec3()),
+            BoundBox::new(positions[17].as_vec3()),
+            BoundBox::new(positions[18].as_vec3()),
+            BoundBox::new(positions[19].as_vec3()),
+            BoundBox::new(positions[20].as_vec3()),
+            BoundBox::new(positions[21].as_vec3()),
+            BoundBox::new(positions[22].as_vec3()),
+            BoundBox::new(positions[23].as_vec3()),
         ];
 
         CollCage {

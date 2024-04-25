@@ -519,8 +519,8 @@ impl Game {
                 camlock.direction.z = camlock.yaw.to_radians().sin() * camlock.pitch.to_radians().cos();
                 camlock.direction = camlock.direction.normalize();
     
-                camlock.right = camlock.direction.cross(Vec3{x: 0.0, y: 1.0, z: 0.0}).normalize();
-                camlock.up = camlock.direction.cross(camlock.right);
+                camlock.right = Vec3::new(0.0, 1.0, 0.0).cross(camlock.direction).normalize();
+                camlock.up = camlock.direction.cross(camlock.right).normalize();
     
                 camlock.recalculate();
                 #[cfg(feature = "show_cam_pos")]

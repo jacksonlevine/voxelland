@@ -60,7 +60,7 @@ impl Camera {
         self.right = Vec3::new(0.0, 1.0, 0.0).cross(self.direction).normalize();
         self.up = self.direction.cross(self.right);
         self.view = Mat4::look_at_rh(self.position, self.position + self.direction, self.up);
-        self.mvp = self.projection * self.model * self.view;
+        self.mvp = self.projection * self.view * self.model;
     }
     pub fn respond_to_controls(&mut self, cs: &ControlsState, delta: &f32, speed_mult: f32) -> Vec3 {
 

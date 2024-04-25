@@ -96,7 +96,7 @@ impl Game {
                             if error != gl::NO_ERROR {
                                 println!("OpenGL Error after clear color bit: {}", error);
                             }
-            gl::ClearColor(0.5, 0.5, 1.0, 1.0);
+            gl::ClearColor(0.5, 0.7, 1.0, 1.0);
             let error = unsafe { gl::GetError() };
                             if error != gl::NO_ERROR {
                                 println!("OpenGL Error after clear color: {}", error);

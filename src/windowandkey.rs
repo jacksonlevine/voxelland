@@ -41,6 +41,9 @@ impl WindowAndKeyContext {
             gl::DepthFunc(gl::LESS);
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            gl::Enable(gl::CULL_FACE);
+            gl::CullFace(gl::BACK);
+            gl::FrontFace(gl::CW);
         }
 
         let wak = WindowAndKeyContext{

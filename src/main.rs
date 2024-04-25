@@ -1,28 +1,28 @@
-use glfw::{Context};
+use glfw::Context;
 use windowandkey::WindowAndKeyContext;
 
 use game::Game;
 
-mod vec;
-mod shader;
-mod worldgeometry;
-mod chunk;
-mod cube;
-mod packedvertex;
-mod windowandkey;
-mod game;
-mod camera;
-mod texture;
 mod blockinfo;
-mod fader;
+mod camera;
+mod chunk;
 mod collisioncage;
+mod cube;
+mod fader;
+mod game;
+mod packedvertex;
+mod shader;
+mod texture;
+mod vec;
+mod windowandkey;
+mod worldgeometry;
 
 #[cfg(test)]
 mod tests;
 
 fn main() {
     let mut wak_context = WindowAndKeyContext::new("Barkaroo");
-    
+
     let game = Game::new();
 
     wak_context.game = Some(game);

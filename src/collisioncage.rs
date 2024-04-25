@@ -1,14 +1,11 @@
-
-
 use glam::Vec3;
 
 use crate::vec;
-use num_enum::{FromPrimitive};
+use num_enum::FromPrimitive;
 
 #[derive(Debug, Clone, Copy, FromPrimitive, PartialEq)]
 #[repr(usize)]
-pub enum Side
-{
+pub enum Side {
     #[num_enum(default)]
     ROOF = 0,
     FLOOR,
@@ -43,14 +40,13 @@ pub enum Side
     BOTTOMFRONTEDGE,
     BOTTOMLEFTEDGE,
     BOTTOMRIGHTEDGE,
-    BOTTOMBACKEDGE
-
+    BOTTOMBACKEDGE,
 }
 
 pub struct BoundBox {
     center: Vec3,
     min_corner: Vec3,
-    max_corner: Vec3
+    max_corner: Vec3,
 }
 
 pub struct CollCage {
@@ -62,7 +58,7 @@ pub struct CollCage {
     pub penetrations: Vec<f32>,
     pub normals: Vec<Vec3>,
     pub positions: Vec<glam::IVec3>,
-    pub solid_pred: Box<dyn Fn(vec::IVec3) -> bool>
+    pub solid_pred: Box<dyn Fn(vec::IVec3) -> bool>,
 }
 
 impl BoundBox {
@@ -84,9 +80,12 @@ impl BoundBox {
         self.center = center;
     }
     pub fn intersects(&self, other: &BoundBox) -> bool {
-        return !(self.max_corner.x < other.min_corner.x || self.min_corner.x > other.max_corner.x ||
-            self.max_corner.y < other.min_corner.y || self.min_corner.y > other.max_corner.y ||
-            self.max_corner.z < other.min_corner.z || self.min_corner.z > other.max_corner.z);
+        return !(self.max_corner.x < other.min_corner.x
+            || self.min_corner.x > other.max_corner.x
+            || self.max_corner.y < other.min_corner.y
+            || self.min_corner.y > other.max_corner.y
+            || self.max_corner.z < other.min_corner.z
+            || self.min_corner.z > other.max_corner.z);
     }
     pub fn get_penetration(&self, other: &BoundBox) -> f32 {
         if !self.intersects(other) {
@@ -104,96 +103,70 @@ impl BoundBox {
                 self.max_corner.z - other.min_corner.z,
                 other.max_corner.z - self.min_corner.z,
             );
-    
+
             f32::min(f32::min(x_penetration, y_penetration), z_penetration)
         }
     }
 }
 
-
 impl CollCage {
-    
     pub fn new(solid_pred: Box<dyn Fn(vec::IVec3) -> bool>) -> CollCage {
         let num_boxes = 18;
         let colliding: Vec<Side> = Vec::new();
         let solid: Vec<Side> = Vec::new();
-        let position = glam::IVec3::new(0,0,0);
-        
+        let position = glam::IVec3::new(0, 0, 0);
+
         let penetrations: Vec<f32> = vec![
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, //Corners
-        0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
         ];
         let normals = vec![
             Vec3::new(0.0, -1.0, 0.0), // TOp/roof
             Vec3::new(0.0, 1.0, 0.0),  // BOTTOM/floor
-        
-            Vec3::new(1.0, 0.0, 0.0), // LEFTTOP
-            Vec3::new(1.0, 0.0, 0.0), // LEFTBOTTOM
-        
+            Vec3::new(1.0, 0.0, 0.0),  // LEFTTOP
+            Vec3::new(1.0, 0.0, 0.0),  // LEFTBOTTOM
             Vec3::new(-1.0, 0.0, 0.0), // RIGHTTOP
             Vec3::new(-1.0, 0.0, 0.0), // RIGHTBOTTOM
-        
             Vec3::new(0.0, 0.0, -1.0), // FRONTTOP
             Vec3::new(0.0, 0.0, -1.0), // FRONTBOTTOM
-        
-            Vec3::new(0.0, 0.0, 1.0), // BACKTOP
+            Vec3::new(0.0, 0.0, 1.0),  // BACKTOP
             Vec3::new(0.0, 0.0, 1.0),  // BACKBOTTOM
-        
-            Vec3::new(0.0, 0.0, 1.0),    //BACKRIGHTTOP,
+            Vec3::new(0.0, 0.0, 1.0),  //BACKRIGHTTOP,
             Vec3::new(0.0, 0.0, 1.0),  //BACKRIGHTBOTTOM,
-        
-            Vec3::new(0.0, 0.0, 1.0),//BACKLEFTTOP,
-            Vec3::new(0.0, 0.0, 1.0),//BACKLEFTBOTTOM,
-        
-            Vec3::new(0.0, 0.0, -1.0),//FRONTRIGHTTOP,
-            Vec3::new(0.0, 0.0, -1.0),//FRONTRIGHTBOTTOM,
-        
-            Vec3::new(0.0, 0.0, -1.0),//FRONTRIGHTTOP,
-            Vec3::new(0.0, 0.0, -1.0),//FRONTRIGHTBOTTOM,
-        
-            Vec3::new(0.0, 1.0, 0.0), //INBOTTOM
-            Vec3::new(0.0, 1.0, 0.0), //INTOP
-        
+            Vec3::new(0.0, 0.0, 1.0),  //BACKLEFTTOP,
+            Vec3::new(0.0, 0.0, 1.0),  //BACKLEFTBOTTOM,
+            Vec3::new(0.0, 0.0, -1.0), //FRONTRIGHTTOP,
+            Vec3::new(0.0, 0.0, -1.0), //FRONTRIGHTBOTTOM,
+            Vec3::new(0.0, 0.0, -1.0), //FRONTRIGHTTOP,
+            Vec3::new(0.0, 0.0, -1.0), //FRONTRIGHTBOTTOM,
+            Vec3::new(0.0, 1.0, 0.0),  //INBOTTOM
+            Vec3::new(0.0, 1.0, 0.0),  //INTOP
             Vec3::new(0.0, 0.0, -1.0),
             Vec3::new(1.0, 0.0, 0.0),
             Vec3::new(-1.0, 0.0, 0.0),
             Vec3::new(0.0, 0.0, 1.0),
-        
         ];
         let positions = vec![
-            glam::IVec3::new(0, 2, 0),  // TOp/roof
-            glam::IVec3::new(0, -1, 0), // BOTTOM/floor
-        
-            glam::IVec3::new(-1, 1, 0), // LEFTTOP
-            glam::IVec3::new(-1, 0, 0), // LEFTBOTTOM
-        
-            glam::IVec3::new(1, 1, 0), // RIGHTTOP
-            glam::IVec3::new(1, 0, 0), // RIGHTBOTTOM
-        
-            glam::IVec3::new(0, 1, 1), // FRONTTOP
-            glam::IVec3::new(0, 0, 1), // FRONTBOTTOM
-        
-            glam::IVec3::new(0, 1, -1), // BACKTOP
+            glam::IVec3::new(0, 2, 0),   // TOp/roof
+            glam::IVec3::new(0, -1, 0),  // BOTTOM/floor
+            glam::IVec3::new(-1, 1, 0),  // LEFTTOP
+            glam::IVec3::new(-1, 0, 0),  // LEFTBOTTOM
+            glam::IVec3::new(1, 1, 0),   // RIGHTTOP
+            glam::IVec3::new(1, 0, 0),   // RIGHTBOTTOM
+            glam::IVec3::new(0, 1, 1),   // FRONTTOP
+            glam::IVec3::new(0, 0, 1),   // FRONTBOTTOM
+            glam::IVec3::new(0, 1, -1),  // BACKTOP
             glam::IVec3::new(0, 0, -1),  // BACKBOTTOM
-        
-            glam::IVec3::new(1, 1, -1),    //BACKRIGHTTOP,
-            glam::IVec3::new(1, 0, -1),//BACKRIGHTBOTTOM,
-        
-            glam::IVec3::new(-1, 1, -1),//BACKLEFTTOP,
-            glam::IVec3::new(-1, 0, -1),//BACKLEFTBOTTOM,
-        
-            glam::IVec3::new(1, 1, 1),//FRONTRIGHTTOP,
-            glam::IVec3::new(1, 0, 1),//FRONTRIGHTBOTTOM,
-        
-            glam::IVec3::new(-1, 1, 1),//FRONTLEFTTOP,
-            glam::IVec3::new(-1, 0, 1),//FRONTLEFTBOTTOM
-        
-        
-            glam::IVec3::new(0, 0, 0), //inbottom
-            glam::IVec3::new(0, 1, 0), //intop
-        
+            glam::IVec3::new(1, 1, -1),  //BACKRIGHTTOP,
+            glam::IVec3::new(1, 0, -1),  //BACKRIGHTBOTTOM,
+            glam::IVec3::new(-1, 1, -1), //BACKLEFTTOP,
+            glam::IVec3::new(-1, 0, -1), //BACKLEFTBOTTOM,
+            glam::IVec3::new(1, 1, 1),   //FRONTRIGHTTOP,
+            glam::IVec3::new(1, 0, 1),   //FRONTRIGHTBOTTOM,
+            glam::IVec3::new(-1, 1, 1),  //FRONTLEFTTOP,
+            glam::IVec3::new(-1, 0, 1),  //FRONTLEFTBOTTOM
+            glam::IVec3::new(0, 0, 0),   //inbottom
+            glam::IVec3::new(0, 1, 0),   //intop
             glam::IVec3::new(0, -1, 1),
             glam::IVec3::new(-1, -1, 0),
             glam::IVec3::new(1, -1, 0),
@@ -235,7 +208,7 @@ impl CollCage {
             penetrations,
             normals,
             positions,
-            solid_pred
+            solid_pred,
         }
     }
     pub fn update_readings(&mut self, pos: Vec3) {
@@ -263,7 +236,11 @@ impl CollCage {
         self.solid.clear();
         for i in 0..self.num_boxes {
             let spot = self.boxes[i as usize].center;
-            let tup = vec::IVec3{x: spot.x as i32, y: spot.y as i32, z: spot.z as i32};
+            let tup = vec::IVec3 {
+                x: spot.x as i32,
+                y: spot.y as i32,
+                z: spot.z as i32,
+            };
             let side = Side::from_primitive(i as usize);
             if (self.solid_pred)(tup) {
                 if !self.solid.contains(&side) {
@@ -275,11 +252,18 @@ impl CollCage {
         }
     }
     pub fn update_position(&mut self, pos: Vec3) {
-        self.position = glam::IVec3::new(pos.x.round() as i32, pos.y.round() as i32, pos.z.round() as i32);
+        self.position = glam::IVec3::new(
+            pos.x.round() as i32,
+            pos.y.round() as i32,
+            pos.z.round() as i32,
+        );
         for i in 0..self.num_boxes {
             let new_center = self.positions[i as usize] + self.position;
-            self.boxes[i as usize].set_center_block(Vec3::new(new_center.x as f32, new_center.y as f32, new_center.z as f32));
+            self.boxes[i as usize].set_center_block(Vec3::new(
+                new_center.x as f32,
+                new_center.y as f32,
+                new_center.z as f32,
+            ));
         }
     }
-
 }

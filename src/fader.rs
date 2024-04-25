@@ -1,16 +1,9 @@
-
-
-
-
-
-
-
 pub struct Fader {
     pub value: f32,
     pub speed: f32,
     pub top: f32,
     pub bottom: f32,
-    pub mode: bool
+    pub mode: bool,
 }
 
 impl Fader {
@@ -20,7 +13,7 @@ impl Fader {
             speed,
             top,
             bottom,
-            mode
+            mode,
         }
     }
     pub fn up(&mut self) {
@@ -36,7 +29,7 @@ impl Fader {
                 self.value = (self.value + (delta_time * self.speed)).clamp(self.bottom, self.top);
                 return true;
             } else {
-                return false
+                return false;
             }
         } else {
             if self.value > self.bottom {
@@ -46,6 +39,5 @@ impl Fader {
                 return false;
             }
         }
-
     }
 }

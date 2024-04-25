@@ -112,51 +112,9 @@ impl BoundBox {
 
 
 impl CollCage {
-    pub fn update_readings(&mut self, pos: Vec3) {
-        self.update_position(pos);
-        self.update_solidity();
-    }
-    pub fn update_colliding(&mut self, user: &BoundBox) {
-        //Reset
-        self.colliding.clear();
-        for i in 0..self.num_boxes {
-            self.penetrations[i as usize] = 0.0;
-        }
-
-        //Reassess
-        for side in &self.solid {
-            if user.intersects(&self.boxes[*side as usize]) {
-                if !self.colliding.contains(&side) {
-                    self.colliding.push(*side);
-                }
-            }
-            self.penetrations[*side as usize] = user.get_penetration(&self.boxes[*side as usize]);
-        }
-    }
-    pub fn update_solidity(&mut self) {
-        self.solid.clear();
-        for i in 0..self.num_boxes {
-            let spot = self.boxes[i as usize].center;
-            let tup = vec::IVec3{x: spot.x as i32, y: spot.y as i32, z: spot.z as i32};
-            let side = Side::from_primitive(i as usize);
-            if (self.solid_pred)(tup) {
-                if !self.solid.contains(&side) {
-                    self.solid.push(side);
-                }
-            } else {
-                self.solid.retain(|&x| x != side);
-            }
-        }
-    }
-    pub fn update_position(&mut self, pos: Vec3) {
-        self.position = glam::IVec3::new(pos.x.round() as i32, pos.y.round() as i32, pos.z.round() as i32);
-        for i in 0..self.num_boxes {
-            let new_center = self.positions[i as usize] + self.position;
-            self.boxes[i as usize].set_center_block(Vec3::new(new_center.x as f32, new_center.y as f32, new_center.z as f32));
-        }
-    }
+    
     pub fn new(solid_pred: Box<dyn Fn(vec::IVec3) -> bool>) -> CollCage {
-        let num_boxes = 24;
+        let num_boxes = 18;
         let colliding: Vec<Side> = Vec::new();
         let solid: Vec<Side> = Vec::new();
         let position = glam::IVec3::new(0,0,0);
@@ -278,6 +236,49 @@ impl CollCage {
             normals,
             positions,
             solid_pred
+        }
+    }
+    pub fn update_readings(&mut self, pos: Vec3) {
+        self.update_position(pos);
+        self.update_solidity();
+    }
+    pub fn update_colliding(&mut self, user: &BoundBox) {
+        //Reset
+        self.colliding.clear();
+        for i in 0..self.num_boxes {
+            self.penetrations[i as usize] = 0.0;
+        }
+
+        //Reassess
+        for side in &self.solid {
+            if user.intersects(&self.boxes[*side as usize]) {
+                if !self.colliding.contains(&side) {
+                    self.colliding.push(*side);
+                }
+            }
+            self.penetrations[*side as usize] = user.get_penetration(&self.boxes[*side as usize]);
+        }
+    }
+    pub fn update_solidity(&mut self) {
+        self.solid.clear();
+        for i in 0..self.num_boxes {
+            let spot = self.boxes[i as usize].center;
+            let tup = vec::IVec3{x: spot.x as i32, y: spot.y as i32, z: spot.z as i32};
+            let side = Side::from_primitive(i as usize);
+            if (self.solid_pred)(tup) {
+                if !self.solid.contains(&side) {
+                    self.solid.push(side);
+                }
+            } else {
+                self.solid.retain(|&x| x != side);
+            }
+        }
+    }
+    pub fn update_position(&mut self, pos: Vec3) {
+        self.position = glam::IVec3::new(pos.x.round() as i32, pos.y.round() as i32, pos.z.round() as i32);
+        for i in 0..self.num_boxes {
+            let new_center = self.positions[i as usize] + self.position;
+            self.boxes[i as usize].set_center_block(Vec3::new(new_center.x as f32, new_center.y as f32, new_center.z as f32));
         }
     }
 

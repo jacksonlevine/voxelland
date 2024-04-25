@@ -1,6 +1,6 @@
-use glfw::{Action, Context, Key};
+use glfw::{Context};
 use windowandkey::WindowAndKeyContext;
-use std::time::{Instant};
+
 use game::Game;
 
 mod vec;

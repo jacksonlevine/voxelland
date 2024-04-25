@@ -1,8 +1,8 @@
 
 use crate::game::Game;
-use glfw::{Action, Context, Glfw, GlfwReceiver, Key, PWindow, Window, WindowEvent};
+use glfw::{Context, Glfw, GlfwReceiver, Key, PWindow, WindowEvent};
 use std::time::{Instant};
-use std::sync::{Mutex, Arc};
+
 
 pub struct WindowAndKeyContext {
 
@@ -92,7 +92,7 @@ impl WindowAndKeyContext {
 
 
                 },
-                glfw::WindowEvent::Key(key, scancode, action, modifiers) => {
+                glfw::WindowEvent::Key(key, _scancode, action, _modifiers) => {
                     if key == Key::Escape {
                         self.window.set_cursor_mode(glfw::CursorMode::Normal);
                         self.game.as_mut().unwrap().set_mouse_focused(false);

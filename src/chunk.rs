@@ -1,18 +1,18 @@
 
 use std::collections::HashMap;
-use std::hash::Hash;
+
 use std::sync::{Arc, Mutex};
 use num_enum::FromPrimitive;
-use lockfree::queue;
-use crate::worldgeometry::WorldGeometry;
 
-use noise::{NoiseFn, Perlin, Seedable};
+
+
+use noise::{NoiseFn, Perlin};
 
 use crate::cube::Cube;
 use crate::vec::{self, IVec2};
-use crate::packedvertex::{self, PackedVertex};
+use crate::packedvertex::{PackedVertex};
 use crate::cube::CubeSide;
-use rand::Rng;
+
 use crate::blockinfo::Blocks;
 pub struct ChunkGeo {
     pub data32: Vec<u32>,
@@ -181,7 +181,7 @@ impl ChunkSystem {
         }
         #[cfg(feature = "yap_about_chunks")]
         println!("Got past traversal");
-        let mut gqarc = self.geoqueue.clone();
+        let gqarc = self.geoqueue.clone();
         gqarc.push(index);
 
         let takencare = self.takencare.clone();

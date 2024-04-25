@@ -1,13 +1,13 @@
 use core::time;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, Arc};
-use std::thread::{self, sleep};
+use std::thread::{self};
 use glfw::ffi::glfwGetTime;
-use glfw::{Action, Context, Glfw, GlfwReceiver, Key, MouseButton, PWindow, Window, WindowEvent};
+use glfw::{Action, Key, MouseButton};
 use glam::Vec3;
 
-use crate::chunk::{ChunkFacade, ChunkGeo, ChunkSystem};
-use crate::packedvertex::PackedVertex;
+use crate::chunk::{ChunkFacade, ChunkSystem};
+
 use crate::texture::Texture;
 use crate::vec::{self, IVec2};
 use crate::worldgeometry::WorldGeometry; 
@@ -123,11 +123,11 @@ impl Game {
             }
         }
         if self.controls.forward || self.controls.back || self.controls.left || self.controls.right {
-            if(!self.faders.read().unwrap()[FaderNames::FovFader as usize].mode) {
+            if !self.faders.read().unwrap()[FaderNames::FovFader as usize].mode {
                 self.faders.write().unwrap()[FaderNames::FovFader as usize].up();
             }
         } else {
-            if(self.faders.read().unwrap()[FaderNames::FovFader as usize].mode) {
+            if self.faders.read().unwrap()[FaderNames::FovFader as usize].mode {
                 self.faders.write().unwrap()[FaderNames::FovFader as usize].down();
             }
         }
@@ -269,7 +269,7 @@ impl Game {
                                 }
                             }
                         },
-                        Err(e) => {
+                        Err(_e) => {
 
                         }
                     }
@@ -405,7 +405,7 @@ impl Game {
             self.vars.mouse_focused = false;
         }
     }
-    pub fn mouse_button(&mut self, mb: MouseButton, a: Action) {
+    pub fn mouse_button(&mut self, _mb: MouseButton, _a: Action) {
 
     }
     pub fn keyboard(&mut self, key: Key, action: Action) {

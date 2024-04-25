@@ -198,10 +198,6 @@ impl Game {
 
         let gqarc = self.chunksys.geoqueue.clone();
 
-        // static mut TEMP_COUNT: i32 = 0;
-        // unsafe {
-            
-        //     if TEMP_COUNT == 0 {
 
                 match gqarc.pop() {
                     Some(index) => {
@@ -213,7 +209,6 @@ impl Game {
                             &self.shader0, &banklock);
                             #[cfg(feature = "yap_about_chunks")]
                             println!("Chunk popped!");
-                            //TEMP_COUNT += 1;
                     },
                     None => {
 
@@ -244,8 +239,6 @@ impl Game {
                         SUNRISE_LOC = gl::GetUniformLocation(self.shader0.shader_id, b"sunrise\0".as_ptr() as *const i8);
                     }
                     let cam_lock = self.camera.lock().unwrap();
-                    //Game::print_matrix(&cam_lock.mvp);
-                    //while gl::GetError() != gl::NO_ERROR {}
 
 
                     gl::UniformMatrix4fv(MVP_LOC, 1, gl::FALSE, cam_lock.mvp.to_cols_array().as_ptr());
@@ -353,54 +346,7 @@ impl Game {
                     
                 }
 
-                // static mut geo: ChunkGeo = ChunkGeo{
-                //     data32: Vec::new(),
-                //     data8: Vec::new(),
-                //     pos: IVec2{x:0, y:0},
-                //     vbo32: 0,
-                //     vbo8: 0
-                // };
-                // unsafe {
-                //     if geo.vbo32 == 0 {
-                //         unsafe {
-                //             gl::CreateBuffers(1, &mut geo.vbo32);
-                //             gl::CreateBuffers(1, &mut geo.vbo8);
-                //         }
-                //         geo.data32 = vec![
-                //             PackedVertex::pack(0, 0, 0, 0, 15, 0, 0, 0).0,
-                //             PackedVertex::pack(10, 0, 0, 1, 15, 0, 0, 0).0,
-                //             PackedVertex::pack(10, 10, 0, 2, 15, 0, 0, 0).0,
 
-                //             PackedVertex::pack(10, 10, 0, 3, 15, 0, 0, 0).0,
-                //             PackedVertex::pack(0, 10, 0, 4, 15, 0, 0, 0).0,
-                //             PackedVertex::pack(0, 0, 0, 5, 15, 0, 0, 0).0,
-                //         ];
-
-                //         geo.data8 = vec![
-                //             PackedVertex::pack(0, 0, 0, 0, 15, 0, 0, 0).1,
-                //             PackedVertex::pack(10, 0, 0, 1, 15, 0, 0, 0).1,
-                //             PackedVertex::pack(10, 10, 0, 2, 15, 0, 0, 0).1,
-
-                //             PackedVertex::pack(10, 10, 0, 3, 15, 0, 0, 0).1,
-                //             PackedVertex::pack(0, 10, 0, 4, 15, 0, 0, 0).1,
-                //             PackedVertex::pack(0, 0, 0, 5, 15, 0, 0, 0).1,
-                //         ];
-                //     }
-                // }
-                
-
-                
-
-                // unsafe {
-                //     gl::Uniform2f(C_POS_LOC, 0 as f32, 0 as f32);
-                //     WorldGeometry::bind_geometry(geo.vbo32, geo.vbo8, true, &self.shader0, &geo);
-                //     gl::DrawArrays(gl::TRIANGLES, 0, geo.data32.len() as i32);
-                // }
-
-
-                
-        //     }
-        // }
             
     }
 

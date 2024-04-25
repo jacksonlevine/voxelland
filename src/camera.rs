@@ -26,8 +26,8 @@ impl Camera {
         let direction = Vec3::new(0.0, 0.0, 1.0);
         let position = Vec3::new(0.0, 100.0, 0.0);
         let right = Vec3::new(0.0, 1.0, 0.0).cross(direction).normalize();
-        let fov: f32 = 90.0;
-        let far = 1000.0;
+        let fov: f32 = 80.0;
+        let far = 560.0;
         let near = 0.01;
         let up = direction.cross(right);
 
@@ -51,26 +51,39 @@ impl Camera {
             near
         }
     }
+    pub fn update_fov(&mut self, value: f32) {
+        self.fov = value.clamp(50.0, 160.0);
+        self.projection = Mat4::perspective_rh_gl(self.fov.to_radians(), 1280.0 / 720.0, self.near, self.far);
+        self.recalculate();
+    }   
     pub fn recalculate(&mut self) {
         self.right = Vec3::new(0.0, 1.0, 0.0).cross(self.direction).normalize();
         self.up = self.direction.cross(self.right);
         self.view = Mat4::look_at_rh(self.position, self.position + self.direction, self.up);
         self.mvp = self.projection * self.model * self.view;
     }
-    pub fn respond_to_controls(&mut self, cs: &ControlsState) {
+    pub fn respond_to_controls(&mut self, cs: &ControlsState, delta: &f32, speed_mult: f32) {
+
+        if self.velocity.length() > 0.0 {
+            let amt_to_subtract = self.velocity * *delta * speed_mult;
+            self.position += amt_to_subtract;
+            self.velocity -= amt_to_subtract;
+        }
+
         if cs.forward {
-            self.position += self.direction * 0.1;
+            self.velocity += self.direction * *delta * speed_mult;
         }
         if cs.left {
-            self.position += self.right * -0.1;
+            self.velocity += self.right * *delta * speed_mult;
         }
         if cs.back {
-            self.position += self.direction * -0.1;
+            self.velocity += self.direction * -*delta * speed_mult;
         }
         if cs.right {
-            self.position += self.right * 0.1;
+            self.velocity += self.right * -*delta * speed_mult;
         }
         self.recalculate();
+
         #[cfg(feature = "show_cam_pos")]
         println!("Cam pos: {}, {}, {}", self.position.x, self.position.y, self.position.z);
     }

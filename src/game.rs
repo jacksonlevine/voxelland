@@ -1,7 +1,8 @@
 use core::time;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, Arc};
-use std::thread;
+use std::thread::{self, sleep};
+use glfw::ffi::glfwGetTime;
 use glfw::{Action, Context, Glfw, GlfwReceiver, Key, MouseButton, PWindow, Window, WindowEvent};
 use glam::Vec3;
 
@@ -12,6 +13,8 @@ use crate::vec::IVec2;
 use crate::worldgeometry::WorldGeometry; 
 use crate::shader::Shader;
 use crate::camera::Camera;
+use crate::fader::Fader;
+use std::sync::RwLock;
 
 pub struct ControlsState {
     pub left: bool,
@@ -24,7 +27,8 @@ pub struct ControlsState {
 pub struct GameVariables {
     first_mouse: bool,
     mouse_focused: bool,
-    sensitivity: f32
+    sensitivity: f32,
+    movement_fov_cooldown: f32
 }
 
 pub struct Game {
@@ -35,7 +39,14 @@ pub struct Game {
     run_chunk_thread: Arc<AtomicBool>,
     chunk_thread: Option<thread::JoinHandle<()>>,
     vars: GameVariables,
-    controls: ControlsState
+    controls: ControlsState,
+    faders: Arc<RwLock<Vec<Fader>>>,
+    prev_time: f32,
+    delta_time: f32
+}
+
+enum FaderNames {
+    FovFader = 0
 }
 
 
@@ -43,6 +54,13 @@ impl Game {
 
     pub fn new() -> Game {
         let shader0 = Shader::new("assets/vert.glsl", "assets/frag.glsl");
+        let faders: RwLock<Vec<Fader>> = RwLock::new(Vec::new());
+        let cam = Arc::new(Mutex::new(Camera::new()));
+
+        faders.write().unwrap().extend(vec![
+            Fader::new(85.0, 80.0, 30.0, false)
+        ]);
+
         unsafe {
             gl::BindVertexArray(shader0.vao);
             let error = unsafe { gl::GetError() };
@@ -55,28 +73,58 @@ impl Game {
         Game {
             chunksys: Arc::new(ChunkSystem::new(8)),
             shader0,
-            camera: Arc::new(Mutex::new(Camera::new())),
+            camera: cam,
             worldtexture,
             run_chunk_thread: Arc::new(AtomicBool::new(true)),
             chunk_thread: None,
             vars: GameVariables {
                 first_mouse: true,
                 mouse_focused: false,
-                sensitivity: 0.25
+                sensitivity: 0.25,
+                movement_fov_cooldown: 0.1
             },
             controls: ControlsState {
                 left: false,
                 right: false,
                 forward: false,
                 back: false,
-            }
+            },
+            faders: Arc::new(faders),
+            prev_time: 0.0,
+            delta_time: 0.0
         }
     }
 
     pub fn update(&mut self) {
+
+            
+        let current_time = unsafe { glfwGetTime() as f32 };
+        self.delta_time = current_time - self.prev_time; 
+
+        self.prev_time = current_time;
+        for i in self.faders.write().unwrap().iter_mut().enumerate() {
+            if i.1.tick(self.delta_time) {
+                if i.0 == (FaderNames::FovFader as usize) {
+                    self.camera.lock().unwrap().update_fov(i.1.value);
+                }
+            }
+        }
+        if self.controls.forward || self.controls.back || self.controls.left || self.controls.right {
+            if(!self.faders.read().unwrap()[FaderNames::FovFader as usize].mode) {
+                self.faders.write().unwrap()[FaderNames::FovFader as usize].up();
+            }
+        } else {
+            if(self.faders.read().unwrap()[FaderNames::FovFader as usize].mode) {
+                self.faders.write().unwrap()[FaderNames::FovFader as usize].down();
+            }
+                
+        }
+            
+                
+
         
         self.draw();
-        self.camera.lock().unwrap().respond_to_controls(&self.controls);
+        self.camera.lock().unwrap().respond_to_controls(&self.controls, &self.delta_time, 10.0);
     }
 
     fn print_matrix(mvp: &glam::Mat4) {
@@ -334,6 +382,8 @@ impl Game {
         });
         
         self.chunk_thread = Some(handle);
+
+
     }
 
     pub fn chunk_thread_function(runcheck: &AtomicBool, cam_arc: Arc<Mutex<Camera>>, csys_arc: Arc<ChunkSystem>) {
@@ -457,16 +507,45 @@ impl Game {
     pub fn keyboard(&mut self, key: Key, action: Action) {
         match key {
             Key::W => {
-                self.controls.forward = (action == Action::Press || action == Action::Repeat);
+                if action == Action::Press || action == Action::Repeat {
+                    self.controls.forward = true;
+                } else {
+                    self.controls.forward = false;
+                }
             },
             Key::A => {
-                self.controls.left = (action == Action::Press || action == Action::Repeat);
+                if action == Action::Press || action == Action::Repeat {
+                    self.controls.left = true;
+                } else {
+                    self.controls.left = false;
+                }
             },
             Key::S => {
-                self.controls.back = (action == Action::Press || action == Action::Repeat);
+                
+                if action == Action::Press || action == Action::Repeat {
+                    self.controls.back= true;
+                } else {
+                    self.controls.back = false;
+                }
             },
             Key::D => {
-                self.controls.right = (action == Action::Press || action == Action::Repeat);
+                
+                if action == Action::Press || action == Action::Repeat {
+                    self.controls.right = true;
+                } else {
+                    self.controls.right = false;
+                }
+
+            },
+            Key::Num0 => {
+                let mut camlock = self.camera.lock().unwrap();
+                let f = camlock.fov;
+                camlock.update_fov(f + 1.0);
+            },
+            Key::Num9 => {
+                let mut camlock = self.camera.lock().unwrap();
+                let f = camlock.fov;
+                camlock.update_fov(f - 1.0);
             },
             _ => {
 

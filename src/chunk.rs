@@ -226,9 +226,9 @@ impl ChunkSystem {
                 spot.z as f64 / 55.35
             ]) * 10.0
             + self.perlin.get([
-                spot.x as f64 + 10000 as f64 / 25.35,
+                spot.x as f64 / 25.35,
                 y as f64 / 65.35,
-                spot.z as f64 + 10000 as f64 / 25.35
+                spot.z as f64 / 25.35
             ]) * 20.0
             - f64::max(y as f64 / 3.0, 0.0)
         );
@@ -270,11 +270,27 @@ impl ChunkSystem {
     }
 
     pub fn blockat(&self, spot: vec::IVec3) -> u32 {
+
+        static WL: f32 = 40.0;
         
-        if self.noise_func(spot) > 5.0 {
-            1
+        if self.noise_func(spot) > 10.0 {
+            if self.noise_func(spot + vec::IVec3{x:0, y:10, z:0}) > 10.0 {
+                return 5;
+            }
+            if spot.y > (WL + 2.0) as i32 || self.noise_func(spot + vec::IVec3{x:0, y:5, z:0}) > 10.0 {
+                if self.noise_func(spot + vec::IVec3{x:0, y:1, z:0}) < 10.0 {
+                    return 3;
+                }
+                return 4;
+            } else {
+                return 1;
+            }
         } else {
-            0
+            if spot.y < WL as i32 {
+                return 2;
+            } else {
+                return 0;
+            }
         }
 
     }

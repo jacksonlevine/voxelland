@@ -14,6 +14,7 @@ mod game;
 mod camera;
 mod texture;
 mod blockinfo;
+mod fader;
 
 #[cfg(test)]
 mod tests;

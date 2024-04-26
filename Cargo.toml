@@ -23,6 +23,12 @@ tracing-subscriber = "0.3.18"
 name = "benches"
 harness = false
 
+[profile.release]
+opt-level = 3       # Highest level of optimization
+lto = true          # Enable Link Time Optimization
+panic = 'abort'     # Abort on panic, which can reduce binary size and slightly increase performance
+codegen-units = 1   # This may increase compilation time but can improve runtime performance
+
 [features]
 show_cam_pos = []
 one_chunk = []

@@ -10,6 +10,7 @@ pub struct IVec2 {
 impl Add for IVec2 {
     type Output = IVec2;
 
+    #[inline]
     fn add(self, rhs: Self) -> Self::Output {
         IVec2 {
             x: self.x + rhs.x,
@@ -21,6 +22,7 @@ impl Add for IVec2 {
 impl Sub for IVec2 {
     type Output = IVec2;
 
+    #[inline]
     fn sub(self, rhs: Self) -> Self::Output {
         IVec2 {
             x: self.x - rhs.x,
@@ -39,6 +41,7 @@ pub struct IVec3 {
 impl Add for IVec3 {
     type Output = IVec3;
 
+    #[inline]
     fn add(self, rhs: Self) -> Self::Output {
         IVec3 {
             x: self.x + rhs.x,
@@ -51,6 +54,7 @@ impl Add for IVec3 {
 impl Sub for IVec3 {
     type Output = IVec3;
 
+    #[inline]
     fn sub(self, rhs: Self) -> Self::Output {
         IVec3 {
             x: self.x - rhs.x,

@@ -1,25 +1,29 @@
-use windowandkey::WindowAndKeyContext;
+use tracing_subscriber::fmt::format::FmtSpan;
+use tracing_subscriber::fmt::writer::BoxMakeWriter;
+use tracing_subscriber::fmt::Subscriber;
+use std::fs::File;
+use std::io;
 
-use game::Game;
+use voxelland::windowandkey::WindowAndKeyContext;
 
-mod blockinfo;
-mod camera;
-mod chunk;
-mod collisioncage;
-mod cube;
-mod fader;
-mod game;
-mod packedvertex;
-mod shader;
-mod texture;
-mod vec;
-mod windowandkey;
-mod worldgeometry;
+use voxelland::game::Game;
 
-#[cfg(test)]
-mod tests;
 
 fn main() {
+
+    let file = File::create("app.log").unwrap();
+    let make_writer = BoxMakeWriter::new(file);
+
+    let subscriber = Subscriber::builder()
+        .with_writer(make_writer)
+        .with_span_events(FmtSpan::CLOSE)
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("setting default subscriber failed");
+
+    tracing::info!("Testing the log");
+
     let mut wak_context = WindowAndKeyContext::new("Barkaroo");
 
     let game = Game::new();

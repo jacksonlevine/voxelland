@@ -303,15 +303,11 @@ impl Game {
         self.chunk_thread = Some(handle);
     }
 
-    pub fn chunk_thread_function(
-        runcheck: &AtomicBool,
-        cam_arc: Arc<Mutex<Camera>>,
-        csys_arc: Arc<ChunkSystem>,
+    pub fn chunk_thread_inner_function(
+        cam_arc: &Arc<Mutex<Camera>>,
+        csys_arc: &Arc<ChunkSystem>,
     ) {
-        //static mut TEMP_COUNT: i32 = 0;
-
-        while runcheck.load(Ordering::Relaxed) {
-            let mut neededspots: Vec<IVec2> = Vec::new();
+        let mut neededspots: Vec<IVec2> = Vec::new();
 
             let cam_lock = cam_arc.lock().unwrap();
             let user_cpos = IVec2 {
@@ -321,19 +317,17 @@ impl Game {
             drop(cam_lock);
 
             let tcarc = csys_arc.takencare.clone();
-            let tclock = tcarc.lock().unwrap();
             for i in -(csys_arc.radius as i32)..(csys_arc.radius as i32) {
                 for k in -(csys_arc.radius as i32)..(csys_arc.radius as i32) {
                     let this_spot = IVec2 {
                         x: user_cpos.x + i as i32,
                         y: user_cpos.y + k as i32,
                     };
-                    if !tclock.contains_key(&this_spot) {
+                    if !tcarc.contains_key(&this_spot) {
                         neededspots.push(this_spot);
                     }
                 }
             }
-            drop(tclock);
 
             let mut sorted_chunk_facades: Vec<ChunkFacade> = Vec::new();
 
@@ -363,7 +357,23 @@ impl Game {
             for (index, ns) in neededspots.iter().enumerate() {
                 csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns);
             }
+    }
+
+    pub fn chunk_thread_function(
+        runcheck: &AtomicBool,
+        cam_arc: Arc<Mutex<Camera>>,
+        csys_arc: Arc<ChunkSystem>,
+    ) {
+        //static mut TEMP_COUNT: i32 = 0;
+
+        while runcheck.load(Ordering::Relaxed) {
+
+            Game::chunk_thread_inner_function(&cam_arc, &csys_arc);
+            
             thread::sleep(time::Duration::from_secs(2));
+
+
+
         }
     }
     pub fn cursor_pos(&mut self, xpos: f64, ypos: f64) {

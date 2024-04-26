@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use dashmap::DashMap;
 use num_enum::FromPrimitive;
 use std::sync::{Arc, Mutex};
 
@@ -65,7 +66,7 @@ static CH: i32 = 128;
 pub struct ChunkSystem {
     pub chunks: Vec<Arc<Mutex<ChunkFacade>>>,
     pub geobank: Vec<Arc<Mutex<ChunkGeo>>>,
-    pub takencare: Arc<Mutex<HashMap<vec::IVec2, ChunkFacade>>>,
+    pub takencare: Arc<DashMap<vec::IVec2, ChunkFacade>>,
     pub geoqueue: Arc<lockfree::queue::Queue<usize>>,
     pub radius: u8,
     pub perlin: Perlin,
@@ -76,7 +77,7 @@ impl ChunkSystem {
         let mut cs = ChunkSystem {
             chunks: Vec::new(),
             geobank: Vec::new(),
-            takencare: Arc::new(Mutex::new(HashMap::new())),
+            takencare: Arc::new(DashMap::new()),
             geoqueue: Arc::new(lockfree::queue::Queue::new()),
             radius,
             perlin: Perlin::new(1),
@@ -101,27 +102,24 @@ impl ChunkSystem {
         cs
     }
     pub fn move_and_rebuild(&self, index: usize, cpos: vec::IVec2) {
-        let takencare = self.takencare.clone();
-        let mut takencarelock = takencare.lock().unwrap();
+        let tc = self.takencare.clone();
 
-        if !takencarelock.contains_key(&cpos) {
+        if !tc.contains_key(&cpos) {
             let chunkarc = self.chunks[index].clone();
             let mut chunklock = chunkarc.lock().unwrap();
 
-            if takencarelock.contains_key(&chunklock.pos) {
-                takencarelock.remove(&chunklock.pos);
+            if tc.contains_key(&chunklock.pos) {
+                tc.remove(&chunklock.pos);
             }
             chunklock.pos = cpos;
             drop(chunklock);
-            drop(takencarelock);
             let chunkgeoarc = self.geobank[index].clone();
             let mut chunkgeolock = chunkgeoarc.lock().unwrap();
             chunkgeolock.pos = cpos;
             drop(chunkgeolock);
             self.rebuild_index(index);
         } else {
-            let ind = takencarelock.get(&cpos).unwrap().geo_index;
-            drop(takencarelock);
+            let ind = tc.get(&cpos).unwrap().geo_index;
             self.rebuild_index(ind);
         }
     }
@@ -191,12 +189,11 @@ impl ChunkSystem {
         let gqarc = self.geoqueue.clone();
         gqarc.push(index);
 
-        let takencare = self.takencare.clone();
-        let mut takencarelock = takencare.lock().unwrap();
+        let tc = self.takencare.clone();
         #[cfg(feature = "yap_about_chunks")]
         println!("Got past tclock 2");
-        if !takencarelock.contains_key(&chunklock.pos) {
-            takencarelock.insert(chunklock.pos, *chunklock);
+        if !tc.contains_key(&chunklock.pos) {
+            tc.insert(chunklock.pos, *chunklock);
             #[cfg(feature = "yap_about_chunks")]
             println!("Inserting into taken care ");
         }
@@ -257,14 +254,21 @@ impl ChunkSystem {
     }
 
     pub fn blockatmemo(&self, spot: vec::IVec3, memo: &mut HashMap<vec::IVec3, u32>) -> u32 {
-        match memo.get(&spot) {
+    
+        // return memo.get(&spot).map_or_else(|| {
+        //     let b = self.blockat(spot);
+        //     memo.insert(spot, b);
+        //     b
+        // }, |b| *b);
+
+        return match memo.get(&spot) {
             Some(b) => {
-                return *b;
+                *b
             }
             None => {
                 let b = self.blockat(spot);
                 memo.insert(spot, b);
-                return b;
+                b
             }
         }
 

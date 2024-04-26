@@ -1,4 +1,4 @@
-use crate::packedvertex::PackedVertex;
+use voxelland::packedvertex::PackedVertex;
 
 #[test]
 fn test_coord_packing() {

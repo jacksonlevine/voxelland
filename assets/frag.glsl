@@ -42,9 +42,9 @@ void main()
 
     
 
-    // if(FragColor.a < 0.4) {
-    //     discard;
-    // }
+    if(FragColor.a < 0.4) {
+        discard;
+    }
 
     if(FragColor.a < 1.0) {
         FragColor.a += distance*2.5f;

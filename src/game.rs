@@ -22,12 +22,13 @@ pub struct ControlsState {
     pub right: bool,
     pub forward: bool,
     pub back: bool,
+    pub up: bool,
 }
 
 pub struct GameVariables {
     first_mouse: bool,
     mouse_focused: bool,
-    sensitivity: f32
+    sensitivity: f32,
 }
 
 pub struct Game {
@@ -43,6 +44,11 @@ pub struct Game {
     delta_time: f32,
     user_bound_box: BoundBox,
     coll_cage: CollCage,
+    grounded: bool,
+    jumping_up: bool,
+    time_falling_scalar: f32,
+    current_jump_y: f32,
+    allowable_jump_height: f32
 }
 
 enum FaderNames {
@@ -94,12 +100,18 @@ impl Game {
                 right: false,
                 forward: false,
                 back: false,
+                up: false
             },
             faders: Arc::new(faders),
             prev_time: 0.0,
             delta_time: 0.0,
             user_bound_box: BoundBox::new(Vec3::new(0.0, 0.0, 0.0)),
             coll_cage: CollCage::new(solid_pred),
+            grounded: false,
+            jumping_up: false,
+            time_falling_scalar: 1.0,
+            current_jump_y: 0.0,
+            allowable_jump_height: 1.1
         }
     }
 
@@ -129,6 +141,40 @@ impl Game {
 
         let mut camlock = self.camera.lock().unwrap();
 
+        if !self.coll_cage.solid.contains(&Side::FLOOR) {
+            self.grounded = false;
+        } else {
+
+        }
+
+        const GRAV: f32 = 6.5;
+
+        if !self.grounded && !self.jumping_up {
+            self.time_falling_scalar = (self.time_falling_scalar + self.delta_time*5.0).min(3.0);
+        } else {
+            self.time_falling_scalar = 1.0;
+        }
+
+        if !self.grounded && !self.jumping_up {
+            camlock.velocity += Vec3::new(0.0, -GRAV * self.time_falling_scalar * self.delta_time, 0.0);
+        }
+
+        if self.jumping_up {
+            if camlock.position.y < self.current_jump_y + self.allowable_jump_height {
+                let curr_cam_y = camlock.position.y;
+                camlock.velocity += Vec3::new(0.0, (((self.current_jump_y + self.allowable_jump_height + 0.3) - curr_cam_y)*10.0)*self.delta_time, 0.0);
+            } else {
+                self.jumping_up = false;
+            }
+        }
+
+        if self.controls.up && self.grounded {
+            self.grounded = false;
+            self.current_jump_y = camlock.position.y;
+            self.jumping_up = true;
+            self.controls.up = false;
+        }
+
         let cc_center = camlock.position + Vec3::new(0.0, -1.0, 0.0);
         self.coll_cage.update_readings(cc_center);
 
@@ -143,6 +189,13 @@ impl Game {
                     proposed += self.coll_cage.normals[*side as usize]
                         * self.coll_cage.penetrations[*side as usize];
                     corr_made.push(self.coll_cage.normals[*side as usize]);
+                }
+                if *side == Side::FLOOR {
+                    self.grounded = true;
+                }
+                if *side == Side::ROOF {
+                    self.jumping_up = false;
+                    self.grounded = false;
                 }
             }
         }
@@ -463,15 +516,12 @@ impl Game {
                     self.controls.right = false;
                 }
             }
-            Key::Num0 => {
-                let mut camlock = self.camera.lock().unwrap();
-                let f = camlock.fov;
-                camlock.update_fov(f + 1.0);
-            }
-            Key::Num9 => {
-                let mut camlock = self.camera.lock().unwrap();
-                let f = camlock.fov;
-                camlock.update_fov(f - 1.0);
+            Key::Space => {
+                if action == Action::Press || action == Action::Repeat {
+                    self.controls.up = true;
+                } else {
+                    self.controls.up = false;
+                }
             }
             _ => {}
         }

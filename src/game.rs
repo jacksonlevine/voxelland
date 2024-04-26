@@ -295,8 +295,6 @@ impl Game {
                     &self.shader0,
                     banklock.transparents(),
                 );
-                #[cfg(feature = "yap_about_chunks")]
-                println!("Chunk popped!");
             }
             None => {}
         }

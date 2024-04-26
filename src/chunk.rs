@@ -117,7 +117,7 @@ impl ChunkSystem {
             }
         }
 
-        println!("Amount of chunkgeo buffers: {}", 2 * cs.geobank.len());
+        //tracing::info!("Amount of chunkgeo buffers: {}", 4 * cs.geobank.len());
 
         cs
     }
@@ -145,19 +145,15 @@ impl ChunkSystem {
     }
 
     pub fn rebuild_index(&self, index: usize) {
-        #[cfg(feature = "yap_about_chunks")]
-        println!("Rebuild index {}", index);
 
         let chunkarc = self.chunks[index].clone();
         let mut chunklock = chunkarc.lock().unwrap();
         chunklock.used = true;
-        #[cfg(feature = "yap_about_chunks")]
-        println!("Got past chunk lock");
+
         let geobankarc = self.geobank[index].clone();
         let mut geobanklock = geobankarc.lock().unwrap();
         geobanklock.clear();
-        #[cfg(feature = "yap_about_chunks")]
-        println!("Got past clearing geobank");
+
 
         let mut memo: HashMap<vec::IVec3, u32> = HashMap::new();
 
@@ -240,18 +236,15 @@ impl ChunkSystem {
                 }
             }
         }
-        #[cfg(feature = "yap_about_chunks")]
-        println!("Got past traversal");
+
         let gqarc = self.geoqueue.clone();
         gqarc.push(index);
 
         let tc = self.takencare.clone();
-        #[cfg(feature = "yap_about_chunks")]
-        println!("Got past tclock 2");
+
         if !tc.contains_key(&chunklock.pos) {
             tc.insert(chunklock.pos, *chunklock);
-            #[cfg(feature = "yap_about_chunks")]
-            println!("Inserting into taken care ");
+
         }
     }
 

@@ -21,8 +21,6 @@ fn main() {
     tracing::subscriber::set_global_default(subscriber)
         .expect("setting default subscriber failed");
 
-    tracing::info!("Testing the log");
-
     let mut wak_context = WindowAndKeyContext::new("Barkaroo");
 
     let game = Game::new();

@@ -24,6 +24,5 @@ name = "benches"
 harness = false
 
 [features]
-yap_about_chunks = []
 show_cam_pos = []
 one_chunk = []

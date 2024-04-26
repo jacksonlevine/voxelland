@@ -226,6 +226,7 @@ impl ChunkSystem {
 
         let mut geobanklock = geobankarc.geos[num as usize].lock().unwrap();
         
+        #[cfg(feature="structures")]
         if !self.generated.contains(&geobanklock.pos) {
             self.generate_chunk(&geobanklock.pos);
             self.generated.insert(geobanklock.pos);

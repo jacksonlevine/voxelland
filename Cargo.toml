@@ -34,3 +34,4 @@ panic = 'abort'     # Abort on panic, which can reduce binary size and slightly 
 [features]
 show_cam_pos = []
 one_chunk = []
+structures = []

@@ -1,5 +1,5 @@
 use core::time;
-use glam::Vec3;
+use glam::{Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
 use glfw::{Action, Key, MouseButton};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -29,11 +29,14 @@ pub struct GameVariables {
     first_mouse: bool,
     mouse_focused: bool,
     sensitivity: f32,
+    sky_color: Vec4,
+    sky_bottom: Vec4
 }
 
 pub struct Game {
     chunksys: Arc<ChunkSystem>,
     shader0: Shader,
+    skyshader: Shader,
     camera: Arc<Mutex<Camera>>,
     run_chunk_thread: Arc<AtomicBool>,
     chunk_thread: Option<thread::JoinHandle<()>>,
@@ -58,6 +61,7 @@ enum FaderNames {
 impl Game {
     pub fn new() -> Game {
         let shader0 = Shader::new("assets/vert.glsl", "assets/frag.glsl");
+        let skyshader = Shader::new("assets/skyvert.glsl", "assets/skyfrag.glsl");
         let faders: RwLock<Vec<Fader>> = RwLock::new(Vec::new());
         let cam = Arc::new(Mutex::new(Camera::new()));
 
@@ -76,7 +80,7 @@ impl Game {
         let tex = Texture::new("assets/world.png").unwrap();
         tex.add_to_unit(0);
 
-        let chunksys = Arc::new(ChunkSystem::new(8));
+        let chunksys = Arc::new(ChunkSystem::new(10));
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
             let csys_arc = Arc::clone(&chunksys);
@@ -87,13 +91,16 @@ impl Game {
         Game {
             chunksys,
             shader0,
+            skyshader,
             camera: cam,
             run_chunk_thread: Arc::new(AtomicBool::new(true)),
             chunk_thread: None,
             vars: GameVariables {
                 first_mouse: true,
                 mouse_focused: false,
-                sensitivity: 0.25
+                sensitivity: 0.25,
+                sky_color: Vec4::new(0.5, 0.7, 1.0, 1.0),
+                sky_bottom: Vec4::new(1.0, 1.0, 1.0, 1.0)
             },
             controls: ControlsState {
                 left: false,
@@ -203,10 +210,61 @@ impl Game {
         camlock.recalculate();
     }
 
+    pub fn draw_sky(&self, top: Vec4, bot: Vec4) {
+        //Sky
+        unsafe {
+            gl::BindVertexArray(self.skyshader.vao);
+            gl::UseProgram(self.skyshader.shader_id);
+            gl::Disable(gl::DEPTH_TEST);
+        }
+        static mut T_C_LOC: i32 = -1;
+        static mut B_C_LOC: i32 = 0;
+        static mut C_P_LOC: i32 = 0;
+        static mut A_B_LOC: i32 = 0;
+        static mut S_S_LOC: i32 = 0;
+        static mut S_R_LOC: i32 = 0;
+        static mut C_D_LOC: i32 = 0;
+
+        unsafe {
+            if T_C_LOC == -1 {
+                T_C_LOC = gl::GetUniformLocation(self.skyshader.shader_id, b"top_color\0".as_ptr() as *const i8);
+                B_C_LOC = gl::GetUniformLocation(self.skyshader.shader_id, b"bot_color\0".as_ptr() as *const i8);
+                C_P_LOC = gl::GetUniformLocation(self.skyshader.shader_id, b"cpitch\0".as_ptr() as *const i8);
+                A_B_LOC = gl::GetUniformLocation(self.skyshader.shader_id, b"brightMult\0".as_ptr() as *const i8);
+                S_S_LOC = gl::GetUniformLocation(self.skyshader.shader_id, b"sunset\0".as_ptr() as *const i8);
+                S_R_LOC = gl::GetUniformLocation(self.skyshader.shader_id, b"sunrise\0".as_ptr() as *const i8);
+                C_D_LOC = gl::GetUniformLocation(self.skyshader.shader_id, b"camDir\0".as_ptr() as *const i8);
+            } 
+
+            let camlock = self.camera.lock().unwrap();
+            gl::Uniform1f(C_P_LOC, camlock.pitch);
+            gl::Uniform3f(C_D_LOC, camlock.direction.x, camlock.direction.y, camlock.direction.z);
+            drop(camlock);
+
+            gl::Uniform4f(T_C_LOC, top.x, top.y, top.z, top.w);
+            gl::Uniform4f(B_C_LOC, bot.x, bot.y, bot.z, bot.w);
+            
+            gl::Uniform1f(A_B_LOC, 1.0);
+            gl::Uniform1f(S_S_LOC, 0.0);
+            gl::Uniform1f(S_R_LOC, 0.0);
+
+            gl::DrawArrays(gl::TRIANGLES, 0, 3);
+            gl::BindVertexArray(0);
+            gl::Enable(gl::DEPTH_TEST);
+        }
+    }
+
     pub fn draw(&self) {
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl::ClearColor(0.5, 0.7, 1.0, 1.0);
+        }
+
+        //Sky
+        self.draw_sky(self.vars.sky_color, self.vars.sky_bottom);
+        
+        //Chunks
+        unsafe {
             gl::BindVertexArray(self.shader0.vao);
             gl::UseProgram(self.shader0.shader_id);
         }
@@ -243,7 +301,7 @@ impl Game {
             None => {}
         }
 
-        static mut C_POS_LOC: i32 = 0;
+        static mut C_POS_LOC: i32 = -1;
         static mut MVP_LOC: i32 = 0;
         static mut CAM_POS_LOC: i32 = 0;
         static mut AMBIENT_BRIGHT_MULT_LOC: i32 = 0;
@@ -253,7 +311,7 @@ impl Game {
         static mut SUNSET_LOC: i32 = 0;
         static mut SUNRISE_LOC: i32 = 0;
         unsafe {
-            if C_POS_LOC == 0 {
+            if C_POS_LOC == -1 {
                 C_POS_LOC = gl::GetUniformLocation(
                     self.shader0.shader_id,
                     b"chunkpos\0".as_ptr() as *const i8,

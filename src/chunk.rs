@@ -175,8 +175,10 @@ impl ChunkSystem {
                             for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
                                 let neigh_block = self.blockatmemo(spot + *neigh, &mut memo);
                                 let cubeside = CubeSide::from_primitive(indie);
+                                let neigh_semi_trans = Blocks::is_semi_transparent(neigh_block);
+                                let water_bordering_transparent = block == 2 && neigh_block != 2 && Blocks::is_transparent(neigh_block);
     
-                                if neigh_block == 0 {
+                                if neigh_block == 0 || neigh_semi_trans || water_bordering_transparent {
                                     let side = Cube::get_side(cubeside);
                                     let mut packed32: [u32; 6] = [0, 0, 0, 0, 0, 0];
                                     let mut packed8: [u8; 6] = [0, 0, 0, 0, 0, 0];

@@ -18,15 +18,23 @@ pub struct ChunkGeo {
     pub pos: vec::IVec2,
     pub vbo32: gl::types::GLuint,
     pub vbo8: gl::types::GLuint,
+    pub tdata32: Vec<u32>,
+    pub tdata8: Vec<u8>,
+    pub tvbo32: gl::types::GLuint,
+    pub tvbo8: gl::types::GLuint,
 }
 impl ChunkGeo {
     pub fn new() -> ChunkGeo {
         let mut vbo32: gl::types::GLuint = 0;
         let mut vbo8: gl::types::GLuint = 0;
+        let mut tvbo32: gl::types::GLuint = 0;
+        let mut tvbo8: gl::types::GLuint = 0;
 
         unsafe {
             gl::CreateBuffers(1, &mut vbo32);
             gl::CreateBuffers(1, &mut vbo8);
+            gl::CreateBuffers(1, &mut tvbo32);
+            gl::CreateBuffers(1, &mut tvbo8);
             let error = gl::GetError();
             if error != gl::NO_ERROR {
                 println!(
@@ -45,11 +53,23 @@ impl ChunkGeo {
             },
             vbo32,
             vbo8,
+            tdata32: Vec::new(),
+            tdata8: Vec::new(),
+            tvbo32,
+            tvbo8,
         }
     }
     pub fn clear(&mut self) {
         self.data32.clear();
         self.data8.clear();
+        self.tdata32.clear();
+        self.tdata8.clear();
+    }
+    pub fn solids(&self) -> (&Vec<u32>, &Vec<u8>) {
+        return (&self.data32, &self.data8);
+    }
+    pub fn transparents(&self) -> (&Vec<u32>, &Vec<u8>) {
+        return (&self.tdata32, &self.tdata8);
     }
 }
 
@@ -151,35 +171,69 @@ impl ChunkSystem {
                     };
                     let block = self.blockatmemo(spot, &mut memo);
                     if block != 0 {
-                        for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
-                            let neigh_block = self.blockatmemo(spot + *neigh, &mut memo);
-                            let cubeside = CubeSide::from_primitive(indie);
-
-                            if neigh_block == 0 {
-                                let side = Cube::get_side(cubeside);
-                                let mut packed32: [u32; 6] = [0, 0, 0, 0, 0, 0];
-                                let mut packed8: [u8; 6] = [0, 0, 0, 0, 0, 0];
-
-                                let texcoord = Blocks::get_tex_coords(block, cubeside);
-                                for (ind, v) in side.chunks(4).enumerate() {
-                                    let pack = PackedVertex::pack(
-                                        i as u8 + v[0],
-                                        j as u8 + v[1],
-                                        k as u8 + v[2],
-                                        ind as u8,
-                                        v[3],
-                                        0,
-                                        texcoord.0,
-                                        texcoord.1,
-                                    );
-                                    packed32[ind] = pack.0;
-                                    packed8[ind] = pack.1;
+                        if Blocks::is_transparent(block) || Blocks::is_semi_transparent(block) {
+                            for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
+                                let neigh_block = self.blockatmemo(spot + *neigh, &mut memo);
+                                let cubeside = CubeSide::from_primitive(indie);
+    
+                                if neigh_block == 0 {
+                                    let side = Cube::get_side(cubeside);
+                                    let mut packed32: [u32; 6] = [0, 0, 0, 0, 0, 0];
+                                    let mut packed8: [u8; 6] = [0, 0, 0, 0, 0, 0];
+    
+                                    let texcoord = Blocks::get_tex_coords(block, cubeside);
+                                    for (ind, v) in side.chunks(4).enumerate() {
+                                        let pack = PackedVertex::pack(
+                                            i as u8 + v[0],
+                                            j as u8 + v[1],
+                                            k as u8 + v[2],
+                                            ind as u8,
+                                            v[3],
+                                            0,
+                                            texcoord.0,
+                                            texcoord.1,
+                                        );
+                                        packed32[ind] = pack.0;
+                                        packed8[ind] = pack.1;
+                                    }
+    
+                                    geobanklock.tdata32.extend_from_slice(packed32.as_slice());
+                                    geobanklock.tdata8.extend_from_slice(packed8.as_slice());
                                 }
-
-                                geobanklock.data32.extend_from_slice(packed32.as_slice());
-                                geobanklock.data8.extend_from_slice(packed8.as_slice());
+                            }
+                        } else {
+                            for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
+                                let neigh_block = self.blockatmemo(spot + *neigh, &mut memo);
+                                let cubeside = CubeSide::from_primitive(indie);
+                                let neighbor_transparent = Blocks::is_transparent(neigh_block) || Blocks::is_semi_transparent(neigh_block);
+                                
+                                if neigh_block == 0 || neighbor_transparent {
+                                    let side = Cube::get_side(cubeside);
+                                    let mut packed32: [u32; 6] = [0, 0, 0, 0, 0, 0];
+                                    let mut packed8: [u8; 6] = [0, 0, 0, 0, 0, 0];
+    
+                                    let texcoord = Blocks::get_tex_coords(block, cubeside);
+                                    for (ind, v) in side.chunks(4).enumerate() {
+                                        let pack = PackedVertex::pack(
+                                            i as u8 + v[0],
+                                            j as u8 + v[1],
+                                            k as u8 + v[2],
+                                            ind as u8,
+                                            v[3],
+                                            0,
+                                            texcoord.0,
+                                            texcoord.1,
+                                        );
+                                        packed32[ind] = pack.0;
+                                        packed8[ind] = pack.1;
+                                    }
+    
+                                    geobanklock.data32.extend_from_slice(packed32.as_slice());
+                                    geobanklock.data8.extend_from_slice(packed8.as_slice());
+                                }
                             }
                         }
+                        
                     }
                 }
             }

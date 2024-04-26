@@ -10,14 +10,14 @@ impl WorldGeometry {
         vbo8: gl::types::GLuint,
         upload: bool,
         shader: &Shader,
-        data: &ChunkGeo,
+        data: (&Vec<u32>, &Vec<u8>),
     ) {
         unsafe {
             if upload {
                 gl::NamedBufferData(
                     vbo32,
-                    (data.data32.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
-                    data.data32.as_ptr() as *const gl::types::GLvoid,
+                    (data.0.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
+                    data.0.as_ptr() as *const gl::types::GLvoid,
                     gl::STATIC_DRAW,
                 );
 
@@ -33,7 +33,7 @@ impl WorldGeometry {
             gl::VertexArrayVertexBuffer(
                 shader.vao,
                 0,
-                data.vbo32,
+                vbo32,
                 0,
                 std::mem::size_of::<u32>() as i32,
             );
@@ -65,8 +65,8 @@ impl WorldGeometry {
 
                 gl::NamedBufferData(
                     vbo8,
-                    (data.data8.len() * std::mem::size_of::<u8>()) as gl::types::GLsizeiptr,
-                    data.data8.as_ptr() as *const gl::types::GLvoid,
+                    (data.1.len() * std::mem::size_of::<u8>()) as gl::types::GLsizeiptr,
+                    data.1.as_ptr() as *const gl::types::GLvoid,
                     gl::STATIC_DRAW,
                 );
 
@@ -81,7 +81,7 @@ impl WorldGeometry {
             gl::VertexArrayVertexBuffer(
                 shader.vao,
                 1,
-                data.vbo8,
+                vbo8,
                 0,
                 std::mem::size_of::<u8>() as i32,
             );

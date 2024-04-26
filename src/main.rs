@@ -2,7 +2,6 @@ use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::fmt::writer::BoxMakeWriter;
 use tracing_subscriber::fmt::Subscriber;
 use std::fs::File;
-use std::io;
 
 use voxelland::windowandkey::WindowAndKeyContext;
 

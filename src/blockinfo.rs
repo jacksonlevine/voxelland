@@ -21,4 +21,16 @@ impl Blocks {
         ];
         return &TEXS[id as usize][SIDES[side as usize]];
     }
+    pub fn is_transparent(id: u32) -> bool {
+        static TRANSPARENTS: [u32; 2] = [
+            2, 8,
+        ];
+        return TRANSPARENTS.contains(&id);
+    }
+    pub fn is_semi_transparent(id: u32) -> bool {
+        static SEMI_TRANSPARENTS: [u32; 7] = [
+            7, 11, 14, 19, 20, 21, 22
+        ];
+        return SEMI_TRANSPARENTS.contains(&id);
+    }
 }

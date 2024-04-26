@@ -217,12 +217,25 @@ impl Game {
             Some(index) => {
                 let bankarc = self.chunksys.geobank[index].clone();
                 let banklock = bankarc.lock().unwrap();
+
+                let v32 = banklock.vbo32;
+                let v8 = banklock.vbo8;
+                let tv32 = banklock.tvbo32;
+                let tv8 = banklock.tvbo8;
+                
                 WorldGeometry::bind_geometry(
-                    banklock.vbo32,
-                    banklock.vbo8,
+                    v32,
+                    v8,
                     true,
                     &self.shader0,
-                    &banklock,
+                    banklock.solids(),
+                );
+                WorldGeometry::bind_geometry(
+                    tv32,
+                    tv8,
+                    true,
+                    &self.shader0,
+                    banklock.transparents(),
                 );
                 #[cfg(feature = "yap_about_chunks")]
                 println!("Chunk popped!");
@@ -319,7 +332,7 @@ impl Game {
                             banklock.vbo8,
                             true,
                             &self.shader0,
-                            &banklock,
+                            banklock.solids(),
                         );
                         unsafe {
                             gl::Uniform2f(C_POS_LOC, banklock.pos.x as f32, banklock.pos.y as f32);
@@ -329,6 +342,39 @@ impl Game {
                             }
                             //println!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
                             gl::DrawArrays(gl::TRIANGLES, 0, banklock.data32.len() as i32);
+                            let error = gl::GetError();
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after drawing arrays: {}", error);
+                            }
+                            // println!("Chunk rending!");
+                        }
+                    }
+                }
+                Err(_e) => {}
+            }
+        }
+        for cfarc in &self.chunksys.chunks {
+            match cfarc.try_lock() {
+                Ok(cfl) => {
+                    if cfl.used {
+                        let bankarc = self.chunksys.geobank[cfl.geo_index].clone();
+                        let banklock = bankarc.lock().unwrap();
+
+                        WorldGeometry::bind_geometry(
+                            banklock.tvbo32,
+                            banklock.tvbo8,
+                            true,
+                            &self.shader0,
+                            banklock.transparents(),
+                        );
+                        unsafe {
+                            gl::Uniform2f(C_POS_LOC, banklock.pos.x as f32, banklock.pos.y as f32);
+                            let error = gl::GetError();
+                            if error != gl::NO_ERROR {
+                                println!("OpenGL Error after uniforming the chunk pos: {}", error);
+                            }
+                            //println!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
+                            gl::DrawArrays(gl::TRIANGLES, 0, banklock.tdata32.len() as i32);
                             let error = gl::GetError();
                             if error != gl::NO_ERROR {
                                 println!("OpenGL Error after drawing arrays: {}", error);

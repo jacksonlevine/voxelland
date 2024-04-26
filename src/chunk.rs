@@ -212,12 +212,25 @@ impl ChunkSystem {
     
                                     let texcoord = Blocks::get_tex_coords(block, cubeside);
                                     for (ind, v) in side.chunks(4).enumerate() {
+                                        static AMB_CHANGES: [u8; 4] = [
+                                            0, 4, 6, 8
+                                        ];
+
+                                        let amb_spots: &[vec::IVec3; 3] = Cube::get_amb_occul_spots(cubeside, ind as u8);
+
+                                        let amb_change = amb_spots.iter()
+                                                                  .map(|vec| self.blockatmemo(*vec + spot, &mut memo))
+                                                                  .filter(|&result| result != 0)
+                                                                  .count();
+
+                                        
+                                        
                                         let pack = PackedVertex::pack(
                                             i as u8 + v[0],
                                             j as u8 + v[1],
                                             k as u8 + v[2],
                                             ind as u8,
-                                            v[3],
+                                            (v[3] - AMB_CHANGES[amb_change]).clamp(0, 16),
                                             0,
                                             texcoord.0,
                                             texcoord.1,

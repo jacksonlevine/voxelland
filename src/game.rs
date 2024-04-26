@@ -68,7 +68,7 @@ impl Game {
         faders
             .write()
             .unwrap()
-            .extend(vec![Fader::new(85.0, 80.0, 30.0, false)]);
+            .extend(vec![Fader::new(83.0, 80.0, 30.0, false)]);
 
         unsafe {
             gl::BindVertexArray(shader0.vao);
@@ -154,7 +154,7 @@ impl Game {
 
         }
 
-        const GRAV: f32 = 6.5;
+        const GRAV: f32 = 9.8;
 
         if !self.grounded && !self.jumping_up {
             self.time_falling_scalar = (self.time_falling_scalar + self.delta_time*5.0).min(3.0);
@@ -169,7 +169,7 @@ impl Game {
         if self.jumping_up {
             if camlock.position.y < self.current_jump_y + self.allowable_jump_height {
                 let curr_cam_y = camlock.position.y;
-                camlock.velocity += Vec3::new(0.0, (((self.current_jump_y + self.allowable_jump_height + 0.3) - curr_cam_y)*10.0)*self.delta_time, 0.0);
+                camlock.velocity += Vec3::new(0.0, (((self.current_jump_y + self.allowable_jump_height + 0.3) - curr_cam_y)*15.0)*self.delta_time, 0.0);
             } else {
                 self.jumping_up = false;
             }
@@ -185,7 +185,7 @@ impl Game {
         let cc_center = camlock.position + Vec3::new(0.0, -1.0, 0.0);
         self.coll_cage.update_readings(cc_center);
 
-        let mut proposed = camlock.respond_to_controls(&self.controls, &self.delta_time, 10.0);
+        let mut proposed = camlock.respond_to_controls(&self.controls, &self.delta_time, 5.0);
         self.user_bound_box
             .set_center(proposed + Vec3::new(0.0, -0.5, 0.0), 0.2, 0.85);
         self.coll_cage.update_colliding(&self.user_bound_box);

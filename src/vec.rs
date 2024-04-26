@@ -63,3 +63,13 @@ impl Sub for IVec3 {
         }
     }
 }
+
+impl IVec3 {
+    pub fn new(x: i32, y: i32, z: i32) -> IVec3 {
+        IVec3 {
+            x,
+            y,
+            z
+        }
+    }
+}

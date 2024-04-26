@@ -1,8 +1,16 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::atomic::AtomicU8;
 
 use dashmap::DashMap;
+use dashmap::DashSet;
 use num_enum::FromPrimitive;
+use rand::rngs::StdRng;
+use rand::Rng;
+use rand::SeedableRng;
+use vox_format::data::VoxModels;
+use vox_format::types::Model;
+use walkdir::WalkDir;
 use std::sync::{Arc, Mutex};
 
 use noise::{NoiseFn, Perlin};
@@ -10,9 +18,11 @@ use noise::{NoiseFn, Perlin};
 use crate::cube::Cube;
 use crate::cube::CubeSide;
 use crate::packedvertex::PackedVertex;
+use crate::vec::IVec3;
 use crate::vec::{self, IVec2};
 
 use crate::blockinfo::Blocks;
+use crate::voxmodel::JVoxModel;
 pub struct ChunkGeo {
     pub data32: Vec<u32>,
     pub data8: Vec<u8>,
@@ -108,7 +118,8 @@ pub struct ChunkSystem {
     pub userdatamap: DashMap<vec::IVec3, u32>,
     pub radius: u8,
     pub perlin: Perlin,
-
+    pub voxel_models: Vec<JVoxModel>,
+    pub generated: DashSet<vec::IVec2>,
 }
 
 impl ChunkSystem {
@@ -122,7 +133,19 @@ impl ChunkSystem {
             userdatamap: DashMap::new(),
             radius,
             perlin: Perlin::new(1),
+            voxel_models: Vec::new(),
+            generated: DashSet::new()
         };
+
+        let directory_path = "assets/voxelmodels/";
+
+        for entry in WalkDir::new(directory_path) {
+            let entry = entry.unwrap();
+            if entry.file_type().is_file() {
+                let path_str = entry.path().to_string_lossy().into_owned();
+                cs.voxel_models.push(JVoxModel::new(Box::leak(path_str.into_boxed_str())));
+            }
+        }
 
         for _ in 0..radius * 2 + 5 {
             for _ in 0..radius * 2 + 5 {
@@ -175,7 +198,7 @@ impl ChunkSystem {
             drop(chunklock);
             let chunkgeoarc = self.geobank[index].clone();
             let mut num = chunkgeoarc.num.load(std::sync::atomic::Ordering::Acquire);
-            if num == 0 { num = 1; } else { num = 0; }
+            // if num == 0 { num = 1; } else { num = 0; }
 
             let mut chunkgeolock = chunkgeoarc.geos[num as usize].lock().unwrap();
             chunkgeolock.pos = cpos;
@@ -189,15 +212,25 @@ impl ChunkSystem {
 
     pub fn rebuild_index(&self, index: usize) {
 
+
+
         let chunkarc = self.chunks[index].clone();
         let mut chunklock = chunkarc.lock().unwrap();
         chunklock.used = true;
 
         let geobankarc = self.geobank[index].clone();
         let mut num = geobankarc.num.load(std::sync::atomic::Ordering::Acquire);
-        if num == 0 { num = 1; } else { num = 0; }
+        // if num == 0 { num = 1; } else { num = 0; }
+
+        
 
         let mut geobanklock = geobankarc.geos[num as usize].lock().unwrap();
+        
+        if !self.generated.contains(&geobanklock.pos) {
+            self.generate_chunk(&geobanklock.pos);
+            self.generated.insert(geobanklock.pos);
+        }
+        
         geobanklock.clear();
 
 
@@ -298,7 +331,7 @@ impl ChunkSystem {
 
         let gqarc = self.finished_geo_queue.clone();
         gqarc.push(index);
-        geobankarc.num.store(num, std::sync::atomic::Ordering::Release);
+        //geobankarc.num.store(num, std::sync::atomic::Ordering::Release);
 
         let tc = self.takencare.clone();
 
@@ -308,6 +341,98 @@ impl ChunkSystem {
         }
     }
 
+    pub fn stamp_here(&self, spot: &vec::IVec3, model: &JVoxModel, implicated: Option<&mut HashSet<IVec2>>) {
+        let mut colorset = HashSet::new();
+        let mut local_implicated_chunks; // Declare a mutable local HashSet for when None is provided
+        let implicated_chunks; // This will be the reference used throughout the function
+        let mut implicated_provided = false;
+
+        // Determine which HashSet to use
+        match implicated {
+            Some(hs) => {
+                implicated_chunks = hs;
+                implicated_provided = true;
+            },
+            None => {
+                local_implicated_chunks = HashSet::new(); // Create a new HashSet when None is provided
+                implicated_chunks = &mut local_implicated_chunks; // Use the local HashSet
+            }
+        };
+        
+        for i in &model.model.models {
+            for v in &i.voxels {
+                let rearr_point = IVec3::new(v.point.x as i32, (v.point.z as i32) - 40, v.point.y as i32);
+                colorset.insert(v.color_index);
+                let c_pos = IVec2{x: ((spot.x + rearr_point.x) as f32 / 15.0).floor() as i32, y: ((spot.z + rearr_point.z) as f32 / 15.0).floor() as i32};
+                implicated_chunks.insert(c_pos);
+                self.set_block(
+                    *spot + IVec3::new(spot.x + rearr_point.x, spot.y + rearr_point.y, spot.z + rearr_point.z),
+                    (1 + colorset.len()).clamp(0, 10) as u32,
+                )
+            }
+        }
+        if !implicated_provided {
+            for c in implicated_chunks.iter() {
+                match self.takencare.get(&c) {
+                    Some(cf) => {
+                        self.user_rebuild_requests.push(cf.geo_index);
+                    }
+                    None => {}
+                }
+            }
+        }
+    }
+
+    pub fn generate_chunk(&self, cpos: &vec::IVec2) {
+            // Seed for the RNG.
+        let seed: [u8; 32] = [
+            (cpos.x % 255) as u8 , (cpos.y % 255) as u8 , 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        ]; // This needs to be a fixed-size array of bytes (u8).
+
+        // Create a new RNG instance with the seed.
+        let mut rng = StdRng::from_seed(seed);
+
+        // // Generate some random numbers
+        // let rand_number1: u32 = rng.gen();
+        // let rand_number2: u32 = rng.gen();
+        let mut implicated: HashSet<vec::IVec2> = HashSet::new();
+
+        let mut should_break = false;
+        
+        for x in 0..CW {
+            for z in 0..CW {
+                for y in (0..CH).rev() {
+                    let coord = IVec3::new(cpos.x * CW + x, y, cpos.y * CW + z);
+                    if self.blockat(coord) == 3 {
+                        let rand_number1: u32 = rng.gen_range(0..25);
+                        if rand_number1 < self.voxel_models.len() as u32 {
+                            self.stamp_here(&coord, &self.voxel_models[rand_number1 as usize], Some(&mut implicated));
+                        }
+                        should_break = true;
+                        break;
+                    }
+                    
+                }
+                if should_break {
+                    break;
+                }
+            }
+            if should_break {
+                break;
+            }
+        }
+
+        for c in implicated.iter() {
+            match self.takencare.get(&c) {
+                Some(cf) => {
+                    self.user_rebuild_requests.push(cf.geo_index);
+                }
+                None => {}
+            }
+        }
+
+    }
     fn mix(a: f64, b: f64, t: f64) -> f64 {
         a * (1.0 - t) + b * t
     }

@@ -1,20 +1,21 @@
-use vox_format::types::*;
+use std::collections::HashSet;
+
+use crate::chunk::ChunkSystem;
+use crate::vec;
+use crate::vec::IVec2;
+use crate::vec::IVec3;
 use vox_format::data::*;
-
-
+use vox_format::types::*;
 
 pub struct JVoxModel {
-    model: VoxModels<Model>,
-
+    pub model: VoxModels<Model>,
 }
 
 impl JVoxModel {
-    pub fn new() -> JVoxModel {
+    pub fn new(path: &'static str) -> JVoxModel {
         JVoxModel {
-            model: vox_format::from_file("assets/voxelmodel.vox").unwrap()
+            model: vox_format::from_file(path).unwrap(),
         }
     }
 
-
-    
 }

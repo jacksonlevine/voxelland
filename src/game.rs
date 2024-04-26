@@ -15,6 +15,7 @@ use crate::raycast::*;
 use crate::shader::Shader;
 use crate::texture::Texture;
 use crate::vec::{self, IVec2, IVec3};
+use crate::voxmodel::JVoxModel;
 use crate::worldgeometry::WorldGeometry;
 use std::sync::RwLock;
 
@@ -55,6 +56,7 @@ pub struct Game {
     time_falling_scalar: f32,
     current_jump_y: f32,
     allowable_jump_height: f32,
+    pub initial_timer: f32
 }
 
 enum FaderNames {
@@ -124,10 +126,12 @@ impl Game {
             time_falling_scalar: 1.0,
             current_jump_y: 0.0,
             allowable_jump_height: 1.1,
+            initial_timer: 0.0,
         }
     }
 
     pub fn update(&mut self) {
+        
         let current_time = unsafe { glfwGetTime() as f32 };
         self.delta_time = current_time - self.prev_time;
 
@@ -151,6 +155,16 @@ impl Game {
         }
         self.draw();
 
+        if(self.initial_timer < 1.5) {
+            self.initial_timer += self.delta_time;
+        } else {
+            self.update_movement_and_physics();
+        }
+
+        
+    }
+
+    pub fn update_movement_and_physics(&mut self) { 
         let mut camlock = self.camera.lock().unwrap();
 
         if !self.coll_cage.solid.contains(&Side::FLOOR) {
@@ -488,6 +502,7 @@ impl Game {
 
     pub fn start_world(&mut self) {
         (*self.run_chunk_thread).store(true, Ordering::Relaxed);
+        self.initial_timer = 0.0;
 
         let rctarc = self.run_chunk_thread.clone();
         let carc = self.camera.clone();
@@ -498,6 +513,8 @@ impl Game {
         });
 
         self.chunk_thread = Some(handle);
+
+        //self.chunksys.voxel_models[0].stamp_here(&vec::IVec3::new(0, 40, 0), &self.chunksys, None);
     }
 
     pub fn chunk_thread_inner_function(cam_arc: &Arc<Mutex<Camera>>, csys_arc: &Arc<ChunkSystem>) {
@@ -589,6 +606,7 @@ impl Game {
                 sorted_chunk_facades.extend(used_and_close);
 
                 for (index, ns) in neededspots.iter().enumerate() {
+                    
                     csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns);
                     match csys_arc.user_rebuild_requests.pop() {
                         Some(index) => {

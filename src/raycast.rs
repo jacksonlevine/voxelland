@@ -17,9 +17,9 @@ pub fn raycast_dda(origin: Vec3, direction: Vec3, csys: &ChunkSystem, max_distan
 
     // Adjust t_max to start from the nearest cell boundary
     let mut t_max = Vec3 {
-        x: if direction.x != 0.0 { ((current_pos.x + 0.5 * step.x as f32).round() - current_pos.x) / direction.x } else { f32::MAX },
-        y: if direction.y != 0.0 { ((current_pos.y + 0.5 * step.y as f32).round() - current_pos.y) / direction.y } else { f32::MAX },
-        z: if direction.z != 0.0 { ((current_pos.z + 0.5 * step.z as f32).round() - current_pos.z) / direction.z } else { f32::MAX },
+        x: if direction.x != 0.0 { (((current_pos.x + 0.5) * step.x as f32).round() - current_pos.x) / direction.x } else { f32::MAX },
+        y: if direction.y != 0.0 { (((current_pos.y + 0.5 )* step.y as f32).round() - current_pos.y) / direction.y } else { f32::MAX },
+        z: if direction.z != 0.0 { (((current_pos.z + 0.5) * step.z as f32).round() - current_pos.z) / direction.z } else { f32::MAX },
     };
 
     let t_delta = Vec3 {

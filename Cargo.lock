@@ -1487,6 +1487,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "852e951cb7832cb45cb1169900d19760cfa39b82bc0ea9c0e5a14ae88411c98b"
 
 [[package]]
+name = "vox-format"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b41c07d4bfb99286592fe2fbe25022360a305e5c800e1bc93d9db280c24db1aa"
+dependencies = [
+ "byteorder",
+ "log",
+ "thiserror",
+]
+
+[[package]]
 name = "voxelland"
 version = "0.1.0"
 dependencies = [
@@ -1502,6 +1513,7 @@ dependencies = [
  "rand",
  "tracing",
  "tracing-subscriber",
+ "vox-format",
 ]
 
 [[package]]

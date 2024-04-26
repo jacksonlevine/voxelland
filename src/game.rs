@@ -4,16 +4,17 @@ use glfw::ffi::glfwGetTime;
 use glfw::{Action, Key, MouseButton};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::thread::{self};
+use std::thread::{self, current};
 
 use crate::chunk::{ChunkFacade, ChunkSystem};
 
 use crate::camera::Camera;
 use crate::collisioncage::*;
 use crate::fader::Fader;
+use crate::raycast::*;
 use crate::shader::Shader;
 use crate::texture::Texture;
-use crate::vec::{self, IVec2};
+use crate::vec::{self, IVec2, IVec3};
 use crate::worldgeometry::WorldGeometry;
 use std::sync::RwLock;
 
@@ -30,7 +31,9 @@ pub struct GameVariables {
     mouse_focused: bool,
     sensitivity: f32,
     sky_color: Vec4,
-    sky_bottom: Vec4
+    sky_bottom: Vec4,
+    mouse_clicked: bool,
+    right_mouse_clicked: bool,
 }
 
 pub struct Game {
@@ -51,7 +54,7 @@ pub struct Game {
     jumping_up: bool,
     time_falling_scalar: f32,
     current_jump_y: f32,
-    allowable_jump_height: f32
+    allowable_jump_height: f32,
 }
 
 enum FaderNames {
@@ -100,14 +103,16 @@ impl Game {
                 mouse_focused: false,
                 sensitivity: 0.25,
                 sky_color: Vec4::new(0.5, 0.7, 1.0, 1.0),
-                sky_bottom: Vec4::new(1.0, 1.0, 1.0, 1.0)
+                sky_bottom: Vec4::new(1.0, 1.0, 1.0, 1.0),
+                mouse_clicked: false,
+                right_mouse_clicked: false,
             },
             controls: ControlsState {
                 left: false,
                 right: false,
                 forward: false,
                 back: false,
-                up: false
+                up: false,
             },
             faders: Arc::new(faders),
             prev_time: 0.0,
@@ -118,7 +123,7 @@ impl Game {
             jumping_up: false,
             time_falling_scalar: 1.0,
             current_jump_y: 0.0,
-            allowable_jump_height: 1.1
+            allowable_jump_height: 1.1,
         }
     }
 
@@ -151,25 +156,31 @@ impl Game {
         if !self.coll_cage.solid.contains(&Side::FLOOR) {
             self.grounded = false;
         } else {
-
         }
 
         const GRAV: f32 = 9.8;
 
         if !self.grounded && !self.jumping_up {
-            self.time_falling_scalar = (self.time_falling_scalar + self.delta_time*5.0).min(3.0);
+            self.time_falling_scalar = (self.time_falling_scalar + self.delta_time * 5.0).min(3.0);
         } else {
             self.time_falling_scalar = 1.0;
         }
 
         if !self.grounded && !self.jumping_up {
-            camlock.velocity += Vec3::new(0.0, -GRAV * self.time_falling_scalar * self.delta_time, 0.0);
+            camlock.velocity +=
+                Vec3::new(0.0, -GRAV * self.time_falling_scalar * self.delta_time, 0.0);
         }
 
         if self.jumping_up {
             if camlock.position.y < self.current_jump_y + self.allowable_jump_height {
                 let curr_cam_y = camlock.position.y;
-                camlock.velocity += Vec3::new(0.0, (((self.current_jump_y + self.allowable_jump_height + 0.3) - curr_cam_y)*15.0)*self.delta_time, 0.0);
+                camlock.velocity += Vec3::new(
+                    0.0,
+                    (((self.current_jump_y + self.allowable_jump_height + 0.3) - curr_cam_y)
+                        * 15.0)
+                        * self.delta_time,
+                    0.0,
+                );
             } else {
                 self.jumping_up = false;
             }
@@ -227,23 +238,49 @@ impl Game {
 
         unsafe {
             if T_C_LOC == -1 {
-                T_C_LOC = gl::GetUniformLocation(self.skyshader.shader_id, b"top_color\0".as_ptr() as *const i8);
-                B_C_LOC = gl::GetUniformLocation(self.skyshader.shader_id, b"bot_color\0".as_ptr() as *const i8);
-                C_P_LOC = gl::GetUniformLocation(self.skyshader.shader_id, b"cpitch\0".as_ptr() as *const i8);
-                A_B_LOC = gl::GetUniformLocation(self.skyshader.shader_id, b"brightMult\0".as_ptr() as *const i8);
-                S_S_LOC = gl::GetUniformLocation(self.skyshader.shader_id, b"sunset\0".as_ptr() as *const i8);
-                S_R_LOC = gl::GetUniformLocation(self.skyshader.shader_id, b"sunrise\0".as_ptr() as *const i8);
-                C_D_LOC = gl::GetUniformLocation(self.skyshader.shader_id, b"camDir\0".as_ptr() as *const i8);
-            } 
+                T_C_LOC = gl::GetUniformLocation(
+                    self.skyshader.shader_id,
+                    b"top_color\0".as_ptr() as *const i8,
+                );
+                B_C_LOC = gl::GetUniformLocation(
+                    self.skyshader.shader_id,
+                    b"bot_color\0".as_ptr() as *const i8,
+                );
+                C_P_LOC = gl::GetUniformLocation(
+                    self.skyshader.shader_id,
+                    b"cpitch\0".as_ptr() as *const i8,
+                );
+                A_B_LOC = gl::GetUniformLocation(
+                    self.skyshader.shader_id,
+                    b"brightMult\0".as_ptr() as *const i8,
+                );
+                S_S_LOC = gl::GetUniformLocation(
+                    self.skyshader.shader_id,
+                    b"sunset\0".as_ptr() as *const i8,
+                );
+                S_R_LOC = gl::GetUniformLocation(
+                    self.skyshader.shader_id,
+                    b"sunrise\0".as_ptr() as *const i8,
+                );
+                C_D_LOC = gl::GetUniformLocation(
+                    self.skyshader.shader_id,
+                    b"camDir\0".as_ptr() as *const i8,
+                );
+            }
 
             let camlock = self.camera.lock().unwrap();
             gl::Uniform1f(C_P_LOC, camlock.pitch);
-            gl::Uniform3f(C_D_LOC, camlock.direction.x, camlock.direction.y, camlock.direction.z);
+            gl::Uniform3f(
+                C_D_LOC,
+                camlock.direction.x,
+                camlock.direction.y,
+                camlock.direction.z,
+            );
             drop(camlock);
 
             gl::Uniform4f(T_C_LOC, top.x, top.y, top.z, top.w);
             gl::Uniform4f(B_C_LOC, bot.x, bot.y, bot.z, bot.w);
-            
+
             gl::Uniform1f(A_B_LOC, 1.0);
             gl::Uniform1f(S_S_LOC, 0.0);
             gl::Uniform1f(S_R_LOC, 0.0);
@@ -262,32 +299,35 @@ impl Game {
 
         //Sky
         self.draw_sky(self.vars.sky_color, self.vars.sky_bottom);
-        
+
         //Chunks
         unsafe {
             gl::BindVertexArray(self.shader0.vao);
             gl::UseProgram(self.shader0.shader_id);
         }
 
-        let gqarc = self.chunksys.geoqueue.clone();
+        let gqarc = self.chunksys.finished_geo_queue.clone();
 
         match gqarc.pop() {
             Some(index) => {
                 let bankarc = self.chunksys.geobank[index].clone();
-                let banklock = bankarc.lock().unwrap();
+                let mut num = bankarc.num.load(Ordering::Acquire);
+                // if num == 0 {
+                //     bankarc.num.store(1, Ordering::Relaxed);
+                //     num = 1;
+                // } else {
+                //     bankarc.num.store(0, Ordering::Relaxed);
+                //     num = 0;
+                // };
+
+                let banklock = bankarc.geos[num as usize].lock().unwrap();
 
                 let v32 = banklock.vbo32;
                 let v8 = banklock.vbo8;
                 let tv32 = banklock.tvbo32;
                 let tv8 = banklock.tvbo8;
-                
-                WorldGeometry::bind_geometry(
-                    v32,
-                    v8,
-                    true,
-                    &self.shader0,
-                    banklock.solids(),
-                );
+
+                WorldGeometry::bind_geometry(v32, v8, true, &self.shader0, banklock.solids());
                 WorldGeometry::bind_geometry(
                     tv32,
                     tv8,
@@ -381,7 +421,8 @@ impl Game {
                 Ok(cfl) => {
                     if cfl.used {
                         let bankarc = self.chunksys.geobank[cfl.geo_index].clone();
-                        let banklock = bankarc.lock().unwrap();
+                        let num = bankarc.num.load(Ordering::Acquire);
+                        let banklock = bankarc.geos[num as usize].lock().unwrap();
 
                         WorldGeometry::bind_geometry(
                             banklock.vbo32,
@@ -414,7 +455,8 @@ impl Game {
                 Ok(cfl) => {
                     if cfl.used {
                         let bankarc = self.chunksys.geobank[cfl.geo_index].clone();
-                        let banklock = bankarc.lock().unwrap();
+                        let num = bankarc.num.load(Ordering::Acquire);
+                        let banklock = bankarc.geos[num as usize].lock().unwrap();
 
                         WorldGeometry::bind_geometry(
                             banklock.tvbo32,
@@ -458,60 +500,108 @@ impl Game {
         self.chunk_thread = Some(handle);
     }
 
-    pub fn chunk_thread_inner_function(
-        cam_arc: &Arc<Mutex<Camera>>,
-        csys_arc: &Arc<ChunkSystem>,
-    ) {
-        let mut neededspots: Vec<IVec2> = Vec::new();
+    pub fn chunk_thread_inner_function(cam_arc: &Arc<Mutex<Camera>>, csys_arc: &Arc<ChunkSystem>) {
+        let mut userstuff = true;
+        while userstuff {
+            match csys_arc.user_rebuild_requests.pop() {
+                Some(index) => {
+                    csys_arc.rebuild_index(index);
+                }
+                None => {
+                    userstuff = false;
+                }
+            }
+        }
 
-            let cam_lock = cam_arc.lock().unwrap();
-            let user_cpos = IVec2 {
-                x: (cam_lock.position.x / 15.0).floor() as i32,
-                y: (cam_lock.position.z / 15.0).floor() as i32,
+        let camlock = cam_arc.lock().unwrap();
+        let vec3 = camlock.position;
+        drop(camlock);
+
+        static mut last_time: f32 = 0.0;
+
+        unsafe {
+            let current_time = glfwGetTime() as f32;
+
+            let delta_time = current_time - last_time;
+
+            static mut last_user_c_pos: vec::IVec2 = vec::IVec2 {
+                x: -99999,
+                y: -99999,
             };
-            drop(cam_lock);
+            static mut time_since_last_check: f32 = 2.0;
 
-            let tcarc = csys_arc.takencare.clone();
-            for i in -(csys_arc.radius as i32)..(csys_arc.radius as i32) {
-                for k in -(csys_arc.radius as i32)..(csys_arc.radius as i32) {
-                    let this_spot = IVec2 {
-                        x: user_cpos.x + i as i32,
-                        y: user_cpos.y + k as i32,
-                    };
-                    if !tcarc.contains_key(&this_spot) {
-                        neededspots.push(this_spot);
+            let user_c_pos = ChunkSystem::spot_to_chunk_pos(&IVec3::new(
+                vec3.x.round() as i32,
+                vec3.y.round() as i32,
+                vec3.z.round() as i32,
+            ));
+
+            if user_c_pos != last_user_c_pos && time_since_last_check >= 2.0 {
+                last_user_c_pos = user_c_pos;
+
+                time_since_last_check = 0.0;
+
+                let mut neededspots: Vec<IVec2> = Vec::new();
+
+                let cam_lock = cam_arc.lock().unwrap();
+                let user_cpos = IVec2 {
+                    x: (cam_lock.position.x / 15.0).floor() as i32,
+                    y: (cam_lock.position.z / 15.0).floor() as i32,
+                };
+                drop(cam_lock);
+
+                let tcarc = csys_arc.takencare.clone();
+                for i in -(csys_arc.radius as i32)..(csys_arc.radius as i32) {
+                    for k in -(csys_arc.radius as i32)..(csys_arc.radius as i32) {
+                        let this_spot = IVec2 {
+                            x: user_cpos.x + i as i32,
+                            y: user_cpos.y + k as i32,
+                        };
+                        if !tcarc.contains_key(&this_spot) {
+                            neededspots.push(this_spot);
+                        }
                     }
                 }
-            }
 
-            let mut sorted_chunk_facades: Vec<ChunkFacade> = Vec::new();
+                let mut sorted_chunk_facades: Vec<ChunkFacade> = Vec::new();
 
-            for carc in &csys_arc.chunks {
-                match carc.try_lock() {
-                    Ok(cf) => {
-                        sorted_chunk_facades.push(*cf);
+                for carc in &csys_arc.chunks {
+                    match carc.try_lock() {
+                        Ok(cf) => {
+                            sorted_chunk_facades.push(*cf);
+                        }
+                        Err(_) => {}
                     }
-                    Err(_) => {}
                 }
-            }
 
-            let (unused_or_distant, used_and_close): (Vec<ChunkFacade>, Vec<ChunkFacade>) =
-                sorted_chunk_facades.drain(..).partition(|chunk| {
-                    if !chunk.used {
-                        true
-                    } else {
-                        let dist =
-                            (chunk.pos.x - user_cpos.x).abs() + (chunk.pos.y - user_cpos.y).abs();
-                        dist >= csys_arc.radius as i32 * 2
+                let (unused_or_distant, used_and_close): (Vec<ChunkFacade>, Vec<ChunkFacade>) =
+                    sorted_chunk_facades.drain(..).partition(|chunk| {
+                        if !chunk.used {
+                            true
+                        } else {
+                            let dist = (chunk.pos.x - user_cpos.x).abs()
+                                + (chunk.pos.y - user_cpos.y).abs();
+                            dist >= csys_arc.radius as i32 * 2
+                        }
+                    });
+
+                sorted_chunk_facades.extend(unused_or_distant);
+                sorted_chunk_facades.extend(used_and_close);
+
+                for (index, ns) in neededspots.iter().enumerate() {
+                    csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns);
+                    match csys_arc.user_rebuild_requests.pop() {
+                        Some(index) => {
+                            csys_arc.rebuild_index(index);
+                            break;
+                        }
+                        None => {}
                     }
-                });
-
-            sorted_chunk_facades.extend(unused_or_distant);
-            sorted_chunk_facades.extend(used_and_close);
-
-            for (index, ns) in neededspots.iter().enumerate() {
-                csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns);
+                }
+            } else {
+                time_since_last_check += delta_time;
             }
+        }
     }
 
     pub fn chunk_thread_function(
@@ -522,13 +612,7 @@ impl Game {
         //static mut TEMP_COUNT: i32 = 0;
 
         while runcheck.load(Ordering::Relaxed) {
-
             Game::chunk_thread_inner_function(&cam_arc, &csys_arc);
-            
-            thread::sleep(time::Duration::from_secs(2));
-
-
-
         }
     }
     pub fn cursor_pos(&mut self, xpos: f64, ypos: f64) {
@@ -587,7 +671,27 @@ impl Game {
             self.vars.first_mouse = true;
         }
     }
-    pub fn mouse_button(&mut self, _mb: MouseButton, _a: Action) {}
+    pub fn mouse_button(&mut self, mb: MouseButton, a: Action) {
+        match mb {
+            glfw::MouseButtonLeft => {
+                self.vars.mouse_clicked = a == Action::Press;
+                if self.vars.mouse_clicked {
+                    let cl = self.camera.lock().unwrap();
+                    match raycast_dda(cl.position, cl.direction, &self.chunksys, 10.0) {
+                        Some((_tip, block_hit)) => {
+                            self.chunksys.set_block_and_queue_rerender(block_hit, 0);
+                        }
+                        None => {}
+                    }
+                }
+            }
+            glfw::MouseButtonRight => {
+                self.vars.right_mouse_clicked = a == Action::Press;
+                if self.vars.right_mouse_clicked {}
+            }
+            _ => {}
+        }
+    }
     pub fn keyboard(&mut self, key: Key, action: Action) {
         match key {
             Key::W => {

@@ -7,6 +7,9 @@ use voxelland::windowandkey::WindowAndKeyContext;
 
 use voxelland::game::Game;
 
+use vox_format::types::*;
+use vox_format::data::*;
+
 
 fn main() {
 

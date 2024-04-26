@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::atomic::AtomicU8;
 
 use dashmap::DashMap;
 use num_enum::FromPrimitive;
@@ -83,13 +84,31 @@ pub struct ChunkFacade {
 static CW: i32 = 15;
 static CH: i32 = 128;
 
+pub struct DoubleChunkGeo {
+    pub geos: [Mutex<ChunkGeo>; 2],
+    pub num: AtomicU8
+}
+
+impl DoubleChunkGeo {
+    pub fn new() -> DoubleChunkGeo {
+        DoubleChunkGeo {
+            geos: [ Mutex::new(ChunkGeo::new()),
+                    Mutex::new(ChunkGeo::new())],
+            num: AtomicU8::new(1)
+        }
+    }
+}
+
 pub struct ChunkSystem {
     pub chunks: Vec<Arc<Mutex<ChunkFacade>>>,
-    pub geobank: Vec<Arc<Mutex<ChunkGeo>>>,
+    pub geobank: Vec<Arc<DoubleChunkGeo>>,
     pub takencare: Arc<DashMap<vec::IVec2, ChunkFacade>>,
-    pub geoqueue: Arc<lockfree::queue::Queue<usize>>,
+    pub finished_geo_queue: Arc<lockfree::queue::Queue<usize>>,
+    pub user_rebuild_requests: lockfree::queue::Queue<usize>,
+    pub userdatamap: DashMap<vec::IVec3, u32>,
     pub radius: u8,
     pub perlin: Perlin,
+
 }
 
 impl ChunkSystem {
@@ -98,7 +117,9 @@ impl ChunkSystem {
             chunks: Vec::new(),
             geobank: Vec::new(),
             takencare: Arc::new(DashMap::new()),
-            geoqueue: Arc::new(lockfree::queue::Queue::new()),
+            finished_geo_queue: Arc::new(lockfree::queue::Queue::new()),
+            user_rebuild_requests: lockfree::queue::Queue::new(),
+            userdatamap: DashMap::new(),
             radius,
             perlin: Perlin::new(1),
         };
@@ -113,13 +134,32 @@ impl ChunkSystem {
                         y: 999999,
                     },
                 })));
-                cs.geobank.push(Arc::new(Mutex::new(ChunkGeo::new())));
+                cs.geobank.push(Arc::new(DoubleChunkGeo::new()));
             }
         }
 
         //tracing::info!("Amount of chunkgeo buffers: {}", 4 * cs.geobank.len());
 
         cs
+    }
+    pub fn spot_to_chunk_pos(spot: &vec::IVec3) -> vec::IVec2 {
+        return vec::IVec2{
+            x: (spot.x as f32 / 15.0).floor() as i32,
+            y: (spot.z as f32 / 15.0).floor() as i32,
+        }
+    }
+    pub fn set_block_and_queue_rerender(&self, spot: vec::IVec3, block: u32) {
+        self.set_block(spot, block);
+        let chunk_key = &Self::spot_to_chunk_pos(&spot);
+        match self.takencare.get(chunk_key) {
+            Some(cf) => {
+                self.user_rebuild_requests.push(cf.geo_index);
+            }
+            None => {}
+        }
+    }
+    pub fn set_block(&self, spot: vec::IVec3, block: u32) {
+        self.userdatamap.insert(spot, block);
     }
     pub fn move_and_rebuild(&self, index: usize, cpos: vec::IVec2) {
         let tc = self.takencare.clone();
@@ -134,7 +174,10 @@ impl ChunkSystem {
             chunklock.pos = cpos;
             drop(chunklock);
             let chunkgeoarc = self.geobank[index].clone();
-            let mut chunkgeolock = chunkgeoarc.lock().unwrap();
+            let mut num = chunkgeoarc.num.load(std::sync::atomic::Ordering::Acquire);
+            if num == 0 { num = 1; } else { num = 0; }
+
+            let mut chunkgeolock = chunkgeoarc.geos[num as usize].lock().unwrap();
             chunkgeolock.pos = cpos;
             drop(chunkgeolock);
             self.rebuild_index(index);
@@ -151,7 +194,10 @@ impl ChunkSystem {
         chunklock.used = true;
 
         let geobankarc = self.geobank[index].clone();
-        let mut geobanklock = geobankarc.lock().unwrap();
+        let mut num = geobankarc.num.load(std::sync::atomic::Ordering::Acquire);
+        if num == 0 { num = 1; } else { num = 0; }
+
+        let mut geobanklock = geobankarc.geos[num as usize].lock().unwrap();
         geobanklock.clear();
 
 
@@ -213,7 +259,7 @@ impl ChunkSystem {
                                     let texcoord = Blocks::get_tex_coords(block, cubeside);
                                     for (ind, v) in side.chunks(4).enumerate() {
                                         static AMB_CHANGES: [u8; 4] = [
-                                            0, 4, 6, 8
+                                            0, 3, 6, 10
                                         ];
 
                                         let amb_spots: &[vec::IVec3; 3] = Cube::get_amb_occul_spots(cubeside, ind as u8);
@@ -250,8 +296,9 @@ impl ChunkSystem {
             }
         }
 
-        let gqarc = self.geoqueue.clone();
+        let gqarc = self.finished_geo_queue.clone();
         gqarc.push(index);
+        geobankarc.num.store(num, std::sync::atomic::Ordering::Release);
 
         let tc = self.takencare.clone();
 
@@ -345,6 +392,13 @@ impl ChunkSystem {
 
     pub fn blockat(&self, spot: vec::IVec3) -> u32 {
         static WL: f32 = 40.0;
+
+        match self.userdatamap.get(&spot) {
+            Some(id) => {
+                return *id;
+            }
+            None => {}
+        }
 
         if self.noise_func(spot) > 10.0 {
             if self.noise_func(spot + vec::IVec3 { x: 0, y: 10, z: 0 }) > 10.0 {

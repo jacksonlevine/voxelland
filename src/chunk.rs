@@ -247,16 +247,16 @@ impl ChunkSystem {
         let mut chunklock = chunkarc.lock().unwrap();
 
         chunklock.used = true;
-        
+
 
         let geobankarc = self.geobank[index].clone();
         // if num == 0 { num = 1; } else { num = 0; }
 
         
         #[cfg(feature="structures")]
-        if !self.generated.contains(&geobanklock.pos) {
-            self.generate_chunk(&geobanklock.pos);
-            self.generated.insert(geobanklock.pos);
+        if !self.generated.contains(&geobankarc.pos.lock().unwrap()) {
+            self.generate_chunk(&geobankarc.pos.lock().unwrap());
+            self.generated.insert(*geobankarc.pos.lock().unwrap());
         }
         
         geobankarc.clear();

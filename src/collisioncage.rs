@@ -65,8 +65,8 @@ impl BoundBox {
     pub fn new(center: Vec3) -> BoundBox {
         BoundBox {
             center,
-            min_corner: center + Vec3::new(-0.5, -0.5, -0.5),
-            max_corner: center + Vec3::new(0.5, 0.5, 0.5),
+            min_corner: center + Vec3::new(0.0, 0.0, 0.0),
+            max_corner: center + Vec3::new(1.0, 1.0, 1.0),
         }
     }
     pub fn set_center(&mut self, center: Vec3, xextent: f32, yextent: f32) {
@@ -75,8 +75,8 @@ impl BoundBox {
         self.center = center;
     }
     pub fn set_center_block(&mut self, center: Vec3) {
-        self.min_corner = center + Vec3::new(-0.5, -0.5, -0.5);
-        self.max_corner = center + Vec3::new(0.5, 0.5, 0.5);
+        self.min_corner = center + Vec3::new(0.0, 0.0, 0.0);
+        self.max_corner = center + Vec3::new(1.0, 1.0, 1.0);
         self.center = center;
     }
     pub fn intersects(&self, other: &BoundBox) -> bool {
@@ -253,9 +253,9 @@ impl CollCage {
     }
     pub fn update_position(&mut self, pos: Vec3) {
         self.position = glam::IVec3::new(
-            pos.x.round() as i32,
-            pos.y.round() as i32,
-            pos.z.round() as i32,
+            pos.x.floor() as i32,
+            pos.y.floor() as i32,
+            pos.z.floor() as i32,
         );
         for i in 0..self.num_boxes {
             let new_center = self.positions[i as usize] + self.position;

@@ -24,13 +24,13 @@ use crate::vec::{self, IVec2};
 use crate::blockinfo::Blocks;
 use crate::voxmodel::JVoxModel;
 pub struct ChunkGeo {
-    pub data32: Vec<u32>,
-    pub data8: Vec<u8>,
-    pub pos: vec::IVec2,
+    pub data32: Mutex<Vec<u32>>,
+    pub data8: Mutex<Vec<u8>>,
+    pub pos: Mutex<vec::IVec2>,
     pub vbo32: gl::types::GLuint,
     pub vbo8: gl::types::GLuint,
-    pub tdata32: Vec<u32>,
-    pub tdata8: Vec<u8>,
+    pub tdata32: Mutex<Vec<u32>>,
+    pub tdata8: Mutex<Vec<u8>>,
     pub tvbo32: gl::types::GLuint,
     pub tvbo8: gl::types::GLuint,
 }
@@ -56,30 +56,30 @@ impl ChunkGeo {
         }
 
         ChunkGeo {
-            data32: Vec::new(),
-            data8: Vec::new(),
-            pos: IVec2 {
+            data32: Mutex::new(Vec::new()),
+            data8: Mutex::new(Vec::new()),
+            pos: Mutex::new(IVec2 {
                 x: 999999,
                 y: 999999,
-            },
+            }),
             vbo32,
             vbo8,
-            tdata32: Vec::new(),
-            tdata8: Vec::new(),
+            tdata32: Mutex::new(Vec::new()),
+            tdata8: Mutex::new(Vec::new()),
             tvbo32,
             tvbo8,
         }
     }
-    pub fn clear(&mut self) {
-        self.data32.clear();
-        self.data8.clear();
-        self.tdata32.clear();
-        self.tdata8.clear();
+    pub fn clear(&self) {
+        self.data32.lock().unwrap().clear();
+        self.data8.lock().unwrap().clear();
+        self.tdata32.lock().unwrap().clear();
+        self.tdata8.lock().unwrap().clear();
     }
-    pub fn solids(&self) -> (&Vec<u32>, &Vec<u8>) {
+    pub fn solids(&self) -> (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>) {
         return (&self.data32, &self.data8);
     }
-    pub fn transparents(&self) -> (&Vec<u32>, &Vec<u8>) {
+    pub fn transparents(&self) -> (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>) {
         return (&self.tdata32, &self.tdata8);
     }
 }
@@ -111,7 +111,7 @@ impl DoubleChunkGeo {
 
 pub struct ChunkSystem {
     pub chunks: Vec<Arc<Mutex<ChunkFacade>>>,
-    pub geobank: Vec<Arc<DoubleChunkGeo>>,
+    pub geobank: Vec<Arc<ChunkGeo>>,
     pub takencare: Arc<DashMap<vec::IVec2, ChunkFacade>>,
     pub finished_geo_queue: Arc<lockfree::queue::Queue<usize>>,
     pub user_rebuild_requests: lockfree::queue::Queue<usize>,
@@ -157,7 +157,7 @@ impl ChunkSystem {
                         y: 999999,
                     },
                 })));
-                cs.geobank.push(Arc::new(DoubleChunkGeo::new()));
+                cs.geobank.push(Arc::new(ChunkGeo::new()));
             }
         }
 
@@ -171,15 +171,40 @@ impl ChunkSystem {
             y: (spot.z as f32 / 15.0).floor() as i32,
         }
     }
-    pub fn set_block_and_queue_rerender(&self, spot: vec::IVec3, block: u32) {
+    pub fn set_block_and_queue_rerender(&self, spot: vec::IVec3, block: u32, neighbors: bool) {
         self.set_block(spot, block);
         let chunk_key = &Self::spot_to_chunk_pos(&spot);
-        match self.takencare.get(chunk_key) {
-            Some(cf) => {
-                self.user_rebuild_requests.push(cf.geo_index);
+        if neighbors {
+            static NEIGHBORS: [vec::IVec2; 9] = [
+                vec::IVec2{x: -1, y: -1},
+                vec::IVec2{x: -1, y: 0},
+                vec::IVec2{x: -1, y: 1},
+                vec::IVec2{x: 0, y: -1},
+                vec::IVec2{x: 0, y: 0},
+                vec::IVec2{x: 0, y: 1},
+                vec::IVec2{x: 1, y: -1},
+                vec::IVec2{x: 1, y: 0},
+                vec::IVec2{x: 1, y: 1},
+            ];
+            for i in NEIGHBORS {
+                let here = *chunk_key + i;
+                match self.takencare.get(&here) {
+                    Some(cf) => {
+                        self.user_rebuild_requests.push(cf.geo_index);
+                    }
+                    None => {}
+                }
             }
-            None => {}
+        } else {
+            
+            match self.takencare.get(chunk_key) {
+                Some(cf) => {
+                    self.user_rebuild_requests.push(cf.geo_index);
+                }
+                None => {}
+            }
         }
+        
     }
     pub fn set_block(&self, spot: vec::IVec3, block: u32) {
         self.userdatamap.insert(spot, block);
@@ -197,14 +222,18 @@ impl ChunkSystem {
             chunklock.pos = cpos;
             drop(chunklock);
             let chunkgeoarc = self.geobank[index].clone();
-            let mut num = chunkgeoarc.num.load(std::sync::atomic::Ordering::Acquire);
+
+            // let mut chunkgeolock = chunkgeoarc.geos[num as usize].lock().unwrap();
+            // chunkgeolock.pos = cpos;
+            // drop(chunkgeolock);
+
             // if num == 0 { num = 1; } else { num = 0; }
 
-            let mut chunkgeolock = chunkgeoarc.geos[num as usize].lock().unwrap();
-            chunkgeolock.pos = cpos;
-            drop(chunkgeolock);
+            chunkgeoarc.pos.lock().unwrap().clone_from(&cpos);
+
             self.rebuild_index(index);
         } else {
+            println!("This path");
             let ind = tc.get(&cpos).unwrap().geo_index;
             self.rebuild_index(ind);
         }
@@ -216,15 +245,13 @@ impl ChunkSystem {
 
         let chunkarc = self.chunks[index].clone();
         let mut chunklock = chunkarc.lock().unwrap();
+
         chunklock.used = true;
-
-        let geobankarc = self.geobank[index].clone();
-        let mut num = geobankarc.num.load(std::sync::atomic::Ordering::Acquire);
-        // if num == 0 { num = 1; } else { num = 0; }
-
         
 
-        let mut geobanklock = geobankarc.geos[num as usize].lock().unwrap();
+        let geobankarc = self.geobank[index].clone();
+        // if num == 0 { num = 1; } else { num = 0; }
+
         
         #[cfg(feature="structures")]
         if !self.generated.contains(&geobanklock.pos) {
@@ -232,7 +259,7 @@ impl ChunkSystem {
             self.generated.insert(geobanklock.pos);
         }
         
-        geobanklock.clear();
+        geobankarc.clear();
 
 
         let mut memo: HashMap<vec::IVec3, u32> = HashMap::new();
@@ -275,8 +302,8 @@ impl ChunkSystem {
                                         packed8[ind] = pack.1;
                                     }
     
-                                    geobanklock.tdata32.extend_from_slice(packed32.as_slice());
-                                    geobanklock.tdata8.extend_from_slice(packed8.as_slice());
+                                    geobankarc.tdata32.lock().unwrap().extend_from_slice(packed32.as_slice());
+                                    geobankarc.tdata8.lock().unwrap().extend_from_slice(packed8.as_slice());
                                 }
                             }
                         } else {
@@ -319,8 +346,8 @@ impl ChunkSystem {
                                         packed8[ind] = pack.1;
                                     }
     
-                                    geobanklock.data32.extend_from_slice(packed32.as_slice());
-                                    geobanklock.data8.extend_from_slice(packed8.as_slice());
+                                    geobankarc.data32.lock().unwrap().extend_from_slice(packed32.as_slice());
+                                    geobankarc.data8.lock().unwrap().extend_from_slice(packed8.as_slice());
                                 }
                             }
                         }
@@ -329,10 +356,10 @@ impl ChunkSystem {
                 }
             }
         }
-
+        
         let gqarc = self.finished_geo_queue.clone();
         gqarc.push(index);
-        //geobankarc.num.store(num, std::sync::atomic::Ordering::Release);
+        
 
         let tc = self.takencare.clone();
 

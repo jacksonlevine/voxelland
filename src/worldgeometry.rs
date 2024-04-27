@@ -1,3 +1,5 @@
+use std::sync::Mutex;
+
 use crate::chunk::ChunkGeo;
 use crate::shader::Shader;
 use gl;
@@ -10,14 +12,15 @@ impl WorldGeometry {
         vbo8: gl::types::GLuint,
         upload: bool,
         shader: &Shader,
-        data: (&Vec<u32>, &Vec<u8>),
+        data: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>),
     ) {
         unsafe {
             if upload {
+                let datalock = data.0.lock().unwrap();
                 gl::NamedBufferData(
                     vbo32,
-                    (data.0.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
-                    data.0.as_ptr() as *const gl::types::GLvoid,
+                    (datalock.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
+                    datalock.as_ptr() as *const gl::types::GLvoid,
                     gl::STATIC_DRAW,
                 );
 
@@ -62,11 +65,11 @@ impl WorldGeometry {
                 if error != gl::NO_ERROR {
                     println!("OpenGL Error after u32 attrib binding: {}", error);
                 }
-
+                let data1lock = data.1.lock().unwrap();
                 gl::NamedBufferData(
                     vbo8,
-                    (data.1.len() * std::mem::size_of::<u8>()) as gl::types::GLsizeiptr,
-                    data.1.as_ptr() as *const gl::types::GLvoid,
+                    (data1lock.len() * std::mem::size_of::<u8>()) as gl::types::GLsizeiptr,
+                    data1lock.as_ptr() as *const gl::types::GLvoid,
                     gl::STATIC_DRAW,
                 );
 

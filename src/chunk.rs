@@ -231,6 +231,11 @@ impl ChunkSystem {
 
             chunkgeoarc.pos.lock().unwrap().clone_from(&cpos);
 
+            //#[cfg(feature="structures")]
+            self.generate_chunk(&chunkgeoarc.pos.lock().unwrap());
+
+            
+
             self.rebuild_index(index);
         } else {
             println!("This path");
@@ -253,12 +258,8 @@ impl ChunkSystem {
         // if num == 0 { num = 1; } else { num = 0; }
 
         
-        #[cfg(feature="structures")]
-        if !self.generated.contains(&geobankarc.pos.lock().unwrap()) {
-            self.generate_chunk(&geobankarc.pos.lock().unwrap());
-            self.generated.insert(*geobankarc.pos.lock().unwrap());
-        }
         
+
         geobankarc.clear();
 
 

@@ -601,6 +601,7 @@ impl Game {
         static mut last_time: f32 = 0.0;
 
         unsafe {
+            
             let current_time = glfwGetTime() as f32;
 
             let delta_time = current_time - last_time;

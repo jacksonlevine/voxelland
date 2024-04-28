@@ -323,8 +323,21 @@ impl Game {
         let gqarc = self.chunksys.finished_geo_queue.clone();
 
         match gqarc.pop() {
-            Some(index) => {
-                let bankarc = self.chunksys.geobank[index].clone();
+            Some(ready) => {
+
+                println!("Weird!");
+
+                let bankarc = self.chunksys.geobank[ready.geo_index].clone();
+
+                let mut cmemlock = self.chunksys.chunk_memories.lock().unwrap();
+
+                cmemlock.memories[ready.geo_index].length = ready.newlength;
+                cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
+                cmemlock.memories[ready.geo_index].pos = ready.newpos;
+                cmemlock.memories[ready.geo_index].used = true;
+
+                println!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
+                println!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
                 //if num == 0 { num = 1; } else { num = 0; }
                 //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
                 // if num == 0 {
@@ -335,10 +348,10 @@ impl Game {
                 //     num = 0;
                 // };
 
-                let v32 = bankarc.vbo32;
-                let v8 = bankarc.vbo8;
-                let tv32 = bankarc.tvbo32;
-                let tv8 = bankarc.tvbo8;
+                let v32 = cmemlock.memories[ready.geo_index].vbo32;
+                let v8 = cmemlock.memories[ready.geo_index].vbo8;
+                let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
+                let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
 
                 WorldGeometry::bind_geometry(v32, v8, true, &self.shader0, bankarc.solids());
                 WorldGeometry::bind_geometry(
@@ -429,139 +442,70 @@ impl Game {
 
             drop(cam_lock);
         }
-        for (ind, cfarc) in self.chunksys.chunks.iter().enumerate() {
-            match cfarc.try_lock() {
-                Ok(cfl) => {
-                    if cfl.used {
-                        let bankarc = self.chunksys.geobank[cfl.geo_index].clone();
-                        let dd1: Mutex<Vec<u32>> = Mutex::new(Vec::new());
-                        let dd2: Mutex<Vec<u8>> = Mutex::new(Vec::new());
-                        let dd: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>) = (&dd1, &dd2);
 
-                        WorldGeometry::bind_geometry(
-                            bankarc.vbo32,
-                            bankarc.vbo8,
-                            false,
-                            &self.shader0,
-                            dd,
-                        );
-                        unsafe {
-                            gl::Uniform2f(C_POS_LOC, cfl.pos.x as f32, cfl.pos.y as f32);
 
-                            let error = gl::GetError();
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after uniforming the chunk pos: {}", error);
-                            }
-                            //println!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
-                            gl::DrawArrays(gl::TRIANGLES, 0, bankarc.data32.lock().unwrap().len() as i32);
-                            let error = gl::GetError();
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after drawing arrays: {}", error);
-                            }
-                            // println!("Chunk rending!");
-                        }
+        let cmem = self.chunksys.chunk_memories.lock().unwrap();
+        for (index, cfl) in cmem.memories.iter().enumerate() {
+            if cfl.used {
+                let dd1: Mutex<Vec<u32>> = Mutex::new(Vec::new());
+                let dd2: Mutex<Vec<u8>> = Mutex::new(Vec::new());
+                let dd: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>) = (&dd1, &dd2);
+
+                WorldGeometry::bind_geometry(
+                    cfl.vbo32,
+                    cfl.vbo8,
+                    false,
+                    &self.shader0,
+                    dd,
+                );
+                unsafe {
+                    gl::Uniform2f(C_POS_LOC, cfl.pos.x as f32, cfl.pos.y as f32);
+
+                    let error = gl::GetError();
+                    if error != gl::NO_ERROR {
+                        println!("OpenGL Error after uniforming the chunk pos: {}", error);
                     }
+                    //println!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
+                    gl::DrawArrays(gl::TRIANGLES, 0, cfl.length as i32);
+                    let error = gl::GetError();
+                    if error != gl::NO_ERROR {
+                        println!("OpenGL Error after drawing arrays: {}", error);
+                    }
+                    // println!("Chunk rending!");
                 }
-                Err(_e) => {
-                    let bankarc = self.chunksys.geobank[ind].clone();
-                        let dd1: Mutex<Vec<u32>> = Mutex::new(Vec::new());
-                        let dd2: Mutex<Vec<u8>> = Mutex::new(Vec::new());
-                        let dd: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>) = (&dd1, &dd2);
+            }
+        }
+        for (index, cfl) in cmem.memories.iter().enumerate() {
+            if cfl.used {
+                let dd1: Mutex<Vec<u32>> = Mutex::new(Vec::new());
+                let dd2: Mutex<Vec<u8>> = Mutex::new(Vec::new());
+                let dd: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>) = (&dd1, &dd2);
 
-                        WorldGeometry::bind_geometry(
-                            bankarc.vbo32,
-                            bankarc.vbo8,
-                            false,
-                            &self.shader0,
-                            dd,
-                        );
-                        unsafe {
-                            let cpos = bankarc.pos.lock().unwrap();
-                            gl::Uniform2f(C_POS_LOC, cpos.x as f32, cpos.y as f32);
+                WorldGeometry::bind_geometry(
+                    cfl.tvbo32,
+                    cfl.tvbo8,
+                    false,
+                    &self.shader0,
+                    dd,
+                );
+                unsafe {
+                    gl::Uniform2f(C_POS_LOC, cfl.pos.x as f32, cfl.pos.y as f32);
 
-                            let error = gl::GetError();
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after uniforming the chunk pos: {}", error);
-                            }
-                            //println!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
-                            gl::DrawArrays(gl::TRIANGLES, 0, bankarc.data32.lock().unwrap().len() as i32);
-                            let error = gl::GetError();
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after drawing arrays: {}", error);
-                            }
-                            // println!("Chunk rending!");
-                        }
-
+                    let error = gl::GetError();
+                    if error != gl::NO_ERROR {
+                        println!("OpenGL Error after uniforming the chunk pos: {}", error);
+                    }
+                    //println!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
+                    gl::DrawArrays(gl::TRIANGLES, 0, cfl.tlength as i32);
+                    let error = gl::GetError();
+                    if error != gl::NO_ERROR {
+                        println!("OpenGL Error after drawing arrays: {}", error);
+                    }
+                    // println!("Chunk rending!");
                 }
             }
         }
 
-        for (ind, cfarc) in self.chunksys.chunks.iter().enumerate() {
-            match cfarc.try_lock() {
-                Ok(cfl) => {
-                    if cfl.used {
-                        let bankarc = self.chunksys.geobank[cfl.geo_index].clone();
-                        let dd1: Mutex<Vec<u32>> = Mutex::new(Vec::new());
-                        let dd2: Mutex<Vec<u8>> = Mutex::new(Vec::new());
-                        let dd: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>) = (&dd1, &dd2);
-
-                        WorldGeometry::bind_geometry(
-                            bankarc.tvbo32,
-                            bankarc.tvbo8,
-                            false,
-                            &self.shader0,
-                            dd,
-                        );
-                        unsafe {
-                            gl::Uniform2f(C_POS_LOC, cfl.pos.x as f32, cfl.pos.y as f32);
-
-                            let error = gl::GetError();
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after uniforming the chunk pos: {}", error);
-                            }
-                            //println!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
-                            gl::DrawArrays(gl::TRIANGLES, 0, bankarc.tdata32.lock().unwrap().len() as i32);
-                            let error = gl::GetError();
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after drawing arrays: {}", error);
-                            }
-                            // println!("Chunk rending!");
-                        }
-                    }
-                }
-                Err(_e) => {
-                    let bankarc = self.chunksys.geobank[ind].clone();
-                        let dd1: Mutex<Vec<u32>> = Mutex::new(Vec::new());
-                        let dd2: Mutex<Vec<u8>> = Mutex::new(Vec::new());
-                        let dd: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>) = (&dd1, &dd2);
-
-                        WorldGeometry::bind_geometry(
-                            bankarc.tvbo32,
-                            bankarc.tvbo8,
-                            false,
-                            &self.shader0,
-                            dd,
-                        );
-                        unsafe {
-                            let cpos = bankarc.pos.lock().unwrap();
-                            gl::Uniform2f(C_POS_LOC, cpos.x as f32, cpos.y as f32);
-
-                            let error = gl::GetError();
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after uniforming the chunk pos: {}", error);
-                            }
-                            //println!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
-                            gl::DrawArrays(gl::TRIANGLES, 0, bankarc.tdata32.lock().unwrap().len() as i32);
-                            let error = gl::GetError();
-                            if error != gl::NO_ERROR {
-                                println!("OpenGL Error after drawing arrays: {}", error);
-                            }
-                            // println!("Chunk rending!");
-                        }
-
-                }
-            }
-        }
     }
 
     pub fn start_world(&mut self) {
@@ -601,7 +545,7 @@ impl Game {
         static mut last_time: f32 = 0.0;
 
         unsafe {
-            
+
             let current_time = glfwGetTime() as f32;
 
             let delta_time = current_time - last_time;
@@ -669,7 +613,7 @@ impl Game {
 
                 sorted_chunk_facades.extend(unused_or_distant);
                 sorted_chunk_facades.extend(used_and_close);
-
+                println!("Neededspots size: {}", neededspots.len());
                 for (index, ns) in neededspots.iter().enumerate() {
                     
                     csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns);

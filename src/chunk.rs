@@ -505,13 +505,13 @@ impl ChunkSystem {
         for i in &model.model.models {
             let size = i.size;
             for v in &i.voxels {
-                let rearr_point = IVec3::new(v.point.x as i32  - (size.x / 2) as i32, (v.point.z as i32), v.point.y  as i32  - (size.y / 2) as i32);
+                let rearr_point = IVec3::new(v.point.x as i32  - (size.x / 2) as i32, v.point.z as i32, v.point.y  as i32  - (size.y / 2) as i32);
 
                 let c_pos = ChunkSystem::spot_to_chunk_pos(&(*spot + rearr_point));
                 implicated_chunks.insert(c_pos);
                 self.set_block(
                     IVec3::new(spot.x + rearr_point.x, spot.y + rearr_point.y, spot.z + rearr_point.z),
-                    (v.color_index.0).clamp(0, 10) as u32,
+                    (v.color_index.0).clamp(0, Blocks::get_texs_length() as u8) as u32,
                     false
                 )
             }
@@ -550,7 +550,7 @@ impl ChunkSystem {
                 for y in (0..CH-40).rev() {
                     let coord = IVec3::new(cpos.x * CW + x, y, cpos.y * CW + z);
                     if self.natural_blockat(coord) == 3 {
-                        let rand_number1: u32 = rng.gen_range(0..10);
+                        let rand_number1: u32 = rng.gen_range(0..self.voxel_models.len() as u32 * 3);
                         if rand_number1 < self.voxel_models.len() as u32 {
                             self.stamp_here(&coord, &self.voxel_models[rand_number1 as usize], Some(&mut implicated));
                         }

@@ -2,10 +2,7 @@ use crate::cube::CubeSide;
 
 pub struct Blocks {}
 
-impl Blocks {
-    pub fn get_tex_coords(id: u32, side: CubeSide) -> &'static (u8, u8) {
-        static SIDES: [usize; 6] = [0, 0, 1, 2, 0, 0];
-        static TEXS: [[(u8, u8); 3]; 11] = [
+static TEXS: [[(u8, u8); 3]; 12] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],
             [(1, 0), (1, 0), (1, 0)],
@@ -18,7 +15,16 @@ impl Blocks {
             [(8, 0), (8, 0), (8, 0)],
             [(9, 0), (9, 0), (9, 0)],
             [(10, 0), (10, 0), (10, 0)],
+            [(7, 1), (7, 1), (7, 1)], // 11 bush leaves
         ];
+
+impl Blocks {
+    pub fn get_texs_length() -> usize {
+        return TEXS.len();
+    }
+    pub fn get_tex_coords(id: u32, side: CubeSide) -> &'static (u8, u8) {
+        static SIDES: [usize; 6] = [0, 0, 1, 2, 0, 0];
+        
         return &TEXS[id as usize][SIDES[side as usize]];
     }
     pub fn is_transparent(id: u32) -> bool {

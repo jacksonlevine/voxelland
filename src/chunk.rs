@@ -173,7 +173,9 @@ impl ChunkSystem {
             let entry = entry.unwrap();
             if entry.file_type().is_file() {
                 let path_str = entry.path().to_string_lossy().into_owned();
-                cs.voxel_models.push(JVoxModel::new(Box::leak(path_str.into_boxed_str())));
+                let jv = JVoxModel::new(Box::leak(path_str.into_boxed_str()));
+                println!("{:#?}", jv.model);
+                cs.voxel_models.push(jv);
             }
         }
 
@@ -293,7 +295,7 @@ impl ChunkSystem {
             //println!("Chunkgeoarc pos set to {} {}", lo.x, lo.y);
 
             //#[cfg(feature="structures")]
-            self.generate_chunk(&cpos);
+            self.generate_chunk(&lo);
 
             
 
@@ -331,9 +333,12 @@ impl ChunkSystem {
         let mut tdata32 = geobankarc.tdata32.lock().unwrap();
         let mut tdata8 = geobankarc.tdata8.lock().unwrap();
 
+        let mut tops: HashMap<vec::IVec2, i32> = HashMap::new();
+
         for i in 0..CW {
             for k in 0..CW {
-                for j in 0..CH {
+                let mut hit_block = false;
+                for j in (0..CH).rev() {
                     let spot = vec::IVec3 {
                         x: (chunklock.pos.x * CW) + i,
                         y: j,
@@ -342,13 +347,20 @@ impl ChunkSystem {
                     let block = self.blockatmemo(spot, &mut memo);
                     if block != 0 {
  
-
+                        
                         if Blocks::is_transparent(block) || Blocks::is_semi_transparent(block) {
                             for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
                                 let neigh_block = self.blockatmemo(spot + *neigh, &mut memo);
                                 let cubeside = CubeSide::from_primitive(indie);
                                 let neigh_semi_trans = Blocks::is_semi_transparent(neigh_block);
                                 let water_bordering_transparent = block == 2 && neigh_block != 2 && Blocks::is_transparent(neigh_block);
+
+                                hit_block = match tops.get(&vec::IVec2{x: i + neigh.x, y: k + neigh.z}) {
+                                    Some(t) => {
+                                        *t > j + neigh.y
+                                    }
+                                    None => { false }
+                                };
     
                                 if neigh_block == 0 || neigh_semi_trans || water_bordering_transparent {
                                     let side = Cube::get_side(cubeside);
@@ -362,7 +374,7 @@ impl ChunkSystem {
                                             j as u8 + v[1],
                                             k as u8 + v[2],
                                             ind as u8,
-                                            v[3],
+                                            v[3] - (if hit_block { 3 } else { 0 }),
                                             0,
                                             texcoord.0,
                                             texcoord.1,
@@ -373,6 +385,8 @@ impl ChunkSystem {
     
                                     tdata32.extend_from_slice(packed32.as_slice());
                                     tdata8.extend_from_slice(packed8.as_slice());
+                                } else {
+                                    tops.insert(vec::IVec2{x: i + neigh.x, y: k + neigh.z}, j + neigh.y);
                                 }
                             }
                         } else {
@@ -382,6 +396,13 @@ impl ChunkSystem {
                                 let cubeside = CubeSide::from_primitive(indie);
                                 let neighbor_transparent = Blocks::is_transparent(neigh_block) || Blocks::is_semi_transparent(neigh_block);
                                 
+                                hit_block = match tops.get(&vec::IVec2{x: i + neigh.x, y: k + neigh.z}) {
+                                    Some(t) => {
+                                        *t > j + neigh.y
+                                    }
+                                    None => { false }
+                                };
+
                                 if neigh_block == 0 || neighbor_transparent {
                                     let side = Cube::get_side(cubeside);
                                     let mut packed32: [u32; 6] = [0, 0, 0, 0, 0, 0];
@@ -400,14 +421,20 @@ impl ChunkSystem {
                                                                   .filter(|&result| result != 0)
                                                                   .count();
 
-                                        
+                                        let base_light: i32 = v[3] as i32 - AMB_CHANGES[amb_change] as i32; // Perform calculations as i32
+                                        let adjusted_light: i32 = if hit_block {
+                                            base_light - 3
+                                        } else {
+                                            base_light
+                                        };
+                                        let clamped_light: u8 = adjusted_light.clamp(0, 15) as u8; // Clamp in i32 context, then cast to u8
                                         
                                         let pack = PackedVertex::pack(
                                             i as u8 + v[0],
                                             j as u8 + v[1],
                                             k as u8 + v[2],
                                             ind as u8,
-                                            (v[3] - AMB_CHANGES[amb_change]).clamp(0, 16),
+                                            clamped_light,
                                             0,
                                             texcoord.0,
                                             texcoord.1,
@@ -418,6 +445,12 @@ impl ChunkSystem {
     
                                     data32.extend_from_slice(packed32.as_slice());
                                     data8.extend_from_slice(packed8.as_slice());
+
+                                    if Blocks::is_semi_transparent(neigh_block) {
+                                        tops.insert(vec::IVec2{x: i + neigh.x, y: k + neigh.z}, j + neigh.y);
+                                    }
+                                } else {
+                                    tops.insert(vec::IVec2{x: i + neigh.x, y: k + neigh.z}, j + neigh.y);
                                 }
                             }
                         }
@@ -452,7 +485,7 @@ impl ChunkSystem {
     }
 
     pub fn stamp_here(&self, spot: &vec::IVec3, model: &JVoxModel, implicated: Option<&mut HashSet<IVec2>>) {
-        let mut colorset = HashSet::new();
+
         let mut local_implicated_chunks; // Declare a mutable local HashSet for when None is provided
         let implicated_chunks; // This will be the reference used throughout the function
         let mut implicated_provided = false;
@@ -470,14 +503,15 @@ impl ChunkSystem {
         };
         
         for i in &model.model.models {
+            let size = i.size;
             for v in &i.voxels {
-                let rearr_point = IVec3::new(v.point.x as i32, (v.point.z as i32) - 40, v.point.y as i32);
-                colorset.insert(v.color_index);
-                let c_pos = IVec2{x: ((spot.x + rearr_point.x) as f32 / 15.0).floor() as i32, y: ((spot.z + rearr_point.z) as f32 / 15.0).floor() as i32};
+                let rearr_point = IVec3::new(v.point.x as i32  - (size.x / 2) as i32, (v.point.z as i32), v.point.y  as i32  - (size.y / 2) as i32);
+
+                let c_pos = ChunkSystem::spot_to_chunk_pos(&(*spot + rearr_point));
                 implicated_chunks.insert(c_pos);
                 self.set_block(
-                    *spot + IVec3::new(spot.x + rearr_point.x, spot.y + rearr_point.y, spot.z + rearr_point.z),
-                    (1 + colorset.len()).clamp(0, 10) as u32,
+                    IVec3::new(spot.x + rearr_point.x, spot.y + rearr_point.y, spot.z + rearr_point.z),
+                    (v.color_index.0).clamp(0, 10) as u32,
                     false
                 )
             }
@@ -513,10 +547,10 @@ impl ChunkSystem {
         
         for x in 0..CW {
             for z in 0..CW {
-                for y in (0..CH).rev() {
+                for y in (0..CH-40).rev() {
                     let coord = IVec3::new(cpos.x * CW + x, y, cpos.y * CW + z);
-                    if self.blockat(coord) == 3 {
-                        let rand_number1: u32 = rng.gen_range(0..25);
+                    if self.natural_blockat(coord) == 3 {
+                        let rand_number1: u32 = rng.gen_range(0..10);
                         if rand_number1 < self.voxel_models.len() as u32 {
                             self.stamp_here(&coord, &self.voxel_models[rand_number1 as usize], Some(&mut implicated));
                         }
@@ -627,7 +661,6 @@ impl ChunkSystem {
     }
 
     pub fn blockat(&self, spot: vec::IVec3) -> u32 {
-        static WL: f32 = 40.0;
 
         match self.userdatamap.get(&spot) {
             Some(id) => {
@@ -640,9 +673,14 @@ impl ChunkSystem {
             Some(id) => {
                 return *id;
             }
-            None => {}
+            None => { return self.natural_blockat(spot)}
         }
 
+        
+    }
+
+    pub fn natural_blockat(&self, spot: vec::IVec3) -> u32 {
+        static WL: f32 = 40.0;
         if self.noise_func(spot) > 10.0 {
             if self.noise_func(spot + vec::IVec3 { x: 0, y: 10, z: 0 }) > 10.0 {
                 return 5;

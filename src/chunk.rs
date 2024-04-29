@@ -35,9 +35,7 @@ pub struct ChunkGeo {
     pub tdata32: Mutex<Vec<u32>>,
     pub tdata8: Mutex<Vec<u8>>,
     pub tvbo32: gl::types::GLuint,
-    pub tvbo8: gl::types::GLuint,
-    pub length: AtomicU32,
-    pub tlength: AtomicU32
+    pub tvbo8: gl::types::GLuint
 }
 impl ChunkGeo {
     pub fn new() -> ChunkGeo {
@@ -72,9 +70,7 @@ impl ChunkGeo {
             tdata32: Mutex::new(Vec::new()),
             tdata8: Mutex::new(Vec::new()),
             tvbo32,
-            tvbo8,
-            length: AtomicU32::new(0),
-            tlength: AtomicU32::new(0),
+            tvbo8
         }
     }
     pub fn clear(&self) {
@@ -139,13 +135,15 @@ pub struct ChunkSystem {
     pub chunks: Vec<Arc<Mutex<ChunkFacade>>>,
     pub geobank: Vec<Arc<ChunkGeo>>,
     pub takencare: Arc<DashMap<vec::IVec2, ChunkFacade>>,
+    pub finished_user_geo_queue: Arc<lockfree::queue::Queue<ReadyMesh>>,
     pub finished_geo_queue: Arc<lockfree::queue::Queue<ReadyMesh>>,
     pub user_rebuild_requests: lockfree::queue::Queue<usize>,
+    pub background_rebuild_requests: lockfree::queue::Queue<usize>,
     pub userdatamap: DashMap<vec::IVec3, u32>,
+    pub nonuserdatamap: DashMap<vec::IVec3, u32>,
     pub radius: u8,
     pub perlin: Perlin,
     pub voxel_models: Vec<JVoxModel>,
-    pub generated: DashSet<vec::IVec2>,
     pub chunk_memories: Mutex<ChunkRegistry>
 }
 
@@ -155,13 +153,15 @@ impl ChunkSystem {
             chunks: Vec::new(),
             geobank: Vec::new(),
             takencare: Arc::new(DashMap::new()),
+            finished_user_geo_queue: Arc::new(lockfree::queue::Queue::new()),
             finished_geo_queue: Arc::new(lockfree::queue::Queue::new()),
             user_rebuild_requests: lockfree::queue::Queue::new(),
+            background_rebuild_requests: lockfree::queue::Queue::new(),
             userdatamap: DashMap::new(),
+            nonuserdatamap: DashMap::new(),
             radius,
             perlin: Perlin::new(1),
             voxel_models: Vec::new(),
-            generated: DashSet::new(),
             chunk_memories: Mutex::new(ChunkRegistry{
                 memories: Vec::new()
             })
@@ -199,30 +199,33 @@ impl ChunkSystem {
     }
     pub fn spot_to_chunk_pos(spot: &vec::IVec3) -> vec::IVec2 {
         return vec::IVec2{
-            x: (spot.x as f32 / 15.0).floor() as i32,
-            y: (spot.z as f32 / 15.0).floor() as i32,
+            x: (spot.x as f32 / CW as f32).floor() as i32,
+            y: (spot.z as f32 / CW as f32).floor() as i32,
         }
     }
-    pub fn set_block_and_queue_rerender(&self, spot: vec::IVec3, block: u32, neighbors: bool) {
-        self.set_block(spot, block);
+    pub fn set_block_and_queue_rerender(&self, spot: vec::IVec3, block: u32, neighbors: bool, user_power: bool) {
+        self.set_block(spot, block, user_power);
         let chunk_key = &Self::spot_to_chunk_pos(&spot);
         if neighbors {
-            static NEIGHBORS: [vec::IVec2; 9] = [
-                vec::IVec2{x: -1, y: -1},
-                vec::IVec2{x: -1, y: 0},
-                vec::IVec2{x: -1, y: 1},
-                vec::IVec2{x: 0, y: -1},
-                vec::IVec2{x: 0, y: 0},
-                vec::IVec2{x: 0, y: 1},
-                vec::IVec2{x: 1, y: -1},
-                vec::IVec2{x: 1, y: 0},
-                vec::IVec2{x: 1, y: 1},
-            ];
-            for i in NEIGHBORS {
-                let here = *chunk_key + i;
+
+            let mut neighbs: HashSet<vec::IVec2> = HashSet::new();
+
+            for i in Cube::get_neighbors() {
+                let thisspot = spot + *i;
+                neighbs.insert(ChunkSystem::spot_to_chunk_pos(&thisspot));
+            }
+            for i in neighbs {
+                let here = i;
                 match self.takencare.get(&here) {
                     Some(cf) => {
-                        self.user_rebuild_requests.push(cf.geo_index);
+                        match user_power {
+                            true => {
+                                self.user_rebuild_requests.push(cf.geo_index);
+                            }
+                            false => {
+                                self.background_rebuild_requests.push(cf.geo_index);
+                            }
+                        }
                     }
                     None => {}
                 }
@@ -231,15 +234,33 @@ impl ChunkSystem {
             
             match self.takencare.get(chunk_key) {
                 Some(cf) => {
-                    self.user_rebuild_requests.push(cf.geo_index);
+                    match user_power {
+                        true => {
+                            self.user_rebuild_requests.push(cf.geo_index);
+                        }
+                        false => {
+                            self.background_rebuild_requests.push(cf.geo_index);
+                        }
+                    }
+                    
                 }
                 None => {}
             }
         }
         
     }
-    pub fn set_block(&self, spot: vec::IVec3, block: u32) {
-        self.userdatamap.insert(spot, block);
+    pub fn set_block(&self, spot: vec::IVec3, block: u32, user_power: bool) {
+        match user_power {
+            true => {
+                println!("Has user power, set block to {block}");
+                self.userdatamap.insert(spot, block);
+            }
+            false => {
+                //println!("Non user power");
+                self.nonuserdatamap.insert(spot, block);
+            }
+        }
+        
     }
     pub fn move_and_rebuild(&self, index: usize, cpos: vec::IVec2) {
         println!("MBeing asked to move and rebuild to {} {}", cpos.x, cpos.y);
@@ -276,15 +297,15 @@ impl ChunkSystem {
 
             
 
-            self.rebuild_index(index);
+            self.rebuild_index(index, false);
         } else {
             println!("This path");
             let ind = tc.get(&cpos).unwrap().geo_index;
-            self.rebuild_index(ind);
+            self.rebuild_index(ind, false);
         }
     }
 
-    pub fn rebuild_index(&self, index: usize) {
+    pub fn rebuild_index(&self, index: usize, user_power: bool) {
 
 
         println!("Rebuilding!");
@@ -405,9 +426,21 @@ impl ChunkSystem {
                 }
             }
         }
-        
+
+        let rm = ReadyMesh::new(index, &chunklock.pos, data32.len() as i32, tdata32.len() as i32);
+        let ugqarc = self.finished_user_geo_queue.clone();
         let gqarc = self.finished_geo_queue.clone();
-        gqarc.push(ReadyMesh::new(index, &chunklock.pos, data32.len() as i32, tdata32.len() as i32));
+
+        match user_power {
+            true => {
+                ugqarc.push(rm);
+            }
+            false => {
+                
+                gqarc.push(rm);
+            }
+        }
+        
         
 
         let tc = self.takencare.clone();
@@ -445,6 +478,7 @@ impl ChunkSystem {
                 self.set_block(
                     *spot + IVec3::new(spot.x + rearr_point.x, spot.y + rearr_point.y, spot.z + rearr_point.z),
                     (1 + colorset.len()).clamp(0, 10) as u32,
+                    false
                 )
             }
         }
@@ -452,7 +486,7 @@ impl ChunkSystem {
             for c in implicated_chunks.iter() {
                 match self.takencare.get(&c) {
                     Some(cf) => {
-                        self.user_rebuild_requests.push(cf.geo_index);
+                        self.background_rebuild_requests.push(cf.geo_index);
                     }
                     None => {}
                 }
@@ -503,7 +537,7 @@ impl ChunkSystem {
         for c in implicated.iter() {
             match self.takencare.get(&c) {
                 Some(cf) => {
-                    self.user_rebuild_requests.push(cf.geo_index);
+                    self.background_rebuild_requests.push(cf.geo_index);
                 }
                 None => {}
             }
@@ -596,6 +630,13 @@ impl ChunkSystem {
         static WL: f32 = 40.0;
 
         match self.userdatamap.get(&spot) {
+            Some(id) => {
+                return *id;
+            }
+            None => {}
+        }
+
+        match self.nonuserdatamap.get(&spot) {
             Some(id) => {
                 return *id;
             }

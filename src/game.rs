@@ -319,13 +319,12 @@ impl Game {
             gl::BindVertexArray(self.shader0.vao);
             gl::UseProgram(self.shader0.shader_id);
         }
+        let ugqarc = self.chunksys.finished_user_geo_queue.clone();
 
-        let gqarc = self.chunksys.finished_geo_queue.clone();
-
-        match gqarc.pop() {
+        match ugqarc.pop() {
             Some(ready) => {
-
-                println!("Weird!");
+                println!("Some user queue");
+               // println!("Weird!");
 
                 let bankarc = self.chunksys.geobank[ready.geo_index].clone();
 
@@ -361,6 +360,100 @@ impl Game {
                     &self.shader0,
                     bankarc.transparents(),
                 );
+            }
+            None => {}
+        }
+
+        let gqarc = self.chunksys.finished_geo_queue.clone();
+
+        match gqarc.pop() {
+            Some(ready) => {
+
+                //println!("Weird!");
+
+                let bankarc = self.chunksys.geobank[ready.geo_index].clone();
+
+                let mut cmemlock = self.chunksys.chunk_memories.lock().unwrap();
+
+                cmemlock.memories[ready.geo_index].length = ready.newlength;
+                cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
+                cmemlock.memories[ready.geo_index].pos = ready.newpos;
+                cmemlock.memories[ready.geo_index].used = true;
+
+                //println!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
+                //println!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
+                //if num == 0 { num = 1; } else { num = 0; }
+                //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
+                // if num == 0 {
+                //     bankarc.num.store(1, Ordering::Relaxed);
+                //     num = 1;
+                // } else {
+                //     bankarc.num.store(0, Ordering::Relaxed);
+                //     num = 0;
+                // };
+
+                let v32 = cmemlock.memories[ready.geo_index].vbo32;
+                let v8 = cmemlock.memories[ready.geo_index].vbo8;
+                let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
+                let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
+
+                WorldGeometry::bind_geometry(v32, v8, true, &self.shader0, bankarc.solids());
+                WorldGeometry::bind_geometry(
+                    tv32,
+                    tv8,
+                    true,
+                    &self.shader0,
+                    bankarc.transparents(),
+                );
+                let mut userstuff = true;
+                while userstuff {
+                    match ugqarc.pop() {
+                        Some(ready) => {
+                            
+                                    println!("Some user queue");
+                                    // println!("Weird!");
+                
+                                let bankarc = self.chunksys.geobank[ready.geo_index].clone();
+                
+                                //let mut cmemlock = self.chunksys.chunk_memories.lock().unwrap();
+                
+                                cmemlock.memories[ready.geo_index].length = ready.newlength;
+                                cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
+                                cmemlock.memories[ready.geo_index].pos = ready.newpos;
+                                cmemlock.memories[ready.geo_index].used = true;
+                
+                                println!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
+                                println!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
+                                //if num == 0 { num = 1; } else { num = 0; }
+                                //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
+                                // if num == 0 {
+                                //     bankarc.num.store(1, Ordering::Relaxed);
+                                //     num = 1;
+                                // } else {
+                                //     bankarc.num.store(0, Ordering::Relaxed);
+                                //     num = 0;
+                                // };
+                
+                                let v32 = cmemlock.memories[ready.geo_index].vbo32;
+                                let v8 = cmemlock.memories[ready.geo_index].vbo8;
+                                let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
+                                let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
+                
+                                WorldGeometry::bind_geometry(v32, v8, true, &self.shader0, bankarc.solids());
+                                WorldGeometry::bind_geometry(
+                                    tv32,
+                                    tv8,
+                                    true,
+                                    &self.shader0,
+                                    bankarc.transparents(),
+                                );
+                            
+                            
+                        
+                        }
+                        None => { userstuff = false; }
+                    }
+                }
             }
             None => {}
         }
@@ -526,14 +619,46 @@ impl Game {
     }
 
     pub fn chunk_thread_inner_function(cam_arc: &Arc<Mutex<Camera>>, csys_arc: &Arc<ChunkSystem>) {
+
+
+
+
         let mut userstuff = true;
         while userstuff {
             match csys_arc.user_rebuild_requests.pop() {
                 Some(index) => {
-                    csys_arc.rebuild_index(index);
+                    csys_arc.rebuild_index(index, true);
                 }
                 None => {
                     userstuff = false;
+                }
+            }
+        }
+        let mut backgroundstuff = true;
+        while backgroundstuff {
+            match csys_arc.background_rebuild_requests.pop() {
+                Some(index) => {
+                    csys_arc.rebuild_index(index, false);
+                    match csys_arc.user_rebuild_requests.pop() {
+                        Some(index) => {
+                            csys_arc.rebuild_index(index, true);
+                            let mut userstuff = true;
+                            while userstuff {
+                                match csys_arc.user_rebuild_requests.pop() {
+                                    Some(index) => {
+                                        csys_arc.rebuild_index(index, true);
+                                    }
+                                    None => {
+                                        userstuff = false;
+                                    }
+                                }
+                            }
+                        }
+                        None => {}
+                    }
+                }
+                None => {
+                    backgroundstuff = false;
                 }
             }
         }
@@ -619,7 +744,7 @@ impl Game {
                     csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns);
                     match csys_arc.user_rebuild_requests.pop() {
                         Some(index) => {
-                            csys_arc.rebuild_index(index);
+                            csys_arc.rebuild_index(index, true);
                             break;
                         }
                         None => {}
@@ -706,7 +831,7 @@ impl Game {
                     let cl = self.camera.lock().unwrap();
                     match raycast_dda(cl.position, cl.direction, &self.chunksys, 10.0) {
                         Some((_tip, block_hit)) => {
-                            self.chunksys.set_block_and_queue_rerender(block_hit, 0, true);
+                            self.chunksys.set_block_and_queue_rerender(block_hit, 0, true, true);
                         }
                         None => {}
                     }

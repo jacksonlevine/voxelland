@@ -252,7 +252,7 @@ impl ChunkSystem {
     pub fn set_block(&self, spot: vec::IVec3, block: u32, user_power: bool) {
         match user_power {
             true => {
-                println!("Has user power, set block to {block}");
+                //println!("Has user power, set block to {block}");
                 self.userdatamap.insert(spot, block);
             }
             false => {
@@ -263,7 +263,7 @@ impl ChunkSystem {
         
     }
     pub fn move_and_rebuild(&self, index: usize, cpos: vec::IVec2) {
-        println!("MBeing asked to move and rebuild to {} {}", cpos.x, cpos.y);
+        //println!("MBeing asked to move and rebuild to {} {}", cpos.x, cpos.y);
         let tc = self.takencare.clone();
 
         if !tc.contains_key(&cpos) {
@@ -290,7 +290,7 @@ impl ChunkSystem {
 
             drop(chunklock);
 
-            println!("Chunkgeoarc pos set to {} {}", lo.x, lo.y);
+            //println!("Chunkgeoarc pos set to {} {}", lo.x, lo.y);
 
             //#[cfg(feature="structures")]
             self.generate_chunk(&cpos);
@@ -308,7 +308,7 @@ impl ChunkSystem {
     pub fn rebuild_index(&self, index: usize, user_power: bool) {
 
 
-        println!("Rebuilding!");
+        //println!("Rebuilding!");
         let chunkarc = self.chunks[index].clone();
         let mut chunklock = chunkarc.lock().unwrap();
 

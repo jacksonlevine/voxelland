@@ -323,7 +323,7 @@ impl Game {
 
         match ugqarc.pop() {
             Some(ready) => {
-                println!("Some user queue");
+                //println!("Some user queue");
                // println!("Weird!");
 
                 let bankarc = self.chunksys.geobank[ready.geo_index].clone();
@@ -335,8 +335,8 @@ impl Game {
                 cmemlock.memories[ready.geo_index].pos = ready.newpos;
                 cmemlock.memories[ready.geo_index].used = true;
 
-                println!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
-                println!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
+                //println!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
+                //println!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
                 //if num == 0 { num = 1; } else { num = 0; }
                 //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
                 // if num == 0 {
@@ -410,7 +410,7 @@ impl Game {
                     match ugqarc.pop() {
                         Some(ready) => {
                             
-                                    println!("Some user queue");
+                                    //println!("Some user queue");
                                     // println!("Weird!");
                 
                                 let bankarc = self.chunksys.geobank[ready.geo_index].clone();
@@ -422,8 +422,8 @@ impl Game {
                                 cmemlock.memories[ready.geo_index].pos = ready.newpos;
                                 cmemlock.memories[ready.geo_index].used = true;
                 
-                                println!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
-                                println!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
+                                //println!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
+                                //println!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
                                 //if num == 0 { num = 1; } else { num = 0; }
                                 //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
                                 // if num == 0 {
@@ -738,7 +738,7 @@ impl Game {
 
                 sorted_chunk_facades.extend(unused_or_distant);
                 sorted_chunk_facades.extend(used_and_close);
-                println!("Neededspots size: {}", neededspots.len());
+                //println!("Neededspots size: {}", neededspots.len());
                 for (index, ns) in neededspots.iter().enumerate() {
                     
                     csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns);
@@ -839,7 +839,40 @@ impl Game {
             }
             glfw::MouseButtonRight => {
                 self.vars.right_mouse_clicked = a == Action::Press;
-                if self.vars.right_mouse_clicked {}
+                if self.vars.right_mouse_clicked {
+                    let cl = self.camera.lock().unwrap();
+                    match raycast_dda(cl.position, cl.direction, &self.chunksys, 10.0) {
+                        
+                        Some((tip, block_hit)) => {
+
+                        let diff = (tip+Vec3::new(-0.5, -0.5, -0.5)) - (Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32));
+            
+                        let hit_normal;
+            
+                        // Determine the primary axis of intersection
+                        if (diff.x).abs() > (diff.y).abs() && (diff.x).abs() > (diff.z).abs() {
+                            // The hit was primarily along the X-axis
+                            hit_normal = vec::IVec3::new( if diff.x > 0.0 { 1 } else { -1 }, 0, 0);
+
+                        } else if (diff.y).abs() > (diff.x).abs() && (diff.y).abs() > (diff.z).abs() {
+                            // The hit was primarily along the Y-axis
+                            hit_normal = vec::IVec3::new(0, if diff.y > 0.0 { 1 } else { -1 }, 0);
+                        } else {
+                            // The hit was primarily along the Z-axis
+                            hit_normal = vec::IVec3::new(0, 0, if diff.z > 0.0 { 1 } else { -1 });
+                        }
+
+                        println!("Hit normal is {} {} {}", hit_normal.x, hit_normal.y, hit_normal.z);
+            
+            
+                        let place_point = block_hit + hit_normal;
+                            println!("Placing {} at {} {} {}", 1, place_point.x, place_point.y, place_point.z);
+                            self.chunksys.set_block_and_queue_rerender(place_point, 1, false, true);
+                        }
+
+                        None => {}
+                    }
+                }
             }
             _ => {}
         }

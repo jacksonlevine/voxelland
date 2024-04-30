@@ -35,6 +35,9 @@ pub struct GameVariables {
     sky_bottom: Vec4,
     mouse_clicked: bool,
     right_mouse_clicked: bool,
+    hostile_world: bool,
+    hostile_world_sky_color: Vec4,
+    hostile_world_sky_bottom: Vec4
 }
 
 pub struct Game {
@@ -108,6 +111,9 @@ impl Game {
                 sky_bottom: Vec4::new(1.0, 1.0, 1.0, 1.0),
                 mouse_clicked: false,
                 right_mouse_clicked: false,
+                hostile_world: false,
+                hostile_world_sky_color: Vec4::new(0.4, 0.4, 0.4, 1.0),
+                hostile_world_sky_bottom: Vec4::new(1.0, 0.0, 0.0, 1.0),
             },
             controls: ControlsState {
                 left: false,
@@ -312,7 +318,15 @@ impl Game {
         }
 
         //Sky
-        self.draw_sky(self.vars.sky_color, self.vars.sky_bottom);
+        match self.vars.hostile_world {
+            true => {
+                self.draw_sky(self.vars.hostile_world_sky_color, self.vars.hostile_world_sky_bottom);
+            }
+            false => {
+                self.draw_sky(self.vars.sky_color, self.vars.sky_bottom);
+            }
+        }
+        
 
         //Chunks
         unsafe {
@@ -958,6 +972,7 @@ impl Game {
                     static mut CURR_RADIUS: usize = 0;
                     self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
                     unsafe {
+                        self.vars.hostile_world = (CURR_RADIUS % 2) == 0;
                         self.start_chunks_with_radius(10, CURR_RADIUS as u32);
                         CURR_RADIUS = (CURR_RADIUS + 1) % 11;
                     }

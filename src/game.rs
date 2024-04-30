@@ -85,7 +85,7 @@ impl Game {
         let tex = Texture::new("assets/world.png").unwrap();
         tex.add_to_unit(0);
 
-        let chunksys = Arc::new(ChunkSystem::new(10));
+        let chunksys = Arc::new(ChunkSystem::new(10, 1));
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
             let csys_arc = Arc::clone(&chunksys);
@@ -618,7 +618,40 @@ impl Game {
         //self.chunksys.voxel_models[0].stamp_here(&vec::IVec3::new(0, 40, 0), &self.chunksys, None);
     }
 
-    pub fn chunk_thread_inner_function(cam_arc: &Arc<Mutex<Camera>>, csys_arc: &Arc<ChunkSystem>) {
+    
+    pub fn start_chunks_with_radius(&mut self, newradius: u8, seed: u32) {
+
+        (*self.run_chunk_thread).store(false, Ordering::Relaxed);
+
+        if let Some(handle) = self.chunk_thread.take() { // take the handle out safely
+            handle.join().unwrap(); // Join the thread, handle errors appropriately
+            println!("Thread joined successfully!");
+        } else {
+            println!("No thread to join or already joined.");
+        }
+        
+        for i in &self.chunksys.geobank {
+            unsafe {
+                gl::DeleteBuffers(1, &i.vbo32);
+                gl::DeleteBuffers(1, &i.tvbo32);
+                gl::DeleteBuffers(1, &i.vbo8);
+                gl::DeleteBuffers(1, &i.tvbo8);
+            }
+        }
+
+        self.chunksys = Arc::new(ChunkSystem::new(newradius, seed));
+
+        self.coll_cage.solid_pred  = {
+            let csys_arc = Arc::clone(&self.chunksys);
+            Box::new(move |v: vec::IVec3| {
+                return csys_arc.blockat(v) != 0;
+            })
+        };
+
+        self.start_world();
+    }
+
+    pub fn chunk_thread_inner_function(cam_arc: &Arc<Mutex<Camera>>, csys_arc: &Arc<ChunkSystem>, last_user_c_pos: &mut vec::IVec2) {
 
 
 
@@ -671,14 +704,12 @@ impl Game {
 
         unsafe {
 
+
             let current_time = glfwGetTime() as f32;
 
             let delta_time = current_time - last_time;
 
-            static mut last_user_c_pos: vec::IVec2 = vec::IVec2 {
-                x: -99999,
-                y: -99999,
-            };
+            
             static mut time_since_last_check: f32 = 2.0;
 
             let user_c_pos = ChunkSystem::spot_to_chunk_pos(&IVec3::new(
@@ -687,8 +718,8 @@ impl Game {
                 vec3.z.floor() as i32,
             ));
 
-            if user_c_pos != last_user_c_pos && time_since_last_check >= 2.0 {
-                last_user_c_pos = user_c_pos;
+            if user_c_pos != *last_user_c_pos && time_since_last_check >= 2.0 {
+                *last_user_c_pos = user_c_pos;
 
                 time_since_last_check = 0.0;
 
@@ -763,8 +794,13 @@ impl Game {
     ) {
         //static mut TEMP_COUNT: i32 = 0;
 
+        let mut last_user_c_pos: vec::IVec2 = vec::IVec2 {
+            x: -99999,
+            y: -99999,
+        };
+
         while runcheck.load(Ordering::Relaxed) {
-            Game::chunk_thread_inner_function(&cam_arc, &csys_arc);
+            Game::chunk_thread_inner_function(&cam_arc, &csys_arc, &mut last_user_c_pos);
         }
     }
     pub fn cursor_pos(&mut self, xpos: f64, ypos: f64) {
@@ -877,6 +913,8 @@ impl Game {
             _ => {}
         }
     }
+
+
     pub fn keyboard(&mut self, key: Key, action: Action) {
         match key {
             Key::W => {
@@ -912,6 +950,17 @@ impl Game {
                     self.controls.up = true;
                 } else {
                     self.controls.up = false;
+                }
+            }
+            Key::M => {
+                if action == Action::Press {
+                    static RADIUSES: [u8; 12] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+                    static mut CURR_RADIUS: usize = 0;
+                    self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
+                    unsafe {
+                        self.start_chunks_with_radius(10, CURR_RADIUS as u32);
+                        CURR_RADIUS = (CURR_RADIUS + 1) % 11;
+                    }
                 }
             }
             _ => {}

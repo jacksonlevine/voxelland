@@ -97,20 +97,6 @@ pub struct ChunkFacade {
 static CW: i32 = 15;
 static CH: i32 = 128;
 
-pub struct DoubleChunkGeo {
-    pub geos: [Mutex<ChunkGeo>; 2],
-    pub num: AtomicU8
-}
-
-impl DoubleChunkGeo {
-    pub fn new() -> DoubleChunkGeo {
-        DoubleChunkGeo {
-            geos: [ Mutex::new(ChunkGeo::new()),
-                    Mutex::new(ChunkGeo::new())],
-            num: AtomicU8::new(1)
-        }
-    }
-}
 
 
 pub struct ReadyMesh {
@@ -148,7 +134,12 @@ pub struct ChunkSystem {
 }
 
 impl ChunkSystem {
-    pub fn new(radius: u8) -> ChunkSystem {
+    
+
+    pub fn start_with_seed(seed: u32) {
+
+    }
+    pub fn new(radius: u8, seed: u32) -> ChunkSystem {
         let mut cs = ChunkSystem {
             chunks: Vec::new(),
             geobank: Vec::new(),
@@ -160,7 +151,7 @@ impl ChunkSystem {
             userdatamap: DashMap::new(),
             nonuserdatamap: DashMap::new(),
             radius,
-            perlin: Perlin::new(1),
+            perlin: Perlin::new(seed),
             voxel_models: Vec::new(),
             chunk_memories: Mutex::new(ChunkRegistry{
                 memories: Vec::new()
@@ -174,7 +165,7 @@ impl ChunkSystem {
             if entry.file_type().is_file() {
                 let path_str = entry.path().to_string_lossy().into_owned();
                 let jv = JVoxModel::new(Box::leak(path_str.into_boxed_str()));
-                println!("{:#?}", jv.model);
+                //println!("{:#?}", jv.model);
                 cs.voxel_models.push(jv);
             }
         }

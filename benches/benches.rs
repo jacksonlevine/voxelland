@@ -15,7 +15,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         .expect("Failed to create GLFW window.");
     gl::load_with(|s| window.get_proc_address(s) as *const _);
 
-    let csys = ChunkSystem::new(8, 1);
+    let csys = ChunkSystem::new(8, 1, 0);
 
     c.bench_function("rebuild 20 chunks", |b| b.iter(|| csys.rebuild_index(black_box(20), false)));
 }

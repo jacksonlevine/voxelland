@@ -130,7 +130,8 @@ pub struct ChunkSystem {
     pub radius: u8,
     pub perlin: Perlin,
     pub voxel_models: Vec<JVoxModel>,
-    pub chunk_memories: Mutex<ChunkRegistry>
+    pub chunk_memories: Mutex<ChunkRegistry>,
+    pub noise_type: u8
 }
 
 impl ChunkSystem {
@@ -139,7 +140,7 @@ impl ChunkSystem {
     pub fn start_with_seed(seed: u32) {
 
     }
-    pub fn new(radius: u8, seed: u32) -> ChunkSystem {
+    pub fn new(radius: u8, seed: u32, noisetype: usize) -> ChunkSystem {
         let mut cs = ChunkSystem {
             chunks: Vec::new(),
             geobank: Vec::new(),
@@ -155,7 +156,8 @@ impl ChunkSystem {
             voxel_models: Vec::new(),
             chunk_memories: Mutex::new(ChunkRegistry{
                 memories: Vec::new()
-            })
+            }),
+            noise_type: noisetype as u8
         };
 
         let directory_path = "assets/voxelmodels/";
@@ -574,6 +576,7 @@ impl ChunkSystem {
     }
 
     pub fn noise_func(&self, spot: vec::IVec3) -> f64 {
+
         let mut y = spot.y - 20;
 
         let noise1 = f64::max(
@@ -621,6 +624,59 @@ impl ChunkSystem {
         // Mixing noise1 and noise2 based on p, assuming `mix` is a function that blends the two values
         // Rust doesn't have a direct `mix` function, but you can create one or use a linear interpolation
         ChunkSystem::mix(noise1, noise2, p * 0.5)
+        
+    }
+
+    pub fn noise_func2(&self, spot: vec::IVec3) -> f64 {
+
+        let mut y = spot.y - 20;
+
+        let noise1 = f64::max(
+            0.0,
+            20.0 + self.perlin.get([
+                spot.x as f64 / 25.35,
+                y as f64 / 20.35,
+                spot.z as f64 / 25.35,
+            ]) * 5.0
+                - f64::max(
+                    y as f64 / 2.0
+                        + self
+                            .perlin
+                            .get([spot.x as f64 / 65.0, spot.z as f64 / 65.0])
+                            * 10.0,
+                    0.0,
+                ),
+        );
+
+        y += 60;
+
+        let noise2 = f64::max(
+            0.0,
+            50.0 + self.perlin.get([
+                spot.x as f64 / 55.35,
+                y as f64 / 25.35,
+                spot.z as f64 / 55.35,
+            ]) * 10.0
+                + self.perlin.get([
+                    spot.x as f64 + 10000 as f64 / 25.35,
+                    y as f64 / 65.35,
+                    spot.z as f64 + 10000 as f64 / 25.35,
+                ]) * 20.0
+                - f64::max(y as f64 / 3.0, 0.0),
+        );
+
+        let mut p = self
+            .perlin
+            .get([spot.x as f64 / 500.0, spot.z as f64 / 500.0])
+            * 10.0;
+
+        p = f64::max(p, 0.0);
+        p = f64::min(p, 1.0);
+
+        // Mixing noise1 and noise2 based on p, assuming `mix` is a function that blends the two values
+        // Rust doesn't have a direct `mix` function, but you can create one or use a linear interpolation
+        ChunkSystem::mix(noise1, noise2, p * 0.5)
+        
     }
 
     pub fn blockatmemo(&self, spot: vec::IVec3, memo: &mut HashMap<vec::IVec3, u32>) -> u32 {
@@ -671,27 +727,39 @@ impl ChunkSystem {
     }
 
     pub fn natural_blockat(&self, spot: vec::IVec3) -> u32 {
-        static WL: f32 = 40.0;
-        if self.noise_func(spot) > 10.0 {
-            if self.noise_func(spot + vec::IVec3 { x: 0, y: 10, z: 0 }) > 10.0 {
-                return 5;
-            }
-            if spot.y > (WL + 2.0) as i32
-                || self.noise_func(spot + vec::IVec3 { x: 0, y: 5, z: 0 }) > 10.0
-            {
-                if self.noise_func(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {
-                    return 3;
+        match self.noise_type {
+            1 => {
+                if self.noise_func2(spot) > 10.0 {
+                    return 1;
+                } else {
+                    return 0;
                 }
-                return 4;
-            } else {
-                return 1;
             }
-        } else {
-            if spot.y < WL as i32 {
-                return 2;
-            } else {
-                return 0;
+            _ => {
+                static WL: f32 = 40.0;
+                if self.noise_func(spot) > 10.0 {
+                    if self.noise_func(spot + vec::IVec3 { x: 0, y: 10, z: 0 }) > 10.0 {
+                        return 5;
+                    }
+                    if spot.y > (WL + 2.0) as i32
+                        || self.noise_func(spot + vec::IVec3 { x: 0, y: 5, z: 0 }) > 10.0
+                    {
+                        if self.noise_func(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {
+                            return 3;
+                        }
+                        return 4;
+                    } else {
+                        return 1;
+                    }
+                } else {
+                    if spot.y < WL as i32 {
+                        return 2;
+                    } else {
+                        return 0;
+                    }
+                }
             }
         }
+        
     }
 }

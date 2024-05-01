@@ -2,6 +2,7 @@ use core::time;
 use glam::{Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
 use glfw::{Action, Key, MouseButton};
+use walkdir::WalkDir;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, current};
@@ -88,7 +89,22 @@ impl Game {
         let tex = Texture::new("assets/world.png").unwrap();
         tex.add_to_unit(0);
 
-        let chunksys = Arc::new(ChunkSystem::new(10, 1));
+        let mut voxel_models: Vec<JVoxModel> = Vec::new();
+
+        let directory_path = "assets/voxelmodels/";
+
+        for entry in WalkDir::new(directory_path) {
+            let entry = entry.unwrap();
+            if entry.file_type().is_file() {
+                let path_str = entry.path().to_string_lossy().into_owned();
+                let jv = JVoxModel::new(Box::leak(path_str.into_boxed_str()));
+                //println!("{:#?}", jv.model);
+                voxel_models.push(jv);
+            }
+        }
+
+
+        let chunksys = Arc::new(ChunkSystem::new(10, 1, 0));
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
             let csys_arc = Arc::clone(&chunksys);
@@ -633,7 +649,7 @@ impl Game {
     }
 
     
-    pub fn start_chunks_with_radius(&mut self, newradius: u8, seed: u32) {
+    pub fn start_chunks_with_radius(&mut self, newradius: u8, seed: u32, nt: usize) {
 
         (*self.run_chunk_thread).store(false, Ordering::Relaxed);
 
@@ -653,7 +669,7 @@ impl Game {
             }
         }
 
-        self.chunksys = Arc::new(ChunkSystem::new(newradius, seed));
+        self.chunksys = Arc::new(ChunkSystem::new(newradius, seed, nt));
 
         self.coll_cage.solid_pred  = {
             let csys_arc = Arc::clone(&self.chunksys);
@@ -968,13 +984,17 @@ impl Game {
             }
             Key::M => {
                 if action == Action::Press {
-                    static RADIUSES: [u8; 12] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
-                    static mut CURR_RADIUS: usize = 0;
+                    static SEEDS: [u8; 12] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+                    static mut CURR_SEED: usize = 0;
+                    static mut CURR_NT: usize = 0;
                     self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
                     unsafe {
-                        self.vars.hostile_world = (CURR_RADIUS % 2) == 0;
-                        self.start_chunks_with_radius(10, CURR_RADIUS as u32);
-                        CURR_RADIUS = (CURR_RADIUS + 1) % 11;
+                        self.vars.hostile_world = (CURR_SEED % 2) == 0;
+                        CURR_NT = (CURR_NT + 1) % 2;
+                        self.start_chunks_with_radius(10, CURR_SEED as u32, CURR_NT);
+                        CURR_SEED = (CURR_SEED + 1) % 11;
+                        
+                        println!("Now noise type is {}", self.chunksys.noise_type);
                     }
                 }
             }

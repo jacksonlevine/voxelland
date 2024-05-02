@@ -21,6 +21,7 @@ use crate::chunkregistry::ChunkRegistry;
 use crate::cube::Cube;
 use crate::cube::CubeSide;
 use crate::packedvertex::PackedVertex;
+use crate::planetinfo::Planets;
 use crate::vec::IVec3;
 use crate::vec::{self, IVec2};
 
@@ -129,7 +130,7 @@ pub struct ChunkSystem {
     pub nonuserdatamap: DashMap<vec::IVec3, u32>,
     pub radius: u8,
     pub perlin: Perlin,
-    pub voxel_models: Vec<JVoxModel>,
+    pub voxel_models: Option<Arc<Vec<JVoxModel>>>,
     pub chunk_memories: Mutex<ChunkRegistry>,
     pub noise_type: u8
 }
@@ -153,24 +154,24 @@ impl ChunkSystem {
             nonuserdatamap: DashMap::new(),
             radius,
             perlin: Perlin::new(seed),
-            voxel_models: Vec::new(),
+            voxel_models: None,
             chunk_memories: Mutex::new(ChunkRegistry{
                 memories: Vec::new()
             }),
             noise_type: noisetype as u8
         };
 
-        let directory_path = "assets/voxelmodels/";
+        // let directory_path = "assets/voxelmodels/";
 
-        for entry in WalkDir::new(directory_path) {
-            let entry = entry.unwrap();
-            if entry.file_type().is_file() {
-                let path_str = entry.path().to_string_lossy().into_owned();
-                let jv = JVoxModel::new(Box::leak(path_str.into_boxed_str()));
-                //println!("{:#?}", jv.model);
-                cs.voxel_models.push(jv);
-            }
-        }
+        // for entry in WalkDir::new(directory_path) {
+        //     let entry = entry.unwrap();
+        //     if entry.file_type().is_file() {
+        //         let path_str = entry.path().to_string_lossy().into_owned();
+        //         let jv = JVoxModel::new(Box::leak(path_str.into_boxed_str()));
+        //         //println!("{:#?}", jv.model);
+        //         cs.voxel_models.push(jv);
+        //     }
+        // }
 
         for _ in 0..radius * 2 + 5 {
             for _ in 0..radius * 2 + 5 {
@@ -362,12 +363,35 @@ impl ChunkSystem {
     
                                     let texcoord = Blocks::get_tex_coords(block, cubeside);
                                     for (ind, v) in side.chunks(4).enumerate() {
+
+
+                                        static AMB_CHANGES: [u8; 4] = [
+                                            0, 3, 6, 10
+                                        ];
+
+                                        let amb_spots: &[vec::IVec3; 3] = Cube::get_amb_occul_spots(cubeside, ind as u8);
+
+                                        let amb_change = amb_spots.iter()
+                                                                  .map(|vec| self.blockatmemo(*vec + spot, &mut memo))
+                                                                  .filter(|&result| result != 0)
+                                                                  .count();
+
+                                        let base_light: i32 = v[3] as i32 - AMB_CHANGES[amb_change] as i32; // Perform calculations as i32
+                                        let adjusted_light: i32 = if hit_block {
+                                            base_light - 3
+                                        } else {
+                                            base_light
+                                        };
+                                        let clamped_light: u8 = adjusted_light.clamp(0, 15) as u8; // Clamp in i32 context, then cast to u8
+                                        
+
+
                                         let pack = PackedVertex::pack(
                                             i as u8 + v[0],
                                             j as u8 + v[1],
                                             k as u8 + v[2],
                                             ind as u8,
-                                            v[3] - (if hit_block { 3 } else { 0 }),
+                                            clamped_light,
                                             0,
                                             texcoord.0,
                                             texcoord.1,
@@ -537,15 +561,22 @@ impl ChunkSystem {
         let mut implicated: HashSet<vec::IVec2> = HashSet::new();
 
         let mut should_break = false;
+
+        let dim_floor = Planets::get_floor_block(self.noise_type as u32);
+
+        let dim_range = Planets::get_range(self.noise_type as u32);
         
         for x in 0..CW {
             for z in 0..CW {
                 for y in (0..CH-40).rev() {
                     let coord = IVec3::new(cpos.x * CW + x, y, cpos.y * CW + z);
-                    if self.natural_blockat(coord) == 3 {
-                        let rand_number1: u32 = rng.gen_range(0..self.voxel_models.len() as u32 * 3);
-                        if rand_number1 < self.voxel_models.len() as u32 {
-                            self.stamp_here(&coord, &self.voxel_models[rand_number1 as usize], Some(&mut implicated));
+                    if self.natural_blockat(coord) == dim_floor {
+
+                        let rand_number1: u32 = rng.gen_range(dim_range.0 as u32..dim_range.1 as u32 * 3);
+
+
+                        if rand_number1 <= dim_range.1 as u32 && rand_number1 >= dim_range.0 as u32 {
+                            self.stamp_here(&coord, &self.voxel_models.as_ref().unwrap()[rand_number1 as usize], Some(&mut implicated));
                         }
                         should_break = true;
                         break;
@@ -658,11 +689,11 @@ impl ChunkSystem {
                 spot.z as f64 / 55.35,
             ]) * 10.0
                 + self.perlin.get([
-                    spot.x as f64 + 10000 as f64 / 25.35,
+                    spot.x  as f64 / 25.35,
                     y as f64 / 65.35,
-                    spot.z as f64 + 10000 as f64 / 25.35,
+                    spot.z  as f64 / 25.35,
                 ]) * 20.0
-                - f64::max(y as f64 / 3.0, 0.0),
+                - f64::max(y as f64 * 3.0, 0.0),
         );
 
         let mut p = self
@@ -727,9 +758,15 @@ impl ChunkSystem {
     }
 
     pub fn natural_blockat(&self, spot: vec::IVec3) -> u32 {
+        if spot.y == 0 {
+            return 15;
+        }
         match self.noise_type {
             1 => {
                 if self.noise_func2(spot) > 10.0 {
+                    if self.noise_func2(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {
+                        return 14;
+                    }
                     return 1;
                 } else {
                     return 0;

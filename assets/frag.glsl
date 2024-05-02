@@ -10,6 +10,8 @@ uniform float ambientBrightMult;
 uniform float underWater;
 uniform vec3 camDir;
 
+uniform vec4 fogCol;
+
 uniform float sunset;
 uniform float sunrise;
 
@@ -18,6 +20,7 @@ float similarity(vec3 dir1, vec3 dir2) {
 }
 void main()
 {
+    //vec4(0.0, 0.0, 0.6, 1.0)
 
 
     vec4 texColor = texture(ourTexture, TexCoord);
@@ -26,7 +29,7 @@ void main()
     vec3 west = vec3(0.0,0.0,-1.0);
     vec3 east = vec3(0.0,0.0,1.0);
 
-    vec4 fogColor = vec4(0.7, 0.8, 1.0, 1.0) * vec4(ambientBrightMult, ambientBrightMult, ambientBrightMult, 1.0);
+    vec4 fogColor = fogCol * vec4(ambientBrightMult, ambientBrightMult, ambientBrightMult, 1.0);
 
     fogColor = mix(fogColor, vec4(1.0, 0.651, 0.0, 1.0), (similarity(camDir, east) * 0.7) * sunrise);
     fogColor = mix(fogColor, vec4(1.0, 0.651, 0.0, 1.0), (similarity(camDir, west) * 0.7) * sunset); 

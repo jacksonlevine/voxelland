@@ -12,6 +12,7 @@ use crate::chunk::{ChunkFacade, ChunkSystem};
 use crate::camera::Camera;
 use crate::collisioncage::*;
 use crate::fader::Fader;
+use crate::planetinfo::Planets;
 use crate::raycast::*;
 use crate::shader::Shader;
 use crate::texture::Texture;
@@ -60,7 +61,8 @@ pub struct Game {
     time_falling_scalar: f32,
     current_jump_y: f32,
     allowable_jump_height: f32,
-    pub initial_timer: f32
+    pub initial_timer: f32,
+    pub voxel_models: Arc<Vec<JVoxModel>>,
 }
 
 enum FaderNames {
@@ -89,22 +91,26 @@ impl Game {
         let tex = Texture::new("assets/world.png").unwrap();
         tex.add_to_unit(0);
 
-        let mut voxel_models: Vec<JVoxModel> = Vec::new();
+        let voxel_models = vec! [
+            JVoxModel::new("assets/voxelmodels/bush.vox"),
+            JVoxModel::new("assets/voxelmodels/tree1.vox"),
+            JVoxModel::new("assets/voxelmodels/tree2.vox"),
+            JVoxModel::new("assets/voxelmodels/rock1.vox"),
+            JVoxModel::new("assets/voxelmodels/rock2.vox"),
 
-        let directory_path = "assets/voxelmodels/";
-
-        for entry in WalkDir::new(directory_path) {
-            let entry = entry.unwrap();
-            if entry.file_type().is_file() {
-                let path_str = entry.path().to_string_lossy().into_owned();
-                let jv = JVoxModel::new(Box::leak(path_str.into_boxed_str()));
-                //println!("{:#?}", jv.model);
-                voxel_models.push(jv);
-            }
-        }
+            JVoxModel::new("assets/voxelmodels/ptree.vox"),
+            JVoxModel::new("assets/voxelmodels/redrock.vox"),
+        ];
 
 
-        let chunksys = Arc::new(ChunkSystem::new(10, 1, 0));
+        let mut csys =ChunkSystem::new(10, 1, 0);
+
+        let vmarc = Arc::new(voxel_models);
+        let vmarc2 = vmarc.clone();
+
+        csys.voxel_models = Some(vmarc);
+
+        let chunksys = Arc::new(csys);
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
             let csys_arc = Arc::clone(&chunksys);
@@ -128,7 +134,7 @@ impl Game {
                 mouse_clicked: false,
                 right_mouse_clicked: false,
                 hostile_world: false,
-                hostile_world_sky_color: Vec4::new(0.4, 0.4, 0.4, 1.0),
+                hostile_world_sky_color: Vec4::new(0.0, 0.0, 0.0, 1.0),
                 hostile_world_sky_bottom: Vec4::new(1.0, 0.0, 0.0, 1.0),
             },
             controls: ControlsState {
@@ -149,6 +155,7 @@ impl Game {
             current_jump_y: 0.0,
             allowable_jump_height: 1.1,
             initial_timer: 0.0,
+            voxel_models: vmarc2
         }
     }
 
@@ -497,6 +504,7 @@ impl Game {
         static mut CAM_DIR_LOC: i32 = 0;
         static mut SUNSET_LOC: i32 = 0;
         static mut SUNRISE_LOC: i32 = 0;
+        static mut FOGCOL_LOC: i32 = 0;
         unsafe {
             if C_POS_LOC == -1 {
                 C_POS_LOC = gl::GetUniformLocation(
@@ -534,6 +542,10 @@ impl Game {
                     self.shader0.shader_id,
                     b"sunrise\0".as_ptr() as *const i8,
                 );
+                FOGCOL_LOC = gl::GetUniformLocation(
+                    self.shader0.shader_id,
+                    b"fogCol\0".as_ptr() as *const i8,
+                );
             }
             let cam_lock = self.camera.lock().unwrap();
 
@@ -561,6 +573,14 @@ impl Game {
                     b"ourTexture\0".as_ptr() as *const i8,
                 ),
                 0,
+            );
+            let fc = Planets::get_fog_col(self.chunksys.noise_type as u32);
+            gl::Uniform4f(
+                FOGCOL_LOC,
+                fc.0, 
+                fc.1,
+                fc.2,
+                fc.3
             );
 
             drop(cam_lock);
@@ -668,8 +688,9 @@ impl Game {
                 gl::DeleteBuffers(1, &i.tvbo8);
             }
         }
-
-        self.chunksys = Arc::new(ChunkSystem::new(newradius, seed, nt));
+        let mut csys = ChunkSystem::new(newradius, seed, nt);
+        csys.voxel_models = Some(self.voxel_models.clone());
+        self.chunksys = Arc::new(csys);
 
         self.coll_cage.solid_pred  = {
             let csys_arc = Arc::clone(&self.chunksys);

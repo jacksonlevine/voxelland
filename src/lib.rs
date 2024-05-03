@@ -16,3 +16,4 @@ pub mod voxmodel;
 pub mod chunkregistry;
 pub mod currentplanet;
 pub mod planetinfo;
+pub mod model;

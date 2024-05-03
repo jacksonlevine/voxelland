@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bytemuck = "1.15.0"
 criterion = "0.5.1"
 dashmap = "5.5.3"
 gl = "0.14.0"

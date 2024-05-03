@@ -1,7 +1,9 @@
 use core::time;
+use gl::types::{GLenum, GLuint};
 use glam::{Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
 use glfw::{Action, Key, MouseButton};
+use gltf::Gltf;
 use walkdir::WalkDir;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -46,7 +48,8 @@ pub struct Game {
     chunksys: Arc<ChunkSystem>,
     shader0: Shader,
     skyshader: Shader,
-    camera: Arc<Mutex<Camera>>,
+    pub modelshader: Shader,
+    pub camera: Arc<Mutex<Camera>>,
     run_chunk_thread: Arc<AtomicBool>,
     chunk_thread: Option<thread::JoinHandle<()>>,
     vars: GameVariables,
@@ -63,6 +66,12 @@ pub struct Game {
     allowable_jump_height: f32,
     pub initial_timer: f32,
     pub voxel_models: Arc<Vec<JVoxModel>>,
+    pub gltf_models: Vec<(gltf::Document, Vec<gltf::buffer::Data>, Vec<gltf::image::Data>)>,
+    pub gltf_vbos: Vec<Vec<Vec<GLuint>>>,
+    pub gltf_vaos: Vec<Vec<Vec<GLuint>>>,
+    pub gltf_counts: Vec<Vec<Vec<usize>>>,
+    pub gltf_drawmodes:Vec<Vec<Vec<GLenum>>>,
+    pub gltf_ebos: Vec<Vec<Vec<GLuint>>>
 }
 
 enum FaderNames {
@@ -102,6 +111,8 @@ impl Game {
             JVoxModel::new("assets/voxelmodels/redrock.vox"),
         ];
 
+        
+
 
         let mut csys =ChunkSystem::new(10, 1, 0);
 
@@ -118,10 +129,11 @@ impl Game {
                 return csys_arc.blockat(v) != 0;
             })
         };
-        Game {
+        let mut g = Game {
             chunksys,
             shader0,
             skyshader,
+            modelshader: Shader::new("assets/mvert.glsl", "assets/mfrag.glsl"),
             camera: cam,
             run_chunk_thread: Arc::new(AtomicBool::new(true)),
             chunk_thread: None,
@@ -155,8 +167,18 @@ impl Game {
             current_jump_y: 0.0,
             allowable_jump_height: 1.1,
             initial_timer: 0.0,
-            voxel_models: vmarc2
-        }
+            voxel_models: vmarc2,
+            gltf_models: Vec::new(),
+            gltf_vbos: Vec::new(),
+            gltf_vaos: Vec::new(),
+            gltf_counts: Vec::new(),
+            gltf_drawmodes: Vec::new(),
+            gltf_ebos: Vec::new()
+        };
+        g.load_model("assets/models/car/scene.gltf");
+        g.create_model_vbos();
+        // g.setup_vertex_attributes();
+        g
     }
 
     pub fn update(&mut self) {
@@ -649,7 +671,11 @@ impl Game {
             }
         }
 
+        self.draw_models();
+
     }
+
+
 
     pub fn start_world(&mut self) {
         (*self.run_chunk_thread).store(true, Ordering::Relaxed);

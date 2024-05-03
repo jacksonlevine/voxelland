@@ -71,7 +71,8 @@ pub struct Game {
     pub gltf_vaos: Vec<Vec<Vec<GLuint>>>,
     pub gltf_counts: Vec<Vec<Vec<usize>>>,
     pub gltf_drawmodes:Vec<Vec<Vec<GLenum>>>,
-    pub gltf_ebos: Vec<Vec<Vec<GLuint>>>
+    pub gltf_ebos: Vec<Vec<Vec<GLuint>>>,
+    pub gltf_textures: Vec<Vec<Vec<GLuint>>>
 }
 
 enum FaderNames {
@@ -173,7 +174,8 @@ impl Game {
             gltf_vaos: Vec::new(),
             gltf_counts: Vec::new(),
             gltf_drawmodes: Vec::new(),
-            gltf_ebos: Vec::new()
+            gltf_ebos: Vec::new(),
+            gltf_textures: Vec::new()
         };
         g.load_model("assets/models/car/scene.gltf");
         g.create_model_vbos();

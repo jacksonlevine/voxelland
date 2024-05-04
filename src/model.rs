@@ -217,7 +217,14 @@ impl Game {
 
                     let material = primitive.material();
                     let pbr = material.pbr_metallic_roughness();
-                    let base_color_texture_index = pbr.base_color_texture().map(|info| info.texture().index()).unwrap();
+
+                    let default_texture_index = 0;
+
+                    let base_color_texture_index = pbr.base_color_texture().map(|info| info.texture().index())
+                    .or_else(|| {
+                        document.textures().nth(0).map(|tex| tex.index()) // Example: Just grab the first texture if available
+                    })
+                    .unwrap_or(default_texture_index);
 
                     textures_here.push(textures[base_color_texture_index]);
 

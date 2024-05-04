@@ -17,3 +17,4 @@ pub mod chunkregistry;
 pub mod currentplanet;
 pub mod planetinfo;
 pub mod model;
+pub mod modelentity;

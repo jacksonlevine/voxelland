@@ -1,9 +1,9 @@
-use std::fs;
+use std::{fs, path::Path, str::FromStr};
 
 use gl::types::{GLsizeiptr, GLuint, GLvoid};
 use gltf::{accessor::{DataType, Dimensions}, image::Source, mesh::util::ReadIndices, Semantic};
 
-use crate::game::Game;
+use crate::{game::Game, modelentity::ModelEntity};
 
 fn convert_to_vec<T: bytemuck::Pod>(data: &[u8]) -> Vec<u8> {
     bytemuck::cast_slice(data).to_vec()
@@ -123,28 +123,49 @@ impl Game {
                 ),
                 1,
             );
-            for (index, vaosetset) in self.gltf_vaos.iter().enumerate() {
+
+
+            for modelent in &self.model_entities {
+                let index = modelent.model_index;
+                let vaosetset = &self.gltf_vaos[index];
+
+                //println!("Doing Vaosetset {index}");
                 let texsetset = &self.gltf_textures[index];
 
                 for (ind, vaoset) in vaosetset.iter().enumerate() {
+                    //println!("Doing Vaoset {ind} of Vaosetset {index}");
 
                     let texset = &texsetset[ind];
 
                     for(ii, vao) in vaoset.iter().enumerate() {
+                        //println!("Doing Vao {ii} of Vaoset {ind} of Vaosetset {index}");
                         gl::BindVertexArray(*vao);
 
                             
                             if let Some(texture_id) = texset.get(0) {
-                                gl::BindTextureUnit(1, *texture_id); // Assuming you're using texture unit 0
+                                gl::BindTextureUnit(1, *texture_id); 
                             }
 
-    
+                            gl::Uniform3f(
+                                gl::GetUniformLocation(
+                                    self.modelshader.shader_id,
+                                    b"pos\0".as_ptr() as *const i8,
+                                ),
+                                modelent.pos.x,
+                                modelent.pos.y,
+                                modelent.pos.z
+                            );
+
                         
                         gl::DrawElements(self.gltf_drawmodes[index][ind][ii],  self.gltf_counts[index][ind][ii] as i32, gl::UNSIGNED_INT, std::ptr::null());
                     }
                     
                 }
+
+                
             }
+                        
+
             gl::Enable(gl::CULL_FACE);
         }
         
@@ -152,6 +173,12 @@ impl Game {
     pub fn load_model(&mut self, path: &'static str) {
         let model = gltf::import(path).expect("Failed to load model");
         self.gltf_models.push(model);
+        let path = Path::new(path);
+        let gp = path.parent() // This returns the parent directory as an Option<&Path>
+            .map(|p| p.to_str().unwrap_or("")) // Convert the Path to a &str
+            .unwrap_or("") // Handle the case where `parent()` returns None
+            .to_string(); // Convert &str to String
+        self.gltf_paths.push(gp);
     }
     
     fn collect_indices(data: ReadIndices) -> Vec<u32> {
@@ -177,7 +204,7 @@ impl Game {
 
             
             self.gltf_textures.push(Vec::new());
-            let textures = load_document_textures(&document, &buffers, "assets/models/car");
+            let textures = load_document_textures(&document, &buffers, self.gltf_paths[index].as_str());
 
             for mesh in document.meshes() {
                 let mut mesh_vbos = Vec::new();

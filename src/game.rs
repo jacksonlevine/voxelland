@@ -14,6 +14,7 @@ use crate::chunk::{ChunkFacade, ChunkSystem};
 use crate::camera::Camera;
 use crate::collisioncage::*;
 use crate::fader::Fader;
+use crate::modelentity::ModelEntity;
 use crate::planetinfo::Planets;
 use crate::raycast::*;
 use crate::shader::Shader;
@@ -72,7 +73,9 @@ pub struct Game {
     pub gltf_counts: Vec<Vec<Vec<usize>>>,
     pub gltf_drawmodes:Vec<Vec<Vec<GLenum>>>,
     pub gltf_ebos: Vec<Vec<Vec<GLuint>>>,
-    pub gltf_textures: Vec<Vec<Vec<GLuint>>>
+    pub gltf_textures: Vec<Vec<Vec<GLuint>>>,
+    pub gltf_paths: Vec<String>,
+    pub model_entities: Vec<ModelEntity>
 }
 
 enum FaderNames {
@@ -175,11 +178,28 @@ impl Game {
             gltf_counts: Vec::new(),
             gltf_drawmodes: Vec::new(),
             gltf_ebos: Vec::new(),
-            gltf_textures: Vec::new()
+            gltf_textures: Vec::new(),
+            gltf_paths: Vec::new(),
+            model_entities: Vec::new()
         };
         g.load_model("assets/models/car/scene.gltf");
+        g.load_model("assets/models/ship/scene.gltf");
         g.create_model_vbos();
         // g.setup_vertex_attributes();
+
+
+        g.model_entities.push(ModelEntity::new(0, Vec3::new(0.0,80.0,-4.0)));
+        g.model_entities.push(ModelEntity::new(0, Vec3::new(-20.0,80.0,15.0)));
+        g.model_entities.push(ModelEntity::new(0, Vec3::new(-15.0,80.0,4.0)));
+        g.model_entities.push(ModelEntity::new(0, Vec3::new(8.0,80.0,15.0)));
+        g.model_entities.push(ModelEntity::new(0, Vec3::new(20.0,80.0,-20.0)));
+        g.model_entities.push(ModelEntity::new(0, Vec3::new(23.0,80.0,10.0)));
+        g.model_entities.push(ModelEntity::new(0, Vec3::new(8.0,80.0,-9.0)));
+
+
+
+
+        g.model_entities.push(ModelEntity::new(1, Vec3::new(0.0,50.0,0.0)));
         g
     }
 
@@ -207,13 +227,14 @@ impl Game {
             }
         }
         self.draw();
+        self.draw_models();
 
-        if(self.initial_timer < 1.5) {
+        if self.initial_timer < 1.5  {
             self.initial_timer += self.delta_time;
         } else {
             self.update_movement_and_physics();
         }
-
+        
         
     }
 
@@ -672,8 +693,6 @@ impl Game {
                 }
             }
         }
-
-        self.draw_models();
 
     }
 

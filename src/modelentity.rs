@@ -9,19 +9,23 @@ pub struct ModelEntity {
     pub pos: Vec3,
     pub lastpos: Vec3,
     pub id: u32,
+    pub scale: f32,
+    pub rot: Vec3
 }
 
 impl ModelEntity {
 
 
-    pub fn new(model_index: usize, pos: Vec3) -> ModelEntity {
+    pub fn new(model_index: usize, pos: Vec3, scale: f32, rot: Vec3) -> ModelEntity {
         unsafe {
             CURRENT_ID += 1;
             ModelEntity {
                 model_index,
                 pos,
                 lastpos: pos,
-                id: CURRENT_ID + 1
+                id: CURRENT_ID + 1,
+                scale,
+                rot
             }
         }
         

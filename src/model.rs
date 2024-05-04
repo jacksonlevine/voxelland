@@ -1,9 +1,11 @@
-use std::{fs, path::Path, str::FromStr};
+use std::{collections::HashMap, fs, path::Path, str::FromStr};
 
+use dashmap::DashMap;
 use gl::types::{GLsizeiptr, GLuint, GLvoid};
+use glam::{Mat4, Vec3, Vec4};
 use gltf::{accessor::{DataType, Dimensions}, image::Source, mesh::util::ReadIndices, Semantic};
 
-use crate::{game::Game, modelentity::ModelEntity};
+use crate::{game::Game, modelentity::ModelEntity, vec};
 
 fn convert_to_vec<T: bytemuck::Pod>(data: &[u8]) -> Vec<u8> {
     bytemuck::cast_slice(data).to_vec()
@@ -100,9 +102,72 @@ fn load_textures(images: &[gltf::image::Data]) -> Vec<GLuint> {
     }).collect()
 }
 
+fn get_rotation_matrix(xrot: f32, yrot: f32, zrot: f32) -> Mat4 {
+    // Create rotation matrices for each axis
+    let rx = Mat4::from_rotation_x(-xrot);
+    let ry = Mat4::from_rotation_y(yrot);
+    let rz = Mat4::from_rotation_z(zrot);
+
+    // Multiply the rotation matrices together
+    // Note: The order of multiplication here assumes a specific rotation order (Rz * Ry * Rx)
+    // This order might need to be adjusted based on how you want the rotations to be applied
+    rz * ry * rx
+}
+fn rasterize_triangle(triangle: [Vec3; 3], collision_map: &DashMap<vec::IVec3, u8>) {
+    // This is a placeholder for the rasterization logic. You need to implement this based on your grid/collision map resolution.
+    // Simple bounding box rasterization (for demonstration purposes):
+    let min_x = triangle.iter().map(|v| v.x.floor() as i32).min().unwrap_or(0);
+    let max_x = triangle.iter().map(|v| v.x.ceil() as i32).max().unwrap_or(0);
+    let min_y = triangle.iter().map(|v| v.y.floor() as i32).min().unwrap_or(0);
+    let max_y = triangle.iter().map(|v| v.y.ceil() as i32).max().unwrap_or(0);
+    let min_z = triangle.iter().map(|v| v.z.floor() as i32).min().unwrap_or(0);
+    let max_z = triangle.iter().map(|v| v.z.ceil() as i32).max().unwrap_or(0);
+
+    for x in min_x..=max_x {
+        for y in min_y..=max_y {
+            for z in min_z..=max_z {
+                // Check if the (x, y, z) is inside the triangle; this is a simplification
+                collision_map.insert(vec::IVec3::new(x, y, z), 0);
+            }
+        }
+    }
+}
 
 
 impl Game {
+
+    pub fn update_model_collisions(&self, model_entity_index: usize) {
+        let entity = &self.model_entities[model_entity_index];
+        let (document, buffers, _images) = &self.gltf_models[entity.model_index];
+    
+        for mesh in document.meshes() {
+            for primitive in mesh.primitives() {
+                let reader = primitive.reader(|buffer| Some(&buffers[buffer.index()]));
+                let positions = reader.read_positions().unwrap().collect::<Vec<_>>();
+                let indices = reader.read_indices().unwrap().into_u32().collect::<Vec<_>>();
+    
+                for i in (0..indices.len()).step_by(3) {
+                    if let (Some(&i1), Some(&i2), Some(&i3)) = (indices.get(i), indices.get(i + 1), indices.get(i + 2)) {
+                        let triangle = [
+                            Vec3::from(positions[i1 as usize]),
+                            Vec3::from(positions[i2 as usize]),
+                            Vec3::from(positions[i3 as usize]),
+                        ];
+                        
+                        let transformed_triangle = triangle.map(|vertex| {
+                            let scaled_vertex = vertex * entity.scale;
+                            let rotated_vertex = (get_rotation_matrix(entity.rot.x, entity.rot.y, entity.rot.z) * Vec4::new(scaled_vertex.x, scaled_vertex.y, scaled_vertex.z, 1.0)).truncate();
+                            let final_vertex = rotated_vertex + entity.pos;
+                            final_vertex
+                        });
+    
+                        // Rasterize the triangle and update the collision map
+                        rasterize_triangle(transformed_triangle, &self.chunksys.justcollisionmap);
+                    }
+                }
+            }
+        }
+    }
 
     pub fn draw_models(&self) {
 
@@ -123,6 +188,8 @@ impl Game {
                 ),
                 1,
             );
+
+            
 
 
             for modelent in &self.model_entities {
@@ -146,6 +213,14 @@ impl Game {
                                 gl::BindTextureUnit(1, *texture_id); 
                             }
 
+                            gl::Uniform1f(
+                                gl::GetUniformLocation(
+                                    self.modelshader.shader_id,
+                                    b"scale\0".as_ptr() as *const i8,
+                                ),
+                                modelent.scale,
+                            );
+
                             gl::Uniform3f(
                                 gl::GetUniformLocation(
                                     self.modelshader.shader_id,
@@ -155,6 +230,30 @@ impl Game {
                                 modelent.pos.y,
                                 modelent.pos.z
                             );
+
+                            gl::Uniform1f(
+                                gl::GetUniformLocation(
+                                    self.modelshader.shader_id,
+                                    b"xrot\0".as_ptr() as *const i8,
+                                ),
+                                modelent.rot.x,
+                            );
+                            gl::Uniform1f(
+                                gl::GetUniformLocation(
+                                    self.modelshader.shader_id,
+                                    b"yrot\0".as_ptr() as *const i8,
+                                ),
+                                modelent.rot.y,
+                            );
+
+                            gl::Uniform1f(
+                                gl::GetUniformLocation(
+                                    self.modelshader.shader_id,
+                                    b"zrot\0".as_ptr() as *const i8,
+                                ),
+                                modelent.rot.z,
+                            );
+
 
                         
                         gl::DrawElements(self.gltf_drawmodes[index][ind][ii],  self.gltf_counts[index][ind][ii] as i32, gl::UNSIGNED_INT, std::ptr::null());
@@ -201,9 +300,8 @@ impl Game {
             self.gltf_drawmodes.push(Vec::new());
             self.gltf_vaos.push(Vec::new());
             self.gltf_vbos.push(Vec::new());
-
-            
             self.gltf_textures.push(Vec::new());
+
             let textures = load_document_textures(&document, &buffers, self.gltf_paths[index].as_str());
 
             for mesh in document.meshes() {

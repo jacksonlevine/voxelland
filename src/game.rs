@@ -1,4 +1,6 @@
 use core::time;
+use std::cmp::max;
+use std::f32::consts::PI;
 use gl::types::{GLenum, GLuint};
 use glam::{Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
@@ -42,29 +44,31 @@ pub struct GameVariables {
     right_mouse_clicked: bool,
     hostile_world: bool,
     hostile_world_sky_color: Vec4,
-    hostile_world_sky_bottom: Vec4
+    hostile_world_sky_bottom: Vec4,
+    ship_going_up: bool,
+    ship_going_down: bool
 }
 
 pub struct Game {
-    chunksys: Arc<ChunkSystem>,
-    shader0: Shader,
-    skyshader: Shader,
+    pub chunksys: Arc<ChunkSystem>,
+    pub shader0: Shader,
+    pub skyshader: Shader,
     pub modelshader: Shader,
     pub camera: Arc<Mutex<Camera>>,
-    run_chunk_thread: Arc<AtomicBool>,
-    chunk_thread: Option<thread::JoinHandle<()>>,
-    vars: GameVariables,
-    controls: ControlsState,
-    faders: Arc<RwLock<Vec<Fader>>>,
-    prev_time: f32,
-    delta_time: f32,
-    user_bound_box: BoundBox,
-    coll_cage: CollCage,
-    grounded: bool,
-    jumping_up: bool,
-    time_falling_scalar: f32,
-    current_jump_y: f32,
-    allowable_jump_height: f32,
+    pub run_chunk_thread: Arc<AtomicBool>,
+    pub chunk_thread: Option<thread::JoinHandle<()>>,
+    pub vars: GameVariables,
+    pub controls: ControlsState,
+    pub faders: Arc<RwLock<Vec<Fader>>>,
+    pub prev_time: f32,
+    pub delta_time: f32,
+    pub user_bound_box: BoundBox,
+    pub coll_cage: CollCage,
+    pub grounded: bool,
+    pub jumping_up: bool,
+    pub time_falling_scalar: f32,
+    pub current_jump_y: f32,
+    pub allowable_jump_height: f32,
     pub initial_timer: f32,
     pub voxel_models: Arc<Vec<JVoxModel>>,
     pub gltf_models: Vec<(gltf::Document, Vec<gltf::buffer::Data>, Vec<gltf::image::Data>)>,
@@ -75,7 +79,11 @@ pub struct Game {
     pub gltf_ebos: Vec<Vec<Vec<GLuint>>>,
     pub gltf_textures: Vec<Vec<Vec<GLuint>>>,
     pub gltf_paths: Vec<String>,
-    pub model_entities: Vec<ModelEntity>
+    pub model_entities: Vec<ModelEntity>,
+
+
+
+    pub planet_y_offset: f32
 }
 
 enum FaderNames {
@@ -118,7 +126,7 @@ impl Game {
         
 
 
-        let mut csys =ChunkSystem::new(10, 1, 0);
+        let mut csys = ChunkSystem::new(10, 1, 0);
 
         let vmarc = Arc::new(voxel_models);
         let vmarc2 = vmarc.clone();
@@ -130,7 +138,7 @@ impl Game {
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
             let csys_arc = Arc::clone(&chunksys);
             Box::new(move |v: vec::IVec3| {
-                return csys_arc.blockat(v) != 0;
+                return csys_arc.collision_predicate(v);
             })
         };
         let mut g = Game {
@@ -152,6 +160,8 @@ impl Game {
                 hostile_world: false,
                 hostile_world_sky_color: Vec4::new(0.0, 0.0, 0.0, 1.0),
                 hostile_world_sky_bottom: Vec4::new(1.0, 0.0, 0.0, 1.0),
+                ship_going_up: false,
+                ship_going_down: false
             },
             controls: ControlsState {
                 left: false,
@@ -180,26 +190,50 @@ impl Game {
             gltf_ebos: Vec::new(),
             gltf_textures: Vec::new(),
             gltf_paths: Vec::new(),
-            model_entities: Vec::new()
+            model_entities: Vec::new(),
+            planet_y_offset: 0.0
         };
         g.load_model("assets/models/car/scene.gltf");
         g.load_model("assets/models/ship/scene.gltf");
         g.create_model_vbos();
+    
         // g.setup_vertex_attributes();
 
 
-        g.model_entities.push(ModelEntity::new(0, Vec3::new(0.0,80.0,-4.0)));
-        g.model_entities.push(ModelEntity::new(0, Vec3::new(-20.0,80.0,15.0)));
-        g.model_entities.push(ModelEntity::new(0, Vec3::new(-15.0,80.0,4.0)));
-        g.model_entities.push(ModelEntity::new(0, Vec3::new(8.0,80.0,15.0)));
-        g.model_entities.push(ModelEntity::new(0, Vec3::new(20.0,80.0,-20.0)));
-        g.model_entities.push(ModelEntity::new(0, Vec3::new(23.0,80.0,10.0)));
-        g.model_entities.push(ModelEntity::new(0, Vec3::new(8.0,80.0,-9.0)));
+        // g.model_entities.push(ModelEntity::new(0, Vec3::new(0.0,80.0,-4.0), 1.0, Vec3::new(0.0, 0.0, 0.0)));
+        // g.model_entities.push(ModelEntity::new(0, Vec3::new(-20.0,80.0,15.0), 1.0, Vec3::new(0.0, 0.0, 0.0)));
+        // g.model_entities.push(ModelEntity::new(0, Vec3::new(-15.0,80.0,4.0), 1.0, Vec3::new(0.0, 0.0, 0.0)));
+        // g.model_entities.push(ModelEntity::new(0, Vec3::new(8.0,80.0,15.0), 1.0, Vec3::new(0.0, 0.0, 0.0)));
+        // g.model_entities.push(ModelEntity::new(0, Vec3::new(20.0,80.0,-20.0), 1.0, Vec3::new(0.0, 0.0, 0.0)));
+        // g.model_entities.push(ModelEntity::new(0, Vec3::new(23.0,80.0,10.0), 1.0, Vec3::new(0.0, 0.0, 0.0)));
+        // g.model_entities.push(ModelEntity::new(0, Vec3::new(8.0,80.0,-9.0), 1.0, Vec3::new(0.0, 0.0, 0.0)));
 
 
 
+        let mut ship_pos = vec::IVec3::new(20,200,0);
+        let mut ship_front = vec::IVec3::new(60,200,0);
+        let mut ship_back = vec::IVec3::new(-20,200,0);
+         // Function to decrement y until a block is found
+        fn find_ground_y(position: &mut vec::IVec3, game: &Game) {
+            while game.chunksys.blockat(*position) == 0 {
+                position.y -= 1;
+            }
+        }
 
-        g.model_entities.push(ModelEntity::new(1, Vec3::new(0.0,50.0,0.0)));
+        // Find the ground positions
+        find_ground_y(&mut ship_pos, &g);
+        find_ground_y(&mut ship_front, &g);
+        find_ground_y(&mut ship_back, &g);
+
+        // Determine the highest y position found
+        let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y);
+
+        // Update the ship's position
+        ship_pos.y = decided_pos_y;
+        let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
+        g.model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0)));
+        g.camera.lock().unwrap().position = ship_float_pos + Vec3::new(0.0, 4.0, 0.0);
+        g.add_ship_colliders();
         g
     }
 
@@ -233,6 +267,13 @@ impl Game {
             self.initial_timer += self.delta_time;
         } else {
             self.update_movement_and_physics();
+        }
+
+        if self.vars.ship_going_down {
+            self.planet_y_offset = (self.planet_y_offset + self.delta_time * 4.0).clamp(-200.0, 0.0);
+        }
+        if self.vars.ship_going_up {
+            self.planet_y_offset = (self.planet_y_offset - self.delta_time * 4.0).clamp(-200.0, 0.0);
         }
         
         
@@ -550,6 +591,7 @@ impl Game {
         static mut SUNSET_LOC: i32 = 0;
         static mut SUNRISE_LOC: i32 = 0;
         static mut FOGCOL_LOC: i32 = 0;
+        static mut PLANET_Y_LOC: i32 = 0;
         unsafe {
             if C_POS_LOC == -1 {
                 C_POS_LOC = gl::GetUniformLocation(
@@ -591,6 +633,10 @@ impl Game {
                     self.shader0.shader_id,
                     b"fogCol\0".as_ptr() as *const i8,
                 );
+                PLANET_Y_LOC = gl::GetUniformLocation(
+                    self.shader0.shader_id,
+                    b"planet_y\0".as_ptr() as *const i8,
+                );
             }
             let cam_lock = self.camera.lock().unwrap();
 
@@ -612,6 +658,7 @@ impl Game {
             );
             gl::Uniform1f(SUNSET_LOC, 0.0);
             gl::Uniform1f(SUNRISE_LOC, 0.0);
+            gl::Uniform1f(PLANET_Y_LOC, self.planet_y_offset);
             gl::Uniform1i(
                 gl::GetUniformLocation(
                     self.shader0.shader_id,
@@ -715,6 +762,10 @@ impl Game {
         //self.chunksys.voxel_models[0].stamp_here(&vec::IVec3::new(0, 40, 0), &self.chunksys, None);
     }
 
+    pub fn add_ship_colliders(&self) {
+        self.update_model_collisions(self.model_entities.len() - 1);
+    }
+
     
     pub fn start_chunks_with_radius(&mut self, newradius: u8, seed: u32, nt: usize) {
 
@@ -742,9 +793,35 @@ impl Game {
         self.coll_cage.solid_pred  = {
             let csys_arc = Arc::clone(&self.chunksys);
             Box::new(move |v: vec::IVec3| {
-                return csys_arc.blockat(v) != 0;
+                return csys_arc.collision_predicate(v)
             })
         };
+
+        let mut ship_pos = vec::IVec3::new(20,200,0);
+        let mut ship_front = vec::IVec3::new(60,200,0);
+        let mut ship_back = vec::IVec3::new(-20,200,0);
+         // Function to decrement y until a block is found
+        fn find_ground_y(position: &mut vec::IVec3, game: &Game) {
+            while game.chunksys.blockat(*position) == 0 {
+                position.y -= 1;
+            }
+        }
+
+        // Find the ground positions
+        find_ground_y(&mut ship_pos, &self);
+        find_ground_y(&mut ship_front, &self);
+        find_ground_y(&mut ship_back, &self);
+
+        // Determine the highest y position found
+        let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y);
+
+        // Update the ship's position
+        ship_pos.y = decided_pos_y;
+        let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
+        let ship_index = self.model_entities.len()-1;
+        self.model_entities[ship_index].pos = ship_float_pos;
+        self.camera.lock().unwrap().position = ship_float_pos + Vec3::new(0.0, 4.0, 0.0);
+        self.add_ship_colliders();
 
         self.start_world();
     }
@@ -752,7 +829,7 @@ impl Game {
     pub fn chunk_thread_inner_function(cam_arc: &Arc<Mutex<Camera>>, csys_arc: &Arc<ChunkSystem>, last_user_c_pos: &mut vec::IVec2) {
 
 
-
+        
 
         let mut userstuff = true;
         while userstuff {
@@ -765,6 +842,36 @@ impl Game {
                 }
             }
         }
+        let mut genstuff = true;
+        while genstuff {
+            match csys_arc.gen_rebuild_requests.pop() {
+                Some(index) => {
+                    csys_arc.rebuild_index(index, true);
+                    match csys_arc.user_rebuild_requests.pop() {
+                        Some(index) => {
+                            csys_arc.rebuild_index(index, true);
+                            let mut userstuff = true;
+                            while userstuff {
+                                match csys_arc.user_rebuild_requests.pop() {
+                                    Some(index) => {
+                                        csys_arc.rebuild_index(index, true);
+                                    }
+                                    None => {
+                                        userstuff = false;
+                                    }
+                                }
+                            }
+                        }
+                        None => {}
+                    }
+                }
+                None => {
+                    genstuff = false;
+                }
+            }
+        }
+
+
         let mut backgroundstuff = true;
         while backgroundstuff {
             match csys_arc.background_rebuild_requests.pop() {
@@ -781,6 +888,23 @@ impl Game {
                                     }
                                     None => {
                                         userstuff = false;
+                                    }
+                                }
+                            }
+                        }
+                        None => {}
+                    }
+                    match csys_arc.gen_rebuild_requests.pop() {
+                        Some(index) => {
+                            csys_arc.rebuild_index(index, true);
+                            let mut genstuff = true;
+                            while genstuff {
+                                match csys_arc.gen_rebuild_requests.pop() {
+                                    Some(index) => {
+                                        csys_arc.rebuild_index(index, true);
+                                    }
+                                    None => {
+                                        genstuff = false;
                                     }
                                 }
                             }
@@ -875,6 +999,12 @@ impl Game {
                         Some(index) => {
                             csys_arc.rebuild_index(index, true);
                             break;
+                        }
+                        None => {}
+                    }
+                    match csys_arc.gen_rebuild_requests.pop() {
+                        Some(index) => {
+                            csys_arc.rebuild_index(index, true);
                         }
                         None => {}
                     }
@@ -1065,6 +1195,19 @@ impl Game {
                         println!("Now noise type is {}", self.chunksys.noise_type);
                     }
                 }
+            }
+            Key::Num8 => {
+                self.vars.ship_going_down = false;
+                self.vars.ship_going_up = false;
+            }
+            Key::Num0 => {
+                self.vars.ship_going_down = true;
+                self.vars.ship_going_up = false;
+                
+            }
+            Key::Num9 => {
+                self.vars.ship_going_down = false;
+                self.vars.ship_going_up = true;
             }
             _ => {}
         }

@@ -125,9 +125,11 @@ pub struct ChunkSystem {
     pub finished_user_geo_queue: Arc<lockfree::queue::Queue<ReadyMesh>>,
     pub finished_geo_queue: Arc<lockfree::queue::Queue<ReadyMesh>>,
     pub user_rebuild_requests: lockfree::queue::Queue<usize>,
+    pub gen_rebuild_requests: lockfree::queue::Queue<usize>,
     pub background_rebuild_requests: lockfree::queue::Queue<usize>,
     pub userdatamap: DashMap<vec::IVec3, u32>,
     pub nonuserdatamap: DashMap<vec::IVec3, u32>,
+    pub justcollisionmap: DashMap<vec::IVec3, u8>,
     pub radius: u8,
     pub perlin: Perlin,
     pub voxel_models: Option<Arc<Vec<JVoxModel>>>,
@@ -136,6 +138,10 @@ pub struct ChunkSystem {
 }
 
 impl ChunkSystem {
+
+    pub fn collision_predicate(&self, vec: vec::IVec3) -> bool {
+        return self.blockat(vec.clone()) != 0 || self.justcollisionmap.contains_key(&vec);
+    }
     
 
     pub fn start_with_seed(seed: u32) {
@@ -149,9 +155,11 @@ impl ChunkSystem {
             finished_user_geo_queue: Arc::new(lockfree::queue::Queue::new()),
             finished_geo_queue: Arc::new(lockfree::queue::Queue::new()),
             user_rebuild_requests: lockfree::queue::Queue::new(),
+            gen_rebuild_requests: lockfree::queue::Queue::new(),
             background_rebuild_requests: lockfree::queue::Queue::new(),
             userdatamap: DashMap::new(),
             nonuserdatamap: DashMap::new(),
+            justcollisionmap: DashMap::new(),
             radius,
             perlin: Perlin::new(seed),
             voxel_models: None,
@@ -339,6 +347,56 @@ impl ChunkSystem {
                         z: (chunklock.pos.y * CW) + k,
                     };
                     let block = self.blockatmemo(spot, &mut memo);
+                    // if self.justcollisionmap.contains_key(&spot) {
+                    //     for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
+                    //         let cubeside = CubeSide::from_primitive(indie);
+                    //         let side = Cube::get_side(cubeside);
+                    //                 let mut packed32: [u32; 6] = [0, 0, 0, 0, 0, 0];
+                    //                 let mut packed8: [u8; 6] = [0, 0, 0, 0, 0, 0];
+    
+                    //                 let texcoord = Blocks::get_tex_coords(1, cubeside);
+                    //                 for (ind, v) in side.chunks(4).enumerate() {
+
+
+                    //                     static AMB_CHANGES: [u8; 4] = [
+                    //                         0, 3, 6, 10
+                    //                     ];
+
+                    //                     let amb_spots: &[vec::IVec3; 3] = Cube::get_amb_occul_spots(cubeside, ind as u8);
+
+                    //                     let amb_change = amb_spots.iter()
+                    //                                               .map(|vec| self.blockatmemo(*vec + spot, &mut memo))
+                    //                                               .filter(|&result| result != 0)
+                    //                                               .count();
+
+                    //                     let base_light: i32 = v[3] as i32 - AMB_CHANGES[amb_change] as i32; // Perform calculations as i32
+                    //                     let adjusted_light: i32 = if hit_block {
+                    //                         base_light - 3
+                    //                     } else {
+                    //                         base_light
+                    //                     };
+                    //                     let clamped_light: u8 = adjusted_light.clamp(0, 15) as u8; // Clamp in i32 context, then cast to u8
+                                        
+
+
+                    //                     let pack = PackedVertex::pack(
+                    //                         i as u8 + v[0],
+                    //                         j as u8 + v[1],
+                    //                         k as u8 + v[2],
+                    //                         ind as u8,
+                    //                         clamped_light,
+                    //                         0,
+                    //                         texcoord.0,
+                    //                         texcoord.1,
+                    //                     );
+                    //                     packed32[ind] = pack.0;
+                    //                     packed8[ind] = pack.1;
+                    //                 }
+    
+                    //                 tdata32.extend_from_slice(packed32.as_slice());
+                    //                 tdata8.extend_from_slice(packed8.as_slice());
+                    //     }
+                    // }
                     if block != 0 {
  
                         
@@ -595,7 +653,7 @@ impl ChunkSystem {
         for c in implicated.iter() {
             match self.takencare.get(&c) {
                 Some(cf) => {
-                    self.background_rebuild_requests.push(cf.geo_index);
+                    self.gen_rebuild_requests.push(cf.geo_index);
                 }
                 None => {}
             }

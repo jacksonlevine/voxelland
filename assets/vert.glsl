@@ -9,6 +9,7 @@ uniform mat4 mvp;
 uniform vec3 camPos;
 uniform float ambientBrightMult;
 uniform float viewDistance;
+uniform float planet_y;
 void main()
 {
 
@@ -18,7 +19,7 @@ void main()
     float ly = float((u32 >> 20) & 0x000000FF);      // Next 8 bits for y
     float lz = float((u32 >> 16) & 0x0000000F);       // Next 4 bits for z
 
-    vec3 position = vec3(lx, ly, lz) + (vec3(chunkpos.x, 0, chunkpos.y) * 15);
+    vec3 position = vec3(lx, ly, lz) + (vec3(chunkpos.x, 0, chunkpos.y) * 15) + vec3(0.0, planet_y*8.0, 0.0);
 
     uint cornerID = ((u32 >> 12) & 0x0000000F);  // Next 4 bits for corner
     float ambientBright = float((u32 >> 8) & 0x0000000F); // Next 4 bits for al

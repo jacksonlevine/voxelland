@@ -31,6 +31,8 @@ impl GuiSystem {
 
         texts.push(Text::new("Official Test", &window.read().unwrap(), menu_shader.shader_id, Vec2::new(100.0,100.0), texture.id));
 
+        texts.push(Text::new("Press B to board the ship.", &window.read().unwrap(), menu_shader.shader_id, Vec2::new(800.0,100.0), texture.id));
+
         GuiSystem {
             texts,
             window: window.clone(),
@@ -42,5 +44,9 @@ impl GuiSystem {
         for text in &self.texts {
             text.draw();
         }
+    }
+
+    pub fn draw_text(&self, ind: usize) {
+        self.texts[ind].draw();
     }
 }

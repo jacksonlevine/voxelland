@@ -52,6 +52,7 @@ pub struct GameVariables {
     ship_going_up: bool,
     ship_going_down: bool,
     break_time: f32,
+    near_ship: bool
 }
 
 pub struct Game {
@@ -170,7 +171,8 @@ impl Game {
                 hostile_world_sky_bottom: Vec4::new(1.0, 0.0, 0.0, 1.0),
                 ship_going_up: false,
                 ship_going_down: false,
-                break_time: 0.0
+                break_time: 0.0,
+                near_ship: false
             },
             controls: ControlsState {
                 left: false,
@@ -278,7 +280,17 @@ impl Game {
         self.draw();
         self.draw_models();
         self.draw_select_cube();
-        self.guisys.draw_texts();
+        self.guisys.draw_text(0);
+        
+        let camlock = self.camera.lock().unwrap();
+        let shipdist = camlock.position.distance(self.ship_pos);
+        if shipdist < 30.0 && shipdist > 10.0 {
+            self.vars.near_ship = true;
+            self.guisys.draw_text(1);
+        } else {
+            self.vars.near_ship = false;
+        }
+        drop(camlock);
 
         if self.initial_timer < 1.5  {
             self.initial_timer += self.delta_time;
@@ -1293,6 +1305,12 @@ impl Game {
             Key::Num9 => {
                 self.vars.ship_going_down = false;
                 self.vars.ship_going_up = true;
+            }
+            Key::B => {
+                if self.vars.near_ship {
+                    let mut camlock = self.camera.lock().unwrap();
+                    camlock.position = self.ship_pos + Vec3::new(0.0, 4.0, 0.0);
+                }
             }
             _ => {}
         }

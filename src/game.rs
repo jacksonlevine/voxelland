@@ -19,6 +19,7 @@ use crate::fader::Fader;
 use crate::modelentity::ModelEntity;
 use crate::planetinfo::Planets;
 use crate::raycast::*;
+use crate::selectcube::SelectCube;
 use crate::shader::Shader;
 use crate::texture::Texture;
 use crate::vec::{self, IVec2, IVec3};
@@ -80,7 +81,7 @@ pub struct Game {
     pub gltf_textures: Vec<Vec<Vec<GLuint>>>,
     pub gltf_paths: Vec<String>,
     pub model_entities: Vec<ModelEntity>,
-
+    pub select_cube: SelectCube,
 
 
     pub planet_y_offset: f32
@@ -191,6 +192,7 @@ impl Game {
             gltf_textures: Vec::new(),
             gltf_paths: Vec::new(),
             model_entities: Vec::new(),
+            select_cube: SelectCube::new(),
             planet_y_offset: 0.0
         };
         g.load_model("assets/models/car/scene.gltf");
@@ -262,6 +264,7 @@ impl Game {
         }
         self.draw();
         self.draw_models();
+        self.draw_select_cube();
 
         if self.initial_timer < 1.5  {
             self.initial_timer += self.delta_time;
@@ -417,6 +420,32 @@ impl Game {
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
             gl::BindVertexArray(0);
             gl::Enable(gl::DEPTH_TEST);
+        }
+    }
+
+    pub fn draw_select_cube(&self) {
+
+        static mut LAST_CAM_POS: Vec3 = Vec3{x:0.0, y:0.0, z:0.0};
+        static mut LAST_CAM_DIR: Vec3 = Vec3{x:0.0, y:0.0, z:0.0};
+
+        static mut HIT_RESULT: Option<(Vec3, IVec3)> = None;
+
+        let camlock = self.camera.lock().unwrap();
+        unsafe {
+            if(camlock.position != LAST_CAM_POS || camlock.direction != LAST_CAM_DIR) {
+                LAST_CAM_POS = camlock.position;
+                LAST_CAM_DIR = camlock.direction;
+
+                HIT_RESULT = raycast_dda(camlock.position, camlock.direction, &self.chunksys, 10.0);
+            }
+            match HIT_RESULT {
+                Some((_head, hit)) => {
+                    self.select_cube.draw_at(Vec3::new(hit.x as f32, hit.y as f32, hit.z as f32), &camlock.mvp);
+                }
+                None => {
+    
+                }
+            }
         }
     }
 

@@ -18,3 +18,4 @@ pub mod currentplanet;
 pub mod planetinfo;
 pub mod model;
 pub mod modelentity;
+pub mod selectcube;

@@ -4,18 +4,21 @@ use std::f32::consts::PI;
 use gl::types::{GLenum, GLuint};
 use glam::{Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
-use glfw::{Action, Key, MouseButton};
+use glfw::{Action, Key, MouseButton, PWindow};
 use gltf::Gltf;
 use walkdir::WalkDir;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, current};
 
+use crate::blockinfo::Blocks;
+use crate::blockoverlay::BlockOverlay;
 use crate::chunk::{ChunkFacade, ChunkSystem};
 
 use crate::camera::Camera;
 use crate::collisioncage::*;
 use crate::fader::Fader;
+use crate::guisystem::GuiSystem;
 use crate::modelentity::ModelEntity;
 use crate::planetinfo::Planets;
 use crate::raycast::*;
@@ -47,7 +50,8 @@ pub struct GameVariables {
     hostile_world_sky_color: Vec4,
     hostile_world_sky_bottom: Vec4,
     ship_going_up: bool,
-    ship_going_down: bool
+    ship_going_down: bool,
+    break_time: f32,
 }
 
 pub struct Game {
@@ -82,9 +86,12 @@ pub struct Game {
     pub gltf_paths: Vec<String>,
     pub model_entities: Vec<ModelEntity>,
     pub select_cube: SelectCube,
-
-
-    pub planet_y_offset: f32
+    pub block_overlay: BlockOverlay,
+    pub ship_pos: Vec3,
+    pub planet_y_offset: f32,
+    pub window: Arc<RwLock<PWindow>>,
+    pub guisys: GuiSystem
+    
 }
 
 enum FaderNames {
@@ -92,7 +99,7 @@ enum FaderNames {
 }
 
 impl Game {
-    pub fn new() -> Game {
+    pub fn new(window: &Arc<RwLock<PWindow>>) -> Game {
         let shader0 = Shader::new("assets/vert.glsl", "assets/frag.glsl");
         let skyshader = Shader::new("assets/skyvert.glsl", "assets/skyfrag.glsl");
         let faders: RwLock<Vec<Fader>> = RwLock::new(Vec::new());
@@ -162,7 +169,8 @@ impl Game {
                 hostile_world_sky_color: Vec4::new(0.0, 0.0, 0.0, 1.0),
                 hostile_world_sky_bottom: Vec4::new(1.0, 0.0, 0.0, 1.0),
                 ship_going_up: false,
-                ship_going_down: false
+                ship_going_down: false,
+                break_time: 0.0
             },
             controls: ControlsState {
                 left: false,
@@ -193,7 +201,11 @@ impl Game {
             gltf_paths: Vec::new(),
             model_entities: Vec::new(),
             select_cube: SelectCube::new(),
-            planet_y_offset: 0.0
+            block_overlay: BlockOverlay::new(tex.id),
+            ship_pos: Vec3::new(0.0,0.0,0.0),
+            planet_y_offset: 0.0,
+            window: window.clone(),
+            guisys: GuiSystem::new(&window.clone(), &tex)
         };
         g.load_model("assets/models/car/scene.gltf");
         g.load_model("assets/models/ship/scene.gltf");
@@ -233,6 +245,7 @@ impl Game {
         // Update the ship's position
         ship_pos.y = decided_pos_y;
         let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
+        g.ship_pos = ship_float_pos;
         g.model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0)));
         g.camera.lock().unwrap().position = ship_float_pos + Vec3::new(0.0, 4.0, 0.0);
         g.add_ship_colliders();
@@ -265,6 +278,7 @@ impl Game {
         self.draw();
         self.draw_models();
         self.draw_select_cube();
+        self.guisys.draw_texts();
 
         if self.initial_timer < 1.5  {
             self.initial_timer += self.delta_time;
@@ -427,20 +441,58 @@ impl Game {
 
         static mut LAST_CAM_POS: Vec3 = Vec3{x:0.0, y:0.0, z:0.0};
         static mut LAST_CAM_DIR: Vec3 = Vec3{x:0.0, y:0.0, z:0.0};
+        static mut LAST_BLOCK_POS : IVec3 = IVec3{x:0, y:0, z:0};
 
         static mut HIT_RESULT: Option<(Vec3, IVec3)> = None;
 
+        static mut BLOCK_TYPE: u32 = 0;
+
+        static mut BREAK_TIME: f32 = 0.0;
+
         let camlock = self.camera.lock().unwrap();
         unsafe {
+            
             if(camlock.position != LAST_CAM_POS || camlock.direction != LAST_CAM_DIR) {
+                
                 LAST_CAM_POS = camlock.position;
                 LAST_CAM_DIR = camlock.direction;
 
                 HIT_RESULT = raycast_dda(camlock.position, camlock.direction, &self.chunksys, 10.0);
+                
+                
+                
+                BLOCK_TYPE = match HIT_RESULT {
+                    Some((head, hit)) => {
+                        if(LAST_BLOCK_POS != hit) {
+                            BREAK_TIME = 0.0;
+                            LAST_BLOCK_POS = hit;
+                        }
+                        self.chunksys.blockat(hit)
+                    }
+                    None => {
+                        0
+                    }
+                    
+                };
             }
+
+
             match HIT_RESULT {
                 Some((_head, hit)) => {
-                    self.select_cube.draw_at(Vec3::new(hit.x as f32, hit.y as f32, hit.z as f32), &camlock.mvp);
+                    let hitvec3 = Vec3::new(hit.x as f32, hit.y as f32, hit.z as f32);
+                    self.select_cube.draw_at(hitvec3, &camlock.mvp);
+                    let bprog = (BREAK_TIME / Blocks::get_break_time(BLOCK_TYPE)).clamp(0.0, 1.0);
+              
+                    
+                    if self.vars.mouse_clicked {
+                        self.block_overlay.draw_at(hitvec3, (bprog * 8.0).floor() as i8, &camlock.mvp);
+                        BREAK_TIME = BREAK_TIME + self.delta_time;
+                        if bprog >= 1.0 {
+                            drop(camlock);
+                            self.cast_break_ray();
+                            BREAK_TIME = 0.0;
+                        }
+                    }
                 }
                 None => {
     
@@ -847,6 +899,7 @@ impl Game {
         // Update the ship's position
         ship_pos.y = decided_pos_y;
         let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
+        self.ship_pos = ship_float_pos;
         let ship_index = self.model_entities.len()-1;
         self.model_entities[ship_index].pos = ship_float_pos;
         self.camera.lock().unwrap().position = ship_float_pos + Vec3::new(0.0, 4.0, 0.0);
@@ -1116,19 +1169,22 @@ impl Game {
             self.vars.first_mouse = true;
         }
     }
+    pub fn cast_break_ray(&self) {
+        let cl = self.camera.lock().unwrap();
+        match raycast_dda(cl.position, cl.direction, &self.chunksys, 10.0) {
+            Some((_tip, block_hit)) => {
+                self.chunksys.set_block_and_queue_rerender(block_hit, 0, true, true);
+            }
+            None => {}
+        }
+    }
     pub fn mouse_button(&mut self, mb: MouseButton, a: Action) {
         match mb {
             glfw::MouseButtonLeft => {
                 self.vars.mouse_clicked = a == Action::Press;
-                if self.vars.mouse_clicked {
-                    let cl = self.camera.lock().unwrap();
-                    match raycast_dda(cl.position, cl.direction, &self.chunksys, 10.0) {
-                        Some((_tip, block_hit)) => {
-                            self.chunksys.set_block_and_queue_rerender(block_hit, 0, true, true);
-                        }
-                        None => {}
-                    }
-                }
+                // if self.vars.mouse_clicked {
+                //     self.cast_break_ray();
+                // }
             }
             glfw::MouseButtonRight => {
                 self.vars.right_mouse_clicked = a == Action::Press;

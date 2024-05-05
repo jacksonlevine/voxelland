@@ -19,3 +19,7 @@ pub mod planetinfo;
 pub mod model;
 pub mod modelentity;
 pub mod selectcube;
+pub mod blockoverlay;
+pub mod glyphface;
+pub mod text;
+pub mod guisystem;

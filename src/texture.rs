@@ -1,7 +1,7 @@
 use image::{self, GenericImageView};
 
 pub struct Texture {
-    id: gl::types::GLuint,
+    pub id: gl::types::GLuint,
 }
 
 impl Texture {

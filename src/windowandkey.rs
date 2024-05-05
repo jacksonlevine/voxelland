@@ -1,6 +1,7 @@
-use crate::game::Game;
+use crate::{game::Game, shader::Shader, text::Text, texture::Texture};
+use glam::Vec2;
 use glfw::{Context, Glfw, GlfwReceiver, Key, PWindow, WindowEvent};
-use std::time::Instant;
+use std::{sync::{Arc, RwLock}, time::Instant};
 
 pub struct WindowAndKeyContext {
     pub width: u32,
@@ -11,8 +12,10 @@ pub struct WindowAndKeyContext {
     pub delta_time: f32,
 
     pub glfw: Glfw,
-    pub window: PWindow,
+    pub window: Arc<RwLock<PWindow>>,
     pub events: GlfwReceiver<(f64, WindowEvent)>,
+
+    
 }
 
 impl WindowAndKeyContext {
@@ -41,19 +44,23 @@ impl WindowAndKeyContext {
             gl::FrontFace(gl::CW);
         }
 
-        let wak = WindowAndKeyContext {
+   
+
+        let mut wak = WindowAndKeyContext {
             width,
             height,
             game: None,
             previous_time: Instant::now(),
             delta_time: 0.0,
             glfw,
-            window,
-            events,
+            window: Arc::new(RwLock::new(window)),
+            events
         };
 
         wak
     }
+
+    
 
     pub fn run(&mut self) {
         self.glfw.poll_events();
@@ -65,12 +72,13 @@ impl WindowAndKeyContext {
         self.previous_time = current_time;
 
         self.game.as_mut().unwrap().update();
+        
 
         for (_, event) in glfw::flush_messages(&self.events) {
             match event {
                 glfw::WindowEvent::MouseButton(mousebutton, action, _) => {
                     if mousebutton == glfw::MouseButtonLeft {
-                        self.window.set_cursor_mode(glfw::CursorMode::Disabled);
+                        self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
                         self.game.as_mut().unwrap().set_mouse_focused(true);
                     }
                     self.game
@@ -90,7 +98,7 @@ impl WindowAndKeyContext {
                 }
                 glfw::WindowEvent::Key(key, _scancode, action, _modifiers) => {
                     if key == Key::Escape {
-                        self.window.set_cursor_mode(glfw::CursorMode::Normal);
+                        self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Normal);
                         self.game.as_mut().unwrap().set_mouse_focused(false);
                     }
                     self.game.as_mut().unwrap().keyboard(key, action);
@@ -99,6 +107,6 @@ impl WindowAndKeyContext {
             }
         }
 
-        self.window.swap_buffers();
+        self.window.write().unwrap().swap_buffers();
     }
 }

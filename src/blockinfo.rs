@@ -14,7 +14,7 @@ static TEXS: [[(u8, u8); 3]; 16] = [
             [(7, 0), (7, 0), (7, 0)],
             [(8, 0), (8, 0), (8, 0)],    // 08 glass
             [(9, 0), (9, 0), (9, 0)],    // 09 smooth stone
-            [(10, 0), (10, 0), (10, 0)], // 10
+            [(10, 0), (10, 0), (10, 0)], // 10 planks wood
             [(7, 1), (7, 1), (7, 1)], // 11 bush leaves
             [(4, 2), (4, 2), (4, 2)], // 12 petrified wood
             [(6, 2), (6, 2), (6, 2)], // 13 red stone
@@ -22,7 +22,29 @@ static TEXS: [[(u8, u8); 3]; 16] = [
             [(8, 2), (8, 2), (8, 2)], // 15 bedrock
         ];
 
+static BREAKTIMES: [f32; 16] = [
+    0.1,
+    0.5,
+    0.7,
+    0.7,
+    0.5,
+    1.0,
+    0.7,
+    0.2,
+    0.7,
+    1.5,
+    0.7,
+    0.8,
+    1.1,
+    1.5,
+    0.7,
+    9999999.0
+];
+
 impl Blocks {
+    pub fn get_break_time(id: u32) -> f32 {
+        return BREAKTIMES[id as usize];
+    }
     pub fn get_texs_length() -> usize {
         return TEXS.len();
     }

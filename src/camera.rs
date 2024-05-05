@@ -70,13 +70,13 @@ impl Camera {
         speed_mult: f32,
     ) -> Vec3 {
         if cs.forward {
-            self.velocity += (self.direction * Vec3::new(1.0, 0.0, 1.0)) * *delta * speed_mult;
+            self.velocity += (self.direction * Vec3::new(1.0, 0.0, 1.0)).normalize() * *delta * speed_mult;
         }
         if cs.left {
             self.velocity += self.right * *delta * speed_mult;
         }
         if cs.back {
-            self.velocity += (self.direction * Vec3::new(1.0, 0.0, 1.0)) * -*delta * speed_mult;
+            self.velocity += (self.direction * Vec3::new(1.0, 0.0, 1.0)).normalize() * -*delta * speed_mult;
         }
         if cs.right {
             self.velocity += self.right * -*delta * speed_mult;

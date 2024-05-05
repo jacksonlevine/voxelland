@@ -1,11 +1,11 @@
-use std::{collections::HashMap, fs, path::Path, str::FromStr};
+use std::{collections::HashMap, fs, path::Path, str::FromStr, sync::Arc};
 
 use dashmap::DashMap;
 use gl::types::{GLsizeiptr, GLuint, GLvoid};
 use glam::{Mat4, Vec3, Vec4};
 use gltf::{accessor::{DataType, Dimensions}, image::Source, mesh::util::ReadIndices, Semantic};
 
-use crate::{game::Game, modelentity::ModelEntity, vec};
+use crate::{collisioncage::{CollCage, Side}, game::Game, modelentity::ModelEntity, vec};
 
 fn convert_to_vec<T: bytemuck::Pod>(data: &[u8]) -> Vec<u8> {
     bytemuck::cast_slice(data).to_vec()
@@ -16,9 +16,9 @@ fn num_components(dimensions: Dimensions) -> i32 {
         Dimensions::Vec2 => 2,
         Dimensions::Vec3 => 3,
         Dimensions::Vec4 => 4,
-        Dimensions::Mat2 => 4,  // 2x2 matrix is treated as 4 components (2 per column)
-        Dimensions::Mat3 => 9,  // 3x3 matrix is treated as 9 components (3 per column)
-        Dimensions::Mat4 => 16, // 4x4 matrix is treated as 16 components (4 per column)
+        Dimensions::Mat2 => 4, 
+        Dimensions::Mat3 => 9, 
+        Dimensions::Mat4 => 16,
     }
 }
 
@@ -28,7 +28,7 @@ fn load_document_textures(document: &gltf::Document, buffers: &[gltf::buffer::Da
             Source::Uri { uri, mime_type } => {
                 // External image: Load from a file
                 let path = format!("{}/{}", base_path, uri);
-                println!("Loading external image: {}", uri); // Print the file name
+                //println!("Loading external image: {}", uri);
                 fs::read(path).expect("Failed to read image file")
             },
             Source::View { view, mime_type } => {
@@ -36,7 +36,7 @@ fn load_document_textures(document: &gltf::Document, buffers: &[gltf::buffer::Da
                 let buffer_index = view.buffer().index();
                 let start = view.offset();
                 let end = start + view.length();
-                println!("Loading embedded image from buffer index: {}", buffer_index); // Print the buffer index
+                println!("Loading embedded image from buffer index: {}", buffer_index); 
                 buffers[buffer_index][start..end].to_vec()
             },
         };
@@ -62,7 +62,6 @@ fn load_document_textures(document: &gltf::Document, buffers: &[gltf::buffer::Da
                 img.as_raw().as_ptr() as *const GLvoid
             );
 
-            // Set texture parameters
             gl::TextureParameteri(texture, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
             gl::TextureParameteri(texture, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
         }
@@ -103,19 +102,14 @@ fn load_textures(images: &[gltf::image::Data]) -> Vec<GLuint> {
 }
 
 fn get_rotation_matrix(xrot: f32, yrot: f32, zrot: f32) -> Mat4 {
-    // Create rotation matrices for each axis
     let rx = Mat4::from_rotation_x(-xrot);
     let ry = Mat4::from_rotation_y(yrot);
     let rz = Mat4::from_rotation_z(zrot);
 
-    // Multiply the rotation matrices together
-    // Note: The order of multiplication here assumes a specific rotation order (Rz * Ry * Rx)
-    // This order might need to be adjusted based on how you want the rotations to be applied
     rz * ry * rx
 }
 fn rasterize_triangle(triangle: [Vec3; 3], collision_map: &DashMap<vec::IVec3, u8>) {
-    // This is a placeholder for the rasterization logic. You need to implement this based on your grid/collision map resolution.
-    // Simple bounding box rasterization (for demonstration purposes):
+
     let min_x = triangle.iter().map(|v| v.x.floor() as i32).min().unwrap_or(0);
     let max_x = triangle.iter().map(|v| v.x.ceil() as i32).max().unwrap_or(0);
     let min_y = triangle.iter().map(|v| v.y.floor() as i32).min().unwrap_or(0);
@@ -126,18 +120,20 @@ fn rasterize_triangle(triangle: [Vec3; 3], collision_map: &DashMap<vec::IVec3, u
     for x in min_x..=max_x {
         for y in min_y..=max_y {
             for z in min_z..=max_z {
-                // Check if the (x, y, z) is inside the triangle; this is a simplification
                 collision_map.insert(vec::IVec3::new(x, y, z), 0);
             }
         }
     }
 }
-
+enum ModelEntityType<'a> {
+    Static(&'a ModelEntity),
+    NonStatic(&'a ModelEntity),
+}
 
 impl Game {
 
     pub fn update_model_collisions(&self, model_entity_index: usize) {
-        let entity = &self.model_entities[model_entity_index];
+        let entity = &self.static_model_entities[model_entity_index];
         let (document, buffers, _images) = &self.gltf_models[entity.model_index];
     
         for mesh in document.meshes() {
@@ -169,6 +165,102 @@ impl Game {
         }
     }
 
+
+    pub fn create_non_static_model_entity(&mut self, model_index: usize, pos: Vec3, scale: f32, rot: Vec3) {
+        let mut modent = ModelEntity::new(model_index, pos, scale, rot);
+
+        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
+            let csys_arc = Arc::clone(&self.chunksys);
+            Box::new(move |v: vec::IVec3| {
+                return csys_arc.collision_predicate(v);
+            })
+        };
+
+        modent.coll_cage = CollCage::new(solid_pred);
+
+        self.non_static_model_entities.push(modent);
+    }
+
+    pub fn update_mobile_models(&mut self) {
+        for model in &mut self.non_static_model_entities {
+            if !model.coll_cage.solid.contains(&Side::FLOOR) {
+                model.grounded = false;
+            }
+
+            const GRAV: f32 = 9.8;
+
+            if !model.grounded && !model.jumping_up {
+                model.time_falling_scalar = (model.time_falling_scalar + self.delta_time * 5.0).min(3.0);
+            } else {
+                model.time_falling_scalar = 1.0;
+            }
+    
+            if !model.grounded && !model.jumping_up {
+                model.velocity +=
+                    Vec3::new(0.0, -GRAV * model.time_falling_scalar * self.delta_time, 0.0);
+            }
+    
+            if model.jumping_up {
+                if model.pos.y < model.current_jump_y + model.allowable_jump_height {
+                    let curr_cam_y = model.pos.y;
+                    model.velocity += Vec3::new(
+                        0.0,
+                        (((model.current_jump_y + model.allowable_jump_height + 0.3) - curr_cam_y)
+                            * 15.0)
+                            * self.delta_time,
+                        0.0,
+                    );
+                } else {
+                    model.jumping_up = false;
+                }
+            }
+
+            // if model.controls.up && model.grounded {
+            //     model.grounded = false;
+            //     model.current_jump_y = model.pos.y;
+            //     model.jumping_up = true;
+            //     model.controls.up = false;
+            // }
+
+            let cc_center = model.pos + Vec3::new(0.0, -1.0, 0.0);
+            model.coll_cage.update_readings(cc_center);
+
+            let mut proposed = if model.velocity.length() > 0.0 {
+                let amt_to_subtract = model.velocity * self.delta_time * 5.0;
+                model.velocity -= amt_to_subtract;
+    
+                model.pos + amt_to_subtract
+            } else {
+                model.pos
+            };
+
+            model.bound_box
+                .set_center(proposed + Vec3::new(0.0, -0.5, 0.0), 0.2, 0.85);
+
+            model.coll_cage.update_colliding(&model.bound_box);
+
+            let mut corr_made: Vec<Vec3> = Vec::new();
+            if model.coll_cage.colliding.len() > 0 {
+                for side in &model.coll_cage.colliding {
+                    if !corr_made.contains(&model.coll_cage.normals[*side as usize]) {
+                        proposed += model.coll_cage.normals[*side as usize]
+                            * model.coll_cage.penetrations[*side as usize];
+                        corr_made.push(model.coll_cage.normals[*side as usize]);
+                    }
+                    if *side == Side::FLOOR {
+                        model.grounded = true;
+                    }
+                    if *side == Side::ROOF {
+                        model.jumping_up = false;
+                        model.grounded = false;
+                    }
+                }
+            }
+            model.pos = proposed;
+            //camlock.recalculate();
+        }
+    }
+
     pub fn draw_models(&self) {
 
 
@@ -192,7 +284,18 @@ impl Game {
             
 
 
-            for modelent in &self.model_entities {
+            for modelt in self.static_model_entities.iter().map(ModelEntityType::Static)
+                .chain(self.non_static_model_entities.iter().map(ModelEntityType::NonStatic)) {
+
+                let modelent = match modelt {
+                    ModelEntityType::Static(entity) => {
+                        entity
+                    },
+                    ModelEntityType::NonStatic(entity) => {
+                        entity
+                    },
+                };
+                    
                 let index = modelent.model_index;
                 let vaosetset = &self.gltf_vaos[index];
 
@@ -221,15 +324,32 @@ impl Game {
                                 modelent.scale,
                             );
 
-                            gl::Uniform3f(
-                                gl::GetUniformLocation(
-                                    self.modelshader.shader_id,
-                                    b"pos\0".as_ptr() as *const i8,
-                                ),
-                                modelent.pos.x,
-                                modelent.pos.y,
-                                modelent.pos.z
-                            );
+                            match modelt {
+                                ModelEntityType::Static(entity) => {
+                                    gl::Uniform3f(
+                                        gl::GetUniformLocation(
+                                            self.modelshader.shader_id,
+                                            b"pos\0".as_ptr() as *const i8,
+                                        ),
+                                        entity.pos.x,
+                                        entity.pos.y,
+                                        entity.pos.z
+                                    );
+                                },
+                                ModelEntityType::NonStatic(entity) => {
+                                    gl::Uniform3f(
+                                        gl::GetUniformLocation(
+                                            self.modelshader.shader_id,
+                                            b"pos\0".as_ptr() as *const i8,
+                                        ),
+                                        entity.pos.x,
+                                        entity.pos.y + self.planet_y_offset * 8.0,
+                                        entity.pos.z
+                                    );
+                                },
+                            }
+
+                            
 
                             gl::Uniform1f(
                                 gl::GetUniformLocation(

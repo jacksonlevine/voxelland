@@ -6,6 +6,7 @@ use glam::{Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
 use glfw::{Action, Key, MouseButton, PWindow};
 use gltf::Gltf;
+use vox_format::types::Model;
 use walkdir::WalkDir;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -85,7 +86,8 @@ pub struct Game {
     pub gltf_ebos: Vec<Vec<Vec<GLuint>>>,
     pub gltf_textures: Vec<Vec<Vec<GLuint>>>,
     pub gltf_paths: Vec<String>,
-    pub model_entities: Vec<ModelEntity>,
+    pub static_model_entities: Vec<ModelEntity>,
+    pub non_static_model_entities: Vec<ModelEntity>,
     pub select_cube: SelectCube,
     pub block_overlay: BlockOverlay,
     pub ship_pos: Vec3,
@@ -201,7 +203,8 @@ impl Game {
             gltf_ebos: Vec::new(),
             gltf_textures: Vec::new(),
             gltf_paths: Vec::new(),
-            model_entities: Vec::new(),
+            static_model_entities: Vec::new(),
+            non_static_model_entities: Vec::new(),
             select_cube: SelectCube::new(),
             block_overlay: BlockOverlay::new(tex.id),
             ship_pos: Vec3::new(0.0,0.0,0.0),
@@ -216,13 +219,14 @@ impl Game {
         // g.setup_vertex_attributes();
 
 
-        // g.model_entities.push(ModelEntity::new(0, Vec3::new(0.0,80.0,-4.0), 1.0, Vec3::new(0.0, 0.0, 0.0)));
-        // g.model_entities.push(ModelEntity::new(0, Vec3::new(-20.0,80.0,15.0), 1.0, Vec3::new(0.0, 0.0, 0.0)));
-        // g.model_entities.push(ModelEntity::new(0, Vec3::new(-15.0,80.0,4.0), 1.0, Vec3::new(0.0, 0.0, 0.0)));
-        // g.model_entities.push(ModelEntity::new(0, Vec3::new(8.0,80.0,15.0), 1.0, Vec3::new(0.0, 0.0, 0.0)));
-        // g.model_entities.push(ModelEntity::new(0, Vec3::new(20.0,80.0,-20.0), 1.0, Vec3::new(0.0, 0.0, 0.0)));
-        // g.model_entities.push(ModelEntity::new(0, Vec3::new(23.0,80.0,10.0), 1.0, Vec3::new(0.0, 0.0, 0.0)));
-        // g.model_entities.push(ModelEntity::new(0, Vec3::new(8.0,80.0,-9.0), 1.0, Vec3::new(0.0, 0.0, 0.0)));
+
+        g.create_non_static_model_entity(0, Vec3::new(0.0,80.0,-4.0), 1.0, Vec3::new(0.0, 0.0, 0.0));
+        g.create_non_static_model_entity(0, Vec3::new(-20.0,80.0,15.0), 1.0, Vec3::new(0.0, 0.0, 0.0));
+        g.create_non_static_model_entity(0, Vec3::new(-15.0,80.0,4.0), 1.0, Vec3::new(0.0, 0.0, 0.0));
+        g.create_non_static_model_entity(0, Vec3::new(8.0,80.0,15.0), 1.0, Vec3::new(0.0, 0.0, 0.0));
+        g.create_non_static_model_entity(0, Vec3::new(20.0,80.0,-20.0), 1.0, Vec3::new(0.0, 0.0, 0.0));
+        g.create_non_static_model_entity(0, Vec3::new(23.0,80.0,10.0), 1.0, Vec3::new(0.0, 0.0, 0.0));
+        g.create_non_static_model_entity(0, Vec3::new(8.0,80.0,-9.0), 1.0, Vec3::new(0.0, 0.0, 0.0));
 
 
 
@@ -241,6 +245,8 @@ impl Game {
         find_ground_y(&mut ship_front, &g);
         find_ground_y(&mut ship_back, &g);
 
+
+
         // Determine the highest y position found
         let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y);
 
@@ -248,7 +254,7 @@ impl Game {
         ship_pos.y = decided_pos_y;
         let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
         g.ship_pos = ship_float_pos;
-        g.model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0)));
+        g.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0)));
         g.camera.lock().unwrap().position = ship_float_pos + Vec3::new(0.0, 4.0, 0.0);
         g.add_ship_colliders();
         g
@@ -282,6 +288,7 @@ impl Game {
         self.draw_select_cube();
         self.guisys.draw_text(0);
         
+        
         let camlock = self.camera.lock().unwrap();
         let shipdist = camlock.position.distance(self.ship_pos);
         if shipdist < 30.0 && shipdist > 10.0 {
@@ -296,6 +303,7 @@ impl Game {
             self.initial_timer += self.delta_time;
         } else {
             self.update_movement_and_physics();
+            self.update_mobile_models();
         }
 
         if self.vars.ship_going_down {
@@ -856,13 +864,14 @@ impl Game {
     }
 
     pub fn add_ship_colliders(&self) {
-        self.update_model_collisions(self.model_entities.len() - 1);
+        self.update_model_collisions(self.static_model_entities.len() - 1);
     }
 
     
     pub fn start_chunks_with_radius(&mut self, newradius: u8, seed: u32, nt: usize) {
 
         (*self.run_chunk_thread).store(false, Ordering::Relaxed);
+
 
         if let Some(handle) = self.chunk_thread.take() { // take the handle out safely
             handle.join().unwrap(); // Join the thread, handle errors appropriately
@@ -879,6 +888,7 @@ impl Game {
                 gl::DeleteBuffers(1, &i.tvbo8);
             }
         }
+        self.non_static_model_entities.clear();
         let mut csys = ChunkSystem::new(newradius, seed, nt);
         csys.voxel_models = Some(self.voxel_models.clone());
         self.chunksys = Arc::new(csys);
@@ -912,8 +922,8 @@ impl Game {
         ship_pos.y = decided_pos_y;
         let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
         self.ship_pos = ship_float_pos;
-        let ship_index = self.model_entities.len()-1;
-        self.model_entities[ship_index].pos = ship_float_pos;
+        let ship_index = self.static_model_entities.len()-1;
+        self.static_model_entities[ship_index].pos = ship_float_pos;
         self.camera.lock().unwrap().position = ship_float_pos + Vec3::new(0.0, 4.0, 0.0);
         self.add_ship_colliders();
 
@@ -1279,14 +1289,14 @@ impl Game {
             }
             Key::M => {
                 if action == Action::Press {
-                    static SEEDS: [u8; 12] = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+                    static SEEDS: [u32; 12] = [18231283, 23213, 3945934, 43959834, 1230, 9494, 485384, 348584, 0607, 59884, 457348, 19192];
                     static mut CURR_SEED: usize = 0;
                     static mut CURR_NT: usize = 0;
                     self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
                     unsafe {
                         self.vars.hostile_world = (CURR_SEED % 2) == 0;
                         CURR_NT = (CURR_NT + 1) % 2;
-                        self.start_chunks_with_radius(10, CURR_SEED as u32, CURR_NT);
+                        self.start_chunks_with_radius(10, SEEDS[CURR_SEED], CURR_NT);
                         CURR_SEED = (CURR_SEED + 1) % 11;
                         
                         println!("Now noise type is {}", self.chunksys.noise_type);

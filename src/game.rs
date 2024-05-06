@@ -268,7 +268,7 @@ impl Game {
         ship_pos.y = decided_pos_y;
         let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
         g.ship_pos = ship_float_pos;
-        g.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0), &g.chunksys));
+        g.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0), &g.chunksys, &g.camera));
         g.camera.lock().unwrap().position = ship_float_pos + Vec3::new(0.0, 4.0, 0.0);
         g.add_ship_colliders();
         g
@@ -908,12 +908,11 @@ impl Game {
         self.chunksys = Arc::new(csys);
 
         if nt == 1 {
-            self.create_non_static_model_entity(2, Vec3::new(0.0,80.0,-40.0), 3.0, Vec3::new(0.0, 0.0, 0.0));
-            self.create_non_static_model_entity(2, Vec3::new(-30.0,80.0,15.0), 3.0, Vec3::new(0.0, 0.0, 0.0));
-            self.create_non_static_model_entity(2, Vec3::new(-15.0,80.0,40.0), 3.0, Vec3::new(0.0, 0.0, 0.0));
-            self.create_non_static_model_entity(3, Vec3::new(0.0,80.0,-40.0), 3.0, Vec3::new(0.0, 0.0, 0.0));
-            self.create_non_static_model_entity(3, Vec3::new(-20.0,80.0,15.0), 3.0, Vec3::new(0.0, 0.0, 0.0));
-            self.create_non_static_model_entity(3, Vec3::new(-15.0,80.0,40.0), 3.0, Vec3::new(0.0, 0.0, 0.0));
+            self.create_non_static_model_entity(2, Vec3::new(40.0,80.0,-60.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+            self.create_non_static_model_entity(2, Vec3::new(-50.0,80.0,55.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+
+            self.create_non_static_model_entity(3, Vec3::new(-60.0,80.0,55.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
+            self.create_non_static_model_entity(3, Vec3::new(55.0,80.0,50.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
        
         }
 
@@ -1314,7 +1313,7 @@ impl Game {
             Key::L => {
                 if action == Action::Press {
                     let camlockpos = self.camera.lock().unwrap().position;
-                    self.create_non_static_model_entity(0, camlockpos + Vec3::new(0.0, 4.0, 0.0), 3.0, Vec3::new(0.0, 0.0, 0.0));
+                    self.create_non_static_model_entity(0, camlockpos + Vec3::new(0.0, 4.0, 0.0), 3.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
                 }
             }
             Key::M => {

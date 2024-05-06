@@ -5,7 +5,7 @@ use gl::types::{GLsizeiptr, GLuint, GLvoid};
 use glam::{Mat4, Vec3, Vec4};
 use gltf::{accessor::{DataType, Dimensions}, image::Source, mesh::util::ReadIndices, Semantic};
 
-use crate::{collisioncage::{CollCage, Side}, game::Game, modelentity::ModelEntity, vec};
+use crate::{collisioncage::{CollCage, Side}, game::Game, modelentity::{AggroTarget, ModelEntity}, vec};
 
 fn convert_to_vec<T: bytemuck::Pod>(data: &[u8]) -> Vec<u8> {
     bytemuck::cast_slice(data).to_vec()
@@ -166,8 +166,8 @@ impl Game {
     }
 
 
-    pub fn create_non_static_model_entity(&mut self, model_index: usize, pos: Vec3, scale: f32, rot: Vec3) {
-        let mut modent = ModelEntity::new(model_index, pos, scale, rot, &self.chunksys);
+    pub fn create_non_static_model_entity(&mut self, model_index: usize, pos: Vec3, scale: f32, rot: Vec3, jump_height: f32) {
+        let mut modent = ModelEntity::new_with_jump_height(model_index, pos, scale, rot, &self.chunksys, &self.camera, jump_height);
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
             let csys_arc = Arc::clone(&self.chunksys);
@@ -225,7 +225,10 @@ impl Game {
             let cc_center = model.position + Vec3::new(0.0, -1.0, 0.0);
             model.coll_cage.update_readings(cc_center);
             model.respond_to_own_controls(&self.delta_time, 5.0);
-            model.random_behavior(&self.delta_time);
+            model.behavior_loop(&self.delta_time);
+            if (model.position + Vec3::new(0.0, self.planet_y_offset * 8.0, 0.0)).distance(self.camera.lock().unwrap().position) < 30.0 {
+                model.target = AggroTarget::ThisCamera;
+            }
             let mut proposed = if model.velocity.length() > 0.0 {
                 let amt_to_subtract = model.velocity * self.delta_time * 5.0;
                 model.velocity -= amt_to_subtract;

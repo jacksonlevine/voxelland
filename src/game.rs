@@ -233,19 +233,14 @@ impl Game {
         };
         g.load_model("assets/models/car/scene.gltf");
         g.load_model("assets/models/ship/scene.gltf");
+        g.load_model("assets/models/monster1/scene.gltf");
+        g.load_model("assets/models/monster2/scene.gltf");
         g.create_model_vbos();
     
         // g.setup_vertex_attributes();
 
 
 
-        g.create_non_static_model_entity(0, Vec3::new(0.0,80.0,-4.0), 1.0, Vec3::new(0.0, 0.0, 0.0));
-        g.create_non_static_model_entity(0, Vec3::new(-20.0,80.0,15.0), 1.0, Vec3::new(0.0, 0.0, 0.0));
-        g.create_non_static_model_entity(0, Vec3::new(-15.0,80.0,4.0), 1.0, Vec3::new(0.0, 0.0, 0.0));
-        g.create_non_static_model_entity(0, Vec3::new(8.0,80.0,15.0), 1.0, Vec3::new(0.0, 0.0, 0.0));
-        g.create_non_static_model_entity(0, Vec3::new(20.0,80.0,-20.0), 1.0, Vec3::new(0.0, 0.0, 0.0));
-        g.create_non_static_model_entity(0, Vec3::new(23.0,80.0,10.0), 1.0, Vec3::new(0.0, 0.0, 0.0));
-        g.create_non_static_model_entity(0, Vec3::new(8.0,80.0,-9.0), 1.0, Vec3::new(0.0, 0.0, 0.0));
 
 
 
@@ -912,6 +907,16 @@ impl Game {
         csys.voxel_models = Some(self.voxel_models.clone());
         self.chunksys = Arc::new(csys);
 
+        if nt == 1 {
+            self.create_non_static_model_entity(2, Vec3::new(0.0,80.0,-40.0), 3.0, Vec3::new(0.0, 0.0, 0.0));
+            self.create_non_static_model_entity(2, Vec3::new(-30.0,80.0,15.0), 3.0, Vec3::new(0.0, 0.0, 0.0));
+            self.create_non_static_model_entity(2, Vec3::new(-15.0,80.0,40.0), 3.0, Vec3::new(0.0, 0.0, 0.0));
+            self.create_non_static_model_entity(3, Vec3::new(0.0,80.0,-40.0), 3.0, Vec3::new(0.0, 0.0, 0.0));
+            self.create_non_static_model_entity(3, Vec3::new(-20.0,80.0,15.0), 3.0, Vec3::new(0.0, 0.0, 0.0));
+            self.create_non_static_model_entity(3, Vec3::new(-15.0,80.0,40.0), 3.0, Vec3::new(0.0, 0.0, 0.0));
+       
+        }
+
         self.coll_cage.solid_pred  = {
             let csys_arc = Arc::clone(&self.chunksys);
             Box::new(move |v: vec::IVec3| {
@@ -1307,8 +1312,10 @@ impl Game {
                 }
             }
             Key::L => {
-                let camlockpos = self.camera.lock().unwrap().position;
-                self.create_non_static_model_entity(0, camlockpos + Vec3::new(0.0, 4.0, 0.0), 1.0, Vec3::new(0.0, 0.0, 0.0));
+                if action == Action::Press {
+                    let camlockpos = self.camera.lock().unwrap().position;
+                    self.create_non_static_model_entity(0, camlockpos + Vec3::new(0.0, 4.0, 0.0), 3.0, Vec3::new(0.0, 0.0, 0.0));
+                }
             }
             Key::M => {
                 if action == Action::Press {

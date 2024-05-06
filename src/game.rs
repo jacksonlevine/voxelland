@@ -910,6 +910,7 @@ impl Game {
         if nt == 1 {
             self.create_non_static_model_entity(2, Vec3::new(40.0,80.0,-60.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
             self.create_non_static_model_entity(2, Vec3::new(-50.0,80.0,55.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+            self.create_non_static_model_entity(0, Vec3::new(-100.0, 100.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
 
             self.create_non_static_model_entity(3, Vec3::new(-60.0,80.0,55.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
             self.create_non_static_model_entity(3, Vec3::new(55.0,80.0,50.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);

@@ -37,6 +37,31 @@ pub struct ControlsState {
     pub forward: bool,
     pub back: bool,
     pub up: bool,
+    pub lookingleft: bool,
+    pub lookingright: bool
+}
+
+impl ControlsState {
+    pub fn new() -> ControlsState {
+        ControlsState {
+            left: false,
+            right: false,
+            forward: false,
+            back: false,
+            up: false,
+            lookingleft: false,
+            lookingright: false
+        }
+    }
+    pub fn clear(&mut self) {
+        self.left = false;
+        self.right = false;
+        self.forward = false;
+        self.back = false;
+        self.up = false;
+        self.lookingleft = false;
+        self.lookingright = false;
+    }
 }
 
 pub struct GameVariables {
@@ -176,13 +201,7 @@ impl Game {
                 break_time: 0.0,
                 near_ship: false
             },
-            controls: ControlsState {
-                left: false,
-                right: false,
-                forward: false,
-                back: false,
-                up: false,
-            },
+            controls: ControlsState::new(),
             faders: Arc::new(faders),
             prev_time: 0.0,
             delta_time: 0.0,
@@ -254,7 +273,7 @@ impl Game {
         ship_pos.y = decided_pos_y;
         let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
         g.ship_pos = ship_float_pos;
-        g.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0)));
+        g.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0), &g.chunksys));
         g.camera.lock().unwrap().position = ship_float_pos + Vec3::new(0.0, 4.0, 0.0);
         g.add_ship_colliders();
         g
@@ -303,7 +322,7 @@ impl Game {
             self.initial_timer += self.delta_time;
         } else {
             self.update_movement_and_physics();
-            self.update_mobile_models();
+            self.update_non_static_model_entities();
         }
 
         if self.vars.ship_going_down {
@@ -477,7 +496,7 @@ impl Game {
                 LAST_CAM_POS = camlock.position;
                 LAST_CAM_DIR = camlock.direction;
 
-                HIT_RESULT = raycast_dda(camlock.position, camlock.direction, &self.chunksys, 10.0);
+                HIT_RESULT = raycast_voxel(camlock.position, camlock.direction, &self.chunksys, 10.0);
                 
                 
                 
@@ -923,7 +942,7 @@ impl Game {
         let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
         self.ship_pos = ship_float_pos;
         let ship_index = self.static_model_entities.len()-1;
-        self.static_model_entities[ship_index].pos = ship_float_pos;
+        self.static_model_entities[ship_index].position = ship_float_pos;
         self.camera.lock().unwrap().position = ship_float_pos + Vec3::new(0.0, 4.0, 0.0);
         self.add_ship_colliders();
 
@@ -1193,7 +1212,7 @@ impl Game {
     }
     pub fn cast_break_ray(&self) {
         let cl = self.camera.lock().unwrap();
-        match raycast_dda(cl.position, cl.direction, &self.chunksys, 10.0) {
+        match raycast_voxel(cl.position, cl.direction, &self.chunksys, 10.0) {
             Some((_tip, block_hit)) => {
                 self.chunksys.set_block_and_queue_rerender(block_hit, 0, true, true);
             }
@@ -1212,7 +1231,7 @@ impl Game {
                 self.vars.right_mouse_clicked = a == Action::Press;
                 if self.vars.right_mouse_clicked {
                     let cl = self.camera.lock().unwrap();
-                    match raycast_dda(cl.position, cl.direction, &self.chunksys, 10.0) {
+                    match raycast_voxel(cl.position, cl.direction, &self.chunksys, 10.0) {
                         
                         Some((tip, block_hit)) => {
 
@@ -1286,6 +1305,10 @@ impl Game {
                 } else {
                     self.controls.up = false;
                 }
+            }
+            Key::L => {
+                let camlockpos = self.camera.lock().unwrap().position;
+                self.create_non_static_model_entity(0, camlockpos + Vec3::new(0.0, 4.0, 0.0), 1.0, Vec3::new(0.0, 0.0, 0.0));
             }
             Key::M => {
                 if action == Action::Press {

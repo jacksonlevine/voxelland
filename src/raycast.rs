@@ -8,7 +8,7 @@ use crate::chunk::ChunkSystem;
 use crate::vec::IVec3;
 
 
-pub fn raycast_dda(origin: Vec3, direction: Vec3, csys: &ChunkSystem, max_distance: f32) -> Option<(Vec3, IVec3)> {
+pub fn raycast_voxel(origin: Vec3, direction: Vec3, csys: &ChunkSystem, max_distance: f32) -> Option<(Vec3, IVec3)> {
     let step_size = 0.1; // Smaller step sizes increase accuracy but decrease performance
     let direction = direction.normalize(); // Ensure the direction vector is normalized
     let mut current_pos = origin;

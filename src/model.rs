@@ -153,7 +153,7 @@ impl Game {
                         let transformed_triangle = triangle.map(|vertex| {
                             let scaled_vertex = vertex * entity.scale;
                             let rotated_vertex = (get_rotation_matrix(entity.rot.x, entity.rot.y, entity.rot.z) * Vec4::new(scaled_vertex.x, scaled_vertex.y, scaled_vertex.z, 1.0)).truncate();
-                            let final_vertex = rotated_vertex + entity.pos;
+                            let final_vertex = rotated_vertex + entity.position;
                             final_vertex
                         });
     
@@ -167,7 +167,7 @@ impl Game {
 
 
     pub fn create_non_static_model_entity(&mut self, model_index: usize, pos: Vec3, scale: f32, rot: Vec3) {
-        let mut modent = ModelEntity::new(model_index, pos, scale, rot);
+        let mut modent = ModelEntity::new(model_index, pos, scale, rot, &self.chunksys);
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
             let csys_arc = Arc::clone(&self.chunksys);
@@ -181,7 +181,7 @@ impl Game {
         self.non_static_model_entities.push(modent);
     }
 
-    pub fn update_mobile_models(&mut self) {
+    pub fn update_non_static_model_entities(&mut self) {
         for model in &mut self.non_static_model_entities {
             if !model.coll_cage.solid.contains(&Side::FLOOR) {
                 model.grounded = false;
@@ -201,8 +201,8 @@ impl Game {
             }
     
             if model.jumping_up {
-                if model.pos.y < model.current_jump_y + model.allowable_jump_height {
-                    let curr_cam_y = model.pos.y;
+                if model.position.y < model.current_jump_y + model.allowable_jump_height {
+                    let curr_cam_y = model.position.y;
                     model.velocity += Vec3::new(
                         0.0,
                         (((model.current_jump_y + model.allowable_jump_height + 0.3) - curr_cam_y)
@@ -215,23 +215,24 @@ impl Game {
                 }
             }
 
-            // if model.controls.up && model.grounded {
-            //     model.grounded = false;
-            //     model.current_jump_y = model.pos.y;
-            //     model.jumping_up = true;
-            //     model.controls.up = false;
-            // }
+            if model.controls.up && model.grounded {
+                model.grounded = false;
+                model.current_jump_y = model.position.y;
+                model.jumping_up = true;
+                model.controls.up = false;
+            }
 
-            let cc_center = model.pos + Vec3::new(0.0, -1.0, 0.0);
+            let cc_center = model.position + Vec3::new(0.0, -1.0, 0.0);
             model.coll_cage.update_readings(cc_center);
-
+            model.respond_to_own_controls(&self.delta_time, 5.0);
+            model.random_behavior(&self.delta_time);
             let mut proposed = if model.velocity.length() > 0.0 {
                 let amt_to_subtract = model.velocity * self.delta_time * 5.0;
                 model.velocity -= amt_to_subtract;
     
-                model.pos + amt_to_subtract
+                model.position + amt_to_subtract
             } else {
-                model.pos
+                model.position
             };
 
             model.bound_box
@@ -256,7 +257,8 @@ impl Game {
                     }
                 }
             }
-            model.pos = proposed;
+            model.set_pos(proposed);
+            model.recalculate();
             //camlock.recalculate();
         }
     }
@@ -331,9 +333,9 @@ impl Game {
                                             self.modelshader.shader_id,
                                             b"pos\0".as_ptr() as *const i8,
                                         ),
-                                        entity.pos.x,
-                                        entity.pos.y,
-                                        entity.pos.z
+                                        entity.position.x,
+                                        entity.position.y,
+                                        entity.position.z
                                     );
                                 },
                                 ModelEntityType::NonStatic(entity) => {
@@ -342,9 +344,9 @@ impl Game {
                                             self.modelshader.shader_id,
                                             b"pos\0".as_ptr() as *const i8,
                                         ),
-                                        entity.pos.x,
-                                        entity.pos.y + self.planet_y_offset * 8.0,
-                                        entity.pos.z
+                                        entity.position.x,
+                                        entity.position.y + self.planet_y_offset * 8.0,
+                                        entity.position.z
                                     );
                                 },
                             }

@@ -26,3 +26,4 @@ pub mod guisystem;
 pub mod hud;
 pub mod textureface;
 pub mod drops;
+pub mod audio;

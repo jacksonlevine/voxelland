@@ -69,4 +69,14 @@ impl Blocks {
         ];
         return SEMI_TRANSPARENTS.contains(&id);
     }
+    pub fn get_walk_series(id: u32) -> &'static str {
+        match id {
+            3 => {
+                "grassstepseries"
+            }
+            _ => {
+                "stonestepseries"
+            }
+        }
+    }
 }

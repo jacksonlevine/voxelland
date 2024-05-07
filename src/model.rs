@@ -7,9 +7,8 @@ use gltf::{accessor::{DataType, Dimensions}, image::Source, mesh::util::ReadIndi
 
 use crate::{collisioncage::{CollCage, Side}, game::Game, modelentity::{AggroTarget, ModelEntity}, vec};
 
-fn convert_to_vec<T: bytemuck::Pod>(data: &[u8]) -> Vec<u8> {
-    bytemuck::cast_slice(data).to_vec()
-}
+
+
 fn num_components(dimensions: Dimensions) -> i32 {
     match dimensions {
         Dimensions::Scalar => 1,

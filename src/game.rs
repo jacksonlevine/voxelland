@@ -14,6 +14,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, current};
 
+use crate::audio::{self, AudioPlayer};
 use crate::blockinfo::Blocks;
 use crate::blockoverlay::BlockOverlay;
 use crate::chunk::{ChunkFacade, ChunkSystem};
@@ -126,7 +127,8 @@ pub struct Game {
     pub window: Arc<RwLock<PWindow>>,
     pub guisys: GuiSystem,
     pub hud: Hud,
-    pub drops: Drops
+    pub drops: Drops,
+    pub audiop: AudioPlayer
 }
 
 enum FaderNames {
@@ -273,7 +275,8 @@ impl Game {
             window: window.clone(),
             guisys: GuiSystem::new(&window.clone(), &tex),
             hud,
-            drops: Drops::new(tex.id, &cam, &chunksys)
+            drops: Drops::new(tex.id, &cam, &chunksys),
+            audiop: AudioPlayer::new(2)
         };
 
 
@@ -287,7 +290,23 @@ impl Game {
 
 
 
+        g.audiop.play("assets/music/Farfromhome.mp3", 0, true);
 
+        g.audiop.preload_series("grassstepseries", vec![
+            String::from("assets/sfx/grassstep1.mp3"),
+            String::from("assets/sfx/grassstep2.mp3"),
+            String::from("assets/sfx/grassstep3.mp3"),
+            String::from("assets/sfx/grassstep4.mp3"),
+            String::from("assets/sfx/grassstep5.mp3"),
+            String::from("assets/sfx/grassstep6.mp3"),
+        ]);
+
+        g.audiop.preload_series("stonestepseries", vec![
+            String::from("assets/sfx/stonestep1.mp3"),
+            String::from("assets/sfx/stonestep2.mp3"),
+            String::from("assets/sfx/stonestep3.mp3"),
+            String::from("assets/sfx/stonestep4.mp3")
+        ]);
 
 
         let mut ship_pos = vec::IVec3::new(20,200,0);
@@ -318,6 +337,27 @@ impl Game {
         g.camera.lock().unwrap().position = ship_float_pos + Vec3::new(0.0, 4.0, 0.0);
         g.add_ship_colliders();
         g
+    }
+
+    pub fn do_step_sounds(&mut self) {
+        static mut TIMER: f32 = 0.0;
+        static mut LAST_CAM_POS: Vec3 = Vec3{x: 0.0, y: 0.0, z: 0.0};
+        let campos = self.camera.lock().unwrap().position;
+        unsafe {
+            if self.grounded && LAST_CAM_POS != campos {
+                let camfootpos = campos - Vec3::new(0.0, 2.0, 0.0);
+                let blockat = self.chunksys.blockat(IVec3::new(camfootpos.x.floor() as i32, camfootpos.y.floor() as i32, camfootpos.z.floor() as i32));
+                if(TIMER > 0.4) {
+                    self.audiop.play_next_in_series(&Blocks::get_walk_series(blockat), 1);
+                    TIMER = 0.0;
+                } else {
+                    TIMER += self.delta_time;
+                }
+
+                LAST_CAM_POS = campos;
+            }
+        }
+        
     }
 
     pub fn update(&mut self) {
@@ -351,6 +391,7 @@ impl Game {
         self.drops.update_and_draw_drops(&self.delta_time, &mvp);
         self.hud.update();
         self.hud.draw();
+        self.do_step_sounds();
         
         
         let camlock = self.camera.lock().unwrap();

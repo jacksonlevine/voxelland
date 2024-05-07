@@ -207,9 +207,42 @@ impl ChunkSystem {
             y: (spot.z as f32 / CW as f32).floor() as i32,
         }
     }
+    pub fn queue_rerender(&self, spot: vec::IVec3, block: u32, neighbors: bool, user_power: bool) {
+        let chunk_key = &Self::spot_to_chunk_pos(&spot);
+        match self.takencare.get(chunk_key) {
+            Some(cf) => {
+                match user_power {
+                    true => {
+                        self.user_rebuild_requests.push(cf.geo_index);
+                    }
+                    false => {
+                        self.background_rebuild_requests.push(cf.geo_index);
+                    }
+                }
+                
+            }
+            None => {}
+        }
+    }
+    pub fn queue_rerender_with_key(&self, chunk_key: IVec2, block: u32, neighbors: bool, user_power: bool) {
+
+        match self.takencare.get(&chunk_key) {
+            Some(cf) => {
+                match user_power {
+                    true => {
+                        self.user_rebuild_requests.push(cf.geo_index);
+                    }
+                    false => {
+                        self.background_rebuild_requests.push(cf.geo_index);
+                    }
+                }
+                
+            }
+            None => {}
+        }
+    }
     pub fn set_block_and_queue_rerender(&self, spot: vec::IVec3, block: u32, neighbors: bool, user_power: bool) {
         self.set_block(spot, block, user_power);
-        let chunk_key = &Self::spot_to_chunk_pos(&spot);
         if neighbors {
 
             let mut neighbs: HashSet<vec::IVec2> = HashSet::new();
@@ -220,39 +253,14 @@ impl ChunkSystem {
             }
             for i in neighbs {
                 let here = i;
-                match self.takencare.get(&here) {
-                    Some(cf) => {
-                        match user_power {
-                            true => {
-                                self.user_rebuild_requests.push(cf.geo_index);
-                            }
-                            false => {
-                                self.background_rebuild_requests.push(cf.geo_index);
-                            }
-                        }
-                    }
-                    None => {}
-                }
+                self.queue_rerender_with_key(here, block, neighbors, user_power);
             }
         } else {
-            
-            match self.takencare.get(chunk_key) {
-                Some(cf) => {
-                    match user_power {
-                        true => {
-                            self.user_rebuild_requests.push(cf.geo_index);
-                        }
-                        false => {
-                            self.background_rebuild_requests.push(cf.geo_index);
-                        }
-                    }
-                    
-                }
-                None => {}
-            }
+            self.queue_rerender(spot, block, neighbors, user_power);
         }
         
     }
+
     pub fn set_block(&self, spot: vec::IVec3, block: u32, user_power: bool) {
         match user_power {
             true => {
@@ -622,7 +630,7 @@ impl ChunkSystem {
 
         let dim_floor = Planets::get_floor_block(self.noise_type as u32);
 
-        let dim_range = Planets::get_range(self.noise_type as u32);
+        let dim_range = Planets::get_voxel_model_index_range(self.noise_type as u32);
         
         for x in 0..CW {
             for z in 0..CW {

@@ -1,4 +1,4 @@
-use glam::Vec3;
+use glam::{FloatExt, Vec3};
 
 use crate::vec;
 use num_enum::FromPrimitive;
@@ -59,6 +59,7 @@ pub struct CollCage {
     pub normals: Vec<Vec3>,
     pub positions: Vec<glam::IVec3>,
     pub solid_pred: Box<dyn Fn(vec::IVec3) -> bool>,
+    pub smoothed_y_offset: f32,
 }
 
 impl BoundBox {
@@ -209,7 +210,40 @@ impl CollCage {
             normals,
             positions,
             solid_pred,
+            smoothed_y_offset: 0.0
         }
+    }
+
+    pub fn get_smoothed_floor_y(&mut self, actualpos: Vec3) -> f32 {
+        // Get the integer coordinates of the current square
+        let square_x = actualpos.x.floor() as i32;
+        let square_z = actualpos.z.floor() as i32;
+    
+        // Initialize variables to store heights of neighboring blocks
+        let mut neg_x_height = 0.0;
+        let mut pos_x_height = 0.0;
+        let mut neg_z_height = 0.0;
+        let mut pos_z_height = 0.0;
+    
+        // Check if neighboring blocks are present and set their heights accordingly
+        if self.solid.contains(&Side::LEFTBOTTOM) { neg_x_height = 1.0; }
+        if self.solid.contains(&Side::RIGHTBOTTOM) { pos_x_height = 1.0; }
+        if self.solid.contains(&Side::BACKBOTTOM) { neg_z_height = 1.0; }
+        if self.solid.contains(&Side::FRONTBOTTOM) { pos_z_height = 1.0; }
+    
+        // Get the fractional position within the square
+        let frac_x = actualpos.x - square_x as f32;
+        let frac_z = actualpos.z - square_z as f32;
+    
+        // Interpolate between neighboring block heights based on fractional position
+        let lerped_height_x = neg_x_height * (1.0 - frac_x) + pos_x_height * frac_x;
+        let lerped_height_z = neg_z_height * (1.0 - frac_z) + pos_z_height * frac_z;
+    
+        // Interpolate between lerped heights based on the dominant axis of movement
+        let dominant_axis = if frac_x.abs() > frac_z.abs() { lerped_height_x } else { lerped_height_z };
+    
+        // Return the smoothed Y position by adding an offset to the dominant axis height
+        return actualpos.y.floor() + dominant_axis;
     }
     pub fn update_readings(&mut self, pos: Vec3) {
         self.update_position(pos);

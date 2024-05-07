@@ -4,14 +4,14 @@ pub struct Planets {}
 
 
 impl Planets {
-    pub fn get_range(dim_id: u32) -> (usize, usize) {
+    pub fn get_voxel_model_index_range(dim_id: u32) -> (usize, usize) {
         //inclusive range of what voxel model indexes go in each dimension
         return match dim_id {
             0 => {
                 (0, 4)
             }
             1 => {
-                (5, 6)
+                (5, 7)
             }
             _ => {
                 (0, 0)

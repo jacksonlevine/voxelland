@@ -2,7 +2,7 @@ use crate::cube::CubeSide;
 
 pub struct Blocks {}
 
-static TEXS: [[(u8, u8); 3]; 16] = [
+static TEXS: [[(u8, u8); 3]; 18] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],
             [(1, 0), (1, 0), (1, 0)],
@@ -20,9 +20,11 @@ static TEXS: [[(u8, u8); 3]; 16] = [
             [(6, 2), (6, 2), (6, 2)], // 13 red stone
             [(7, 2), (7, 2), (7, 2)], // 14 salted earth
             [(8, 2), (8, 2), (8, 2)], // 15 bedrock
+            [(0, 3), (0, 3), (0, 3)], // 16 red crystal unattainable
+            [(0, 4), (0, 4), (0, 4)], // 16 red crystal
         ];
 
-static BREAKTIMES: [f32; 16] = [
+static BREAKTIMES: [f32; 18] = [
     0.1,
     0.5,
     0.7,
@@ -38,7 +40,9 @@ static BREAKTIMES: [f32; 16] = [
     1.1,
     1.5,
     0.7,
-    9999999.0
+    9999999.0,
+    1.2,
+    0.5
 ];
 
 impl Blocks {

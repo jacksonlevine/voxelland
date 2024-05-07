@@ -1,6 +1,8 @@
 use core::time;
 use std::cmp::max;
+use std::collections::HashSet;
 use std::f32::consts::PI;
+use std::slice::Chunks;
 use gl::types::{GLenum, GLuint};
 use glam::{Vec2, Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
@@ -18,6 +20,7 @@ use crate::chunk::{ChunkFacade, ChunkSystem};
 
 use crate::camera::Camera;
 use crate::collisioncage::*;
+use crate::cube::Cube;
 use crate::drops::Drops;
 use crate::fader::Fader;
 use crate::guisystem::GuiSystem;
@@ -161,6 +164,7 @@ impl Game {
 
             JVoxModel::new("assets/voxelmodels/ptree.vox"),
             JVoxModel::new("assets/voxelmodels/redrock.vox"),
+            JVoxModel::new("assets/voxelmodels/crystal1.vox"),
         ];
 
         
@@ -422,9 +426,11 @@ impl Game {
         let cc_center = camlock.position + Vec3::new(0.0, -1.0, 0.0);
         self.coll_cage.update_readings(cc_center);
 
+        
+
         let mut proposed = camlock.respond_to_controls(&self.controls, &self.delta_time, 5.0);
         self.user_bound_box
-            .set_center(proposed + Vec3::new(0.0, -0.5, 0.0), 0.2, 0.85);
+            .set_center(proposed + Vec3::new(0.0, -0.5  , 0.0), 0.2, 0.85);
         self.coll_cage.update_colliding(&self.user_bound_box);
         let mut corr_made: Vec<Vec3> = Vec::new();
         if self.coll_cage.colliding.len() > 0 {
@@ -443,7 +449,13 @@ impl Game {
                 }
             }
         }
-        camlock.position = proposed;
+        
+        camlock.position = Vec3::new(proposed.x, proposed.y, proposed.z);
+
+        //let offset = self.coll_cage.get_smoothed_floor_y(camlock.position);
+
+        //camlock.position.y = offset;
+
         camlock.recalculate();
     }
 
@@ -1264,13 +1276,43 @@ impl Game {
             self.vars.first_mouse = true;
         }
     }
+    pub fn delete_block_recursively(chunksys: &Arc<ChunkSystem>, id: u32, at: IVec3, set: &mut HashSet<IVec2>) {
+        let mut stack = vec![at]; // Initialize stack with initial position
+    
+        while let Some(current) = stack.pop() {
+            // Check if the block at the current position is already deleted
+            if chunksys.blockat(current) != 0 {
+                // Set the block at the current position
+                chunksys.set_block(current, 0, true);
+                let key = ChunkSystem::spot_to_chunk_pos(&current);
+                set.insert(key);
+                // Add neighbors to the stack if they have the same id
+                for neighbor in Cube::get_neighbors() {
+                    let neighbor_pos = *neighbor + current;
+                    if chunksys.blockat(neighbor_pos) == id {
+                        stack.push(neighbor_pos);
+                    }
+                }
+            }
+        }
+    }
     pub fn cast_break_ray(&mut self) {
         let cl = self.camera.lock().unwrap();
         match raycast_voxel(cl.position, cl.direction, &self.chunksys, 10.0) {
             Some((tip, block_hit)) => {
                 let blockat = self.chunksys.blockat(block_hit);
-                self.drops.add_drop(tip, blockat);
-                self.chunksys.set_block_and_queue_rerender(block_hit, 0, true, true);
+                if blockat == 16 {
+                    let mut set: HashSet<IVec2> = HashSet::new();
+                    Game::delete_block_recursively(&self.chunksys, 16,  block_hit, &mut set);
+                    for key in set {
+                        self.chunksys.queue_rerender_with_key(key, 0, true, true)
+                    }
+                    self.drops.add_drop(tip, 17);
+                } else {
+                    self.drops.add_drop(tip, blockat);
+                    self.chunksys.set_block_and_queue_rerender(block_hit, 0, true, true);
+                }
+                
                 
             }
             None => {}

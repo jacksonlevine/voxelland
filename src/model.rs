@@ -225,7 +225,7 @@ impl Game {
             model.coll_cage.update_readings(cc_center);
             model.respond_to_own_controls(&self.delta_time, 5.0);
             model.behavior_loop(&self.delta_time);
-            if (model.position + Vec3::new(0.0, self.planet_y_offset * 8.0, 0.0)).distance(self.camera.lock().unwrap().position) < 30.0 {
+            if (model.position + Vec3::new(0.0, self.planet_y_offset, 0.0)).distance(self.camera.lock().unwrap().position) < 30.0 {
                 model.target = AggroTarget::ThisCamera;
             }
             let mut proposed = if model.velocity.length() > 0.0 {
@@ -347,7 +347,7 @@ impl Game {
                                             b"pos\0".as_ptr() as *const i8,
                                         ),
                                         entity.position.x,
-                                        entity.position.y + self.planet_y_offset * 8.0,
+                                        entity.position.y + self.planet_y_offset,
                                         entity.position.z
                                     );
                                 },

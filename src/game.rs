@@ -85,7 +85,9 @@ pub struct GameVariables {
     ship_going_up: bool,
     ship_going_down: bool,
     break_time: f32,
-    near_ship: bool
+    near_ship: bool,
+    ship_taken_off: bool,
+    on_new_world: bool
 }
 
 pub struct Game {
@@ -243,7 +245,9 @@ impl Game {
                 ship_going_up: false,
                 ship_going_down: false,
                 break_time: 0.0,
-                near_ship: false
+                near_ship: false,
+                ship_taken_off: true,
+                on_new_world: true
             },
             controls: ControlsState::new(),
             faders: Arc::new(faders),
@@ -271,7 +275,7 @@ impl Game {
             select_cube: SelectCube::new(),
             block_overlay: BlockOverlay::new(tex.id),
             ship_pos: Vec3::new(0.0,0.0,0.0),
-            planet_y_offset: 0.0,
+            planet_y_offset: -960.0,
             window: window.clone(),
             guisys: GuiSystem::new(&window.clone(), &tex),
             hud,
@@ -288,9 +292,12 @@ impl Game {
     
         // g.setup_vertex_attributes();
 
-
+        //start coming down from the sky in ship
+        g.vars.ship_going_down = true;
+        g.vars.ship_going_up = false;
 
         g.audiop.play("assets/music/Farfromhome.mp3", 0, true);
+        g.audiop.play("assets/sfx/shipland28sec.mp3", 1, false);
 
         g.audiop.preload_series("grassstepseries", vec![
             String::from("assets/sfx/grassstep1.mp3"),
@@ -360,6 +367,17 @@ impl Game {
         
     }
 
+    pub fn takeoff_ship(&mut self) {
+        if !self.vars.ship_taken_off {
+            self.audiop.play("assets/sfx/shiptakeoff.mp3", 1, false);
+            self.vars.ship_going_up = true;
+            self.vars.ship_going_down = false;
+            self.vars.ship_taken_off = true;
+            self.vars.on_new_world = false;
+        }
+        
+    }
+
     pub fn update(&mut self) {
         
         let current_time = unsafe { glfwGetTime() as f32 };
@@ -392,6 +410,27 @@ impl Game {
         self.hud.update();
         self.hud.draw();
         self.do_step_sounds();
+
+        if self.vars.ship_taken_off {
+            if !self.vars.on_new_world {
+                if self.planet_y_offset > -960.0 {
+
+                } else {
+
+                    self.new_world_func();
+                    self.audiop.play("assets/sfx/shipland28sec.mp3", 1, false);
+                    
+                    self.vars.on_new_world = true;
+                    self.vars.ship_going_down = true;
+                    self.vars.ship_going_up = false;
+                }
+            } else {
+                if self.planet_y_offset >= 0.0 {
+                    self.vars.ship_going_down = false;
+                    self.vars.ship_taken_off = false;
+                }
+            }
+        }
         
         
         let camlock = self.camera.lock().unwrap();
@@ -411,12 +450,15 @@ impl Game {
             self.update_non_static_model_entities();
         }
 
+        let planet_speed = -self.planet_y_offset.clamp(-20.0, -0.5);
+
         if self.vars.ship_going_down {
-            self.planet_y_offset = (self.planet_y_offset + self.delta_time * 4.0).clamp(-200.0, 0.0);
+            self.planet_y_offset = (self.planet_y_offset + self.delta_time * planet_speed).clamp(-1000.0, 0.0);
         }
         if self.vars.ship_going_up {
-            self.planet_y_offset = (self.planet_y_offset - self.delta_time * 4.0).clamp(-200.0, 0.0);
+            self.planet_y_offset = (self.planet_y_offset - self.delta_time * planet_speed).clamp(-1000.0, 0.0);
         }
+        //println!("Planet y off: {}", self.planet_y_offset);
         
         
     }
@@ -514,6 +556,7 @@ impl Game {
         static mut S_S_LOC: i32 = 0;
         static mut S_R_LOC: i32 = 0;
         static mut C_D_LOC: i32 = 0;
+        static mut P_Y_LOC: i32 = 0;
 
         unsafe {
             if T_C_LOC == -1 {
@@ -545,6 +588,10 @@ impl Game {
                     self.skyshader.shader_id,
                     b"camDir\0".as_ptr() as *const i8,
                 );
+                P_Y_LOC = gl::GetUniformLocation(
+                    self.skyshader.shader_id,
+                    b"planety\0".as_ptr() as *const i8,
+                );
             }
 
             let camlock = self.camera.lock().unwrap();
@@ -563,6 +610,8 @@ impl Game {
             gl::Uniform1f(A_B_LOC, 1.0);
             gl::Uniform1f(S_S_LOC, 0.0);
             gl::Uniform1f(S_R_LOC, 0.0);
+
+            gl::Uniform1f(P_Y_LOC, self.planet_y_offset);
 
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
             gl::BindVertexArray(0);
@@ -1424,6 +1473,21 @@ impl Game {
         }
     }
 
+    pub fn new_world_func(&mut self) {
+        static SEEDS: [u32; 12] = [18231283, 23213, 3945934, 43959834, 1230, 9494, 485384, 348584, 0607, 59884, 457348, 19192];
+        static mut CURR_SEED: usize = 0;
+        static mut CURR_NT: usize = 0;
+        self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
+        unsafe {
+            self.vars.hostile_world = (CURR_SEED % 2) == 0;
+            CURR_NT = (CURR_NT + 1) % 2;
+            self.start_chunks_with_radius(10, SEEDS[CURR_SEED], CURR_NT);
+            CURR_SEED = (CURR_SEED + 1) % 11;
+            
+            println!("Now noise type is {}", self.chunksys.noise_type);
+        }
+    }
+
 
     pub fn keyboard(&mut self, key: Key, action: Action) {
         match key {
@@ -1470,33 +1534,22 @@ impl Game {
             }
             Key::M => {
                 if action == Action::Press {
-                    static SEEDS: [u32; 12] = [18231283, 23213, 3945934, 43959834, 1230, 9494, 485384, 348584, 0607, 59884, 457348, 19192];
-                    static mut CURR_SEED: usize = 0;
-                    static mut CURR_NT: usize = 0;
-                    self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
-                    unsafe {
-                        self.vars.hostile_world = (CURR_SEED % 2) == 0;
-                        CURR_NT = (CURR_NT + 1) % 2;
-                        self.start_chunks_with_radius(10, SEEDS[CURR_SEED], CURR_NT);
-                        CURR_SEED = (CURR_SEED + 1) % 11;
-                        
-                        println!("Now noise type is {}", self.chunksys.noise_type);
-                    }
+                    self.takeoff_ship();
                 }
             }
-            Key::Num8 => {
-                self.vars.ship_going_down = false;
-                self.vars.ship_going_up = false;
-            }
-            Key::Num0 => {
-                self.vars.ship_going_down = true;
-                self.vars.ship_going_up = false;
+            // Key::Num8 => {
+            //     self.vars.ship_going_down = false;
+            //     self.vars.ship_going_up = false;
+            // }
+            // Key::Num0 => {
+            //     self.vars.ship_going_down = true;
+            //     self.vars.ship_going_up = false;
                 
-            }
-            Key::Num9 => {
-                self.vars.ship_going_down = false;
-                self.vars.ship_going_up = true;
-            }
+            // }
+            // Key::Num9 => {
+            //     self.vars.ship_going_down = false;
+            //     self.vars.ship_going_up = true;
+            // }
             Key::B => {
                 if self.vars.near_ship {
                     let mut camlock = self.camera.lock().unwrap();

@@ -18,7 +18,8 @@ pub struct Drop {
     grounded: bool,
     time_falling_scalar: f32,
     velocity: Vec3,
-    bound_box: BoundBox
+    bound_box: BoundBox,
+    to_be_deleted: bool
 }
 
 impl Drop {
@@ -38,7 +39,8 @@ impl Drop {
             grounded: false,
             time_falling_scalar: 1.0,
             velocity: Vec3::new(0.0, 0.0, 0.0),
-            bound_box: BoundBox::new(position)
+            bound_box: BoundBox::new(position),
+            to_be_deleted: false
         }
     }
 }
@@ -175,7 +177,8 @@ impl Drops {
     }
 
     pub fn update_drops(&mut self, delta_time: &f32) {
-        for drop in &mut self.drops {
+        let mut to_remove_indices = Vec::new();
+        for (index, drop) in self.drops.iter_mut().enumerate() {
             if !drop.coll_cage.solid.contains(&Side::FLOOR) {
                 drop.grounded = false;
             }
@@ -210,6 +213,11 @@ impl Drops {
 
                 drop.velocity += pull * *delta_time * 10.0;
             }
+
+            if (drop.position).distance(campos) < 1.0 {
+                to_remove_indices.push(index);
+            }
+            
             let mut proposed = if drop.velocity.length() > 0.0 {
                 let amt_to_subtract = drop.velocity * *delta_time * 5.0;
                 drop.velocity -= amt_to_subtract;
@@ -242,6 +250,10 @@ impl Drops {
                 }
             }
             drop.position = proposed;
+        }
+        for &index in to_remove_indices.iter().rev() {
+            //just delete for now, add toinventory later
+            self.drops.remove(index);
         }
     }
 

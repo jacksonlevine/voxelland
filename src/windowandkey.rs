@@ -32,6 +32,7 @@ impl WindowAndKeyContext {
         window.set_framebuffer_size_polling(true);
         window.set_mouse_button_polling(true);
         window.set_cursor_pos_polling(true);
+        window.set_scroll_polling(true);
         window.make_current();
 
         unsafe {
@@ -102,6 +103,9 @@ impl WindowAndKeyContext {
                         self.game.as_mut().unwrap().set_mouse_focused(false);
                     }
                     self.game.as_mut().unwrap().keyboard(key, action);
+                }
+                glfw::WindowEvent::Scroll(_x, y) => {
+                    self.game.as_mut().unwrap().scroll(y);
                 }
                 _ => {}
             }

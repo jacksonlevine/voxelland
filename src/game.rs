@@ -2,7 +2,7 @@ use core::time;
 use std::cmp::max;
 use std::f32::consts::PI;
 use gl::types::{GLenum, GLuint};
-use glam::{Vec3, Vec4};
+use glam::{Vec2, Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
 use glfw::{Action, Key, MouseButton, PWindow};
 use gltf::Gltf;
@@ -18,14 +18,17 @@ use crate::chunk::{ChunkFacade, ChunkSystem};
 
 use crate::camera::Camera;
 use crate::collisioncage::*;
+use crate::drops::Drops;
 use crate::fader::Fader;
 use crate::guisystem::GuiSystem;
+use crate::hud::{Hud, HudElement};
 use crate::modelentity::ModelEntity;
 use crate::planetinfo::Planets;
 use crate::raycast::*;
 use crate::selectcube::SelectCube;
 use crate::shader::Shader;
 use crate::texture::Texture;
+use crate::textureface::TextureFace;
 use crate::vec::{self, IVec2, IVec3};
 use crate::voxmodel::JVoxModel;
 use crate::worldgeometry::WorldGeometry;
@@ -118,8 +121,9 @@ pub struct Game {
     pub ship_pos: Vec3,
     pub planet_y_offset: f32,
     pub window: Arc<RwLock<PWindow>>,
-    pub guisys: GuiSystem
-    
+    pub guisys: GuiSystem,
+    pub hud: Hud,
+    pub drops: Drops
 }
 
 enum FaderNames {
@@ -177,12 +181,46 @@ impl Game {
                 return csys_arc.collision_predicate(v);
             })
         };
+        let mut hud = Hud::new(&window.clone(), tex.id);
+
+        
+        let tf = TextureFace::new(0, 14);
+        //IMPORTANT: Push these first, the inv row slots
+        for i in 0..5 {
+            let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + i as f32 * 0.10, -0.9), Vec2::new(0.15, 0.15), [
+                tf.blx, tf.bly,
+                tf.brx, tf.bry,
+                tf.trx, tf.tr_y,
+
+                tf.trx, tf.tr_y,
+                tf.tlx, tf.tly,
+                tf.blx, tf.bly
+            ]);
+
+            hud.elements.push(invrowel);
+        }
+
+
+
+        let tf = TextureFace::new(0, 13);
+
+        hud.elements.push(HudElement::new(Vec2::new(0.0, 0.0), Vec2::new(0.08, 0.08), [
+                tf.blx, tf.bly,
+                tf.brx, tf.bry,
+                tf.trx, tf.tr_y,
+
+                tf.trx, tf.tr_y,
+                tf.tlx, tf.tly,
+                tf.blx, tf.bly
+            ]));     
+        
+
         let mut g = Game {
-            chunksys,
+            chunksys: chunksys.clone(),
             shader0,
             skyshader,
             modelshader: Shader::new("assets/mvert.glsl", "assets/mfrag.glsl"),
-            camera: cam,
+            camera: cam.clone(),
             run_chunk_thread: Arc::new(AtomicBool::new(true)),
             chunk_thread: None,
             vars: GameVariables {
@@ -229,8 +267,12 @@ impl Game {
             ship_pos: Vec3::new(0.0,0.0,0.0),
             planet_y_offset: 0.0,
             window: window.clone(),
-            guisys: GuiSystem::new(&window.clone(), &tex)
+            guisys: GuiSystem::new(&window.clone(), &tex),
+            hud,
+            drops: Drops::new(tex.id, &cam, &chunksys)
         };
+
+
         g.load_model("assets/models/car/scene.gltf");
         g.load_model("assets/models/ship/scene.gltf");
         g.load_model("assets/models/monster1/scene.gltf");
@@ -301,6 +343,10 @@ impl Game {
         self.draw_models();
         self.draw_select_cube();
         self.guisys.draw_text(0);
+        let mvp = self.camera.lock().unwrap().mvp;
+        self.drops.update_and_draw_drops(&self.delta_time, &mvp);
+        self.hud.update();
+        self.hud.draw();
         
         
         let camlock = self.camera.lock().unwrap();
@@ -471,7 +517,7 @@ impl Game {
         }
     }
 
-    pub fn draw_select_cube(&self) {
+    pub fn draw_select_cube(&mut self) {
 
         static mut LAST_CAM_POS: Vec3 = Vec3{x:0.0, y:0.0, z:0.0};
         static mut LAST_CAM_DIR: Vec3 = Vec3{x:0.0, y:0.0, z:0.0};
@@ -910,6 +956,7 @@ impl Game {
         if nt == 1 {
             self.create_non_static_model_entity(2, Vec3::new(40.0,80.0,-60.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
             self.create_non_static_model_entity(2, Vec3::new(-50.0,80.0,55.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+            
             self.create_non_static_model_entity(0, Vec3::new(-100.0, 100.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
 
             self.create_non_static_model_entity(3, Vec3::new(-60.0,80.0,55.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
@@ -1215,14 +1262,33 @@ impl Game {
             self.vars.first_mouse = true;
         }
     }
-    pub fn cast_break_ray(&self) {
+    pub fn cast_break_ray(&mut self) {
         let cl = self.camera.lock().unwrap();
         match raycast_voxel(cl.position, cl.direction, &self.chunksys, 10.0) {
-            Some((_tip, block_hit)) => {
+            Some((tip, block_hit)) => {
+                let blockat = self.chunksys.blockat(block_hit);
+                self.drops.add_drop(tip, blockat);
                 self.chunksys.set_block_and_queue_rerender(block_hit, 0, true, true);
+                
             }
             None => {}
         }
+    }
+    pub fn scroll(&mut self, y: f64) {
+        let mut invrowchange = 0;
+        if y > 0.0 {
+            invrowchange += 1;
+        }
+        if y < 0.0 {
+            invrowchange -= 1;
+        }
+        let mut proposednewslot = self.hud.bumped_slot as i8 + invrowchange;
+        if proposednewslot < 0 {
+            proposednewslot = 4;
+        }
+        self.hud.bumped_slot = proposednewslot as usize % 5;
+        self.hud.dirty = true;
+        self.hud.update();
     }
     pub fn mouse_button(&mut self, mb: MouseButton, a: Action) {
         match mb {

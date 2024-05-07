@@ -23,3 +23,6 @@ pub mod blockoverlay;
 pub mod glyphface;
 pub mod text;
 pub mod guisystem;
+pub mod hud;
+pub mod textureface;
+pub mod drops;

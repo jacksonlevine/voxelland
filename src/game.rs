@@ -948,10 +948,12 @@ impl Game {
                 gl::DeleteBuffers(1, &i.tvbo8);
             }
         }
+        self.drops.drops.clear();
         self.non_static_model_entities.clear();
         let mut csys = ChunkSystem::new(newradius, seed, nt);
         csys.voxel_models = Some(self.voxel_models.clone());
         self.chunksys = Arc::new(csys);
+        self.drops.csys = self.chunksys.clone();
 
         if nt == 1 {
             self.create_non_static_model_entity(2, Vec3::new(40.0,80.0,-60.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);

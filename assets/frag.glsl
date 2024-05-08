@@ -14,7 +14,7 @@ uniform vec4 fogCol;
 
 uniform float sunset;
 uniform float sunrise;
-
+uniform float planet_y;
 float similarity(vec3 dir1, vec3 dir2) {
     return (dot(normalize(dir1), normalize(dir2)) + 1.0) * 0.5;
 }
@@ -42,7 +42,7 @@ void main()
     }
 
     
-
+    float space = abs(min(planet_y + 128, 0));
     
 
     if(FragColor.a < 0.4) {
@@ -54,4 +54,5 @@ void main()
     }
 
     FragColor = mix(FragColor, fogColor, min(1, max(distance, 0)));
+    FragColor = FragColor - vec4(space/300.0, space/300.0, space/300.0, 0.0);
 }

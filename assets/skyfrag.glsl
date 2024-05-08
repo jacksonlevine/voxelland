@@ -7,6 +7,7 @@ uniform float sunset;
 uniform vec3 camDir;
 uniform float planety;
 in vec2 v_uv;
+
 out vec4 frag_color;
 
 float similarity(vec3 dir1, vec3 dir2) {

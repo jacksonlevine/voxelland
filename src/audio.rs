@@ -58,12 +58,14 @@ impl AudioPlayer {
         if let Some(sound) = self.sounds.get(id) {
             let channel = self.system.play_sound(*sound, None, false).unwrap();
             channel.set_3d_attributes(Some(Vector::new(pos.x, pos.y, pos.z)), Some(Vector::new(vel.x, vel.y, vel.z)));
+            channel.set_3d_min_max_distance(10.0, 100.0);
             self.channels.entry(id).or_insert_with(Vec::new).push(channel);
         } else {
             self.preload(id, id);
             if let Some(sound) = self.sounds.get(id) {
                 let channel = self.system.play_sound(*sound, None, false).unwrap();
                 channel.set_3d_attributes(Some(Vector::new(pos.x, pos.y, pos.z)), Some(Vector::new(vel.x, vel.y, vel.z)));
+                channel.set_3d_min_max_distance(10.0, 100.0);
                 self.channels.entry(id).or_insert_with(Vec::new).push(channel);
             }
         }

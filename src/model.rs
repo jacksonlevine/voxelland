@@ -4,6 +4,7 @@ use dashmap::DashMap;
 use gl::types::{GLsizeiptr, GLuint, GLvoid};
 use glam::{Mat4, Vec3, Vec4};
 use gltf::{accessor::{DataType, Dimensions}, image::Source, mesh::util::ReadIndices, Semantic};
+use crate::{monsters::Monsters, planetinfo::Planets};
 
 use crate::{collisioncage::{CollCage, Side}, game::Game, modelentity::{AggroTarget, ModelEntity}, vec};
 
@@ -184,6 +185,7 @@ impl Game {
         for model in &mut self.non_static_model_entities {
             if !model.coll_cage.solid.contains(&Side::FLOOR) {
                 model.grounded = false;
+                model.was_grounded = false;
             }
 
             const GRAV: f32 = 9.8;
@@ -216,6 +218,7 @@ impl Game {
 
             if model.controls.up && model.grounded {
                 model.grounded = false;
+                model.was_grounded = false;
                 model.current_jump_y = model.position.y;
                 model.jumping_up = true;
                 model.controls.up = false;
@@ -225,8 +228,18 @@ impl Game {
             model.coll_cage.update_readings(cc_center);
             model.respond_to_own_controls(&self.delta_time, 5.0);
             model.behavior_loop(&self.delta_time);
-            if (model.position + Vec3::new(0.0, self.planet_y_offset, 0.0)).distance(self.camera.lock().unwrap().position) < 30.0 {
+
+            let makebelievepos = model.position + Vec3::new(0.0, self.planet_y_offset, 0.0);
+            
+            if (makebelievepos).distance(self.camera.lock().unwrap().position) < 30.0 {
                 model.target = AggroTarget::ThisCamera;
+                if model.soundtimer < 3.0 {
+                    model.soundtimer += self.delta_time;
+                } else {
+                    let sndstr = Monsters::get_aggro_sound(model.model_index);
+                    self.audiop.play(sndstr, &makebelievepos, &model.velocity);
+                    model.soundtimer = 0.0;
+                }
             }
             let mut proposed = if model.velocity.length() > 0.0 {
                 let amt_to_subtract = model.velocity * self.delta_time * 5.0;
@@ -251,7 +264,11 @@ impl Game {
                         corr_made.push(model.coll_cage.normals[*side as usize]);
                     }
                     if *side == Side::FLOOR {
+                        if !model.was_grounded {
+                            self.audiop.play("assets/sfx/slam.mp3", &makebelievepos, &model.velocity);
+                        }
                         model.grounded = true;
+                        model.was_grounded = true;
                     }
                     if *side == Side::ROOF {
                         model.jumping_up = false;
@@ -377,6 +394,48 @@ impl Game {
                                 ),
                                 modelent.rot.z,
                             );
+
+                            gl::Uniform3f(
+                                gl::GetUniformLocation(
+                                    self.modelshader.shader_id,
+                                    b"camPos\0".as_ptr() as *const i8,
+                                ),
+                                cam_lock.position.x,
+                                cam_lock.position.y,
+                                cam_lock.position.z
+                            );
+
+                            gl::Uniform1f(
+                                gl::GetUniformLocation(
+                                    self.modelshader.shader_id,
+                                    b"viewDistance\0".as_ptr() as *const i8,
+                                ),
+                                8.0
+                            );
+
+                            let fogcol = Planets::get_fog_col(self.chunksys.noise_type as u32);
+
+                            gl::Uniform4f(
+                                gl::GetUniformLocation(
+                                    self.modelshader.shader_id,
+                                    b"fogCol\0".as_ptr() as *const i8,
+                                ),
+                                fogcol.0,
+                                fogcol.1,
+                                fogcol.2,
+                                fogcol.3
+                            );
+
+                            gl::Uniform1f(gl::GetUniformLocation(
+                                self.modelshader.shader_id,
+                                b"sunset\0".as_ptr() as *const i8,
+                            ), 0.0);
+                            gl::Uniform1f(gl::GetUniformLocation(
+                                self.modelshader.shader_id,
+                                b"sunrise\0".as_ptr() as *const i8,
+                            ), 0.0);
+
+
 
 
                         

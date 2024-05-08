@@ -79,6 +79,8 @@ pub struct ModelEntity {
     pub cam: Arc<Mutex<Camera>>,
     pub target: AggroTarget,
     pub speedfactor: f32,
+    pub soundtimer: f32,
+    pub was_grounded: bool
 }
 
 impl ModelEntity {
@@ -124,7 +126,9 @@ impl ModelEntity {
                 csys: csys.clone(),
                 cam: cam.clone(),
                 target: AggroTarget::NoAggro,
-                speedfactor: 1.0
+                speedfactor: 1.0,
+                soundtimer: 0.0,
+                was_grounded: false
             }
         }
         

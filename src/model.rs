@@ -233,12 +233,12 @@ impl Game {
             
             if (makebelievepos).distance(self.camera.lock().unwrap().position) < 30.0 {
                 model.target = AggroTarget::ThisCamera;
-                if model.soundtimer < 3.0 {
+                if model.soundtimer > 0.0 {
                     model.soundtimer += self.delta_time;
                 } else {
                     let sndstr = Monsters::get_aggro_sound(model.model_index);
                     self.audiop.play(sndstr, &makebelievepos, &model.velocity);
-                    model.soundtimer = 0.0;
+                    model.soundtimer = 3.0;
                 }
             }
             let mut proposed = if model.velocity.length() > 0.0 {
@@ -264,7 +264,7 @@ impl Game {
                         corr_made.push(model.coll_cage.normals[*side as usize]);
                     }
                     if *side == Side::FLOOR {
-                        if !model.was_grounded {
+                        if !model.was_grounded && model.model_index == 2 {
                             self.audiop.play("assets/sfx/slam.mp3", &makebelievepos, &model.velocity);
                         }
                         model.grounded = true;

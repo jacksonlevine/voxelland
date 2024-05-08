@@ -280,7 +280,7 @@ impl Game {
             guisys: GuiSystem::new(&window.clone(), &tex),
             hud,
             drops: Drops::new(tex.id, &cam, &chunksys),
-            audiop: AudioPlayer::new(2)
+            audiop: AudioPlayer::new().unwrap()
         };
 
 
@@ -296,23 +296,21 @@ impl Game {
         g.vars.ship_going_down = true;
         g.vars.ship_going_up = false;
 
-        g.audiop.play("assets/music/Farfromhome.mp3", 0, true);
-        g.audiop.play("assets/sfx/shipland28sec.mp3", 1, false);
 
         g.audiop.preload_series("grassstepseries", vec![
-            String::from("assets/sfx/grassstep1.mp3"),
-            String::from("assets/sfx/grassstep2.mp3"),
-            String::from("assets/sfx/grassstep3.mp3"),
-            String::from("assets/sfx/grassstep4.mp3"),
-            String::from("assets/sfx/grassstep5.mp3"),
-            String::from("assets/sfx/grassstep6.mp3"),
+            "assets/sfx/grassstep1.mp3",
+            "assets/sfx/grassstep2.mp3",
+            "assets/sfx/grassstep3.mp3",
+            "assets/sfx/grassstep4.mp3",
+            "assets/sfx/grassstep5.mp3",
+            "assets/sfx/grassstep6.mp3",
         ]);
 
         g.audiop.preload_series("stonestepseries", vec![
-            String::from("assets/sfx/stonestep1.mp3"),
-            String::from("assets/sfx/stonestep2.mp3"),
-            String::from("assets/sfx/stonestep3.mp3"),
-            String::from("assets/sfx/stonestep4.mp3")
+            "assets/sfx/stonestep1.mp3",
+           "assets/sfx/stonestep2.mp3",
+           "assets/sfx/stonestep3.mp3",
+            "assets/sfx/stonestep4.mp3"
         ]);
 
 
@@ -338,7 +336,17 @@ impl Game {
 
         // Update the ship's position
         ship_pos.y = decided_pos_y;
+
+ 
+
+
         let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
+
+        g.audiop.play("assets/music/Farfromhome.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
+        g.audiop.play("assets/sfx/shipland28sec.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
+
+
+
         g.ship_pos = ship_float_pos;
         g.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0), &g.chunksys, &g.camera));
         g.camera.lock().unwrap().position = ship_float_pos + Vec3::new(0.0, 4.0, 0.0);
@@ -350,12 +358,16 @@ impl Game {
         static mut TIMER: f32 = 0.0;
         static mut LAST_CAM_POS: Vec3 = Vec3{x: 0.0, y: 0.0, z: 0.0};
         let campos = self.camera.lock().unwrap().position;
+
+        
         unsafe {
-            if self.grounded && LAST_CAM_POS != campos {
+            let diff = campos.distance(LAST_CAM_POS); 
+
+            if self.grounded && diff > 0.01 {
                 let camfootpos = campos - Vec3::new(0.0, 2.0, 0.0);
                 let blockat = self.chunksys.blockat(IVec3::new(camfootpos.x.floor() as i32, camfootpos.y.floor() as i32, camfootpos.z.floor() as i32));
                 if(TIMER > 0.4) {
-                    self.audiop.play_next_in_series(&Blocks::get_walk_series(blockat), 1);
+                    self.audiop.play_next_in_series(&Blocks::get_walk_series(blockat), &camfootpos, &Vec3::new(0.0, 0.0, 0.0));
                     TIMER = 0.0;
                 } else {
                     TIMER += self.delta_time;
@@ -369,7 +381,7 @@ impl Game {
 
     pub fn takeoff_ship(&mut self) {
         if !self.vars.ship_taken_off {
-            self.audiop.play("assets/sfx/shiptakeoff.mp3", 1, false);
+            self.audiop.play("assets/sfx/shiptakeoff.mp3", &self.ship_pos, &Vec3::ZERO);
             self.vars.ship_going_up = true;
             self.vars.ship_going_down = false;
             self.vars.ship_taken_off = true;
@@ -403,12 +415,23 @@ impl Game {
         }
         self.draw();
         self.draw_models();
-        self.draw_select_cube();
+        if !self.vars.ship_taken_off {
+            self.draw_select_cube();
+        }
+        
         self.guisys.draw_text(0);
         let mvp = self.camera.lock().unwrap().mvp;
         self.drops.update_and_draw_drops(&self.delta_time, &mvp);
         self.hud.update();
         self.hud.draw();
+        self.audiop.update();
+        let camlock = self.camera.lock().unwrap();
+        let pos = camlock.position;
+        let forward = camlock.direction;
+        let vel = camlock.velocity;
+        let up = camlock.up;
+        drop(camlock);
+        self.audiop.set_listener_attributes(libfmod::Vector { x: pos.x, y: pos.y, z: pos.z }, libfmod::Vector { x: vel.x, y: vel.y, z: vel.z }, libfmod::Vector { x: forward.x, y: forward.y, z: forward.z }, libfmod::Vector { x: up.x, y: up.y, z: up.z });
         self.do_step_sounds();
 
         if self.vars.ship_taken_off {
@@ -418,7 +441,7 @@ impl Game {
                 } else {
 
                     self.new_world_func();
-                    self.audiop.play("assets/sfx/shipland28sec.mp3", 1, false);
+                    self.audiop.play("assets/sfx/shipland28sec.mp3", &self.ship_pos, &Vec3::ZERO);
                     
                     self.vars.on_new_world = true;
                     self.vars.ship_going_down = true;
@@ -671,7 +694,9 @@ impl Game {
                         BREAK_TIME = BREAK_TIME + self.delta_time;
                         if bprog >= 1.0 {
                             drop(camlock);
-                            self.cast_break_ray();
+                            if !self.vars.ship_taken_off {
+                                self.cast_break_ray();
+                            }
                             BREAK_TIME = 0.0;
                         }
                     }
@@ -1434,38 +1459,40 @@ impl Game {
             }
             glfw::MouseButtonRight => {
                 self.vars.right_mouse_clicked = a == Action::Press;
-                if self.vars.right_mouse_clicked {
-                    let cl = self.camera.lock().unwrap();
-                    match raycast_voxel(cl.position, cl.direction, &self.chunksys, 10.0) {
-                        
-                        Some((tip, block_hit)) => {
+                if !self.vars.ship_taken_off {
+                    if self.vars.right_mouse_clicked {
+                        let cl = self.camera.lock().unwrap();
+                        match raycast_voxel(cl.position, cl.direction, &self.chunksys, 10.0) {
+                            
+                            Some((tip, block_hit)) => {
 
-                        let diff = (tip+Vec3::new(-0.5, -0.5, -0.5)) - (Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32));
-            
-                        let hit_normal;
-            
-                        // Determine the primary axis of intersection
-                        if (diff.x).abs() > (diff.y).abs() && (diff.x).abs() > (diff.z).abs() {
-                            // The hit was primarily along the X-axis
-                            hit_normal = vec::IVec3::new( if diff.x > 0.0 { 1 } else { -1 }, 0, 0);
+                            let diff = (tip+Vec3::new(-0.5, -0.5, -0.5)) - (Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32));
+                
+                            let hit_normal;
+                
+                            // Determine the primary axis of intersection
+                            if (diff.x).abs() > (diff.y).abs() && (diff.x).abs() > (diff.z).abs() {
+                                // The hit was primarily along the X-axis
+                                hit_normal = vec::IVec3::new( if diff.x > 0.0 { 1 } else { -1 }, 0, 0);
 
-                        } else if (diff.y).abs() > (diff.x).abs() && (diff.y).abs() > (diff.z).abs() {
-                            // The hit was primarily along the Y-axis
-                            hit_normal = vec::IVec3::new(0, if diff.y > 0.0 { 1 } else { -1 }, 0);
-                        } else {
-                            // The hit was primarily along the Z-axis
-                            hit_normal = vec::IVec3::new(0, 0, if diff.z > 0.0 { 1 } else { -1 });
+                            } else if (diff.y).abs() > (diff.x).abs() && (diff.y).abs() > (diff.z).abs() {
+                                // The hit was primarily along the Y-axis
+                                hit_normal = vec::IVec3::new(0, if diff.y > 0.0 { 1 } else { -1 }, 0);
+                            } else {
+                                // The hit was primarily along the Z-axis
+                                hit_normal = vec::IVec3::new(0, 0, if diff.z > 0.0 { 1 } else { -1 });
+                            }
+
+                            println!("Hit normal is {} {} {}", hit_normal.x, hit_normal.y, hit_normal.z);
+                
+                
+                            let place_point = block_hit + hit_normal;
+                                println!("Placing {} at {} {} {}", 1, place_point.x, place_point.y, place_point.z);
+                                self.chunksys.set_block_and_queue_rerender(place_point, 1, false, true);
+                            }
+
+                            None => {}
                         }
-
-                        println!("Hit normal is {} {} {}", hit_normal.x, hit_normal.y, hit_normal.z);
-            
-            
-                        let place_point = block_hit + hit_normal;
-                            println!("Placing {} at {} {} {}", 1, place_point.x, place_point.y, place_point.z);
-                            self.chunksys.set_block_and_queue_rerender(place_point, 1, false, true);
-                        }
-
-                        None => {}
                     }
                 }
             }

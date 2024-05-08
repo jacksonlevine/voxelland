@@ -1,84 +1,75 @@
-use rodio::{source::{Source, Buffered}, Decoder, OutputStream, OutputStreamHandle, buffer::SamplesBuffer};
-use std::{fs::File, io::{BufReader, Cursor}, time::Duration, sync::Arc, collections::HashMap};
-use std::io::Read;
+use glam::Vec3;
+use libfmod::{Channel, Sound, System, Vector};
+use std::collections::HashMap;
 
 pub struct AudioPlayer {
-    streams: Vec<OutputStream>,                // Holds OutputStreams to keep them alive
-    handles: Vec<OutputStreamHandle>,          // Handles to control playback on each stream
-    cache: HashMap<String, Arc<Vec<u8>>>,      // Cache to store loaded and decoded audio data
-    series_map: HashMap<String, Vec<String>>,  // Map series names to a list of audio paths
-    series_index: HashMap<String, usize>,      // Current index for each series
+    system: System,
+    sounds: HashMap<&'static str, Sound>,
+    series: HashMap<&'static str, Vec<&'static str>>,
+    series_indexes: HashMap<&'static str, usize>,
+    channels: HashMap<&'static str, Vec<Channel>>, // Store channels to manage sound playback
 }
 
 impl AudioPlayer {
-    pub fn new(num_streams: usize) -> Self {
-        let mut streams = Vec::with_capacity(num_streams);
-        let mut handles = Vec::with_capacity(num_streams);
-        let cache = HashMap::new();
-        let series_map = HashMap::new();
-        let series_index = HashMap::new();
+    pub fn new() -> Result<Self, libfmod::Error> {
+        let system = System::create().unwrap();
+        system.init(32, libfmod::Init::NORMAL, None)?; // Initialize system with 32 channels
 
-        for _ in 0..num_streams {
-            let (stream, handle) = OutputStream::try_default().unwrap();
-            streams.push(stream);
-            handles.push(handle);
+        Ok(AudioPlayer {
+            system,
+            sounds: HashMap::new(),
+            series: HashMap::new(),
+            series_indexes: HashMap::new(),
+            channels: HashMap::new(),
+        })
+    }
+    pub fn update(&mut self) {
+        self.system.update();
+    }
+
+    pub fn preload(&mut self, id: &'static str, file_path: &'static str) -> Result<(), libfmod::Error> {
+        let sound = self.system.create_sound(file_path, libfmod::Mode::FMOD_3D, None)?;
+        self.sounds.insert(id, sound);
+        Ok(())
+    }
+
+    pub fn preload_series(&mut self, series_name: &'static str, paths: Vec<&'static str>) {
+        self.series.insert(series_name, paths.clone());
+        self.series_indexes.insert(series_name, 0);
+        for path in paths {
+            if !self.sounds.contains_key(path) {
+                self.preload(path, path).unwrap(); // Simplified error handling
+            }
         }
-
-        AudioPlayer { streams, handles, cache, series_map, series_index }
     }
 
-    pub fn preload(&mut self, file_path: &str) {
-        let audio_data = self.load_audio(file_path);
-        self.cache.insert(file_path.to_string(), Arc::new(audio_data));
+    pub fn play_next_in_series(&mut self, series_name: &'static str, pos: &Vec3, vel: &Vec3) -> Result<(), libfmod::Error> {
+        let index = *self.series_indexes.get(series_name).unwrap_or(&0);
+        let file_path = self.series.get(series_name).unwrap()[index];
+
+        self.play(file_path, pos, vel);
+        let next_index = (index + 1) % self.series.get(series_name).unwrap().len();
+        self.series_indexes.insert(series_name, next_index);
+
+        Ok(())
     }
 
-    fn load_audio(&self, file_path: &str) -> Vec<u8> {
-        let file = File::open(file_path).unwrap();
-        let mut buf_reader = BufReader::new(file);
-        let mut buffer = Vec::new();
-        buf_reader.read_to_end(&mut buffer).unwrap();
-        buffer
-    }
-
-    pub fn preload_series(&mut self, name: &str, paths: Vec<String>) {
-        for path in &paths {
-            self.preload(path);
-        }
-        self.series_map.insert(name.to_string(), paths);
-        self.series_index.insert(name.to_string(), 0);
-    }
-
-    pub fn play_next_in_series(&mut self, name: &str, stream_index: usize) {
-        if let Some(paths) = self.series_map.get(name) {
-            let index = self.series_index.get(name).cloned().unwrap_or(0);
-            let file_path = &paths[index];
-            self.play(file_path, stream_index, false);  // Call to play the file once
-            let next_index = (index + 1) % paths.len();
-            self.series_index.insert(name.to_string(), next_index);
+    pub fn play(&mut self, id: &'static str, pos: &Vec3, vel: &Vec3)  {
+        if let Some(sound) = self.sounds.get(id) {
+            let channel = self.system.play_sound(*sound, None, false).unwrap();
+            channel.set_3d_attributes(Some(Vector::new(pos.x, pos.y, pos.z)), Some(Vector::new(vel.x, vel.y, vel.z)));
+            self.channels.entry(id).or_insert_with(Vec::new).push(channel);
         } else {
-            panic!("Series name not found!");
+            self.preload(id, id);
+            if let Some(sound) = self.sounds.get(id) {
+                let channel = self.system.play_sound(*sound, None, false).unwrap();
+                channel.set_3d_attributes(Some(Vector::new(pos.x, pos.y, pos.z)), Some(Vector::new(vel.x, vel.y, vel.z)));
+                self.channels.entry(id).or_insert_with(Vec::new).push(channel);
+            }
         }
     }
 
-    pub fn play(&self, file_path: &str, stream_index: usize, looped: bool) {
-        if stream_index >= self.handles.len() {
-            panic!("Stream index out of bounds!");
-        }
-        
-        let audio_data = self.cache.get(file_path).cloned().unwrap_or_else(|| {
-            let data = self.load_audio(file_path);
-            Arc::new(data)
-        });
-
-        let cursor = Cursor::new((*audio_data).clone());
-        let decoder = Decoder::new(cursor).unwrap();
-
-        let source: Box<dyn Source<Item = _> + Send> = if looped {
-            Box::new(decoder.repeat_infinite())
-        } else {
-            Box::new(decoder)
-        };
-
-        self.handles[stream_index].play_raw(source.convert_samples()).unwrap();
+    pub fn set_listener_attributes(&mut self, position: Vector, velocity: Vector, forward: Vector, up: Vector) {
+        self.system.set_3d_listener_attributes(0, Some(position), Some(velocity), Some(forward), Some(up)).unwrap();
     }
 }

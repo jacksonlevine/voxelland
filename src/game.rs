@@ -24,6 +24,7 @@ use crate::collisioncage::*;
 use crate::cube::Cube;
 use crate::drops::Drops;
 use crate::fader::Fader;
+use crate::glyphface::GlyphFace;
 use crate::guisystem::GuiSystem;
 use crate::hud::{Hud, HudElement};
 use crate::modelentity::ModelEntity;
@@ -90,6 +91,11 @@ pub struct GameVariables {
     on_new_world: bool
 }
 
+pub struct Inventory {
+    pub dirty: bool,
+    pub inv: [(u32, u32); 5]
+}
+
 pub struct Game {
     pub chunksys: Arc<ChunkSystem>,
     pub shader0: Shader,
@@ -130,7 +136,8 @@ pub struct Game {
     pub guisys: GuiSystem,
     pub hud: Hud,
     pub drops: Drops,
-    pub audiop: AudioPlayer
+    pub audiop: AudioPlayer,
+    pub inventory: Arc<RwLock<Inventory>>
 }
 
 enum FaderNames {
@@ -208,6 +215,50 @@ impl Game {
             hud.elements.push(invrowel);
         }
 
+        let tf = TextureFace::new(0, 0);
+        //The item textures on top of them
+        for i in 0..5 {
+            let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + i as f32 * 0.10, -0.9), Vec2::new(0.10, 0.10), [
+                tf.blx, tf.bly,
+                tf.brx, tf.bry,
+                tf.trx, tf.tr_y,
+
+                tf.trx, tf.tr_y,
+                tf.tlx, tf.tly,
+                tf.blx, tf.bly
+            ]);
+
+            hud.elements.push(invrowel);
+        }
+
+
+        let tf = TextureFace::new(0, 0);
+        //The number textures on top of them
+        for i in 0..5 {
+            let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + 0.01 + i as f32 * 0.10, -0.93), Vec2::new(0.05, 0.05), [
+                tf.blx, tf.bly,
+                tf.brx, tf.bry,
+                tf.trx, tf.tr_y,
+
+                tf.trx, tf.tr_y,
+                tf.tlx, tf.tly,
+                tf.blx, tf.bly
+            ]);
+            hud.elements.push(invrowel);
+
+            let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + 0.02 + i as f32 * 0.10, -0.93), Vec2::new(0.05, 0.05), [
+                tf.blx, tf.bly,
+                tf.brx, tf.bry,
+                tf.trx, tf.tr_y,
+
+                tf.trx, tf.tr_y,
+                tf.tlx, tf.tly,
+                tf.blx, tf.bly
+            ]);
+
+            hud.elements.push(invrowel);
+        }
+
 
 
         let tf = TextureFace::new(0, 13);
@@ -222,6 +273,17 @@ impl Game {
                 tf.blx, tf.bly
             ]));     
         
+
+        let inv = Arc::new(RwLock::new(Inventory{
+            dirty: true,
+            inv: [
+                (0, 0),
+                (0, 0),
+                (0, 0),
+                (0, 0),
+                (0, 0)
+            ]
+        }));
 
         let mut g = Game {
             chunksys: chunksys.clone(),
@@ -279,8 +341,9 @@ impl Game {
             window: window.clone(),
             guisys: GuiSystem::new(&window.clone(), &tex),
             hud,
-            drops: Drops::new(tex.id, &cam, &chunksys),
-            audiop: AudioPlayer::new().unwrap()
+            drops: Drops::new(tex.id, &cam, &chunksys, &inv),
+            audiop: AudioPlayer::new().unwrap(),
+            inventory: inv
         };
 
 
@@ -353,6 +416,118 @@ impl Game {
         g.add_ship_colliders();
         g
     }
+
+    pub fn update_inventory(&mut self) {
+        for i in 5..10 {
+            let realslotind = i - 5;
+            let slot = self.inventory.read().unwrap().inv[realslotind];
+            let idinslot = slot.0;
+            let texcoords = Blocks::get_tex_coords(idinslot, crate::cube::CubeSide::LEFT);
+            let tf = TextureFace::new(texcoords.0 as i8, texcoords.1 as i8);
+            let bf = TextureFace::new(0,0);
+            self.hud.elements[i as usize].uvs = [
+                tf.blx, tf.bly,
+                tf.brx, tf.bry,
+                tf.trx, tf.tr_y,
+
+                tf.trx, tf.tr_y,
+                tf.tlx, tf.tly,
+                tf.blx, tf.bly
+            ];
+
+            if slot.1 > 0 {
+                let count = slot.1.to_string();
+                if count.len() == 2 {
+                    let g1 = GlyphFace::new(count.as_bytes()[0]);
+                    let g2 = GlyphFace::new(count.as_bytes()[1]);
+
+                    self.hud.elements[10 + realslotind * 2].uvs = [
+                        g1.blx, g1.bly,
+                        g1.brx, g1.bry,
+                        g1.trx, g1.tr_y,
+
+                        g1.trx, g1.tr_y,
+                        g1.tlx, g1.tly,
+                        g1.blx, g1.bly
+                    ];
+                    self.hud.elements[10 + realslotind * 2 + 1].uvs = [
+                        g2.blx, g2.bly,
+                        g2.brx, g2.bry,
+                        g2.trx, g2.tr_y,
+
+                        g2.trx, g2.tr_y,
+                        g2.tlx, g2.tly,
+                        g2.blx, g2.bly
+                    ];
+                }
+
+                if count.len() == 1 {
+                    let g2 = GlyphFace::new(count.as_bytes()[0]);
+                    self.hud.elements[10 + realslotind * 2].uvs = [
+                        bf.blx, bf.bly,
+                        bf.brx, bf.bry,
+                        bf.trx, bf.tr_y,
+
+                        bf.trx, bf.tr_y,
+                        bf.tlx, bf.tly,
+                        bf.blx, bf.bly
+                    ];
+                    self.hud.elements[10 + realslotind * 2 + 1].uvs = [
+                        g2.blx, g2.bly,
+                        g2.brx, g2.bry,
+                        g2.trx, g2.tr_y,
+
+                        g2.trx, g2.tr_y,
+                        g2.tlx, g2.tly,
+                        g2.blx, g2.bly
+                    ];
+                }
+            } else {
+                self.hud.elements[10 + realslotind * 2].uvs = [
+                        bf.blx, bf.bly,
+                        bf.brx, bf.bry,
+                        bf.trx, bf.tr_y,
+
+                        bf.trx, bf.tr_y,
+                        bf.tlx, bf.tly,
+                        bf.blx, bf.bly
+                    ];
+                self.hud.elements[10 + realslotind * 2 + 1].uvs = [
+                    bf.blx, bf.bly,
+                    bf.brx, bf.bry,
+                    bf.trx, bf.tr_y,
+
+                    bf.trx, bf.tr_y,
+                    bf.tlx, bf.tly,
+                    bf.blx, bf.bly
+                ];
+            }
+        }
+        self.hud.dirty = true;
+    }
+
+    pub fn add_to_inventory(inv: &Arc<RwLock<Inventory>>, id: u32, count: u32) -> Result<bool, bool> {
+        let mut inventory = inv.write().unwrap();
+        
+        // First, try to find an item with the given `id`
+        if let Some(item) = inventory.inv.iter_mut().find(|item| item.0 == id) {
+            item.1 += count;
+            inventory.dirty = true;
+            return Ok(true);
+        }
+
+        // If not found, try to find an empty slot to add the new item
+        if let Some(item) = inventory.inv.iter_mut().find(|item| item.0 == 0) {
+            item.0 = id;
+            item.1 = count;
+            inventory.dirty = true;
+            return Ok(true);
+        }
+
+        // If no empty slot, return an error
+        Err(false)
+    }
+
 
     pub fn do_step_sounds(&mut self) {
         static mut TIMER: f32 = 0.0;
@@ -433,6 +608,9 @@ impl Game {
         drop(camlock);
         self.audiop.set_listener_attributes(libfmod::Vector { x: pos.x, y: pos.y, z: pos.z }, libfmod::Vector { x: vel.x, y: vel.y, z: vel.z }, libfmod::Vector { x: forward.x, y: forward.y, z: forward.z }, libfmod::Vector { x: up.x, y: up.y, z: up.z });
         self.do_step_sounds();
+        if self.inventory.read().unwrap().dirty {
+            self.update_inventory();
+        }
 
         if self.vars.ship_taken_off {
             if !self.vars.on_new_world {
@@ -1424,7 +1602,10 @@ impl Game {
                     }
                     self.drops.add_drop(tip, 17);
                 } else {
-                    self.drops.add_drop(tip, blockat);
+                    if blockat != 0 {
+                        self.drops.add_drop(tip, blockat);
+                    }
+                    
                     self.chunksys.set_block_and_queue_rerender(block_hit, 0, true, true);
                 }
                 
@@ -1449,6 +1630,63 @@ impl Game {
         self.hud.dirty = true;
         self.hud.update();
     }
+
+    pub fn cast_place_ray(&mut self) {
+
+        let slot_selected = self.hud.bumped_slot;
+        let slot = self.inventory.read().unwrap().inv[slot_selected];
+
+        if slot.0 != 0 && slot.1 > 0 {
+            let id = slot.0;
+
+            let cl = self.camera.lock().unwrap();
+
+            match raycast_voxel(cl.position, cl.direction, &self.chunksys, 10.0) {
+                
+                Some((tip, block_hit)) => {
+
+                let diff = (tip+Vec3::new(-0.5, -0.5, -0.5)) - (Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32));
+
+                let hit_normal;
+
+                // Determine the primary axis of intersection
+                if (diff.x).abs() > (diff.y).abs() && (diff.x).abs() > (diff.z).abs() {
+                    // The hit was primarily along the X-axis
+                    hit_normal = vec::IVec3::new( if diff.x > 0.0 { 1 } else { -1 }, 0, 0);
+
+                } else if (diff.y).abs() > (diff.x).abs() && (diff.y).abs() > (diff.z).abs() {
+                    // The hit was primarily along the Y-axis
+                    hit_normal = vec::IVec3::new(0, if diff.y > 0.0 { 1 } else { -1 }, 0);
+                } else {
+                    // The hit was primarily along the Z-axis
+                    hit_normal = vec::IVec3::new(0, 0, if diff.z > 0.0 { 1 } else { -1 });
+                }
+
+                println!("Hit normal is {} {} {}", hit_normal.x, hit_normal.y, hit_normal.z);
+
+
+                let place_point = block_hit + hit_normal;
+                    println!("Placing {} at {} {} {}", 1, place_point.x, place_point.y, place_point.z);
+                    self.chunksys.set_block_and_queue_rerender(place_point, id, false, true);
+                }
+
+                None => {}
+            }
+
+        }
+
+        if slot.1 == 1 {
+            let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+            mutslot.1 = 0;
+            mutslot.0 = 0;
+        } else {
+            let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+            mutslot.1 -= 1;
+        }
+
+        
+
+    }
     pub fn mouse_button(&mut self, mb: MouseButton, a: Action) {
         match mb {
             glfw::MouseButtonLeft => {
@@ -1461,38 +1699,7 @@ impl Game {
                 self.vars.right_mouse_clicked = a == Action::Press;
                 if !self.vars.ship_taken_off {
                     if self.vars.right_mouse_clicked {
-                        let cl = self.camera.lock().unwrap();
-                        match raycast_voxel(cl.position, cl.direction, &self.chunksys, 10.0) {
-                            
-                            Some((tip, block_hit)) => {
-
-                            let diff = (tip+Vec3::new(-0.5, -0.5, -0.5)) - (Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32));
-                
-                            let hit_normal;
-                
-                            // Determine the primary axis of intersection
-                            if (diff.x).abs() > (diff.y).abs() && (diff.x).abs() > (diff.z).abs() {
-                                // The hit was primarily along the X-axis
-                                hit_normal = vec::IVec3::new( if diff.x > 0.0 { 1 } else { -1 }, 0, 0);
-
-                            } else if (diff.y).abs() > (diff.x).abs() && (diff.y).abs() > (diff.z).abs() {
-                                // The hit was primarily along the Y-axis
-                                hit_normal = vec::IVec3::new(0, if diff.y > 0.0 { 1 } else { -1 }, 0);
-                            } else {
-                                // The hit was primarily along the Z-axis
-                                hit_normal = vec::IVec3::new(0, 0, if diff.z > 0.0 { 1 } else { -1 });
-                            }
-
-                            println!("Hit normal is {} {} {}", hit_normal.x, hit_normal.y, hit_normal.z);
-                
-                
-                            let place_point = block_hit + hit_normal;
-                                println!("Placing {} at {} {} {}", 1, place_point.x, place_point.y, place_point.z);
-                                self.chunksys.set_block_and_queue_rerender(place_point, 1, false, true);
-                            }
-
-                            None => {}
-                        }
+                        self.cast_place_ray();
                     }
                 }
             }

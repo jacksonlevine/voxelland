@@ -63,7 +63,7 @@ impl Hud {
                 let realsize = (element.size*800.0) / Vec2::new(width as f32, height as f32);
 
                 let mut realpos = element.normalized_pos;
-                if self.bumped_slot == index {
+                if self.bumped_slot == index || self.bumped_slot + 5 == index {
                     realpos += Vec2::new(0.0, 0.05);
                 } 
 

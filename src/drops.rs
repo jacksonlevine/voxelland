@@ -5,9 +5,9 @@ use glam::{Mat4, Vec3};
 use glfw::ffi::glfwGetTime;
 use vox_format::chunk::Chunk;
 
-use crate::{camera::Camera, chunk::ChunkSystem, collisioncage::{BoundBox, CollCage, Side}, shader::Shader, vec};
+use crate::{camera::Camera, chunk::ChunkSystem, collisioncage::{BoundBox, CollCage, Side}, game::Game, shader::Shader, vec};
 
-
+use crate::game::Inventory;
 
 
 
@@ -53,12 +53,13 @@ pub struct Drops {
     pub drops: Vec<Drop>,
     pub texture: GLuint,
     pub cam: Arc<Mutex<Camera>>,
-    pub csys: Arc<ChunkSystem>
+    pub csys: Arc<ChunkSystem>,
+    pub inv: Arc<RwLock<Inventory>>
 }
 
 impl Drops {
 
-    pub fn new(texture: GLuint, cam: &Arc<Mutex<Camera>>, csys: &Arc<ChunkSystem>) -> Drops {
+    pub fn new(texture: GLuint, cam: &Arc<Mutex<Camera>>, csys: &Arc<ChunkSystem>, inv: &Arc<RwLock<Inventory>>) -> Drops {
 
         let shader = Shader::new("assets/dropvert.glsl", "assets/dropfrag.glsl");
         let mut vbo: GLuint = 0;
@@ -136,7 +137,8 @@ impl Drops {
             drops: Vec::new(),
             texture,
             cam: cam.clone(),
-            csys: csys.clone()
+            csys: csys.clone(),
+            inv: inv.clone()
         }
     }
 
@@ -215,7 +217,15 @@ impl Drops {
             }
 
             if (drop.position).distance(campos) < 1.0 {
-                to_remove_indices.push(index);
+                match Game::add_to_inventory(&self.inv, drop.block_id, 1) {
+                    Ok(t) => {
+                        to_remove_indices.push(index);
+                    },
+                    Err(t) => {
+
+                    }
+                }
+                
             }
             
             let mut proposed = if drop.velocity.length() > 0.0 {

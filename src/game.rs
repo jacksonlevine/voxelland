@@ -8,6 +8,8 @@ use glam::{Vec2, Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
 use glfw::{Action, Key, MouseButton, PWindow};
 use gltf::Gltf;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use vox_format::types::Model;
 use walkdir::WalkDir;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -179,9 +181,11 @@ impl Game {
         ];
 
         
+        let mut rng = StdRng::from_entropy();
+        let seed = rng.gen_range(0..229232);
 
 
-        let mut csys = ChunkSystem::new(10, 1, 0);
+        let mut csys = ChunkSystem::new(10, seed, 0);
 
         let vmarc = Arc::new(voxel_models);
         let vmarc2 = vmarc.clone();
@@ -1262,15 +1266,25 @@ impl Game {
         self.chunksys = Arc::new(csys);
         self.drops.csys = self.chunksys.clone();
 
+        let mut rng = StdRng::from_entropy();
+        
+
         if nt == 1 {
-            self.create_non_static_model_entity(2, Vec3::new(40.0,80.0,-60.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
-            self.create_non_static_model_entity(2, Vec3::new(-50.0,80.0,55.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
-            
             self.create_non_static_model_entity(0, Vec3::new(-100.0, 100.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
 
-            self.create_non_static_model_entity(3, Vec3::new(-60.0,80.0,55.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
-            self.create_non_static_model_entity(3, Vec3::new(55.0,80.0,50.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
-       
+            for i in 0..4 {
+                if rng.gen_range(0..3) < 2 {
+                    self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+                    self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+                    
+
+                    self.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
+                    self.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
+            
+                }
+                
+            }
+            
         }
 
         self.coll_cage.solid_pred  = {
@@ -1710,14 +1724,18 @@ impl Game {
     }
 
     pub fn new_world_func(&mut self) {
-        static SEEDS: [u32; 12] = [18231283, 23213, 3945934, 43959834, 1230, 9494, 485384, 348584, 0607, 59884, 457348, 19192];
+        let mut rng = StdRng::from_entropy();
+
+        let seed = rng.gen_range(0..2232328);
+
+
         static mut CURR_SEED: usize = 0;
         static mut CURR_NT: usize = 0;
         self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
         unsafe {
             self.vars.hostile_world = (CURR_SEED % 2) == 0;
             CURR_NT = (CURR_NT + 1) % 2;
-            self.start_chunks_with_radius(10, SEEDS[CURR_SEED], CURR_NT);
+            self.start_chunks_with_radius(10, seed, CURR_NT);
             CURR_SEED = (CURR_SEED + 1) % 11;
             
             println!("Now noise type is {}", self.chunksys.noise_type);

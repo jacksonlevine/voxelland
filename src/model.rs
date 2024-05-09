@@ -7,7 +7,7 @@ use gltf::{accessor::{DataType, Dimensions}, image::Source, mesh::util::ReadIndi
 use crate::{monsters::Monsters, planetinfo::Planets};
 
 use crate::{collisioncage::{CollCage, Side}, game::Game, modelentity::{AggroTarget, ModelEntity}, vec};
-
+use percent_encoding::percent_decode_str;
 
 
 fn num_components(dimensions: Dimensions) -> i32 {
@@ -27,9 +27,22 @@ fn load_document_textures(document: &gltf::Document, buffers: &[gltf::buffer::Da
         let data = match image.source() {
             Source::Uri { uri, mime_type } => {
                 // External image: Load from a file
-                let path = format!("{}/{}", base_path, uri);
-                //println!("Loading external image: {}", uri);
-                fs::read(path).expect("Failed to read image file")
+                let decoded_uri = percent_decode_str(uri).decode_utf8_lossy(); // Decode the URI
+                let path = format!("{}/{}", base_path, decoded_uri); // Use the decoded URI to form the path
+                println!("Loading external image: {}", decoded_uri);
+
+                match fs::read(&path) {
+                    Ok(data) => {
+                        // Proceed with using the image data
+                        println!("Image loaded successfully.");
+                        data
+                    },
+                    Err(e) => {
+                        // Handle errors, e.g., file not found
+                        panic!("Failed to read image file: {:?}", e);
+                        Vec::new()
+                    }
+                }
             },
             Source::View { view, mime_type } => {
                 // Embedded image: Get data from buffer

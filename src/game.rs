@@ -351,6 +351,7 @@ impl Game {
         g.load_model("assets/models/ship/scene.gltf");
         g.load_model("assets/models/monster1/scene.gltf");
         g.load_model("assets/models/monster2/scene.gltf");
+        g.load_model("assets/models/ship2/scene.gltf");
         g.create_model_vbos();
     
         // g.setup_vertex_attributes();
@@ -378,8 +379,8 @@ impl Game {
 
 
         let mut ship_pos = vec::IVec3::new(20,200,0);
-        let mut ship_front = vec::IVec3::new(60,200,0);
-        let mut ship_back = vec::IVec3::new(-20,200,0);
+        let mut ship_front = vec::IVec3::new(30,200,0);
+        let mut ship_back = vec::IVec3::new(10,200,0);
          // Function to decrement y until a block is found
         fn find_ground_y(position: &mut vec::IVec3, game: &Game) {
             while game.chunksys.blockat(*position) == 0 {
@@ -395,7 +396,7 @@ impl Game {
 
 
         // Determine the highest y position found
-        let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y);
+        let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y) + 10;
 
         // Update the ship's position
         ship_pos.y = decided_pos_y;
@@ -411,8 +412,9 @@ impl Game {
 
 
         g.ship_pos = ship_float_pos;
-        g.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0), &g.chunksys, &g.camera));
-        g.camera.lock().unwrap().position = ship_float_pos + Vec3::new(0.0, 4.0, 0.0);
+        //g.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0), &g.chunksys, &g.camera));
+        g.static_model_entities.push(ModelEntity::new(4, ship_float_pos, 1.5, Vec3::new(0.0, 0.0, 0.0), &g.chunksys, &g.camera));
+        g.camera.lock().unwrap().position = ship_float_pos  + Vec3::new(5.0, 2.0, 0.0);
         g.add_ship_colliders();
         g
     }
@@ -541,7 +543,7 @@ impl Game {
             if self.grounded && diff > 0.01 {
                 let camfootpos = campos - Vec3::new(0.0, 2.0, 0.0);
                 let blockat = self.chunksys.blockat(IVec3::new(camfootpos.x.floor() as i32, camfootpos.y.floor() as i32, camfootpos.z.floor() as i32));
-                if(TIMER > 0.4) {
+                if TIMER > 0.4 {
                     self.audiop.play_next_in_series(&Blocks::get_walk_series(blockat), &camfootpos, &Vec3::new(0.0, 0.0, 0.0));
                     TIMER = 0.0;
                 } else {
@@ -1279,8 +1281,8 @@ impl Game {
         };
 
         let mut ship_pos = vec::IVec3::new(20,200,0);
-        let mut ship_front = vec::IVec3::new(60,200,0);
-        let mut ship_back = vec::IVec3::new(-20,200,0);
+        let mut ship_front = vec::IVec3::new(30,200,0);
+        let mut ship_back = vec::IVec3::new(10,200,0);
          // Function to decrement y until a block is found
         fn find_ground_y(position: &mut vec::IVec3, game: &Game) {
             while game.chunksys.blockat(*position) == 0 {
@@ -1294,7 +1296,7 @@ impl Game {
         find_ground_y(&mut ship_back, &self);
 
         // Determine the highest y position found
-        let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y);
+        let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y) + 10;
 
         // Update the ship's position
         ship_pos.y = decided_pos_y;
@@ -1302,7 +1304,7 @@ impl Game {
         self.ship_pos = ship_float_pos;
         let ship_index = self.static_model_entities.len()-1;
         self.static_model_entities[ship_index].position = ship_float_pos;
-        self.camera.lock().unwrap().position = ship_float_pos + Vec3::new(0.0, 4.0, 0.0);
+        self.camera.lock().unwrap().position = ship_float_pos + Vec3::new(5.0, 2.0, 0.0);
         self.add_ship_colliders();
 
         self.start_world();
@@ -1787,7 +1789,7 @@ impl Game {
             Key::B => {
                 if self.vars.near_ship {
                     let mut camlock = self.camera.lock().unwrap();
-                    camlock.position = self.ship_pos + Vec3::new(0.0, 4.0, 0.0);
+                    camlock.position = self.ship_pos + Vec3::new(5.0, 2.0, 0.0);
                 }
             }
             _ => {}

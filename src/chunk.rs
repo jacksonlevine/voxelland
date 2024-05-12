@@ -5,6 +5,7 @@ use std::sync::atomic::AtomicU8;
 
 use dashmap::DashMap;
 use dashmap::DashSet;
+use glam::Vec3;
 use num_enum::FromPrimitive;
 use rand::rngs::StdRng;
 use rand::Rng;
@@ -22,11 +23,13 @@ use crate::cube::Cube;
 use crate::cube::CubeSide;
 use crate::packedvertex::PackedVertex;
 use crate::planetinfo::Planets;
+use crate::shader::Shader;
 use crate::vec::IVec3;
 use crate::vec::{self, IVec2};
 
 use crate::blockinfo::Blocks;
 use crate::voxmodel::JVoxModel;
+use crate::worldgeometry::WorldGeometry;
 pub struct ChunkGeo {
     pub data32: Mutex<Vec<u32>>,
     pub data8: Mutex<Vec<u8>>,
@@ -207,7 +210,81 @@ impl ChunkSystem {
             y: (spot.z as f32 / CW as f32).floor() as i32,
         }
     }
-    pub fn queue_rerender(&self, spot: vec::IVec3, block: u32, neighbors: bool, user_power: bool) {
+    pub fn initial_rebuild_on_main_thread(&self, shader: &Shader, campos: &Vec3) {
+
+        let user_cpos = IVec2 {
+            x: (campos.x / CW as f32).floor() as i32,
+            y: (campos.z / CW as f32).floor() as i32,
+        };
+
+        let mut neededspots = Vec::new();
+
+        for i in -(self.radius as i32)..(self.radius as i32) {
+            for k in -(self.radius as i32)..(self.radius as i32) {
+                let this_spot = IVec2 {
+                    x: user_cpos.x + i as i32,
+                    y: user_cpos.y + k as i32,
+                };
+                neededspots.push(this_spot);
+            }
+        }
+
+
+        for (index, cpos) in neededspots.iter().enumerate() {
+            self.move_and_rebuild(index, *cpos);
+        }
+
+        let mut more_in_queue = true;
+        while more_in_queue {
+            match self.finished_geo_queue.pop() {
+                Some(ready) => {
+                    //println!("Some user queue");
+                   // println!("Weird!");
+    
+                    let bankarc = self.geobank[ready.geo_index].clone();
+    
+                    let mut cmemlock = self.chunk_memories.lock().unwrap();
+    
+                    cmemlock.memories[ready.geo_index].length = ready.newlength;
+                    cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
+                    cmemlock.memories[ready.geo_index].pos = ready.newpos;
+                    cmemlock.memories[ready.geo_index].used = true;
+    
+                    //println!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
+                    //println!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
+                    //if num == 0 { num = 1; } else { num = 0; }
+                    //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
+                    // if num == 0 {
+                    //     bankarc.num.store(1, Ordering::Relaxed);
+                    //     num = 1;
+                    // } else {
+                    //     bankarc.num.store(0, Ordering::Relaxed);
+                    //     num = 0;
+                    // };
+    
+                    let v32 = cmemlock.memories[ready.geo_index].vbo32;
+                    let v8 = cmemlock.memories[ready.geo_index].vbo8;
+                    let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
+                    let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
+    
+                    WorldGeometry::bind_geometry(v32, v8, true, shader, bankarc.solids());
+                    WorldGeometry::bind_geometry(
+                        tv32,
+                        tv8,
+                        true,
+                        shader,
+                        bankarc.transparents(),
+                    );
+                }
+                None => {
+                    more_in_queue = false;
+                }
+            }
+        }
+        
+
+    }
+    pub fn queue_rerender(&self, spot: vec::IVec3, user_power: bool) {
         let chunk_key = &Self::spot_to_chunk_pos(&spot);
         match self.takencare.get(chunk_key) {
             Some(cf) => {
@@ -224,7 +301,7 @@ impl ChunkSystem {
             None => {}
         }
     }
-    pub fn queue_rerender_with_key(&self, chunk_key: IVec2, block: u32, neighbors: bool, user_power: bool) {
+    pub fn queue_rerender_with_key(&self, chunk_key: IVec2, user_power: bool) {
 
         match self.takencare.get(&chunk_key) {
             Some(cf) => {
@@ -253,10 +330,10 @@ impl ChunkSystem {
             }
             for i in neighbs {
                 let here = i;
-                self.queue_rerender_with_key(here, block, neighbors, user_power);
+                self.queue_rerender_with_key(here, user_power);
             }
         } else {
-            self.queue_rerender(spot, block, neighbors, user_power);
+            self.queue_rerender(spot, user_power);
         }
         
     }
@@ -631,23 +708,29 @@ impl ChunkSystem {
         let dim_floor = Planets::get_floor_block(self.noise_type as u32);
 
         let dim_range = Planets::get_voxel_model_index_range(self.noise_type as u32);
+
+        //Two rng per chunk! 
+        let spot: u32 = rng.gen_range(0..(CW as u32 * CW as u32)*CH as u32-40);
+        let item: u32 = rng.gen_range(dim_range.0 as u32..dim_range.1 as u32);
+
+
+        let mut index = 0;
         
         for x in 0..CW {
             for z in 0..CW {
                 for y in (0..CH-40).rev() {
                     let coord = IVec3::new(cpos.x * CW + x, y, cpos.y * CW + z);
-                    if self.natural_blockat(coord) == dim_floor {
+                    if index == spot {
+                        if self.natural_blockat(coord) == dim_floor {
 
-                        let rand_number1: u32 = rng.gen_range(dim_range.0 as u32..dim_range.1 as u32 * 3);
-
-
-                        if rand_number1 <= dim_range.1 as u32 && rand_number1 >= dim_range.0 as u32 {
-                            self.stamp_here(&coord, &self.voxel_models.as_ref().unwrap()[rand_number1 as usize], Some(&mut implicated));
+                            self.stamp_here(&coord, &self.voxel_models.as_ref().unwrap()[item as usize], Some(&mut implicated));
+                                
+                            should_break = true;
+                            break;
                         }
-                        should_break = true;
-                        break;
                     }
                     
+                    index += 1;
                 }
                 if should_break {
                     break;

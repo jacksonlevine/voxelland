@@ -41,6 +41,9 @@ use crate::voxmodel::JVoxModel;
 use crate::worldgeometry::WorldGeometry;
 use std::sync::RwLock;
 
+
+static REQUIRED_SHIP_FLYAWAY_HEIGHT: f32 = -480.0;
+
 pub struct ControlsState {
     pub left: bool,
     pub right: bool,
@@ -341,7 +344,7 @@ impl Game {
             select_cube: SelectCube::new(),
             block_overlay: BlockOverlay::new(tex.id),
             ship_pos: Vec3::new(0.0,0.0,0.0),
-            planet_y_offset: -960.0,
+            planet_y_offset: REQUIRED_SHIP_FLYAWAY_HEIGHT,
             window: window.clone(),
             guisys: GuiSystem::new(&window.clone(), &tex),
             hud,
@@ -410,6 +413,10 @@ impl Game {
 
         let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
 
+
+        g.chunksys.initial_rebuild_on_main_thread(&g.shader0, &g.camera.lock().unwrap().position);
+
+
         g.audiop.play("assets/music/Farfromhome.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
         g.audiop.play("assets/sfx/shipland28sec.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
 
@@ -420,6 +427,7 @@ impl Game {
         g.static_model_entities.push(ModelEntity::new(4, ship_float_pos, 1.5, Vec3::new(0.0, 0.0, 0.0), &g.chunksys, &g.camera));
         g.camera.lock().unwrap().position = ship_float_pos  + Vec3::new(5.0, 2.0, 0.0);
         g.add_ship_colliders();
+        
         g
     }
 
@@ -620,7 +628,7 @@ impl Game {
 
         if self.vars.ship_taken_off {
             if !self.vars.on_new_world {
-                if self.planet_y_offset > -960.0 {
+                if self.planet_y_offset > REQUIRED_SHIP_FLYAWAY_HEIGHT {
 
                 } else {
 
@@ -1273,16 +1281,13 @@ impl Game {
             self.create_non_static_model_entity(0, Vec3::new(-100.0, 100.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
 
             for i in 0..4 {
-                if rng.gen_range(0..3) < 2 {
+                if rng.gen_range(0..3) <= 2 {
                     self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
                     self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
                     
-
                     self.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
                     self.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
-            
                 }
-                
             }
             
         }
@@ -1311,7 +1316,7 @@ impl Game {
 
         // Determine the highest y position found
         let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y) + 10;
-
+        self.chunksys.initial_rebuild_on_main_thread(&self.shader0, &self.camera.lock().unwrap().position);
         // Update the ship's position
         ship_pos.y = decided_pos_y;
         let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
@@ -1614,7 +1619,7 @@ impl Game {
                     let mut set: HashSet<IVec2> = HashSet::new();
                     Game::delete_block_recursively(&self.chunksys, 16,  block_hit, &mut set);
                     for key in set {
-                        self.chunksys.queue_rerender_with_key(key, 0, true, true)
+                        self.chunksys.queue_rerender_with_key(key, true)
                     }
                     self.drops.add_drop(tip, 17);
                 } else {

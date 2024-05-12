@@ -212,6 +212,11 @@ impl ChunkSystem {
     }
     pub fn initial_rebuild_on_main_thread(&self, shader: &Shader, campos: &Vec3) {
 
+        unsafe {
+            gl::BindVertexArray(shader.vao);
+            gl::UseProgram(shader.shader_id);
+        }
+
         let user_cpos = IVec2 {
             x: (campos.x / CW as f32).floor() as i32,
             y: (campos.z / CW as f32).floor() as i32,

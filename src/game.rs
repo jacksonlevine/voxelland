@@ -414,8 +414,8 @@ impl Game {
         let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
 
 
-        g.chunksys.initial_rebuild_on_main_thread(&g.shader0, &g.camera.lock().unwrap().position);
-
+        //ChunkSystem::initial_rebuild_on_main_thread(&g.chunksys.clone(), &g.shader0, &g.camera.lock().unwrap().position);
+        g.rebuild_whole_world_while_showing_loading_screen();
 
         g.audiop.play("assets/music/Farfromhome.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
         g.audiop.play("assets/sfx/shipland28sec.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
@@ -1316,7 +1316,7 @@ impl Game {
 
         // Determine the highest y position found
         let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y) + 10;
-        self.chunksys.initial_rebuild_on_main_thread(&self.shader0, &self.camera.lock().unwrap().position);
+        self.rebuild_whole_world_while_showing_loading_screen();
         // Update the ship's position
         ship_pos.y = decided_pos_y;
         let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
@@ -1327,6 +1327,33 @@ impl Game {
         self.add_ship_colliders();
 
         self.start_world();
+    }
+
+
+    pub fn rebuild_whole_world_while_showing_loading_screen(&self) {
+
+        let csys = self.chunksys.clone();
+        let campos = self.camera.lock().unwrap().position.clone();
+        let shader = self.shader0.clone();
+
+        let threadhandle = thread::spawn(move|| {
+            ChunkSystem::initial_rebuild_on_main_thread(&csys, &shader, &campos)
+        });
+
+        while !threadhandle.is_finished() {
+
+            //self.draw();
+
+        }
+        
+        match threadhandle.join() {
+            Ok(_) => {
+
+            }
+            Err(_) => {
+                tracing::info!("The whole-world-rebuild thread didn't join back I guess????");
+            }
+        };
     }
 
     pub fn chunk_thread_inner_function(cam_arc: &Arc<Mutex<Camera>>, csys_arc: &Arc<ChunkSystem>, last_user_c_pos: &mut vec::IVec2) {

@@ -4,6 +4,7 @@ use std::io::Read;
 use std::ptr;
 use std::str;
 
+#[derive(Clone)]
 pub struct Shader {
     pub shader_id: gl::types::GLuint,
     pub vao: gl::types::GLuint,

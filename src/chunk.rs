@@ -210,12 +210,12 @@ impl ChunkSystem {
             y: (spot.z as f32 / CW as f32).floor() as i32,
         }
     }
-    pub fn initial_rebuild_on_main_thread(&self, shader: &Shader, campos: &Vec3) {
+    pub fn initial_rebuild_on_main_thread(csys: &Arc<ChunkSystem>, shader: &Shader, campos: &Vec3) {
 
-        unsafe {
-            gl::BindVertexArray(shader.vao);
-            gl::UseProgram(shader.shader_id);
-        }
+        // unsafe {
+        //     gl::BindVertexArray(shader.vao);
+        //     gl::UseProgram(shader.shader_id);
+        // }
 
         let user_cpos = IVec2 {
             x: (campos.x / CW as f32).floor() as i32,
@@ -224,8 +224,8 @@ impl ChunkSystem {
 
         let mut neededspots = Vec::new();
 
-        for i in -(self.radius as i32)..(self.radius as i32) {
-            for k in -(self.radius as i32)..(self.radius as i32) {
+        for i in -(csys.radius as i32)..(csys.radius as i32) {
+            for k in -(csys.radius as i32)..(csys.radius as i32) {
                 let this_spot = IVec2 {
                     x: user_cpos.x + i as i32,
                     y: user_cpos.y + k as i32,
@@ -236,56 +236,57 @@ impl ChunkSystem {
 
 
         for (index, cpos) in neededspots.iter().enumerate() {
-            self.move_and_rebuild(index, *cpos);
+            csys.move_and_rebuild(index, *cpos);
         }
 
-        let mut more_in_queue = true;
-        while more_in_queue {
-            match self.finished_geo_queue.pop() {
-                Some(ready) => {
-                    //println!("Some user queue");
-                   // println!("Weird!");
+        // let mut more_in_queue = true;
+        // while more_in_queue {
+        //     match csys.finished_geo_queue.pop() {
+        //         Some(ready) => {
+        //             //println!("Some user queue");
+        //            // println!("Weird!");
     
-                    let bankarc = self.geobank[ready.geo_index].clone();
+        //             let bankarc = csys.geobank[ready.geo_index].clone();
     
-                    let mut cmemlock = self.chunk_memories.lock().unwrap();
+        //             let mut cmemlock = csys.chunk_memories.lock().unwrap();
     
-                    cmemlock.memories[ready.geo_index].length = ready.newlength;
-                    cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
-                    cmemlock.memories[ready.geo_index].pos = ready.newpos;
-                    cmemlock.memories[ready.geo_index].used = true;
+        //             cmemlock.memories[ready.geo_index].length = ready.newlength;
+        //             cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
+        //             cmemlock.memories[ready.geo_index].pos = ready.newpos;
+        //             cmemlock.memories[ready.geo_index].used = true;
     
-                    //println!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
-                    //println!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
-                    //if num == 0 { num = 1; } else { num = 0; }
-                    //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
-                    // if num == 0 {
-                    //     bankarc.num.store(1, Ordering::Relaxed);
-                    //     num = 1;
-                    // } else {
-                    //     bankarc.num.store(0, Ordering::Relaxed);
-                    //     num = 0;
-                    // };
+        //             println!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
+        //             println!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
+        //             //if num == 0 { num = 1; } else { num = 0; }
+        //             //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
+        //             // if num == 0 {
+        //             //     bankarc.num.store(1, Ordering::Relaxed);
+        //             //     num = 1;
+        //             // } else {
+        //             //     bankarc.num.store(0, Ordering::Relaxed);
+        //             //     num = 0;
+        //             // };
     
-                    let v32 = cmemlock.memories[ready.geo_index].vbo32;
-                    let v8 = cmemlock.memories[ready.geo_index].vbo8;
-                    let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
-                    let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
+        //             let v32 = cmemlock.memories[ready.geo_index].vbo32;
+        //             let v8 = cmemlock.memories[ready.geo_index].vbo8;
+        //             let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
+        //             let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
+                    
     
-                    WorldGeometry::bind_geometry(v32, v8, true, shader, bankarc.solids());
-                    WorldGeometry::bind_geometry(
-                        tv32,
-                        tv8,
-                        true,
-                        shader,
-                        bankarc.transparents(),
-                    );
-                }
-                None => {
-                    more_in_queue = false;
-                }
-            }
-        }
+        //             WorldGeometry::bind_geometry(v32, v8, true, shader, bankarc.solids());
+        //             WorldGeometry::bind_geometry(
+        //                 tv32,
+        //                 tv8,
+        //                 true,
+        //                 shader,
+        //                 bankarc.transparents(),
+        //             );
+        //         }
+        //         None => {
+        //             more_in_queue = false;
+        //         }
+        //     }
+        // }
         
 
     }

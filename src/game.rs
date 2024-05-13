@@ -42,7 +42,7 @@ use crate::worldgeometry::WorldGeometry;
 use std::sync::RwLock;
 
 
-static REQUIRED_SHIP_FLYAWAY_HEIGHT: f32 = -480.0;
+static REQUIRED_SHIP_FLYAWAY_HEIGHT: f32 = -560.0;
 
 pub struct ControlsState {
     pub left: bool,
@@ -665,7 +665,7 @@ impl Game {
             self.update_non_static_model_entities();
         }
 
-        let planet_speed = -self.planet_y_offset.clamp(-90.0, -0.5);
+        let planet_speed = -self.planet_y_offset.clamp(-100.0, -0.5);
 
         if self.vars.ship_going_down {
             self.planet_y_offset = (self.planet_y_offset + self.delta_time * planet_speed).clamp(-1000.0, 0.0);

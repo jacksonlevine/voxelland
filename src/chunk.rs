@@ -239,9 +239,22 @@ impl ChunkSystem {
             csys.move_and_rebuild(index, *cpos);
         }
 
+
+        // let mut genstuff = true;
+        // while genstuff {
+        //     match csys.gen_rebuild_requests.pop() {
+        //         Some(index) => {
+        //             csys.rebuild_index(index, true);
+        //         }
+        //         None => {
+        //             genstuff = false;
+        //         }
+        //     }
+        // }
+
         // let mut more_in_queue = true;
         // while more_in_queue {
-        //     match csys.finished_geo_queue.pop() {
+        //     match csys.finished_user_geo_queue.pop() {
         //         Some(ready) => {
         //             //println!("Some user queue");
         //            // println!("Weird!");
@@ -255,9 +268,9 @@ impl ChunkSystem {
         //             cmemlock.memories[ready.geo_index].pos = ready.newpos;
         //             cmemlock.memories[ready.geo_index].used = true;
     
-        //             println!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
-        //             println!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
-        //             //if num == 0 { num = 1; } else { num = 0; }
+        //             // println!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
+        //             // println!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
+        //             // //if num == 0 { num = 1; } else { num = 0; }
         //             //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
         //             // if num == 0 {
         //             //     bankarc.num.store(1, Ordering::Relaxed);
@@ -267,20 +280,20 @@ impl ChunkSystem {
         //             //     num = 0;
         //             // };
     
-        //             let v32 = cmemlock.memories[ready.geo_index].vbo32;
-        //             let v8 = cmemlock.memories[ready.geo_index].vbo8;
-        //             let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
-        //             let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
+        //             // let v32 = cmemlock.memories[ready.geo_index].vbo32;
+        //             // let v8 = cmemlock.memories[ready.geo_index].vbo8;
+        //             // let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
+        //             // let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
                     
     
-        //             WorldGeometry::bind_geometry(v32, v8, true, shader, bankarc.solids());
-        //             WorldGeometry::bind_geometry(
-        //                 tv32,
-        //                 tv8,
-        //                 true,
-        //                 shader,
-        //                 bankarc.transparents(),
-        //             );
+        //             // WorldGeometry::bind_geometry(v32, v8, true, shader, bankarc.solids());
+        //             // WorldGeometry::bind_geometry(
+        //             //     tv32,
+        //             //     tv8,
+        //             //     true,
+        //             //     shader,
+        //             //     bankarc.transparents(),
+        //             // );
         //         }
         //         None => {
         //             more_in_queue = false;
@@ -716,27 +729,33 @@ impl ChunkSystem {
         let dim_range = Planets::get_voxel_model_index_range(self.noise_type as u32);
 
         //Two rng per chunk! 
-        let spot: u32 = rng.gen_range(0..(CW as u32 * CW as u32)*CH as u32-40);
-        let item: u32 = rng.gen_range(dim_range.0 as u32..dim_range.1 as u32);
+        //let spot: u32 = rng.gen_range(0..(CW as u32 * CW as u32)*(CH-40) as u32);
+        //let item: u32 = rng.gen_range(dim_range.0 as u32..dim_range.1 as u32);
 
 
-        let mut index = 0;
+        //let mut index = 0;
         
         for x in 0..CW {
             for z in 0..CW {
                 for y in (0..CH-40).rev() {
                     let coord = IVec3::new(cpos.x * CW + x, y, cpos.y * CW + z);
-                    if index == spot {
+                    //if index == spot {
                         if self.natural_blockat(coord) == dim_floor {
 
-                            self.stamp_here(&coord, &self.voxel_models.as_ref().unwrap()[item as usize], Some(&mut implicated));
+                            let item: u32 = rng.gen_range(dim_range.0 as u32..dim_range.1 as u32 * 3);
+                            if item <= dim_range.1 as u32 && item >= dim_range.0 as u32 {
+
+                                self.stamp_here(&coord, &self.voxel_models.as_ref().unwrap()[item as usize], Some(&mut implicated));
+                                
+                            }
+
                                 
                             should_break = true;
                             break;
                         }
-                    }
+                    //}
                     
-                    index += 1;
+                    //index += 1;
                 }
                 if should_break {
                     break;

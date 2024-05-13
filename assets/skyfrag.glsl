@@ -22,5 +22,14 @@ void main()
     vec4 botColor = mix(bot_color * vec4(brightMult, brightMult, brightMult, 1.0f), bot_color, (similarity(camDir, east)) * sunrise);
     botColor = mix(botColor, bot_color, (similarity(camDir, west)) * sunset);
     frag_color = mix(botColor, top_color * vec4(brightMult, brightMult, brightMult, 1.0f), max(min(pow(v_uv.y-0.4, 1.0), 1.0), 0.0));
-    frag_color = frag_color - vec4(space/300.0, space/300.0, space/300.0, 0.0);
+
+
+
+    vec4 space_frag_color = mix(top_color, vec4(0.0, 0.0, 0.0, 1.0) * vec4(brightMult, brightMult, brightMult, 1.0f), max(min(pow(v_uv.y-0.4, 1.0), 1.0), 0.0));
+
+    float spacedist = 300.0;
+
+
+
+    frag_color = mix(frag_color, space_frag_color, space/spacedist);
 }

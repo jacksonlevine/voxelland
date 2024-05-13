@@ -665,7 +665,7 @@ impl Game {
             self.update_non_static_model_entities();
         }
 
-        let planet_speed = -self.planet_y_offset.clamp(-20.0, -0.5);
+        let planet_speed = -self.planet_y_offset.clamp(-90.0, -0.5);
 
         if self.vars.ship_going_down {
             self.planet_y_offset = (self.planet_y_offset + self.delta_time * planet_speed).clamp(-1000.0, 0.0);
@@ -1330,7 +1330,7 @@ impl Game {
     }
 
 
-    pub fn rebuild_whole_world_while_showing_loading_screen(&self) {
+    pub fn rebuild_whole_world_while_showing_loading_screen(&mut self) {
 
         let csys = self.chunksys.clone();
         let campos = self.camera.lock().unwrap().position.clone();
@@ -1343,6 +1343,10 @@ impl Game {
         while !threadhandle.is_finished() {
 
             //self.draw();
+            let current_time = unsafe { glfwGetTime() as f32 };
+            self.delta_time = current_time - self.prev_time;
+    
+            self.prev_time = current_time;
 
         }
         
@@ -1462,7 +1466,7 @@ impl Game {
             let delta_time = current_time - last_time;
 
             
-            static mut time_since_last_check: f32 = 2.0;
+            static mut time_since_last_check: f32 = 1.0;
 
             let user_c_pos = ChunkSystem::spot_to_chunk_pos(&IVec3::new(
                 vec3.x.floor() as i32,
@@ -1470,7 +1474,7 @@ impl Game {
                 vec3.z.floor() as i32,
             ));
 
-            if user_c_pos != *last_user_c_pos && time_since_last_check >= 2.0 {
+            if user_c_pos != *last_user_c_pos && time_since_last_check >= 1.0 {
                 *last_user_c_pos = user_c_pos;
 
                 time_since_last_check = 0.0;

@@ -5,9 +5,10 @@ use gl::types::{GLsizeiptr, GLuint, GLvoid};
 use glam::{Mat4, Vec3, Vec4};
 use gltf::{accessor::{DataType, Dimensions}, image::Source, mesh::util::ReadIndices, Semantic};
 use crate::{monsters::Monsters, planetinfo::Planets};
-
-use crate::{collisioncage::{CollCage, Side}, game::Game, modelentity::{AggroTarget, ModelEntity}, vec};
+use gltf::{animation::Interpolation, animation::util::ReadOutputs};
+use crate::{collisioncage::{CollCage, Side}, game::*, modelentity::{AggroTarget, ModelEntity}, vec};
 use percent_encoding::percent_decode_str;
+
 
 
 fn num_components(dimensions: Dimensions) -> i32 {
@@ -466,14 +467,67 @@ impl Game {
         
     }
     pub fn load_model(&mut self, path: &'static str) {
-        let model = gltf::import(path).expect("Failed to load model");
-        self.gltf_models.push(model);
+        let (document, buffers, images) = gltf::import(path).expect("Failed to load model");
+        self.gltf_models.push((document.clone(), buffers.clone(), images.clone()));
         let path = Path::new(path);
-        let gp = path.parent() // This returns the parent directory as an Option<&Path>
-            .map(|p| p.to_str().unwrap_or("")) // Convert the Path to a &str
-            .unwrap_or("") // Handle the case where `parent()` returns None
-            .to_string(); // Convert &str to String
+        let gp = path.parent()
+            .map(|p| p.to_str().unwrap_or(""))
+            .unwrap_or("")
+            .to_string();
         self.gltf_paths.push(gp);
+
+        for animation in document.animations() {
+            let mut channels = Vec::new();
+            for channel in animation.channels() {
+                let sampler = channel.sampler();
+                let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
+                let inputs = reader.read_inputs().unwrap().collect::<Vec<f32>>();
+                let outputs: Vec<Vec<f32>> = match reader.read_outputs().unwrap() {
+                    ReadOutputs::Translations(translations) => translations.map(|v| v.to_vec()).collect(),
+                    ReadOutputs::Rotations(rotations) => rotations.into_f32().map(|v| v.to_vec()).collect(),
+                    ReadOutputs::Scales(scales) => scales.map(|v| v.to_vec()).collect(),
+                    ReadOutputs::MorphTargetWeights(weights) => weights.into_f32().collect::<Vec<f32>>().iter().map(|w| vec![*w]).collect(),
+                };
+
+                let keyframes = inputs.into_iter().zip(outputs).collect();
+
+                channels.push(AnimationChannel {
+                    node_index: channel.target().node().index(),
+                    property: channel.target().property(),
+                    keyframes,
+                });
+            }
+
+            self.animations.push(Animation {
+                channels,
+                name: animation.name().unwrap_or_default().to_string(),
+            });
+        }
+
+        for skin in document.skins() {
+            let reader = skin.reader(|buffer| Some(&buffers[buffer.index()]));
+            let inverse_bind_matrices: Vec<Mat4> = reader.read_inverse_bind_matrices().unwrap().map(|m| {
+                let flat: Vec<f32> = m.iter().flatten().cloned().collect();
+                Mat4::from_cols_array(&flat.try_into().expect("Slice with incorrect length"))
+            }).collect();
+
+            let joints: Vec<Joint> = skin.joints()
+                .zip(inverse_bind_matrices)
+                .map(|(joint, inverse_bind_matrix)| Joint {
+                    node_index: joint.index(),
+                    inverse_bind_matrix,
+                })
+                .collect();
+
+            self.skins.push(Skin { joints });
+        }
+
+        for node in document.nodes() {
+            self.nodes.push(Node {
+                transform: Mat4::from_cols_array_2d(&node.transform().matrix()),
+                children: node.children().map(|child| child.index()).collect(),
+            });
+        }
     }
     
     fn collect_indices(data: ReadIndices) -> Vec<u32> {

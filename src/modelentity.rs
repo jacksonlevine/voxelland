@@ -80,7 +80,11 @@ pub struct ModelEntity {
     pub target: AggroTarget,
     pub speedfactor: f32,
     pub soundtimer: f32,
-    pub was_grounded: bool
+    pub was_grounded: bool,
+    pub current_animation: Option<usize>,
+    pub animation_time: f32,
+    pub animation_indices: Vec<usize>,
+    pub node_indices: Vec<usize>,
 }
 
 impl ModelEntity {
@@ -128,7 +132,11 @@ impl ModelEntity {
                 target: AggroTarget::NoAggro,
                 speedfactor: 1.0,
                 soundtimer: 0.0,
-                was_grounded: false
+                was_grounded: false,
+                current_animation: None,
+                animation_time: 0.0,
+                animation_indices: Vec::new(),
+                node_indices: Vec::new()
             }
         }
         

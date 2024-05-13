@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::f32::consts::PI;
 use std::slice::Chunks;
 use gl::types::{GLenum, GLuint};
-use glam::{Vec2, Vec3, Vec4};
+use glam::{Mat4, Vec2, Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
 use glfw::{Action, Key, MouseButton, PWindow};
 use gltf::Gltf;
@@ -40,6 +40,32 @@ use crate::vec::{self, IVec2, IVec3};
 use crate::voxmodel::JVoxModel;
 use crate::worldgeometry::WorldGeometry;
 use std::sync::RwLock;
+#[derive(Clone)]
+pub struct AnimationChannel {
+    pub node_index: usize,
+    pub property: gltf::animation::Property,
+    pub keyframes: Vec<(f32, Vec<f32>)>,
+}
+
+#[derive(Clone)]
+pub struct Animation {
+    pub channels: Vec<AnimationChannel>,
+    pub name: String,
+}
+#[derive(Clone)]
+pub struct Joint {
+    pub node_index: usize,
+    pub inverse_bind_matrix: Mat4,
+}
+#[derive(Clone)]
+pub struct Skin {
+    pub joints: Vec<Joint>,
+}
+#[derive(Clone)]
+pub struct Node {
+    pub transform: Mat4,
+    pub children: Vec<usize>,
+}
 
 
 static REQUIRED_SHIP_FLYAWAY_HEIGHT: f32 = -560.0;
@@ -142,7 +168,11 @@ pub struct Game {
     pub hud: Hud,
     pub drops: Drops,
     pub audiop: AudioPlayer,
-    pub inventory: Arc<RwLock<Inventory>>
+    pub inventory: Arc<RwLock<Inventory>>,
+    pub animations: Vec<Animation>,
+    pub skins: Vec<Skin>,
+    pub nodes: Vec<Node>,
+    pub current_time: f32,
 }
 
 enum FaderNames {
@@ -350,7 +380,11 @@ impl Game {
             hud,
             drops: Drops::new(tex.id, &cam, &chunksys, &inv),
             audiop: AudioPlayer::new().unwrap(),
-            inventory: inv
+            inventory: inv,
+            animations: Vec::new(),
+            skins: Vec::new(),
+            nodes: Vec::new(),
+            current_time: 0.0
         };
 
 

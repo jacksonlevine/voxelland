@@ -169,9 +169,9 @@ pub struct Game {
     pub drops: Drops,
     pub audiop: AudioPlayer,
     pub inventory: Arc<RwLock<Inventory>>,
-    pub animations: Vec<Animation>,
+    pub animations: Vec<Vec<Animation>>,
     pub skins: Vec<Skin>,
-    pub nodes: Vec<Node>,
+    pub nodes: Vec<Vec<Node>>,
     pub current_time: f32,
 }
 

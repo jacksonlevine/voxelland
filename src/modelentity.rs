@@ -50,7 +50,7 @@ fn euler_to_direction(euler_angles: Vec3) -> Vec3 {
 }
 
 
-use crate::{camera::Camera, chunk::ChunkSystem, collisioncage::{BoundBox, CollCage}, game::ControlsState, raycast::{self, raycast_voxel}, vec};
+use crate::{camera::Camera, chunk::ChunkSystem, collisioncage::{BoundBox, CollCage}, game::{Animation, ControlsState, Node}, raycast::{self, raycast_voxel}, vec};
 
 static mut CURRENT_ID: u32 = 0;
 
@@ -83,8 +83,8 @@ pub struct ModelEntity {
     pub was_grounded: bool,
     pub current_animation: Option<usize>,
     pub animation_time: f32,
-    pub animation_indices: Vec<usize>,
-    pub node_indices: Vec<usize>,
+    pub animations: Vec<Animation>,
+    pub nodes: Vec<Node>,
 }
 
 impl ModelEntity {
@@ -103,6 +103,7 @@ impl ModelEntity {
                 return false;
             })
         };
+
 
         unsafe {
             CURRENT_ID += 1;
@@ -135,8 +136,8 @@ impl ModelEntity {
                 was_grounded: false,
                 current_animation: None,
                 animation_time: 0.0,
-                animation_indices: Vec::new(),
-                node_indices: Vec::new()
+                animations: Vec::new(),
+                nodes: Vec::new()
             }
         }
         

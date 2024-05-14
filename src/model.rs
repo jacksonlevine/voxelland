@@ -144,6 +144,9 @@ enum ModelEntityType<'a> {
     NonStatic(&'a ModelEntity),
 }
 
+
+
+
 impl Game {
 
     pub fn update_model_collisions(&self, model_entity_index: usize) {
@@ -182,6 +185,13 @@ impl Game {
 
     pub fn create_non_static_model_entity(&mut self, model_index: usize, pos: Vec3, scale: f32, rot: Vec3, jump_height: f32) {
         let mut modent = ModelEntity::new_with_jump_height(model_index, pos, scale, rot, &self.chunksys, &self.camera, jump_height);
+        
+
+        let animations = self.animations[model_index].clone();
+        let nodes = self.nodes[model_index].clone();
+
+        modent.animations = animations;
+        modent.nodes = nodes;
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
             let csys_arc = Arc::clone(&self.chunksys);
@@ -236,6 +246,11 @@ impl Game {
                 model.current_jump_y = model.position.y;
                 model.jumping_up = true;
                 model.controls.up = false;
+            }
+
+            if let Some(current_animation) = model.current_animation {
+                model.animation_time += self.delta_time;
+                //apply_animation(&mut model.nodes, &model.animations[current_animation], model.animation_time);
             }
 
             let cc_center = model.position + Vec3::new(0.0, -1.0, 0.0);
@@ -476,6 +491,12 @@ impl Game {
             .to_string();
         self.gltf_paths.push(gp);
 
+        let animindex = self.animations.len();
+        let nodeindex = self.nodes.len();
+
+        self.animations.push(Vec::new());
+        self.nodes.push(Vec::new());
+
         for animation in document.animations() {
             let mut channels = Vec::new();
             for channel in animation.channels() {
@@ -498,7 +519,9 @@ impl Game {
                 });
             }
 
-            self.animations.push(Animation {
+
+
+            self.animations[animindex].push(Animation {
                 channels,
                 name: animation.name().unwrap_or_default().to_string(),
             });
@@ -523,7 +546,7 @@ impl Game {
         }
 
         for node in document.nodes() {
-            self.nodes.push(Node {
+            self.nodes[nodeindex].push(Node {
                 transform: Mat4::from_cols_array_2d(&node.transform().matrix()),
                 children: node.children().map(|child| child.index()).collect(),
             });

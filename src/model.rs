@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs, path::Path, str::FromStr, sync::Arc};
 
 use dashmap::DashMap;
 use gl::types::{GLsizeiptr, GLuint, GLvoid};
-use glam::{Mat4, Vec3, Vec4};
+use glam::{Mat4, Quat, Vec3, Vec4};
 use gltf::{accessor::{DataType, Dimensions}, image::Source, mesh::util::ReadIndices, Semantic};
 use crate::{monsters::Monsters, planetinfo::Planets};
 use gltf::{animation::Interpolation, animation::util::ReadOutputs};
@@ -144,8 +144,88 @@ enum ModelEntityType<'a> {
     NonStatic(&'a ModelEntity),
 }
 
+fn interpolate_keyframes_vec3(times: &[f32], values: &[Vec<f32>], time: f32) -> Vec3 {
+    let len = times.len();
+    if time <= times[0] {
+        return vec3_from_slice(&values[0]);
+    }
+    if time >= times[len - 1] {
+        return vec3_from_slice(&values[len - 1]);
+    }
+
+    for i in 0..len - 1 {
+        if time < times[i + 1] {
+            let t0 = times[i];
+            let t1 = times[i + 1];
+            let v0 = vec3_from_slice(&values[i]);
+            let v1 = vec3_from_slice(&values[i + 1]);
+
+            let factor = (time - t0) / (t1 - t0);
+            return v0.lerp(v1, factor);
+        }
+    }
+    vec3_from_slice(&values[len - 1])
+}
+
+fn interpolate_keyframes_quat(times: &[f32], values: &[Vec<f32>], time: f32) -> Quat {
+    let len = times.len();
+    if time <= times[0] {
+        return quat_from_slice(&values[0]);
+    }
+    if time >= times[len - 1] {
+        return quat_from_slice(&values[len - 1]);
+    }
+
+    for i in 0..len - 1 {
+        if time < times[i + 1] {
+            let t0 = times[i];
+            let t1 = times[i + 1];
+            let v0 = quat_from_slice(&values[i]);
+            let v1 = quat_from_slice(&values[i + 1]);
+
+            let factor = (time - t0) / (t1 - t0);
+            return v0.lerp(v1, factor);
+        }
+    }
+    quat_from_slice(&values[len - 1])
+}
+
+fn vec3_from_slice(slice: &[f32]) -> Vec3 {
+    Vec3::new(slice[0], slice[1], slice[2])
+}
+
+fn quat_from_slice(slice: &[f32]) -> Quat {
+    Quat::from_xyzw(slice[0], slice[1], slice[2], slice[3])
+}
 
 
+fn apply_animation(nodes: &mut [Node], animation: &Animation, time: f32) {
+    for channel in &animation.channels {
+        let target_node_index = channel.node_index;
+        let node = &mut nodes[target_node_index];
+
+        let (times, values): (Vec<_>, Vec<_>) = channel.keyframes.iter().cloned().unzip();
+
+        match channel.property {
+            gltf::animation::Property::Translation => {
+                let transformation = interpolate_keyframes_vec3(&times, &values, time);
+                let translation = Mat4::from_translation(transformation);
+                node.transform = translation * node.transform;
+            },
+            gltf::animation::Property::Rotation => {
+                let transformation = interpolate_keyframes_quat(&times, &values, time);
+                let rotation = Mat4::from_quat(transformation);
+                node.transform = rotation * node.transform;
+            },
+            gltf::animation::Property::Scale => {
+                let transformation = interpolate_keyframes_vec3(&times, &values, time);
+                let scale = Mat4::from_scale(transformation);
+                node.transform = scale * node.transform;
+            },
+            _ => panic!("Unsupported animation property"),
+        };
+    }
+}
 
 impl Game {
 
@@ -249,8 +329,13 @@ impl Game {
             }
 
             if let Some(current_animation) = model.current_animation {
-                model.animation_time += self.delta_time;
-                //apply_animation(&mut model.nodes, &model.animations[current_animation], model.animation_time);
+                let animation = &model.animations[current_animation];
+                if model.animation_time < animation.duration {
+                    model.animation_time += self.delta_time;
+                } else {
+                    model.animation_time = 0.0;
+                }
+                apply_animation(&mut model.nodes, &model.animations[current_animation], model.animation_time);
             }
 
             let cc_center = model.position + Vec3::new(0.0, -1.0, 0.0);
@@ -399,6 +484,21 @@ impl Game {
                                 },
                             }
 
+                            let nt_loc = gl::GetUniformLocation(self.modelshader.shader_id, b"nodetrans\0".as_ptr() as *const i8);
+
+                            let nodeindex = ii;
+
+                            if modelent.nodes.len() > nodeindex {
+                                gl::UniformMatrix4fv(nt_loc, 1, gl::FALSE, modelent.nodes[nodeindex].transform.to_cols_array().as_ptr());
+                            } else {
+                                gl::UniformMatrix4fv(nt_loc, 1, gl::FALSE, Mat4::IDENTITY.to_cols_array().as_ptr());
+                            }
+
+                            
+
+
+                            
+
                             
 
                             gl::Uniform1f(
@@ -497,12 +597,24 @@ impl Game {
         self.animations.push(Vec::new());
         self.nodes.push(Vec::new());
 
+        let mut max_time = 0.0;
+        let mut animation_count = 0;
+
         for animation in document.animations() {
             let mut channels = Vec::new();
             for channel in animation.channels() {
                 let sampler = channel.sampler();
                 let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
                 let inputs = reader.read_inputs().unwrap().collect::<Vec<f32>>();
+
+                 // Update max_time
+                 if let Some(&last_input) = inputs.last() {
+                    if last_input > max_time {
+                        max_time = last_input;
+                    }
+                }
+
+
                 let outputs: Vec<Vec<f32>> = match reader.read_outputs().unwrap() {
                     ReadOutputs::Translations(translations) => translations.map(|v| v.to_vec()).collect(),
                     ReadOutputs::Rotations(rotations) => rotations.into_f32().map(|v| v.to_vec()).collect(),
@@ -512,10 +624,13 @@ impl Game {
 
                 let keyframes = inputs.into_iter().zip(outputs).collect();
 
+               
+
                 channels.push(AnimationChannel {
                     node_index: channel.target().node().index(),
                     property: channel.target().property(),
                     keyframes,
+
                 });
             }
 
@@ -524,8 +639,12 @@ impl Game {
             self.animations[animindex].push(Animation {
                 channels,
                 name: animation.name().unwrap_or_default().to_string(),
+                duration: max_time
             });
+            animation_count += 1;
         }
+
+        println!("Model {} has {} animations", path.display(), animation_count);
 
         for skin in document.skins() {
             let reader = skin.reader(|buffer| Some(&buffers[buffer.index()]));

@@ -10,6 +10,8 @@ uniform float xrot;
 uniform float yrot;
 uniform float zrot;
 
+uniform mat4 nodetrans;
+
 out vec2 TexCoord;
 
 mat4 getRotationMatrix(float xrot, float yrot, float zrot) {
@@ -34,8 +36,9 @@ mat4 getRotationMatrix(float xrot, float yrot, float zrot) {
 
 void main() {
 
+    vec4 localPosition = nodetrans * vec4(aPos, 1.0); // Apply node transformation first
     mat4 rotationMatrix = getRotationMatrix(xrot, yrot, zrot);
-    vec4 rotatedPosition = rotationMatrix * vec4(aPos * scale, 1.0);
+    vec4 rotatedPosition = rotationMatrix * vec4(localPosition.xyz * scale, 1.0);
 
     TexCoord = uv;
     gl_Position = mvp * (rotatedPosition + vec4(pos, 0.0));

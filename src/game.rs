@@ -51,6 +51,7 @@ pub struct AnimationChannel {
 pub struct Animation {
     pub channels: Vec<AnimationChannel>,
     pub name: String,
+    pub duration: f32
 }
 #[derive(Clone)]
 pub struct Joint {
@@ -1317,8 +1318,11 @@ impl Game {
             for i in 0..4 {
                 if rng.gen_range(0..3) <= 2 {
                     self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+                    let ind = self.non_static_model_entities.len() - 1;
+                    self.non_static_model_entities[ind].current_animation = Some(1);
                     self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
-                    
+                    let ind = self.non_static_model_entities.len() - 1;
+                    self.non_static_model_entities[ind].current_animation = Some(1);
                     self.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
                     self.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
                 }

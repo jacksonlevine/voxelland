@@ -199,6 +199,7 @@ impl ChunkSystem {
     pub fn start_with_seed(seed: u32) {
 
     }
+    
     pub fn new(radius: u8, seed: u32, noisetype: usize) -> ChunkSystem {
         let mut cs = ChunkSystem {
             chunks: Vec::new(),

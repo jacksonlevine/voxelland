@@ -58,11 +58,12 @@ async fn handle_client(client_id: Uuid, clients: Arc<Mutex<HashMap<Uuid, Client>
 
                         // Redistribute the message to all clients
                         let clients = clients.lock().await;
+                        drop(stream);
                         for (id, client) in clients.iter() {
-                            if *id != client_id {
+                            //if *id != client_id {
                                 let mut stream = client.stream.lock().await;
                                 let _ = stream.write_all(&buffer[..numbytes]).await;
-                            }
+                            //}
                         }
                     } else {
                         should_break = true;
@@ -102,11 +103,21 @@ async fn main() {
     }
 
 
+    let width = 1280;
+    let height = 720;
+    let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
+    let (mut window, events) = glfw
+        .create_window(width, height, "VoxellandServer", glfw::WindowMode::Windowed)
+        .expect("Failed to create GLFW window.");
+
+    gl::load_with(|s| window.get_proc_address(s) as *const _);
+
+    window.set_should_close(true);
 
     let csys = ChunkSystem::new(10, 0, 0);
     
     csys.load_world_from_file(String::from("world"));
-    
+
 
     loop {
         match listener.accept().await {

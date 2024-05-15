@@ -2,6 +2,7 @@ use core::time;
 use std::cmp::max;
 use std::collections::HashSet;
 use std::f32::consts::PI;
+use std::io::Write;
 use std::slice::Chunks;
 use gl::types::{GLenum, GLuint};
 use glam::{Mat4, Vec2, Vec3, Vec4};
@@ -30,9 +31,11 @@ use crate::glyphface::GlyphFace;
 use crate::guisystem::GuiSystem;
 use crate::hud::{Hud, HudElement};
 use crate::modelentity::ModelEntity;
+use crate::network::NetworkConnector;
 use crate::planetinfo::Planets;
 use crate::raycast::*;
 use crate::selectcube::SelectCube;
+use crate::server_types::{Message, MessageType};
 use crate::shader::Shader;
 use crate::texture::Texture;
 use crate::textureface::TextureFace;
@@ -173,6 +176,7 @@ pub struct Game {
     pub skins: Vec<Skin>,
     pub nodes: Vec<Vec<Node>>,
     pub current_time: f32,
+    pub netconn: NetworkConnector
 }
 
 enum FaderNames {
@@ -392,7 +396,8 @@ impl Game {
             animations: Vec::new(),
             skins: Vec::new(),
             nodes: Vec::new(),
-            current_time: 0.0
+            current_time: 0.0,
+            netconn: NetworkConnector::new()
         };
 
 
@@ -408,6 +413,22 @@ impl Game {
         //start coming down from the sky in ship
         g.vars.ship_going_down = true;
         g.vars.ship_going_up = false;
+
+        g.netconn.connect(String::from("127.0.0.1:6969"));
+        println!("Connected to the server!");
+
+        let message = Message {
+            message_type: MessageType::RequestSeed,
+            x: 1.0,
+            y: 2.0,
+            z: 3.0,
+            rot: 4.0,
+            info: 42,
+        };
+    
+        g.netconn.send(&message);
+        
+        println!("Sent message to the server!");
 
 
         g.audiop.preload_series("grassstepseries", vec![

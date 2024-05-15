@@ -167,6 +167,17 @@ impl ChunkSystem {
 
     pub fn load_world_from_file(&self, path: String) {
         self.userdatamap.clear();
+
+        match File::open(format!("{}/udm", path.clone())) {
+            Ok(_) => {
+
+            }
+            Err(_) => {
+                fs::create_dir_all(&path.clone()).unwrap();
+                self.save_current_world_to_file(path.clone());
+            }
+        }
+
         let file = File::open(format!("{}/udm", path)).unwrap();
         let reader = BufReader::new(file);
     

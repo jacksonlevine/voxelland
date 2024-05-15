@@ -38,4 +38,9 @@ impl Message {
             info
         }
     }
+
+    pub fn get_serialized_size() -> usize {
+        let m = Message::new(MessageType::BlockSet, Vec3::new(0.0,0.0,0.0), 0.0, 0);
+        bincode::serialized_size(&m).unwrap() as usize
+    }
 }

@@ -10,3 +10,5 @@ uuid = { version = "1.8.0", features = ["v4"] }
 serde = { version = "1.0.201", features = ["derive"] }
 glam = "0.27.0"
 bincode = "1.3.3"
+glfw = "0.55.0"
+gl = "0.14.0"

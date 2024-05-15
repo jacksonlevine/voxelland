@@ -30,3 +30,4 @@ pub mod audio;
 pub mod monsters;
 pub mod serializemap;
 pub mod server_types;
+pub mod network;

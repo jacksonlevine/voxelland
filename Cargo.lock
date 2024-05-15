@@ -3086,7 +3086,9 @@ name = "voxelland-server"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "gl",
  "glam",
+ "glfw",
  "serde",
  "tokio",
  "uuid",

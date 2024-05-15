@@ -1,5 +1,7 @@
+use std::fmt::{self, Display, Formatter};
 use std::hash::Hash;
 use std::ops::{Add, Sub};
+use std::str::FromStr;
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone, Copy)]
 pub struct IVec2 {
@@ -36,6 +38,28 @@ pub struct IVec3 {
     pub x: i32,
     pub y: i32,
     pub z: i32,
+}
+
+impl FromStr for IVec3 {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut parts = s.splitn(3, ' ');
+        if let (Some(x), Some(y), Some(z)) = (parts.next(), parts.next(), parts.next()) {
+            Ok(IVec3::new(
+                i32::from_str(x).unwrap(),
+                i32::from_str(y).unwrap(),
+                i32::from_str(z).unwrap()))
+        } else {
+            Err(String::from("Error"))
+        }
+    }
+    
+    type Err = String;
+}
+
+impl Display for IVec3 {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{} {} {}", self.x, self.y, self.z)
+    } 
 }
 
 impl Add for IVec3 {

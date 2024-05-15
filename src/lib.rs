@@ -28,3 +28,4 @@ pub mod textureface;
 pub mod drops;
 pub mod audio;
 pub mod monsters;
+pub mod serializemap;

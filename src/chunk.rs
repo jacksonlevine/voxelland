@@ -1,7 +1,12 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fs;
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::AtomicU8;
+use std::sync::RwLock;
 
 use dashmap::DashMap;
 use dashmap::DashSet;
@@ -30,6 +35,9 @@ use crate::vec::{self, IVec2};
 use crate::blockinfo::Blocks;
 use crate::voxmodel::JVoxModel;
 use crate::worldgeometry::WorldGeometry;
+
+use std::str::FromStr;
+use std::io::Write;
 pub struct ChunkGeo {
     pub data32: Mutex<Vec<u32>>,
     pub data8: Mutex<Vec<u8>>,
@@ -137,10 +145,51 @@ pub struct ChunkSystem {
     pub perlin: Perlin,
     pub voxel_models: Option<Arc<Vec<JVoxModel>>>,
     pub chunk_memories: Mutex<ChunkRegistry>,
-    pub noise_type: u8
+    pub planet_type: u8,
+    pub currentseed: RwLock<u32>
 }
 
 impl ChunkSystem {
+
+    pub fn save_current_world_to_file(&self, path: String) {
+
+        fs::create_dir_all(&path).unwrap();
+        
+        let mut file = File::create(path.clone() + "/udm").unwrap();
+        for entry in self.userdatamap.iter() {
+            writeln!(file, "{} {}", entry.key(), entry.value()).unwrap();
+        }
+
+        let mut file = File::create(path.clone() + "/seed").unwrap();
+        writeln!(file, "{}", self.currentseed.read().unwrap()).unwrap();
+
+    }
+
+    pub fn load_world_from_file(&self, path: String) {
+        self.userdatamap.clear();
+        let file = File::open(format!("{}/udm", path)).unwrap();
+        let reader = BufReader::new(file);
+    
+        for line in reader.lines() {
+            let line = line.unwrap();
+            let mut parts = line.splitn(4, ' ');
+            if let (Some(x), Some(y), Some(z), Some(value)) = (parts.next(), parts.next(), parts.next(), parts.next()) {
+                let key = format!("{} {} {}", x, y, z);
+                self.userdatamap.insert(vec::IVec3::from_str(&key).unwrap(), value.parse::<u32>().unwrap());
+            }
+        }
+    
+        let file = File::open(format!("{}/seed", path)).unwrap();
+        let reader = BufReader::new(file);
+    
+        for line in reader.lines() {
+            let line = line.unwrap();
+            let mut parts = line.splitn(2, ' ');
+            if let Some(seed) = parts.next() {
+                *self.currentseed.write().unwrap() = seed.parse::<u32>().unwrap();
+            }
+        }
+    }
 
     pub fn collision_predicate(&self, vec: vec::IVec3) -> bool {
         return self.blockat(vec.clone()) != 0 || self.justcollisionmap.contains_key(&vec);
@@ -169,8 +218,10 @@ impl ChunkSystem {
             chunk_memories: Mutex::new(ChunkRegistry{
                 memories: Vec::new()
             }),
-            noise_type: noisetype as u8
+            planet_type: noisetype as u8,
+            currentseed: RwLock::new(0)
         };
+
 
         // let directory_path = "assets/voxelmodels/";
 
@@ -724,9 +775,9 @@ impl ChunkSystem {
 
         let mut should_break = false;
 
-        let dim_floor = Planets::get_floor_block(self.noise_type as u32);
+        let dim_floor = Planets::get_floor_block(self.planet_type as u32);
 
-        let dim_range = Planets::get_voxel_model_index_range(self.noise_type as u32);
+        let dim_range = Planets::get_voxel_model_index_range(self.planet_type as u32);
 
         //Two rng per chunk! 
         //let spot: u32 = rng.gen_range(0..(CW as u32 * CW as u32)*(CH-40) as u32);
@@ -935,7 +986,7 @@ impl ChunkSystem {
         if spot.y == 0 {
             return 15;
         }
-        match self.noise_type {
+        match self.planet_type {
             1 => {
                 if self.noise_func2(spot) > 10.0 {
                     if self.noise_func2(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {

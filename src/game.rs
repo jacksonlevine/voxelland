@@ -215,10 +215,18 @@ impl Game {
 
         
         let mut rng = StdRng::from_entropy();
-        let seed = rng.gen_range(0..229232);
+        //let seed = rng.gen_range(0..229232);
 
 
-        let mut csys = ChunkSystem::new(10, seed, 0);
+        let mut csys = ChunkSystem::new(10, 0, 0);
+
+        csys.load_world_from_file(String::from("saves/world1"));
+        //self.vars.hostile_world = false;
+        let seed = *csys.currentseed.read().unwrap();
+        //self.start_chunks_with_radius(10, seed, 0);
+        //self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
+
+
 
         let vmarc = Arc::new(voxel_models);
         let vmarc2 = vmarc.clone();
@@ -665,7 +673,7 @@ impl Game {
                 if self.planet_y_offset > REQUIRED_SHIP_FLYAWAY_HEIGHT {
 
                 } else {
-
+                    
                     self.new_world_func();
                     self.audiop.play("assets/sfx/shipland28sec.mp3", &self.ship_pos, &Vec3::ZERO);
                     
@@ -1180,7 +1188,7 @@ impl Game {
                 ),
                 0,
             );
-            let fc = Planets::get_fog_col(self.chunksys.noise_type as u32);
+            let fc = Planets::get_fog_col(self.chunksys.planet_type as u32);
             gl::Uniform4f(
                 FOGCOL_LOC,
                 fc.0, 
@@ -1796,20 +1804,26 @@ impl Game {
     pub fn new_world_func(&mut self) {
         let mut rng = StdRng::from_entropy();
 
-        let seed = rng.gen_range(0..2232328);
+        let seed: u32 = rng.gen_range(0..2232328);
 
 
-        static mut CURR_SEED: usize = 0;
         static mut CURR_NT: usize = 0;
         self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
         unsafe {
-            self.vars.hostile_world = (CURR_SEED % 2) == 0;
+            self.vars.hostile_world = (CURR_NT % 2) == 0;
             CURR_NT = (CURR_NT + 1) % 2;
+            *self.chunksys.currentseed.write().unwrap() = seed;
             self.start_chunks_with_radius(10, seed, CURR_NT);
-            CURR_SEED = (CURR_SEED + 1) % 11;
-            
-            println!("Now noise type is {}", self.chunksys.noise_type);
+
+            println!("Now noise type is {}", self.chunksys.planet_type);
         }
+
+        // self.chunksys.load_world_from_file(String::from("saves/world1"));
+        // self.vars.hostile_world = false;
+        // let seed = *self.chunksys.currentseed.read().unwrap();
+        // self.start_chunks_with_radius(10, seed, 0);
+        // self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
+
     }
 
 
@@ -1850,15 +1864,14 @@ impl Game {
                     self.controls.up = false;
                 }
             }
-            Key::L => {
-                if action == Action::Press {
-                    let camlockpos = self.camera.lock().unwrap().position;
-                    self.create_non_static_model_entity(0, camlockpos + Vec3::new(0.0, 4.0, 0.0), 3.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
-                }
-            }
             Key::M => {
                 if action == Action::Press {
                     self.takeoff_ship();
+                }
+            }
+            Key::L => {
+                if action == Action::Press {
+                    self.chunksys.save_current_world_to_file(String::from("saves/world1"));
                 }
             }
             // Key::Num8 => {

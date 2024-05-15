@@ -442,7 +442,7 @@ impl Game {
                                 8.0
                             );
 
-                            let fogcol = Planets::get_fog_col(self.chunksys.noise_type as u32);
+                            let fogcol = Planets::get_fog_col(self.chunksys.planet_type as u32);
 
                             gl::Uniform4f(
                                 gl::GetUniformLocation(

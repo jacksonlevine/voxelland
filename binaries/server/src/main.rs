@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::time::{self, Duration};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 use glam::Vec3;
@@ -33,8 +34,8 @@ async fn handle_client(client_id: Uuid, clients: Arc<Mutex<HashMap<Uuid, Client>
                 clients[&client_id].stream.clone()
             };
 
-            let mut stream = stream.lock().await;
-            match stream.read(&mut buffer).await {
+            let mut mystream = time::timeout(Duration::from_secs(1), stream.lock()).await.unwrap();
+            match mystream.read(&mut buffer).await {
                 Ok(numbytes) => {
                     if numbytes > 0 {
                         let message: Message = bincode::deserialize(&buffer[..numbytes]).unwrap();
@@ -46,7 +47,7 @@ async fn handle_client(client_id: Uuid, clients: Arc<Mutex<HashMap<Uuid, Client>
 
                             }
                             MessageType::PlayerUpdate => {
-
+                                println!("Recvd player update");
                             }
                             MessageType::BlockSet => {
 
@@ -58,12 +59,14 @@ async fn handle_client(client_id: Uuid, clients: Arc<Mutex<HashMap<Uuid, Client>
 
                         // Redistribute the message to all clients
                         let clients = clients.lock().await;
-                        drop(stream);
+                        //drop(stream);
                         for (id, client) in clients.iter() {
-                            //if *id != client_id {
+                            if *id != client_id {
                                 let mut stream = client.stream.lock().await;
                                 let _ = stream.write_all(&buffer[..numbytes]).await;
-                            //}
+                            } else {
+                                let _ = mystream.write_all(&buffer[..numbytes]).await;
+                            }
                         }
                     } else {
                         should_break = true;
@@ -73,7 +76,7 @@ async fn handle_client(client_id: Uuid, clients: Arc<Mutex<HashMap<Uuid, Client>
                     if e.kind() == std::io::ErrorKind::UnexpectedEof {
                         should_break = true;
                     } else {
-                        let mut clients = clients.lock().await;
+                        let mut clients = time::timeout(Duration::from_secs(1), clients.lock()).await.unwrap();
                         clients.get_mut(&client_id).unwrap().errorstrikes += 1;
 
                         if clients.get_mut(&client_id).unwrap().errorstrikes > 4 {
@@ -103,8 +106,8 @@ async fn main() {
     }
 
 
-    let width = 1280;
-    let height = 720;
+    let width = 10;
+    let height = 10;
     let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
     let (mut window, events) = glfw
         .create_window(width, height, "VoxellandServer", glfw::WindowMode::Windowed)

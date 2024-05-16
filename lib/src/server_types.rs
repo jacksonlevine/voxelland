@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
+use std::fmt::{self, Display, Formatter};
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -16,6 +17,25 @@ pub enum MessageType {
     RequestSeed,
     PlayerUpdate,
     BlockSet
+}
+
+impl Display for MessageType {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            MessageType::RequestWorld => {
+                write!(f, "RequestWorld")
+            },
+            MessageType::RequestSeed => {
+                write!(f, "RequestSeed")
+            },
+            MessageType::PlayerUpdate => {
+                write!(f, "PlayerUpdate")
+            },
+            MessageType::BlockSet => {
+                write!(f, "BlockSet")
+            },
+        }
+    } 
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -122,7 +122,8 @@ pub struct GameVariables {
     break_time: f32,
     near_ship: bool,
     ship_taken_off: bool,
-    on_new_world: bool
+    on_new_world: bool,
+    in_multiplayer: bool
 }
 
 pub struct Inventory {
@@ -358,7 +359,8 @@ impl Game {
                 break_time: 0.0,
                 near_ship: false,
                 ship_taken_off: true,
-                on_new_world: true
+                on_new_world: true,
+                in_multiplayer: true //For now
             },
             controls: ControlsState::new(),
             faders: Arc::new(faders),
@@ -397,7 +399,7 @@ impl Game {
             skins: Vec::new(),
             nodes: Vec::new(),
             current_time: 0.0,
-            netconn: NetworkConnector::new()
+            netconn: NetworkConnector::new(&chunksys)
         };
 
 
@@ -414,21 +416,24 @@ impl Game {
         g.vars.ship_going_down = true;
         g.vars.ship_going_up = false;
 
-        g.netconn.connect(String::from("127.0.0.1:6969"));
-        println!("Connected to the server!");
+        if g.vars.in_multiplayer {
+            g.netconn.connect(String::from("127.0.0.1:6969"));
+            println!("Connected to the server!");
 
-        let message = Message {
-            message_type: MessageType::RequestSeed,
-            x: 1.0,
-            y: 2.0,
-            z: 3.0,
-            rot: 4.0,
-            info: 42,
-        };
-    
-        g.netconn.send(&message);
+            let message = Message {
+                message_type: MessageType::RequestSeed,
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                rot: 0.0,
+                info: 0,
+            };
+        
+            g.netconn.send(&message);
 
-        println!("Sent message to the server!");
+            println!("Sent message to the server!");
+        }
+            
 
 
         g.audiop.preload_series("grassstepseries", vec![
@@ -1735,7 +1740,13 @@ impl Game {
                         self.drops.add_drop(tip, blockat);
                     }
                     
-                    self.chunksys.read().unwrap().set_block_and_queue_rerender(block_hit, 0, true, true);
+                    //TODO: PROBLEM HERE THAT WILL ALLOW USERS TO KEEP DUPING A BLOCK AS LONG AS THE SERVER DOESNT RESPOND
+                    if self.vars.in_multiplayer {
+                        let message = Message::new(MessageType::BlockSet, Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32), 0.0, 0);
+                        self.netconn.send(&message);
+                    } else {
+                        self.chunksys.read().unwrap().set_block_and_queue_rerender(block_hit, 0, true, true);
+                    }
                 }
                 
                 
@@ -1774,29 +1785,36 @@ impl Game {
                 
                 Some((tip, block_hit)) => {
 
-                let diff = (tip+Vec3::new(-0.5, -0.5, -0.5)) - (Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32));
+                    let diff = (tip+Vec3::new(-0.5, -0.5, -0.5)) - (Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32));
 
-                let hit_normal;
+                    let hit_normal;
 
-                // Determine the primary axis of intersection
-                if (diff.x).abs() > (diff.y).abs() && (diff.x).abs() > (diff.z).abs() {
-                    // The hit was primarily along the X-axis
-                    hit_normal = vec::IVec3::new( if diff.x > 0.0 { 1 } else { -1 }, 0, 0);
+                    // Determine the primary axis of intersection
+                    if (diff.x).abs() > (diff.y).abs() && (diff.x).abs() > (diff.z).abs() {
+                        // The hit was primarily along the X-axis
+                        hit_normal = vec::IVec3::new( if diff.x > 0.0 { 1 } else { -1 }, 0, 0);
 
-                } else if (diff.y).abs() > (diff.x).abs() && (diff.y).abs() > (diff.z).abs() {
-                    // The hit was primarily along the Y-axis
-                    hit_normal = vec::IVec3::new(0, if diff.y > 0.0 { 1 } else { -1 }, 0);
-                } else {
-                    // The hit was primarily along the Z-axis
-                    hit_normal = vec::IVec3::new(0, 0, if diff.z > 0.0 { 1 } else { -1 });
-                }
+                    } else if (diff.y).abs() > (diff.x).abs() && (diff.y).abs() > (diff.z).abs() {
+                        // The hit was primarily along the Y-axis
+                        hit_normal = vec::IVec3::new(0, if diff.y > 0.0 { 1 } else { -1 }, 0);
+                    } else {
+                        // The hit was primarily along the Z-axis
+                        hit_normal = vec::IVec3::new(0, 0, if diff.z > 0.0 { 1 } else { -1 });
+                    }
 
-                println!("Hit normal is {} {} {}", hit_normal.x, hit_normal.y, hit_normal.z);
+                    println!("Hit normal is {} {} {}", hit_normal.x, hit_normal.y, hit_normal.z);
 
 
-                let place_point = block_hit + hit_normal;
+                    let place_point = block_hit + hit_normal;
                     println!("Placing {} at {} {} {}", 1, place_point.x, place_point.y, place_point.z);
-                    self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, id, false, true);
+
+                    if self.vars.in_multiplayer {
+                        let message = Message::new(MessageType::BlockSet, Vec3::new(place_point.x as f32, place_point.y as f32, place_point.z as f32), 0.0, id);
+                        self.netconn.send(&message);
+                    } else {
+                        self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, id, false, true);
+                    }
+                    
                 }
 
                 None => {}

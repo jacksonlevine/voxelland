@@ -212,7 +212,6 @@ impl ChunkSystem {
     }
 
     pub fn reset(&mut self, radius: u8, seed: u32, noisetype: usize) {
-        //Reset this thing back to a clean state as if it were new
         for cg in &self.geobank {
             unsafe {
                 gl::DeleteBuffers(1, &cg.vbo32);
@@ -254,7 +253,6 @@ impl ChunkSystem {
                 self.chunk_memories.lock().unwrap().memories.push(ChunkMemory::new(&self.geobank[self.geobank.len() - 1]));
             }
         }
-
     }
     
     pub fn new(radius: u8, seed: u32, noisetype: usize) -> ChunkSystem {

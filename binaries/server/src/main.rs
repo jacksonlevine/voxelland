@@ -41,16 +41,16 @@ async fn handle_client(client_id: Uuid, clients: Arc<Mutex<HashMap<Uuid, Client>
                         let message: Message = bincode::deserialize(&buffer[..numbytes]).unwrap();
                         match message.message_type {
                             MessageType::RequestWorld => {
-
+                                println!("Recvd req world");
                             }
                             MessageType::RequestSeed => {
-
+                                println!("Recvd req seed");
                             }
                             MessageType::PlayerUpdate => {
                                 println!("Recvd player update");
                             }
                             MessageType::BlockSet => {
-
+                                println!("Recvd block set");
                             }
                             _ => {
 

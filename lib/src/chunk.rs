@@ -212,6 +212,48 @@ impl ChunkSystem {
     }
 
     pub fn reset(&mut self, radius: u8, seed: u32, noisetype: usize) {
+        //Reset this thing back to a clean state as if it were new
+        for cg in &self.geobank {
+            unsafe {
+                gl::DeleteBuffers(1, &cg.vbo32);
+                gl::DeleteBuffers(1, &cg.tvbo32);
+                gl::DeleteBuffers(1, &cg.vbo8);
+                gl::DeleteBuffers(1, &cg.tvbo8);
+            }
+        }
+        self.chunks.clear();
+        self.geobank.clear();
+        self.chunk_memories.lock().unwrap().memories.clear();
+        self.takencare.clear();
+        while let Some(_) = self.finished_geo_queue.pop() {}
+        while let Some(_) = self.finished_user_geo_queue.pop() {}
+        while let Some(_) = self.user_rebuild_requests.pop() {}
+        while let Some(_) = self.gen_rebuild_requests.pop() {}
+        while let Some(_) = self.background_rebuild_requests.pop() {}
+        self.userdatamap.clear();
+        self.nonuserdatamap.clear();
+        self.justcollisionmap.clear();
+        self.radius = radius;
+        self.perlin = Perlin::new(seed);
+        self.voxel_models = None;
+        self.planet_type = noisetype as u8;
+        (*self.currentseed.write().unwrap()) = seed;
+
+        for _ in 0..radius * 2 + 5 {
+            for _ in 0..radius * 2 + 5 {
+                self.chunks.push(Arc::new(Mutex::new(ChunkFacade {
+                    geo_index: self.geobank.len(),
+                    used: false,
+                    pos: IVec2 {
+                        x: 999999,
+                        y: 999999,
+                    },
+                })));
+                
+                self.geobank.push(Arc::new(ChunkGeo::new()));
+                self.chunk_memories.lock().unwrap().memories.push(ChunkMemory::new(&self.geobank[self.geobank.len() - 1]));
+            }
+        }
 
     }
     

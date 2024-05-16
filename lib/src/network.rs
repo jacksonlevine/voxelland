@@ -58,8 +58,8 @@ impl NetworkConnector {
             let sr = sr2.clone();
             let stream = stream2.clone();
             while sr.load(std::sync::atomic::Ordering::Relaxed) {
-                let message = Message::new(MessageType::PlayerUpdate, Vec3::new(0.0, 0.0, 0.0), 0.0, 0);
-                NetworkConnector::sendto(&message, &stream);
+                //let message = Message::new(MessageType::PlayerUpdate, Vec3::new(0.0, 0.0, 0.0), 0.0, 0);
+                //NetworkConnector::sendto(&message, &stream);
                 thread::sleep(Duration::from_secs(1));
             }
         }));

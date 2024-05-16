@@ -1319,30 +1319,26 @@ impl Game {
         (*self.run_chunk_thread).store(false, Ordering::Relaxed);
 
 
-        if let Some(handle) = self.chunk_thread.take() { // take the handle out safely
-            handle.join().unwrap(); // Join the thread, handle errors appropriately
+        if let Some(handle) = self.chunk_thread.take() {
+            handle.join().unwrap();
             println!("Thread joined successfully!");
         } else {
             println!("No thread to join or already joined.");
         }
         
-        for i in &self.chunksys.read().unwrap().geobank {
-            unsafe {
-                gl::DeleteBuffers(1, &i.vbo32);
-                gl::DeleteBuffers(1, &i.tvbo32);
-                gl::DeleteBuffers(1, &i.vbo8);
-                gl::DeleteBuffers(1, &i.tvbo8);
-            }
-        }
+
+
+
         self.drops.drops.clear();
         self.non_static_model_entities.clear();
-        let mut csys = ChunkSystem::new(newradius, seed, nt);
-        csys.voxel_models = Some(self.voxel_models.clone());
-        self.chunksys = Arc::new(RwLock::new(csys));
 
-        // self.chunksys.reset(0, 0, 0);
 
-        self.drops.csys = self.chunksys.clone();
+
+        self.chunksys.write().unwrap().reset(newradius, seed, nt);
+
+        self.chunksys.write().unwrap().voxel_models = Some(self.voxel_models.clone());
+
+        //self.drops.csys = self.chunksys.clone();
 
         let mut rng = StdRng::from_entropy();
         
@@ -1362,12 +1358,12 @@ impl Game {
             
         }
 
-        self.coll_cage.solid_pred  = {
-            let csys_arc = Arc::clone(&self.chunksys);
-            Box::new(move |v: vec::IVec3| {
-                return csys_arc.read().unwrap().collision_predicate(v)
-            })
-        };
+        // self.coll_cage.solid_pred  = {
+        //     let csys_arc = Arc::clone(&self.chunksys);
+        //     Box::new(move |v: vec::IVec3| {
+        //         return csys_arc.read().unwrap().collision_predicate(v)
+        //     })
+        // };
 
         let mut ship_pos = vec::IVec3::new(20,200,0);
         let mut ship_front = vec::IVec3::new(30,200,0);

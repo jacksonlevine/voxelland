@@ -210,6 +210,10 @@ impl ChunkSystem {
     pub fn start_with_seed(seed: u32) {
 
     }
+
+    pub fn reset(&mut self, radius: u8, seed: u32, noisetype: usize) {
+
+    }
     
     pub fn new(radius: u8, seed: u32, noisetype: usize) -> ChunkSystem {
         let mut cs = ChunkSystem {
@@ -273,7 +277,7 @@ impl ChunkSystem {
             y: (spot.z as f32 / CW as f32).floor() as i32,
         }
     }
-    pub fn initial_rebuild_on_main_thread(csys: &Arc<ChunkSystem>, shader: &Shader, campos: &Vec3) {
+    pub fn initial_rebuild_on_main_thread(csys: &Arc<RwLock<ChunkSystem>>, shader: &Shader, campos: &Vec3) {
 
         // unsafe {
         //     gl::BindVertexArray(shader.vao);
@@ -286,6 +290,8 @@ impl ChunkSystem {
         };
 
         let mut neededspots = Vec::new();
+
+        let csys = csys.read().unwrap();
 
         for i in -(csys.radius as i32)..(csys.radius as i32) {
             for k in -(csys.radius as i32)..(csys.radius as i32) {

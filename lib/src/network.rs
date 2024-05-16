@@ -9,11 +9,12 @@ use glam::Vec3;
 
 use crate::server_types::{Message, MessageType};
 
+
 pub struct NetworkConnector {
     pub stream: Option<Arc<Mutex<TcpStream>>>,
     pub recvthread: Option<JoinHandle<()>>,
     pub sendthread: Option<JoinHandle<()>>,
-    pub shouldrun: Arc<AtomicBool>,
+    pub shouldrun: Arc<AtomicBool>
 }
 
 impl NetworkConnector {
@@ -22,7 +23,7 @@ impl NetworkConnector {
             stream: None,
             recvthread: None,
             sendthread: None,
-            shouldrun: Arc::new(AtomicBool::new(false)),
+            shouldrun: Arc::new(AtomicBool::new(false))
         }
     }
 

@@ -131,7 +131,7 @@ pub struct Inventory {
 }
 
 pub struct Game {
-    pub chunksys: Arc<ChunkSystem>,
+    pub chunksys: Arc<RwLock<ChunkSystem>>,
     pub shader0: Shader,
     pub skyshader: Shader,
     pub modelshader: Shader,
@@ -237,12 +237,12 @@ impl Game {
 
         csys.voxel_models = Some(vmarc);
 
-        let chunksys = Arc::new(csys);
+        let chunksys = Arc::new(RwLock::new(csys));
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
             let csys_arc = Arc::clone(&chunksys);
             Box::new(move |v: vec::IVec3| {
-                return csys_arc.collision_predicate(v);
+                return csys_arc.read().unwrap().collision_predicate(v);
             })
         };
         let mut hud = Hud::new(&window.clone(), tex.id);
@@ -427,7 +427,7 @@ impl Game {
         };
     
         g.netconn.send(&message);
-        
+
         println!("Sent message to the server!");
 
 
@@ -453,7 +453,7 @@ impl Game {
         let mut ship_back = vec::IVec3::new(10,200,0);
          // Function to decrement y until a block is found
         fn find_ground_y(position: &mut vec::IVec3, game: &Game) {
-            while game.chunksys.blockat(*position) == 0 {
+            while game.chunksys.read().unwrap().blockat(*position) == 0 {
                 position.y -= 1;
             }
         }
@@ -617,7 +617,7 @@ impl Game {
 
             if self.grounded && diff > 0.01 {
                 let camfootpos = campos - Vec3::new(0.0, 2.0, 0.0);
-                let blockat = self.chunksys.blockat(IVec3::new(camfootpos.x.floor() as i32, camfootpos.y.floor() as i32, camfootpos.z.floor() as i32));
+                let blockat = self.chunksys.read().unwrap().blockat(IVec3::new(camfootpos.x.floor() as i32, camfootpos.y.floor() as i32, camfootpos.z.floor() as i32));
                 if TIMER > 0.4 {
                     self.audiop.play_next_in_series(&Blocks::get_walk_series(blockat), &camfootpos, &Vec3::new(0.0, 0.0, 0.0));
                     TIMER = 0.0;
@@ -927,7 +927,7 @@ impl Game {
                             BREAK_TIME = 0.0;
                             LAST_BLOCK_POS = hit;
                         }
-                        self.chunksys.blockat(hit)
+                        self.chunksys.read().unwrap().blockat(hit)
                     }
                     None => {
                         0
@@ -985,16 +985,18 @@ impl Game {
             gl::BindVertexArray(self.shader0.vao);
             gl::UseProgram(self.shader0.shader_id);
         }
-        let ugqarc = self.chunksys.finished_user_geo_queue.clone();
+        let ugqarc = self.chunksys.read().unwrap().finished_user_geo_queue.clone();
 
         match ugqarc.pop() {
             Some(ready) => {
                 //println!("Some user queue");
                // println!("Weird!");
 
-                let bankarc = self.chunksys.geobank[ready.geo_index].clone();
+                let bankarc = self.chunksys.read().unwrap().geobank[ready.geo_index].clone();
 
-                let mut cmemlock = self.chunksys.chunk_memories.lock().unwrap();
+                let cs = self.chunksys.read().unwrap();
+
+                let mut cmemlock = cs.chunk_memories.lock().unwrap();
 
                 cmemlock.memories[ready.geo_index].length = ready.newlength;
                 cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
@@ -1030,16 +1032,18 @@ impl Game {
             None => {}
         }
 
-        let gqarc = self.chunksys.finished_geo_queue.clone();
+        let gqarc = self.chunksys.read().unwrap().finished_geo_queue.clone();
 
         match gqarc.pop() {
             Some(ready) => {
 
                 //println!("Weird!");
 
-                let bankarc = self.chunksys.geobank[ready.geo_index].clone();
+                let bankarc = self.chunksys.read().unwrap().geobank[ready.geo_index].clone();
 
-                let mut cmemlock = self.chunksys.chunk_memories.lock().unwrap();
+                let cs = self.chunksys.read().unwrap();
+
+                let mut cmemlock = cs.chunk_memories.lock().unwrap();
 
                 cmemlock.memories[ready.geo_index].length = ready.newlength;
                 cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
@@ -1079,7 +1083,7 @@ impl Game {
                                     //println!("Some user queue");
                                     // println!("Weird!");
                 
-                                let bankarc = self.chunksys.geobank[ready.geo_index].clone();
+                                let bankarc = self.chunksys.read().unwrap().geobank[ready.geo_index].clone();
                 
                                 //let mut cmemlock = self.chunksys.chunk_memories.lock().unwrap();
                 
@@ -1209,7 +1213,7 @@ impl Game {
                 ),
                 0,
             );
-            let fc = Planets::get_fog_col(self.chunksys.planet_type as u32);
+            let fc = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
             gl::Uniform4f(
                 FOGCOL_LOC,
                 fc.0, 
@@ -1220,9 +1224,9 @@ impl Game {
 
             drop(cam_lock);
         }
-
-
-        let cmem = self.chunksys.chunk_memories.lock().unwrap();
+        
+        let cs = self.chunksys.read().unwrap();
+        let cmem = cs.chunk_memories.lock().unwrap();
         for (index, cfl) in cmem.memories.iter().enumerate() {
             if cfl.used {
                 let dd1: Mutex<Vec<u32>> = Mutex::new(Vec::new());
@@ -1322,7 +1326,7 @@ impl Game {
             println!("No thread to join or already joined.");
         }
         
-        for i in &self.chunksys.geobank {
+        for i in &self.chunksys.read().unwrap().geobank {
             unsafe {
                 gl::DeleteBuffers(1, &i.vbo32);
                 gl::DeleteBuffers(1, &i.tvbo32);
@@ -1334,7 +1338,10 @@ impl Game {
         self.non_static_model_entities.clear();
         let mut csys = ChunkSystem::new(newradius, seed, nt);
         csys.voxel_models = Some(self.voxel_models.clone());
-        self.chunksys = Arc::new(csys);
+        self.chunksys = Arc::new(RwLock::new(csys));
+
+        // self.chunksys.reset(0, 0, 0);
+
         self.drops.csys = self.chunksys.clone();
 
         let mut rng = StdRng::from_entropy();
@@ -1358,7 +1365,7 @@ impl Game {
         self.coll_cage.solid_pred  = {
             let csys_arc = Arc::clone(&self.chunksys);
             Box::new(move |v: vec::IVec3| {
-                return csys_arc.collision_predicate(v)
+                return csys_arc.read().unwrap().collision_predicate(v)
             })
         };
 
@@ -1367,7 +1374,7 @@ impl Game {
         let mut ship_back = vec::IVec3::new(10,200,0);
          // Function to decrement y until a block is found
         fn find_ground_y(position: &mut vec::IVec3, game: &Game) {
-            while game.chunksys.blockat(*position) == 0 {
+            while game.chunksys.read().unwrap().blockat(*position) == 0 {
                 position.y -= 1;
             }
         }
@@ -1423,13 +1430,16 @@ impl Game {
         };
     }
 
-    pub fn chunk_thread_inner_function(cam_arc: &Arc<Mutex<Camera>>, csys_arc: &Arc<ChunkSystem>, last_user_c_pos: &mut vec::IVec2) {
+    pub fn chunk_thread_inner_function(cam_arc: &Arc<Mutex<Camera>>, csys_arc: &Arc<RwLock<ChunkSystem>>, last_user_c_pos: &mut vec::IVec2) {
 
 
         
 
         let mut userstuff = true;
         while userstuff {
+
+            let csys_arc = csys_arc.read().unwrap();
+
             match csys_arc.user_rebuild_requests.pop() {
                 Some(index) => {
                     csys_arc.rebuild_index(index, true);
@@ -1441,6 +1451,8 @@ impl Game {
         }
         let mut genstuff = true;
         while genstuff {
+            let csys_arc = csys_arc.read().unwrap();
+
             match csys_arc.gen_rebuild_requests.pop() {
                 Some(index) => {
                     csys_arc.rebuild_index(index, true);
@@ -1471,6 +1483,7 @@ impl Game {
 
         let mut backgroundstuff = true;
         while backgroundstuff {
+            let csys_arc = csys_arc.read().unwrap();
             match csys_arc.background_rebuild_requests.pop() {
                 Some(index) => {
                     csys_arc.rebuild_index(index, false);
@@ -1551,6 +1564,8 @@ impl Game {
                 };
                 drop(cam_lock);
 
+                let csys_arc = csys_arc.read().unwrap();
+
                 let tcarc = csys_arc.takencare.clone();
                 for i in -(csys_arc.radius as i32)..(csys_arc.radius as i32) {
                     for k in -(csys_arc.radius as i32)..(csys_arc.radius as i32) {
@@ -1615,7 +1630,7 @@ impl Game {
     pub fn chunk_thread_function(
         runcheck: &AtomicBool,
         cam_arc: Arc<Mutex<Camera>>,
-        csys_arc: Arc<ChunkSystem>,
+        csys_arc: Arc<RwLock<ChunkSystem>>,
     ) {
         //static mut TEMP_COUNT: i32 = 0;
 
@@ -1684,11 +1699,14 @@ impl Game {
             self.vars.first_mouse = true;
         }
     }
-    pub fn delete_block_recursively(chunksys: &Arc<ChunkSystem>, id: u32, at: IVec3, set: &mut HashSet<IVec2>) {
+    pub fn delete_block_recursively(chunksys: &Arc<RwLock<ChunkSystem>>, id: u32, at: IVec3, set: &mut HashSet<IVec2>) {
         let mut stack = vec![at]; // Initialize stack with initial position
     
         while let Some(current) = stack.pop() {
             // Check if the block at the current position is already deleted
+
+            let chunksys = chunksys.read().unwrap();
+
             if chunksys.blockat(current) != 0 {
                 // Set the block at the current position
                 chunksys.set_block(current, 0, true);
@@ -1708,12 +1726,12 @@ impl Game {
         let cl = self.camera.lock().unwrap();
         match raycast_voxel(cl.position, cl.direction, &self.chunksys, 10.0) {
             Some((tip, block_hit)) => {
-                let blockat = self.chunksys.blockat(block_hit);
+                let blockat = self.chunksys.read().unwrap().blockat(block_hit);
                 if blockat == 16 {
                     let mut set: HashSet<IVec2> = HashSet::new();
                     Game::delete_block_recursively(&self.chunksys, 16,  block_hit, &mut set);
                     for key in set {
-                        self.chunksys.queue_rerender_with_key(key, true)
+                        self.chunksys.read().unwrap().queue_rerender_with_key(key, true)
                     }
                     self.drops.add_drop(tip, 17);
                 } else {
@@ -1721,7 +1739,7 @@ impl Game {
                         self.drops.add_drop(tip, blockat);
                     }
                     
-                    self.chunksys.set_block_and_queue_rerender(block_hit, 0, true, true);
+                    self.chunksys.read().unwrap().set_block_and_queue_rerender(block_hit, 0, true, true);
                 }
                 
                 
@@ -1782,7 +1800,7 @@ impl Game {
 
                 let place_point = block_hit + hit_normal;
                     println!("Placing {} at {} {} {}", 1, place_point.x, place_point.y, place_point.z);
-                    self.chunksys.set_block_and_queue_rerender(place_point, id, false, true);
+                    self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, id, false, true);
                 }
 
                 None => {}
@@ -1833,10 +1851,10 @@ impl Game {
         unsafe {
             self.vars.hostile_world = (CURR_NT % 2) == 0;
             CURR_NT = (CURR_NT + 1) % 2;
-            *self.chunksys.currentseed.write().unwrap() = seed;
+            *self.chunksys.read().unwrap().currentseed.write().unwrap() = seed;
             self.start_chunks_with_radius(10, seed, CURR_NT);
 
-            println!("Now noise type is {}", self.chunksys.planet_type);
+            println!("Now noise type is {}", self.chunksys.read().unwrap().planet_type);
         }
 
         // self.chunksys.load_world_from_file(String::from("saves/world1"));
@@ -1892,7 +1910,7 @@ impl Game {
             }
             Key::L => {
                 if action == Action::Press {
-                    self.chunksys.save_current_world_to_file(String::from("saves/world1"));
+                    self.chunksys.read().unwrap().save_current_world_to_file(String::from("saves/world1"));
                 }
             }
             // Key::Num8 => {

@@ -2,13 +2,14 @@
 
 
 use std::collections::HashMap;
+use std::sync::RwLock;
 use glam::{Vec3};
 use vox_format::chunk::Chunk;
 use crate::chunk::ChunkSystem;
 use crate::vec::IVec3;
 
 
-pub fn raycast_voxel(origin: Vec3, direction: Vec3, csys: &ChunkSystem, max_distance: f32) -> Option<(Vec3, IVec3)> {
+pub fn raycast_voxel(origin: Vec3, direction: Vec3, csys: &RwLock<ChunkSystem>, max_distance: f32) -> Option<(Vec3, IVec3)> {
     let step_size = 0.1; // Smaller step sizes increase accuracy but decrease performance
     let direction = direction.normalize(); // Ensure the direction vector is normalized
     let mut current_pos = origin;
@@ -20,7 +21,7 @@ pub fn raycast_voxel(origin: Vec3, direction: Vec3, csys: &ChunkSystem, max_dist
             z: current_pos.z.floor() as i32,
         };
 
-        if csys.collision_predicate(grid_pos) {
+        if csys.read().unwrap().collision_predicate(grid_pos) {
             // Hit a block, return the current position and the grid position
             return Some((current_pos, grid_pos));
         }

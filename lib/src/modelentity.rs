@@ -1,6 +1,6 @@
 
 
-use std::{ops::Bound, sync::{Arc, Mutex}};
+use std::{ops::Bound, sync::{Arc, Mutex, RwLock}};
 
 use glam::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
@@ -75,7 +75,7 @@ pub struct ModelEntity {
     pub up: Vec3,
     pub behavior_timer: f32,
     pub rng: StdRng,
-    pub csys: Arc<ChunkSystem>,
+    pub csys: Arc<RwLock<ChunkSystem>>,
     pub cam: Arc<Mutex<Camera>>,
     pub target: AggroTarget,
     pub speedfactor: f32,
@@ -89,13 +89,13 @@ pub struct ModelEntity {
 
 impl ModelEntity {
     
-    pub fn new_with_jump_height(model_index: usize, pos: Vec3, scale: f32, rot: Vec3, csys: &Arc<ChunkSystem>, cam: &Arc<Mutex<Camera>>, jump_height: f32) -> ModelEntity {
+    pub fn new_with_jump_height(model_index: usize, pos: Vec3, scale: f32, rot: Vec3, csys: &Arc<RwLock<ChunkSystem>>, cam: &Arc<Mutex<Camera>>, jump_height: f32) -> ModelEntity {
         let mut modent = ModelEntity::new(model_index, pos, scale, rot, csys, cam);
         modent.allowable_jump_height = jump_height;
         modent
     }
 
-    pub fn new(model_index: usize, pos: Vec3, scale: f32, rot: Vec3, csys: &Arc<ChunkSystem>, cam: &Arc<Mutex<Camera>>) -> ModelEntity {
+    pub fn new(model_index: usize, pos: Vec3, scale: f32, rot: Vec3, csys: &Arc<RwLock<ChunkSystem>>, cam: &Arc<Mutex<Camera>>) -> ModelEntity {
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
             //let csys_arc = Arc::clone(&chunksys);

@@ -175,7 +175,7 @@ impl Game {
                         });
     
                         // Rasterize the triangle and update the collision map
-                        rasterize_triangle(transformed_triangle, &self.chunksys.justcollisionmap);
+                        rasterize_triangle(transformed_triangle, &self.chunksys.read().unwrap().justcollisionmap);
                     }
                 }
             }
@@ -196,7 +196,7 @@ impl Game {
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
             let csys_arc = Arc::clone(&self.chunksys);
             Box::new(move |v: vec::IVec3| {
-                return csys_arc.collision_predicate(v);
+                return csys_arc.read().unwrap().collision_predicate(v);
             })
         };
 
@@ -442,7 +442,7 @@ impl Game {
                                 8.0
                             );
 
-                            let fogcol = Planets::get_fog_col(self.chunksys.planet_type as u32);
+                            let fogcol = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
 
                             gl::Uniform4f(
                                 gl::GetUniformLocation(

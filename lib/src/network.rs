@@ -7,6 +7,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use bincode;
 use glam::Vec3;
+use lockfree::queue::Queue;
 
 use crate::chunk::ChunkSystem;
 use crate::server_types::{Message, MessageType};
@@ -19,18 +20,20 @@ pub struct NetworkConnector {
     pub sendthread: Option<JoinHandle<()>>,
     pub shouldrun: Arc<AtomicBool>,
     pub csys: Arc<RwLock<ChunkSystem>>,
-    pub received_world: Arc<AtomicBool>
+    pub received_world: Arc<AtomicBool>,
+    pub commqueue: Arc<Queue<Message>>
 }
 
 impl NetworkConnector {
-    pub fn new(csys: &Arc<RwLock<ChunkSystem>>) -> NetworkConnector {
+    pub fn new(csys: &Arc<RwLock<ChunkSystem>>, commqueue: &Arc<Queue<Message>>) -> NetworkConnector {
         NetworkConnector {
             stream: None,
             recvthread: None,
             sendthread: None,
             shouldrun: Arc::new(AtomicBool::new(false)),
             csys: csys.clone(),
-            received_world: Arc::new(AtomicBool::new(false))
+            received_world: Arc::new(AtomicBool::new(false)),
+            commqueue: commqueue.clone()
         }
     }
 
@@ -75,6 +78,8 @@ impl NetworkConnector {
 
         let recv_world_bool = self.received_world.clone();
 
+        let commqueue = self.commqueue.clone();
+
         self.sendthread = Some(thread::spawn(move || {
             let sr = sr2.clone();
             let stream = stream2.clone();
@@ -89,6 +94,7 @@ impl NetworkConnector {
         self.recvthread = Some(thread::spawn(move || {
             let mut buffer = vec![0; PACKET_SIZE];
             let csys = csys.clone();
+
 
             
             let requdm = Message::new(MessageType::RequestUdm, Vec3::ZERO, 0.0, 0);
@@ -167,6 +173,15 @@ impl NetworkConnector {
                                     csys.write().unwrap().load_world_from_file(String::from("mp"));
                                     recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
                                     stream_lock.set_nonblocking(true).unwrap();
+                                },
+                                MessageType::RequestTakeoff => {
+                                    commqueue.push(recv_m.clone());
+                                },
+                                MessageType::RequestPt => {
+                                    
+                                },
+                                MessageType::Pt => {
+                                    
                                 },
                             }
 

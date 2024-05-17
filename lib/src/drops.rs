@@ -7,7 +7,7 @@ use vox_format::chunk::Chunk;
 
 use crate::{camera::Camera, chunk::ChunkSystem, collisioncage::{BoundBox, CollCage, Side}, game::Game, shader::Shader, vec};
 
-use crate::game::Inventory;
+use crate::inventory::Inventory;
 
 
 

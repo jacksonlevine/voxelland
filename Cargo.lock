@@ -3194,6 +3194,7 @@ dependencies = [
  "glam",
  "glfw",
  "no_deadlocks",
+ "rand 0.8.5",
  "serde",
  "tokio",
  "uuid",

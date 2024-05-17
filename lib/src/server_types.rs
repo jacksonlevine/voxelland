@@ -15,10 +15,13 @@ use glam::Vec3;
 pub enum MessageType {
     RequestUdm,
     RequestSeed,
+    RequestPt,
+    Pt,
     Udm,
     Seed,
     PlayerUpdate,
-    BlockSet
+    BlockSet,
+    RequestTakeoff,
 }
 
 impl Display for MessageType {
@@ -41,6 +44,15 @@ impl Display for MessageType {
             },
             MessageType::Seed => {
                 write!(f, "Seed")
+            },
+            MessageType::RequestTakeoff => {
+                write!(f, "RequestTakeoff")
+            },
+            MessageType::RequestPt => {
+                write!(f, "RequestPt")
+            },
+            MessageType::Pt => {
+                write!(f, "Pt")
             },
         }
     } 

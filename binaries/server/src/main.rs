@@ -1,3 +1,5 @@
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use serde::{Serialize, Deserialize};
 use tokio::fs;
 use voxelland::chunk::ChunkSystem;
@@ -76,6 +78,18 @@ async fn handle_client(client_id: Uuid, clients: Arc<Mutex<HashMap<Uuid, Client>
                                 //(IT WILL "COMPRESS" WHEN THE SERVER RELOADS)
                                 csys.save_current_world_to_file(String::from("world"));
                                 
+                            },
+                            MessageType::RequestTakeoff => {
+                                let mut rng = StdRng::from_entropy();
+                                let newseed: u32 = rng.gen();
+                                let mut csys = csys.write().await;
+                                let curr_planet_type = csys.planet_type;
+                                csys.reset(0, newseed, ((curr_planet_type + 1) % 2) as usize);
+
+
+                            }
+                            MessageType::RequestPt => {
+                                
                             }
                             _ => {
 
@@ -142,7 +156,7 @@ async fn main() {
 
     window.set_should_close(true);
 
-    let csys = ChunkSystem::new(10, 0, 0);
+    let csys = ChunkSystem::new(0, 0, 0);
     
     csys.load_world_from_file(String::from("world"));
 

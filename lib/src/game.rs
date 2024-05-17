@@ -10,6 +10,7 @@ use glam::{Mat4, Vec2, Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
 use glfw::{Action, Key, MouseButton, PWindow};
 use gltf::Gltf;
+use lockfree::queue::Queue;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use vox_format::types::Model;
@@ -43,6 +44,7 @@ use crate::textureface::TextureFace;
 use crate::vec::{self, IVec2, IVec3};
 use crate::voxmodel::JVoxModel;
 use crate::worldgeometry::WorldGeometry;
+use crate::inventory::*;
 use std::sync::RwLock;
 #[derive(Clone)]
 pub struct AnimationChannel {
@@ -127,10 +129,7 @@ pub struct GameVariables {
     in_multiplayer: bool
 }
 
-pub struct Inventory {
-    pub dirty: bool,
-    pub inv: [(u32, u32); 5]
-}
+
 
 pub struct Game {
     pub chunksys: Arc<RwLock<ChunkSystem>>,
@@ -178,7 +177,8 @@ pub struct Game {
     pub skins: Vec<Skin>,
     pub nodes: Vec<Vec<Node>>,
     pub current_time: f32,
-    pub netconn: NetworkConnector
+    pub netconn: NetworkConnector,
+    pub server_command_queue: Arc<lockfree::queue::Queue<Message>>
 }
 
 enum FaderNames {
@@ -338,6 +338,10 @@ impl Game {
             ]
         }));
 
+        let server_command_queue = Arc::new(Queue::<Message>::new());
+
+        
+
         let mut g = Game {
             chunksys: chunksys.clone(),
             shader0,
@@ -402,7 +406,8 @@ impl Game {
             skins: Vec::new(),
             nodes: Vec::new(),
             current_time: 0.0,
-            netconn: NetworkConnector::new(&chunksys)
+            netconn: NetworkConnector::new(&chunksys, &server_command_queue),
+            server_command_queue: server_command_queue.clone()
         };
 
 
@@ -478,7 +483,7 @@ impl Game {
         while !g.netconn.received_world.load(Ordering::Relaxed) {
             thread::sleep(Duration::from_millis(500));
         }
-        
+
         g.rebuild_whole_world_while_showing_loading_screen();
 
         g.audiop.play("assets/music/Farfromhome.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
@@ -649,6 +654,23 @@ impl Game {
         self.delta_time = current_time - self.prev_time;
 
         self.prev_time = current_time;
+
+        match self.server_command_queue.pop() {
+            Some(comm) => {
+                match comm.message_type {
+                    MessageType::RequestTakeoff => {
+                        self.takeoff_ship();
+                    }
+                    _ => {
+
+                    }
+                }
+            }
+            None => {
+
+            }
+        }
+
         for i in self.faders.write().unwrap().iter_mut().enumerate() {
             if i.1.tick(self.delta_time) {
                 if i.0 == (FaderNames::FovFader as usize) {
@@ -1315,7 +1337,7 @@ impl Game {
     }
 
     
-    pub fn start_chunks_with_radius(&mut self, newradius: u8, seed: u32, nt: usize) {
+    pub fn go_to_new_world(&mut self, newradius: u8, seed: u32, nt: usize) {
 
         (*self.run_chunk_thread).store(false, Ordering::Relaxed);
 
@@ -1862,7 +1884,7 @@ impl Game {
             self.vars.hostile_world = (CURR_NT % 2) == 0;
             CURR_NT = (CURR_NT + 1) % 2;
             *self.chunksys.read().unwrap().currentseed.write().unwrap() = seed;
-            self.start_chunks_with_radius(10, seed, CURR_NT);
+            self.go_to_new_world(10, seed, CURR_NT);
 
             println!("Now noise type is {}", self.chunksys.read().unwrap().planet_type);
         }
@@ -1915,7 +1937,12 @@ impl Game {
             }
             Key::M => {
                 if action == Action::Press {
-                    self.takeoff_ship();
+                    if self.vars.in_multiplayer {
+                        self.netconn.send(&Message::new(MessageType::RequestTakeoff, Vec3::ZERO, 0.0, 0));
+                    } else {
+                        self.takeoff_ship();
+                    }
+                    
                 }
             }
             Key::L => {

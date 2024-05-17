@@ -13,8 +13,10 @@ use glam::Vec3;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MessageType {
-    RequestWorld,
+    RequestUdm,
     RequestSeed,
+    Udm,
+    Seed,
     PlayerUpdate,
     BlockSet
 }
@@ -22,8 +24,8 @@ pub enum MessageType {
 impl Display for MessageType {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            MessageType::RequestWorld => {
-                write!(f, "RequestWorld")
+            MessageType::RequestUdm => {
+                write!(f, "RequestUdm")
             },
             MessageType::RequestSeed => {
                 write!(f, "RequestSeed")
@@ -33,6 +35,12 @@ impl Display for MessageType {
             },
             MessageType::BlockSet => {
                 write!(f, "BlockSet")
+            },
+            MessageType::Udm => {
+                write!(f, "Udm")
+            },
+            MessageType::Seed => {
+                write!(f, "Seed")
             },
         }
     } 

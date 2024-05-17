@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use std::f32::consts::PI;
 use std::io::Write;
 use std::slice::Chunks;
+use std::time::Duration;
 use gl::types::{GLenum, GLuint};
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
@@ -225,9 +226,11 @@ impl Game {
 
         let mut csys = ChunkSystem::new(10, 0, 0);
 
-        csys.load_world_from_file(String::from("saves/world1"));
+        //csys.load_world_from_file(String::from("saves/world1"));
+
+
         //self.vars.hostile_world = false;
-        let seed = *csys.currentseed.read().unwrap();
+        //let seed = *csys.currentseed.read().unwrap();
         //self.start_chunks_with_radius(10, seed, 0);
         //self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
 
@@ -420,18 +423,7 @@ impl Game {
             g.netconn.connect(String::from("127.0.0.1:6969"));
             println!("Connected to the server!");
 
-            let message = Message {
-                message_type: MessageType::RequestSeed,
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-                rot: 0.0,
-                info: 0,
-            };
-        
-            g.netconn.send(&message);
-
-            println!("Sent message to the server!");
+            
         }
             
 
@@ -483,6 +475,10 @@ impl Game {
 
 
         //ChunkSystem::initial_rebuild_on_main_thread(&g.chunksys.clone(), &g.shader0, &g.camera.lock().unwrap().position);
+        while !g.netconn.received_world.load(Ordering::Relaxed) {
+            thread::sleep(Duration::from_millis(500));
+        }
+        
         g.rebuild_whole_world_while_showing_loading_screen();
 
         g.audiop.play("assets/music/Farfromhome.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));

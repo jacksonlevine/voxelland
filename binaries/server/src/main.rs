@@ -1,11 +1,13 @@
 use serde::{Serialize, Deserialize};
+use tokio::fs;
 use voxelland::chunk::ChunkSystem;
+use voxelland::vec::IVec3;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::time::{self, Duration};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 use glam::Vec3;
 
@@ -19,7 +21,7 @@ pub struct Client {
     errorstrikes: i8,
 }
 
-async fn handle_client(client_id: Uuid, clients: Arc<Mutex<HashMap<Uuid, Client>>>) {
+async fn handle_client(client_id: Uuid, clients: Arc<Mutex<HashMap<Uuid, Client>>>, csys: &Arc<RwLock<ChunkSystem>>) {
     let mut buffer;
     unsafe {
         buffer = vec![0; PACKET_SIZE];
@@ -40,17 +42,40 @@ async fn handle_client(client_id: Uuid, clients: Arc<Mutex<HashMap<Uuid, Client>
                     if numbytes > 0 {
                         let message: Message = bincode::deserialize(&buffer[..numbytes]).unwrap();
                         match message.message_type {
-                            MessageType::RequestWorld => {
+                            MessageType::RequestUdm => {
                                 println!("Recvd req world");
+                                let world = fs::read_to_string("world/udm").await.unwrap();
+
+                                let udmmsg = Message::new(MessageType::Udm, Vec3::ZERO, 0.0, bincode::serialized_size(&world).unwrap() as u32);
+                                mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).await.unwrap();
+
+                                mystream.write_all(&bincode::serialize(&world).unwrap()).await.unwrap();
                             }
                             MessageType::RequestSeed => {
                                 println!("Recvd req seed");
+                                let seed = fs::read_to_string("world/seed").await.unwrap();
+
+                                let seedmsg = Message::new(MessageType::Seed, Vec3::ZERO, 0.0, bincode::serialized_size(&seed).unwrap() as u32);
+                                mystream.write_all(&bincode::serialize(&seedmsg).unwrap()).await.unwrap();
+
+                                mystream.write_all(&bincode::serialize(&seed).unwrap()).await.unwrap();
                             }
                             MessageType::PlayerUpdate => {
                                 println!("Recvd player update");
                             }
                             MessageType::BlockSet => {
                                 println!("Recvd block set");
+                                let spot = IVec3::new(message.x as i32, message.y as i32, message.z as i32);
+                                let block = message.info;
+                            
+                                let csys = csys.write().await;
+                                //TODO: MAKE THIS CSYS NOT QUEUE ANYTHING SO THEY DONT BUILD UP FOR NOTHING
+                                csys.set_block(spot, block, true);
+
+                                //TODO: MAKE THIS JUST WRITE A NEW LINE TO THE FILE INSTEAD OF REWRITING THE WHOLE THING
+                                //(IT WILL "COMPRESS" WHEN THE SERVER RELOADS)
+                                csys.save_current_world_to_file(String::from("world"));
+                                
                             }
                             _ => {
 
@@ -121,6 +146,8 @@ async fn main() {
     
     csys.load_world_from_file(String::from("world"));
 
+    let csysarc = Arc::new(RwLock::new(csys));
+
 
     loop {
         match listener.accept().await {
@@ -139,8 +166,9 @@ async fn main() {
                 drop(locked_clients);
 
                 let clients_ref_clone = Arc::clone(&clients);
+                let csysarc_clone = Arc::clone(&csysarc);
                 tokio::spawn(async move {
-                    handle_client(client_id, clients_ref_clone).await;
+                    handle_client(client_id, clients_ref_clone, &csysarc_clone).await;
                 });
             }
             Err(e) => {

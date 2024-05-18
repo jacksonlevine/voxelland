@@ -42,7 +42,15 @@ async fn handle_client(client_id: Uuid, clients: Arc<Mutex<HashMap<Uuid, Client>
             match mystream.read(&mut buffer).await {
                 Ok(numbytes) => {
                     if numbytes > 0 {
-                        let message: Message = bincode::deserialize(&buffer[..numbytes]).unwrap();
+                        let message: Message = match bincode::deserialize(&buffer[..numbytes]) {
+                            Ok(m) => {
+                                m
+                            }
+                            Err(e) => {
+                                println!("Erroneous message received!");
+                                Message::new(MessageType::None, Vec3::ZERO, 0.0, 0)
+                            }
+                        };
                         match message.message_type {
                             MessageType::RequestUdm => {
                                 let csys = csys.read().await;
@@ -96,7 +104,6 @@ async fn handle_client(client_id: Uuid, clients: Arc<Mutex<HashMap<Uuid, Client>
                                 csys.reset(0, newseed, ((curr_planet_type + 1) % 2) as usize);
                                 csys.save_current_world_to_file(format!("world/{}", newseed));
                                 println!("Reset csys");
-                                
                             }
                             MessageType::RequestPt => {
                                 let csys = csys.read().await;
@@ -157,6 +164,8 @@ async fn handle_client(client_id: Uuid, clients: Arc<Mutex<HashMap<Uuid, Client>
 
 #[tokio::main]
 async fn main() {
+    println!("Welcome to VoxelLand Server Version 0.1.0.");
+    println!("Hosting on port 6969.");
     let listener = TcpListener::bind("0.0.0.0:6969").await.unwrap();
     let clients = Arc::new(Mutex::new(HashMap::new()));
     unsafe {

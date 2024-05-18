@@ -126,6 +126,9 @@ impl NetworkConnector {
                             let recv_m: Message = bincode::deserialize(&buffer[..size]).unwrap();
 
                             match recv_m.message_type {
+                                MessageType::None => {
+                                    
+                                }
                                 MessageType::RequestUdm => {
 
                                 },

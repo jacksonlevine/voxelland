@@ -13,6 +13,7 @@ use glam::Vec3;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MessageType {
+    None,
     RequestUdm,
     RequestSeed,
     RequestPt,
@@ -54,6 +55,9 @@ impl Display for MessageType {
             MessageType::Pt => {
                 write!(f, "Pt")
             },
+            MessageType::None => {
+                write!(f, "None")
+            }
         }
     } 
 }

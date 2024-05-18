@@ -207,7 +207,7 @@ impl Game {
         let tex = Texture::new("assets/world.png").unwrap();
         tex.add_to_unit(0);
 
-        let voxel_models = vec! [
+        let voxel_models = vec![
             JVoxModel::new("assets/voxelmodels/bush.vox"),
             JVoxModel::new("assets/voxelmodels/tree1.vox"),
             JVoxModel::new("assets/voxelmodels/tree2.vox"),
@@ -224,7 +224,7 @@ impl Game {
         //let seed = rng.gen_range(0..229232);
 
 
-        let mut csys = ChunkSystem::new(10, 0, 0);
+        let mut csys = ChunkSystem::new(10, 0, 0, false);
 
         //csys.load_world_from_file(String::from("saves/world1"));
 
@@ -485,6 +485,7 @@ impl Game {
         }
 
         g.rebuild_whole_world_while_showing_loading_screen();
+        g.vars.hostile_world = (g.chunksys.read().unwrap().planet_type % 2) != 0;
 
         g.audiop.play("assets/music/Farfromhome.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
         g.audiop.play("assets/sfx/shipland28sec.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
@@ -718,7 +719,10 @@ impl Game {
 
                 } else {
                     
+                   
                     self.new_world_func();
+                    
+                    
                     self.audiop.play("assets/sfx/shipland28sec.mp3", &self.ship_pos, &Vec3::ZERO);
                     
                     self.vars.on_new_world = true;
@@ -1337,7 +1341,7 @@ impl Game {
     }
 
     
-    pub fn go_to_new_world(&mut self, newradius: u8, seed: u32, nt: usize) {
+    pub fn start_chunks_with_radius(&mut self, newradius: u8, seed: u32, nt: usize) {
 
         (*self.run_chunk_thread).store(false, Ordering::Relaxed);
 
@@ -1405,6 +1409,10 @@ impl Game {
 
         // Determine the highest y position found
         let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y) + 10;
+
+
+
+
         self.rebuild_whole_world_while_showing_loading_screen();
         // Update the ship's position
         ship_pos.y = decided_pos_y;
@@ -1873,21 +1881,48 @@ impl Game {
     }
 
     pub fn new_world_func(&mut self) {
-        let mut rng = StdRng::from_entropy();
-
-        let seed: u32 = rng.gen_range(0..2232328);
 
 
-        static mut CURR_NT: usize = 0;
-        self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
-        unsafe {
-            self.vars.hostile_world = (CURR_NT % 2) == 0;
-            CURR_NT = (CURR_NT + 1) % 2;
-            *self.chunksys.read().unwrap().currentseed.write().unwrap() = seed;
-            self.go_to_new_world(10, seed, CURR_NT);
+        if self.vars.in_multiplayer {
+            self.netconn.received_world.store(false, Ordering::Relaxed);
+            let msg = Message::new(MessageType::RequestUdm, Vec3::ZERO, 0.0, 0);
+            self.netconn.send(&msg);
 
-            println!("Now noise type is {}", self.chunksys.read().unwrap().planet_type);
+            while !self.netconn.received_world.load(Ordering::Relaxed) {
+                thread::sleep(Duration::from_millis(500));
+            }
+
+            let csysread = self.chunksys.read().unwrap();
+            let currseed = *(csysread.currentseed.read().unwrap());
+            let nt = csysread.planet_type;
+            drop(csysread);
+
+            self.vars.hostile_world = (nt % 2) != 0;
+
+            self.start_chunks_with_radius(10, currseed, nt as usize);
+
+        } else {
+            let mut rng = StdRng::from_entropy();
+
+            let seed: u32 = rng.gen_range(0..2232328);
+
+
+            static mut CURR_NT: usize = 0;
+            self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
+
+            
+            unsafe {
+                self.vars.hostile_world = (CURR_NT % 2) == 0;
+                CURR_NT = (CURR_NT + 1) % 2;
+                *self.chunksys.read().unwrap().currentseed.write().unwrap() = seed;
+                self.start_chunks_with_radius(10, seed, CURR_NT);
+
+                println!("Now noise type is {}", self.chunksys.read().unwrap().planet_type);
+            }
         }
+
+
+        
 
         // self.chunksys.load_world_from_file(String::from("saves/world1"));
         // self.vars.hostile_world = false;

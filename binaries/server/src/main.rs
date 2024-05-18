@@ -45,8 +45,10 @@ async fn handle_client(client_id: Uuid, clients: Arc<Mutex<HashMap<Uuid, Client>
                         let message: Message = bincode::deserialize(&buffer[..numbytes]).unwrap();
                         match message.message_type {
                             MessageType::RequestUdm => {
+                                let csys = csys.read().await;
+                                let currseed = *(csys.currentseed.read().unwrap());
                                 println!("Recvd req world");
-                                let world = fs::read_to_string("world/udm").await.unwrap();
+                                let world = fs::read_to_string(format!("world/{}/udm", currseed)).await.unwrap();
 
                                 let udmmsg = Message::new(MessageType::Udm, Vec3::ZERO, 0.0, bincode::serialized_size(&world).unwrap() as u32);
                                 mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).await.unwrap();
@@ -54,8 +56,10 @@ async fn handle_client(client_id: Uuid, clients: Arc<Mutex<HashMap<Uuid, Client>
                                 mystream.write_all(&bincode::serialize(&world).unwrap()).await.unwrap();
                             }
                             MessageType::RequestSeed => {
+                                let csys = csys.read().await;
+                                let currseed = *(csys.currentseed.read().unwrap());
                                 println!("Recvd req seed");
-                                let seed = fs::read_to_string("world/seed").await.unwrap();
+                                let seed = fs::read_to_string(format!("world/{}/seed", currseed)).await.unwrap();
 
                                 let seedmsg = Message::new(MessageType::Seed, Vec3::ZERO, 0.0, bincode::serialized_size(&seed).unwrap() as u32);
                                 mystream.write_all(&bincode::serialize(&seedmsg).unwrap()).await.unwrap();
@@ -71,25 +75,40 @@ async fn handle_client(client_id: Uuid, clients: Arc<Mutex<HashMap<Uuid, Client>
                                 let block = message.info;
                             
                                 let csys = csys.write().await;
+                                let currseed = *(csys.currentseed.read().unwrap());
                                 //TODO: MAKE THIS CSYS NOT QUEUE ANYTHING SO THEY DONT BUILD UP FOR NOTHING
                                 csys.set_block(spot, block, true);
 
                                 //TODO: MAKE THIS JUST WRITE A NEW LINE TO THE FILE INSTEAD OF REWRITING THE WHOLE THING
                                 //(IT WILL "COMPRESS" WHEN THE SERVER RELOADS)
-                                csys.save_current_world_to_file(String::from("world"));
-                                
+                                csys.save_current_world_to_file(format!("world/{}", currseed));
                             },
                             MessageType::RequestTakeoff => {
+                                println!("Recvd req takeoff");
                                 let mut rng = StdRng::from_entropy();
+                                println!("Created rng");
                                 let newseed: u32 = rng.gen();
+                                println!("Newseed: {}", newseed);
                                 let mut csys = csys.write().await;
+                                println!("Got csys lock");
                                 let curr_planet_type = csys.planet_type;
+                                println!("Got planet type");
                                 csys.reset(0, newseed, ((curr_planet_type + 1) % 2) as usize);
-
-
+                                csys.save_current_world_to_file(format!("world/{}", newseed));
+                                println!("Reset csys");
+                                
                             }
                             MessageType::RequestPt => {
-                                
+                                let csys = csys.read().await;
+                                let currseed = *(csys.currentseed.read().unwrap());
+                                let currpt = csys.planet_type;
+                                println!("Recvd req pt");
+                                let pt = fs::read_to_string(format!("world/{}/pt", currseed)).await.unwrap();
+
+                                let ptmsg: Message = Message::new(MessageType::Pt, Vec3::ZERO, 0.0, bincode::serialized_size(&pt).unwrap() as u32);
+                                mystream.write_all(&bincode::serialize(&ptmsg).unwrap()).await.unwrap();
+
+                                mystream.write_all(&bincode::serialize(&pt).unwrap()).await.unwrap();
                             }
                             _ => {
 
@@ -156,9 +175,11 @@ async fn main() {
 
     window.set_should_close(true);
 
-    let csys = ChunkSystem::new(0, 0, 0);
+    let initialseed: u32 = 0;
+
+    let mut csys = ChunkSystem::new(0, initialseed, 0, true);
     
-    csys.load_world_from_file(String::from("world"));
+    csys.load_world_from_file(format!("world/{}", initialseed));
 
     let csysarc = Arc::new(RwLock::new(csys));
 

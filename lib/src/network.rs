@@ -60,6 +60,8 @@ impl NetworkConnector {
         stream.write_all(&serialized_message).unwrap();
     }
 
+
+
     pub fn connect<A: ToSocketAddrs>(&mut self, address: A) {
         self.shouldrun.store(true, std::sync::atomic::Ordering::Relaxed);
         const PACKET_SIZE: usize = 90000;
@@ -99,6 +101,7 @@ impl NetworkConnector {
             
             let requdm = Message::new(MessageType::RequestUdm, Vec3::ZERO, 0.0, 0);
             let reqseed = Message::new(MessageType::RequestSeed, Vec3::ZERO, 0.0, 0);
+            let reqpt = Message::new(MessageType::RequestPt, Vec3::ZERO, 0.0, 0);
             NetworkConnector::sendto(&requdm, &stream);
 
             while sr.load(std::sync::atomic::Ordering::Relaxed) {
@@ -170,9 +173,8 @@ impl NetworkConnector {
                                     println!("{}", recv_s);
 
                                     file.write_all(recv_s.as_bytes()).unwrap();
-                                    csys.write().unwrap().load_world_from_file(String::from("mp"));
-                                    recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
-                                    stream_lock.set_nonblocking(true).unwrap();
+                                    
+                                    NetworkConnector::sendtolocked(&reqpt, &mut stream_lock);
                                 },
                                 MessageType::RequestTakeoff => {
                                     commqueue.push(recv_m.clone());
@@ -181,7 +183,20 @@ impl NetworkConnector {
                                     
                                 },
                                 MessageType::Pt => {
+                                    println!("Receiving Pt:");
+                                    let mut buff = vec![0 as u8; recv_m.info as usize];
+                                    stream_lock.read_exact(&mut buff).unwrap();
+                                    fs::create_dir_all("mp").unwrap();
+                                    let mut file = File::create("mp/pt").unwrap(); 
+
                                     
+                                    let recv_s: String = bincode::deserialize(&buff).unwrap();
+                                    println!("{}", recv_s);
+
+                                    file.write_all(recv_s.as_bytes()).unwrap();
+                                    csys.write().unwrap().load_world_from_file(String::from("mp"));
+                                    recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
+                                    stream_lock.set_nonblocking(true).unwrap();
                                 },
                             }
 

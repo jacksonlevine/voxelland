@@ -146,7 +146,8 @@ pub struct ChunkSystem {
     pub voxel_models: Option<Arc<Vec<JVoxModel>>>,
     pub chunk_memories: Mutex<ChunkRegistry>,
     pub planet_type: u8,
-    pub currentseed: RwLock<u32>
+    pub currentseed: RwLock<u32>,
+    pub headless: bool
 }
 
 impl ChunkSystem {
@@ -163,10 +164,14 @@ impl ChunkSystem {
         let mut file = File::create(path.clone() + "/seed").unwrap();
         writeln!(file, "{}", self.currentseed.read().unwrap()).unwrap();
 
+        let mut file = File::create(path.clone() + "/pt").unwrap();
+        writeln!(file, "{}", self.planet_type).unwrap();
+
     }
 
-    pub fn load_world_from_file(&self, path: String) {
+    pub fn load_world_from_file(&mut self, path: String) {
         self.userdatamap.clear();
+        self.nonuserdatamap.clear();
 
         match File::open(format!("{}/udm", path.clone())) {
             Ok(_) => {
@@ -200,6 +205,18 @@ impl ChunkSystem {
                 *self.currentseed.write().unwrap() = seed.parse::<u32>().unwrap();
             }
         }
+
+
+        let file = File::open(format!("{}/pt", path)).unwrap();
+        let reader = BufReader::new(file);
+    
+        for line in reader.lines() {
+            let line = line.unwrap();
+            let mut parts = line.splitn(2, ' ');
+            if let Some(pt) = parts.next() {
+                self.planet_type = pt.parse::<u8>().unwrap();
+            }
+        }
     }
 
     pub fn collision_predicate(&self, vec: vec::IVec3) -> bool {
@@ -212,50 +229,66 @@ impl ChunkSystem {
     }
 
     pub fn reset(&mut self, radius: u8, seed: u32, noisetype: usize) {
-        for cg in &self.geobank {
-            unsafe {
-                gl::DeleteBuffers(1, &cg.vbo32);
-                gl::DeleteBuffers(1, &cg.tvbo32);
-                gl::DeleteBuffers(1, &cg.vbo8);
-                gl::DeleteBuffers(1, &cg.tvbo8);
+        println!("Start of reset func");
+        if !self.headless {
+            for cg in &self.geobank {
+                unsafe {
+                    gl::DeleteBuffers(1, &cg.vbo32);
+                    gl::DeleteBuffers(1, &cg.tvbo32);
+                    gl::DeleteBuffers(1, &cg.vbo8);
+                    gl::DeleteBuffers(1, &cg.tvbo8);
+                }
             }
         }
+        
+        println!("After deleting buffers");
         self.chunks.clear();
+        println!("After clearing chunks");
         self.geobank.clear();
+        println!("After clearing geobank");
         self.chunk_memories.lock().unwrap().memories.clear();
+        println!("After clearing memories");
         self.takencare.clear();
+        println!("After clearing takencare");
         while let Some(_) = self.finished_geo_queue.pop() {}
         while let Some(_) = self.finished_user_geo_queue.pop() {}
         while let Some(_) = self.user_rebuild_requests.pop() {}
         while let Some(_) = self.gen_rebuild_requests.pop() {}
         while let Some(_) = self.background_rebuild_requests.pop() {}
+        println!("After that whole popping thing");
         self.userdatamap.clear();
         self.nonuserdatamap.clear();
         self.justcollisionmap.clear();
+        println!("After clearing the next 3 things");
         self.radius = radius;
         self.perlin = Perlin::new(seed);
         self.voxel_models = None;
         self.planet_type = noisetype as u8;
         (*self.currentseed.write().unwrap()) = seed;
+        println!("After setting currentseed");
 
-        for _ in 0..radius * 2 + 5 {
+        if !self.headless {
             for _ in 0..radius * 2 + 5 {
-                self.chunks.push(Arc::new(Mutex::new(ChunkFacade {
-                    geo_index: self.geobank.len(),
-                    used: false,
-                    pos: IVec2 {
-                        x: 999999,
-                        y: 999999,
-                    },
-                })));
-                
-                self.geobank.push(Arc::new(ChunkGeo::new()));
-                self.chunk_memories.lock().unwrap().memories.push(ChunkMemory::new(&self.geobank[self.geobank.len() - 1]));
+                for _ in 0..radius * 2 + 5 {
+                    self.chunks.push(Arc::new(Mutex::new(ChunkFacade {
+                        geo_index: self.geobank.len(),
+                        used: false,
+                        pos: IVec2 {
+                            x: 999999,
+                            y: 999999,
+                        },
+                    })));
+                    
+                    self.geobank.push(Arc::new(ChunkGeo::new()));
+                    self.chunk_memories.lock().unwrap().memories.push(ChunkMemory::new(&self.geobank[self.geobank.len() - 1]));
+                }
             }
         }
+        
+        println!("After making new chunk stuff");
     }
     
-    pub fn new(radius: u8, seed: u32, noisetype: usize) -> ChunkSystem {
+    pub fn new(radius: u8, seed: u32, noisetype: usize, headless: bool) -> ChunkSystem {
         let mut cs = ChunkSystem {
             chunks: Vec::new(),
             geobank: Vec::new(),
@@ -275,7 +308,8 @@ impl ChunkSystem {
                 memories: Vec::new()
             }),
             planet_type: noisetype as u8,
-            currentseed: RwLock::new(0)
+            currentseed: RwLock::new(0),
+            headless
         };
 
 
@@ -290,22 +324,24 @@ impl ChunkSystem {
         //         cs.voxel_models.push(jv);
         //     }
         // }
-
-        for _ in 0..radius * 2 + 5 {
+        if !cs.headless {
             for _ in 0..radius * 2 + 5 {
-                cs.chunks.push(Arc::new(Mutex::new(ChunkFacade {
-                    geo_index: cs.geobank.len(),
-                    used: false,
-                    pos: IVec2 {
-                        x: 999999,
-                        y: 999999,
-                    },
-                })));
-                
-                cs.geobank.push(Arc::new(ChunkGeo::new()));
-                cs.chunk_memories.lock().unwrap().memories.push(ChunkMemory::new(&cs.geobank[cs.geobank.len() - 1]));
+                for _ in 0..radius * 2 + 5 {
+                    cs.chunks.push(Arc::new(Mutex::new(ChunkFacade {
+                        geo_index: cs.geobank.len(),
+                        used: false,
+                        pos: IVec2 {
+                            x: 999999,
+                            y: 999999,
+                        },
+                    })));
+                    
+                    cs.geobank.push(Arc::new(ChunkGeo::new()));
+                    cs.chunk_memories.lock().unwrap().memories.push(ChunkMemory::new(&cs.geobank[cs.geobank.len() - 1]));
+                }
             }
         }
+        
 
         //tracing::info!("Amount of chunkgeo buffers: {}", 4 * cs.geobank.len());
 
@@ -825,7 +861,7 @@ impl ChunkSystem {
 
         // Create a new RNG instance with the seed.
         let mut rng = StdRng::from_seed(seed);
-        
+
         // // Generate some random numbers
         // let rand_number1: u32 = rng.gen();
         // let rand_number2: u32 = rng.gen();

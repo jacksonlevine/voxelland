@@ -110,23 +110,23 @@ impl ControlsState {
 }
 
 pub struct GameVariables {
-    first_mouse: bool,
-    mouse_focused: bool,
-    sensitivity: f32,
-    sky_color: Vec4,
-    sky_bottom: Vec4,
-    mouse_clicked: bool,
-    right_mouse_clicked: bool,
-    hostile_world: bool,
-    hostile_world_sky_color: Vec4,
-    hostile_world_sky_bottom: Vec4,
-    ship_going_up: bool,
-    ship_going_down: bool,
-    break_time: f32,
-    near_ship: bool,
-    ship_taken_off: bool,
-    on_new_world: bool,
-    in_multiplayer: bool
+    pub first_mouse: bool,
+    pub mouse_focused: bool,
+    pub sensitivity: f32,
+    pub sky_color: Vec4,
+    pub sky_bottom: Vec4,
+    pub mouse_clicked: bool,
+    pub right_mouse_clicked: bool,
+    pub hostile_world: bool,
+    pub hostile_world_sky_color: Vec4,
+    pub hostile_world_sky_bottom: Vec4,
+    pub ship_going_up: bool,
+    pub ship_going_down: bool,
+    pub break_time: f32,
+    pub near_ship: bool,
+    pub ship_taken_off: bool,
+    pub on_new_world: bool,
+    pub in_multiplayer: bool
 }
 
 

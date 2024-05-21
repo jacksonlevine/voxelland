@@ -188,7 +188,7 @@ impl NetworkConnector {
                                     println!("{}", recv_s);
 
                                     file.write_all(recv_s.as_bytes()).unwrap();
-                                    
+
                                     commqueue.push(recv_m.clone());
                                     
                                     NetworkConnector::sendtolocked(&reqpt, &mut stream_lock);
@@ -217,6 +217,7 @@ impl NetworkConnector {
                                 },
                                 MessageType::YourId => {
                                     println!("Receiving Your ID:");
+                                    stream_lock.set_nonblocking(false).unwrap();
                                     let mut buff = vec![0 as u8; recv_m.info as usize];
                                     stream_lock.read_exact(&mut buff).unwrap();
                                     let recv_s: (u64, u64) = bincode::deserialize(&buff).unwrap();
@@ -229,7 +230,7 @@ impl NetworkConnector {
                                         uuid.clone(), Vec3::ZERO
                                     );
                                     *(my_uuid.write().unwrap()) = Some(uuid);
-
+                                    stream_lock.set_nonblocking(true).unwrap();
                                 },
                                 MessageType::MobUpdate => {
                                     

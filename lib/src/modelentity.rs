@@ -15,7 +15,7 @@ pub enum AggroTarget {
 }
 
 fn direction_to_euler(direction: Vec3) -> Vec3 {
-    // Assume forward direction is along negative z-axis
+    // Assume forward direction is along positive z-axis
     let forward = Vec3::new(0.0, 0.0, 1.0).normalize();
     
     // Calculate the rotation quaternion that aligns the forward direction with the given direction
@@ -27,7 +27,7 @@ fn direction_to_euler(direction: Vec3) -> Vec3 {
     let euler_angles = rotation.to_euler(EulerRot::YXZ); // Choose appropriate rotation order
 
     // Return Euler angles in the order of yaw, pitch, and roll
-    Vec3::new(euler_angles.1, euler_angles.0, euler_angles.2)
+    Vec3::new(euler_angles.0, euler_angles.1, euler_angles.2)
 }
 
 

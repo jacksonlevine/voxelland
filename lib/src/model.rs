@@ -189,11 +189,11 @@ impl Game {
         let mut modent = ModelEntity::new_with_jump_height(model_index, pos, scale, rot, &self.chunksys, &self.camera, jump_height);
         
 
-        let animations = self.animations[model_index].clone();
-        let nodes = self.nodes[model_index].clone();
+        //let animations = self.animations[model_index].clone();
+        //let nodes = self.nodes[model_index].clone();
 
-        modent.animations = animations;
-        modent.nodes = nodes;
+        modent.animations = Vec::new();
+        modent.nodes = Vec::new();
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
             let csys_arc = Arc::clone(&self.chunksys);

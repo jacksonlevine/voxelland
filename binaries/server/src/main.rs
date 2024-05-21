@@ -3,7 +3,7 @@ use rand::{Rng, SeedableRng};
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::fs;
-use std::io::{Read, Write};
+use std::io::{ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, RwLock};
@@ -47,15 +47,6 @@ fn handle_client(
 
             let mut mystream = stream.lock().unwrap();
 
-            //ID header then ID as u64 pair
-            let idmsg = Message::new(
-                MessageType::YourId,
-                Vec3::ZERO,
-                0.0,
-                bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32,
-            );
-            mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
-            mystream.write_all(&bincode::serialize(&client_id.as_u64_pair()).unwrap()).unwrap();
 
 
             match mystream.read(&mut buffer) {
@@ -133,9 +124,12 @@ fn handle_client(
                                 let curr_planet_type = csys.planet_type;
                                 println!("Got planet type");
                                 csys.reset(0, newseed, ((curr_planet_type + 1) % 2) as usize);
-                                mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
+                                
                                 csys.save_current_world_to_file(format!("world/{}", newseed));
                                 println!("Reset csys");
+
+                                drop(csys);
+                                mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
                             }
                             MessageType::RequestPt => {
                                 let csys = csys.read().unwrap();
@@ -148,6 +142,19 @@ fn handle_client(
                                 mystream.write_all(&bincode::serialize(&ptmsg).unwrap()).unwrap();
 
                                 mystream.write_all(&bincode::serialize(&pt).unwrap()).unwrap();
+
+
+                                thread::sleep(Duration::from_millis(100));
+                                
+                                //ID header then ID as u64 pair
+                                let idmsg = Message::new(
+                                    MessageType::YourId,
+                                    Vec3::ZERO,
+                                    0.0,
+                                    bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32,
+                                );
+                                mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
+                                mystream.write_all(&bincode::serialize(&client_id.as_u64_pair()).unwrap()).unwrap();
                             }
                             _ => {}
                         }
@@ -170,12 +177,12 @@ fn handle_client(
                     if e.kind() == std::io::ErrorKind::UnexpectedEof {
                         should_break = true;
                     } else {
-                        let mut clients = clients.lock().unwrap();
-                        clients.get_mut(&client_id).unwrap().errorstrikes += 1;
+                        // let mut clients = clients.lock().unwrap();
+                        // clients.get_mut(&client_id).unwrap().errorstrikes += 1;
 
-                        if clients.get_mut(&client_id).unwrap().errorstrikes > 4 {
-                            should_break = true;
-                        }
+                        // if clients.get_mut(&client_id).unwrap().errorstrikes > 4 {
+                        //     should_break = true;
+                        // }
                     }
                 }
             }
@@ -238,42 +245,54 @@ fn main() {
 
     drop(gamewrite);
 
+    listener.set_nonblocking(true);
+
     loop {
-        match listener.accept() {
-            Ok((stream, _)) => {
-                println!("New connection: {}", stream.peer_addr().unwrap());
-                let client_id = Uuid::new_v4();
-                let stream = Arc::new(Mutex::new(stream));
-                let stream2 = stream.clone();
-                let mut locked_clients = clients.lock().unwrap();
-                locked_clients.insert(
-                    client_id,
-                    Client {
-                        stream,
-                        errorstrikes: 0,
-                    },
-                );
-                drop(locked_clients);
 
-                let clients_ref_clone = Arc::clone(&clients);
-                let csysarc_clone = Arc::clone(&chunksys);
-                let knowncams_clone = Arc::clone(&knowncams);
-                let nsme_clone = Arc::clone(&nsme);
 
-                let msq_clone = Arc::clone(&mobspawnqueued);
+        
+            match listener.accept() {
+                Ok((stream, _)) => {
 
-                thread::spawn(move || {
-                    handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone);
-                });
+                    println!("New connection: {}", stream.peer_addr().unwrap());
+                    let client_id = Uuid::new_v4();
+                    let stream = Arc::new(Mutex::new(stream));
 
-                
+                    let mut locked_clients = clients.lock().unwrap();
+                    locked_clients.insert(
+                        client_id,
+                        Client {
+                            stream: Arc::clone(&stream),
+                            errorstrikes: 0,
+                        },
+                    );
+                    drop(locked_clients);
 
-                
+                    let clients_ref_clone = Arc::clone(&clients);
+                    let csysarc_clone = Arc::clone(&chunksys);
+                    let knowncams_clone = Arc::clone(&knowncams);
+                    //let nsme_clone = Arc::clone(&nsme);
+
+                    let msq_clone = Arc::clone(&mobspawnqueued);
+
+                    thread::spawn(move || {
+                        handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone);
+                    });
+                    
+                }
+                Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
+                    // Ignore this specific error
+
+                }
+                Err(e) => {
+
+                    println!("Connection failed: {}", e);
+                }
             }
-            Err(e) => {
-                println!("Connection failed: {}", e);
-            }
-        }
+
+
+
+        //println!("Running this");
         glfw.poll_events();
         gamearc.write().unwrap().update();
         nsme_bare = nsme.iter().map(|e| (e.id, e.position, e.rot.y, e.model_index)).collect::<Vec<_>>();
@@ -314,6 +333,7 @@ fn main() {
                     }
                     
                 }
+                mobspawnqueued.store(false, std::sync::atomic::Ordering::Relaxed);
             }
     }
 }

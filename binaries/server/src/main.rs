@@ -29,7 +29,8 @@ fn handle_client(
     clients: Arc<Mutex<HashMap<Uuid, Client>>>,
     csys: &Arc<RwLock<ChunkSystem>>,
     knowncams: &Arc<DashMap<Uuid, Vec3>>,
-    mobspawnqueued: &Arc<AtomicBool>
+    mobspawnqueued: &Arc<AtomicBool>,
+    shutupmobmsgs: &Arc<AtomicBool>
 ) {
     let mut buffer;
     unsafe {
@@ -60,6 +61,9 @@ fn handle_client(
                             }
                         };
                         match message.message_type {
+                            MessageType::ShutUpMobMsgs => {
+                                shutupmobmsgs.store(true, std::sync::atomic::Ordering::Relaxed);
+                            }
                             MessageType::RequestUdm => {
                                 let csys = csys.read().unwrap();
                                 let currseed = *(csys.currentseed.read().unwrap());
@@ -132,6 +136,8 @@ fn handle_client(
                                 mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
                             }
                             MessageType::RequestPt => {
+
+
                                 let csys = csys.read().unwrap();
                                 let currseed = *(csys.currentseed.read().unwrap());
                                 let currpt = csys.planet_type;
@@ -155,6 +161,10 @@ fn handle_client(
                                 );
                                 mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
                                 mystream.write_all(&bincode::serialize(&client_id.as_u64_pair()).unwrap()).unwrap();
+
+                                thread::sleep(Duration::from_millis(100));
+
+                                shutupmobmsgs.store(false, std::sync::atomic::Ordering::Relaxed);
                             }
                             _ => {}
                         }
@@ -243,6 +253,11 @@ fn main() {
 
     let mut mobspawnqueued = Arc::new(AtomicBool::new(false));
 
+
+
+
+    let mut shutupmobmsgs = Arc::new(AtomicBool::new(false));
+
     drop(gamewrite);
 
     listener.set_nonblocking(true);
@@ -274,9 +289,10 @@ fn main() {
                     //let nsme_clone = Arc::clone(&nsme);
 
                     let msq_clone = Arc::clone(&mobspawnqueued);
+                    let su_clone = Arc::clone(&shutupmobmsgs);
 
                     thread::spawn(move || {
-                        handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone);
+                        handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone, &su_clone);
                     });
                     
                 }
@@ -296,24 +312,26 @@ fn main() {
         glfw.poll_events();
         gamearc.write().unwrap().update();
         nsme_bare = nsme.iter().map(|e| (e.id, e.position, e.rot.y, e.model_index)).collect::<Vec<_>>();
-
-            for nsme in nsme_bare.iter() {
-
-
-                let id = nsme.0;
-                let pos = nsme.1;
-                let rot = nsme.2;
-                let modind = nsme.3;
-
-                for (uuid, client) in clients.lock().unwrap().iter() {
-                    let mut stream = client.stream.lock().unwrap();
-                    let mut mobmsg = Message::new(MessageType::MobUpdate, pos, rot, id);
-                    mobmsg.info2 = modind as u32;
+            if !shutupmobmsgs.load(std::sync::atomic::Ordering::Relaxed) {
+                for nsme in nsme_bare.iter() {
 
 
-                    stream.write_all(&bincode::serialize(&mobmsg).unwrap());
+                    let id = nsme.0;
+                    let pos = nsme.1;
+                    let rot = nsme.2;
+                    let modind = nsme.3;
+    
+                    for (uuid, client) in clients.lock().unwrap().iter() {
+                        let mut stream = client.stream.lock().unwrap();
+                        let mut mobmsg = Message::new(MessageType::MobUpdate, pos, rot, id);
+                        mobmsg.info2 = modind as u32;
+    
+    
+                        stream.write_all(&bincode::serialize(&mobmsg).unwrap());
+                    }
                 }
             }
+            
         
             if mobspawnqueued.load(std::sync::atomic::Ordering::Relaxed) {
 

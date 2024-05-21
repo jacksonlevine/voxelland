@@ -109,6 +109,9 @@ impl NetworkConnector {
             let mut buffer = vec![0; PACKET_SIZE];
             let csys = csys.clone();
 
+            let sumsg = Message::new(MessageType::ShutUpMobMsgs, Vec3::ZERO, 0.0, 0);
+
+            NetworkConnector::sendto(&sumsg, &stream);
 
             
             let requdm = Message::new(MessageType::RequestUdm, Vec3::ZERO, 0.0, 0);
@@ -244,6 +247,9 @@ impl NetworkConnector {
                                     let newpos = Vec3::new(recv_m.x, recv_m.y, recv_m.z);
                                 },
                                 MessageType::WhatsThatMob => todo!(),
+                                MessageType::ShutUpMobMsgs =>  {
+                                    
+                                },
                             }
 
                             println!("Received message from server: {:?}", recv_m);

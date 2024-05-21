@@ -28,7 +28,8 @@ pub enum MessageType {
     YourId,
     MobUpdate,
     NewMob,
-    WhatsThatMob
+    WhatsThatMob,
+    ShutUpMobMsgs
 }
 
 impl Display for MessageType {
@@ -63,7 +64,7 @@ impl Display for MessageType {
             },
             MessageType::None => {
                 write!(f, "None")
-            }
+            },
             MessageType::YourId => {
                 write!(f, "YourId")
             },
@@ -75,6 +76,9 @@ impl Display for MessageType {
             },
             MessageType::WhatsThatMob => {
                 write!(f, "WhatsThatMob")
+            },
+            MessageType::ShutUpMobMsgs => {
+                write!(f, "ShutUpMobMsgs")
             },
         }
     } 

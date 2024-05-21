@@ -1961,7 +1961,13 @@ impl Game {
 
 
         if self.vars.in_multiplayer {
+
+            let msg = Message::new(MessageType::ShutUpMobMsgs, Vec3::ZERO, 0.0, 0);
+            self.netconn.send(&msg);
+
             self.netconn.received_world.store(false, Ordering::Relaxed);
+
+
             let msg = Message::new(MessageType::RequestUdm, Vec3::ZERO, 0.0, 0);
             self.netconn.send(&msg);
 

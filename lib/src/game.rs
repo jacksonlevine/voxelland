@@ -1,4 +1,5 @@
 use core::time;
+use std::borrow::BorrowMut;
 use std::cmp::max;
 use std::collections::HashSet;
 use std::f32::consts::PI;
@@ -350,6 +351,8 @@ impl Game {
 
         let my_uuid: Arc<RwLock<Option<Uuid>>> = Arc::new(RwLock::new(None));
 
+        let nsme = Arc::new(DashMap::new());
+
         let mut g = Game {
             chunksys: chunksys.clone(),
             shader0,
@@ -399,7 +402,7 @@ impl Game {
             gltf_textures: Vec::new(),
             gltf_paths: Vec::new(),
             static_model_entities: Vec::new(),
-            non_static_model_entities: Arc::new(DashMap::new()),
+            non_static_model_entities: nsme.clone(),
             select_cube: SelectCube::new(),
             block_overlay: BlockOverlay::new(tex.id),
             ship_pos: Vec3::new(0.0,0.0,0.0),
@@ -414,7 +417,7 @@ impl Game {
             skins: Vec::new(),
             nodes: Vec::new(),
             current_time: 0.0,
-            netconn: NetworkConnector::new(&chunksys, &server_command_queue, &kc, &my_uuid.clone()),
+            netconn: NetworkConnector::new(&chunksys, &server_command_queue, &kc, &my_uuid.clone(), &nsme),
             server_command_queue: server_command_queue.clone(),
             headless,
             known_cameras: kc,
@@ -678,6 +681,29 @@ impl Game {
                         MessageType::RequestTakeoff => {
                             self.takeoff_ship();
                         }
+                        MessageType::MobUpdate => {
+                            let newpos = Vec3::new(comm.x, comm.y, comm.z);
+                            let id = comm.info;
+                            let modind = comm.info2;
+                            let rot = comm.rot;
+
+                            let nsme = self.non_static_model_entities.clone();
+
+                            match nsme.get_mut(&id) {
+                                Some(mut me) => {
+                                    let modent = me.value_mut();
+                                    (*modent).position = newpos;
+                                }
+                                None => {
+                                    println!("Received an update for a mob that doesn't exist. Creating it...");
+                                    self.insert_static_model_entity(id, modind as usize, newpos, 5.0, Vec3::new(0.0,rot,0.0), 5.0);
+                                }
+                            };
+                        }
+                        MessageType::Seed => {
+                            //Means we're going to a new world
+                            self.non_static_model_entities.clear();
+                        }
                         _ => {
 
                         }
@@ -687,108 +713,114 @@ impl Game {
 
                 }
             }
-        }
+        
             
 
-        for i in self.faders.write().unwrap().iter_mut().enumerate() {
-            if i.1.tick(self.delta_time) {
-                if i.0 == (FaderNames::FovFader as usize) {
-                    self.camera.lock().unwrap().update_fov(i.1.value);
+            for i in self.faders.write().unwrap().iter_mut().enumerate() {
+                if i.1.tick(self.delta_time) {
+                    if i.0 == (FaderNames::FovFader as usize) {
+                        self.camera.lock().unwrap().update_fov(i.1.value);
+                    }
                 }
             }
-        }
-        if self.controls.forward || self.controls.back || self.controls.left || self.controls.right
-        {
-            if !self.faders.read().unwrap()[FaderNames::FovFader as usize].mode {
-                self.faders.write().unwrap()[FaderNames::FovFader as usize].up();
-            }
-        } else {
-            if self.faders.read().unwrap()[FaderNames::FovFader as usize].mode {
-                self.faders.write().unwrap()[FaderNames::FovFader as usize].down();
-            }
-        }
-        self.draw();
-        self.draw_models();
-        if !self.vars.ship_taken_off {
-            self.draw_select_cube();
-        }
-        
-        self.guisys.draw_text(0);
-
-        let mvp = self.camera.lock().unwrap().mvp;
-
-        self.drops.update_and_draw_drops(&self.delta_time, &mvp);
-
-
-        self.hud.update();
-        self.hud.draw();
-
-
-        self.audiop.update();
-
-
-        let camlock = self.camera.lock().unwrap();
-        let pos = camlock.position;
-        let forward = camlock.direction;
-        let vel = camlock.velocity;
-        let up = camlock.up;
-        drop(camlock);
-        self.audiop.set_listener_attributes(libfmod::Vector { x: pos.x, y: pos.y, z: pos.z }, libfmod::Vector { x: vel.x, y: vel.y, z: vel.z }, libfmod::Vector { x: forward.x, y: forward.y, z: forward.z }, libfmod::Vector { x: up.x, y: up.y, z: up.z });
-        self.do_step_sounds();
-        if self.inventory.read().unwrap().dirty {
-            self.update_inventory();
-        }
-
-        if self.vars.ship_taken_off {
-            if !self.vars.on_new_world {
-                if self.planet_y_offset > REQUIRED_SHIP_FLYAWAY_HEIGHT {
-
-                } else {
-                    
-                   
-                    self.new_world_func();
-                    
-                    
-                    self.audiop.play("assets/sfx/shipland28sec.mp3", &self.ship_pos, &Vec3::ZERO);
-                    
-                    self.vars.on_new_world = true;
-                    self.vars.ship_going_down = true;
-                    self.vars.ship_going_up = false;
+            if self.controls.forward || self.controls.back || self.controls.left || self.controls.right
+            {
+                if !self.faders.read().unwrap()[FaderNames::FovFader as usize].mode {
+                    self.faders.write().unwrap()[FaderNames::FovFader as usize].up();
                 }
             } else {
-                if self.planet_y_offset >= 0.0 {
-                    self.vars.ship_going_down = false;
-                    self.vars.ship_taken_off = false;
+                if self.faders.read().unwrap()[FaderNames::FovFader as usize].mode {
+                    self.faders.write().unwrap()[FaderNames::FovFader as usize].down();
                 }
             }
+            self.draw();
+            self.draw_models();
+            if !self.vars.ship_taken_off {
+                self.draw_select_cube();
+            }
+            
+            self.guisys.draw_text(0);
+
+            let mvp = self.camera.lock().unwrap().mvp;
+
+            self.drops.update_and_draw_drops(&self.delta_time, &mvp);
+
+
+            self.hud.update();
+            self.hud.draw();
+
+
+            self.audiop.update();
+
+
+            let camlock = self.camera.lock().unwrap();
+            let pos = camlock.position;
+            let forward = camlock.direction;
+            let vel = camlock.velocity;
+            let up = camlock.up;
+            drop(camlock);
+            self.audiop.set_listener_attributes(libfmod::Vector { x: pos.x, y: pos.y, z: pos.z }, libfmod::Vector { x: vel.x, y: vel.y, z: vel.z }, libfmod::Vector { x: forward.x, y: forward.y, z: forward.z }, libfmod::Vector { x: up.x, y: up.y, z: up.z });
+            self.do_step_sounds();
+            if self.inventory.read().unwrap().dirty {
+                self.update_inventory();
+            }
+
+            if self.vars.ship_taken_off {
+                if !self.vars.on_new_world {
+                    if self.planet_y_offset > REQUIRED_SHIP_FLYAWAY_HEIGHT {
+
+                    } else {
+                        
+                    
+                        self.new_world_func();
+                        
+                        
+                        self.audiop.play("assets/sfx/shipland28sec.mp3", &self.ship_pos, &Vec3::ZERO);
+                        
+                        self.vars.on_new_world = true;
+                        self.vars.ship_going_down = true;
+                        self.vars.ship_going_up = false;
+                    }
+                } else {
+                    if self.planet_y_offset >= 0.0 {
+                        self.vars.ship_going_down = false;
+                        self.vars.ship_taken_off = false;
+                    }
+                }
+            }
+            
+            
+            let camlock = self.camera.lock().unwrap();
+            let shipdist = camlock.position.distance(self.ship_pos);
+            if shipdist < 30.0 && shipdist > 10.0 {
+                self.vars.near_ship = true;
+                self.guisys.draw_text(1);
+            } else {
+                self.vars.near_ship = false;
+            }
+            drop(camlock);
+
+            
+            let planet_speed = -self.planet_y_offset.clamp(-100.0, -0.5);
+
+            if self.vars.ship_going_down {
+                self.planet_y_offset = (self.planet_y_offset + self.delta_time * planet_speed).clamp(-1000.0, 0.0);
+            }
+            if self.vars.ship_going_up {
+                self.planet_y_offset = (self.planet_y_offset - self.delta_time * planet_speed).clamp(-1000.0, 0.0);
+            }
         }
-        
-        
-        let camlock = self.camera.lock().unwrap();
-        let shipdist = camlock.position.distance(self.ship_pos);
-        if shipdist < 30.0 && shipdist > 10.0 {
-            self.vars.near_ship = true;
-            self.guisys.draw_text(1);
-        } else {
-            self.vars.near_ship = false;
-        }
-        drop(camlock);
 
         if self.initial_timer < 1.5  {
             self.initial_timer += self.delta_time;
         } else {
-            self.update_movement_and_physics();
+            if !self.headless {
+                self.update_movement_and_physics();
+            }
+            
             self.update_non_static_model_entities();
         }
 
-        let planet_speed = -self.planet_y_offset.clamp(-100.0, -0.5);
-
-        if self.vars.ship_going_down {
-            self.planet_y_offset = (self.planet_y_offset + self.delta_time * planet_speed).clamp(-1000.0, 0.0);
-        }
-        if self.vars.ship_going_up {
-            self.planet_y_offset = (self.planet_y_offset - self.delta_time * planet_speed).clamp(-1000.0, 0.0);
-        }
         //println!("Planet y off: {}", self.planet_y_offset);
         
         
@@ -1411,21 +1443,24 @@ impl Game {
 
         let mut rng = StdRng::from_entropy();
         
-
-        if nt == 1 {
-            self.create_non_static_model_entity(0, Vec3::new(-100.0, 100.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
-
-            for i in 0..4 {
-                if rng.gen_range(0..3) <= 2 {
-                    self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
-                    self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
-                    
-                    self.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
-                    self.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
+        if !self.vars.in_multiplayer {
+            if nt == 1 {
+                self.create_non_static_model_entity(0, Vec3::new(-100.0, 100.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+    
+                for i in 0..4 {
+                    if rng.gen_range(0..3) <= 2 {
+                        self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+                        self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+                        
+                        self.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
+                        self.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
+                    }
                 }
+                
             }
-            
         }
+
+        
 
         // self.coll_cage.solid_pred  = {
         //     let csys_arc = Arc::clone(&self.chunksys);

@@ -146,6 +146,55 @@ impl ModelEntity {
         
     }
 
+
+
+    pub fn new_with_id(id: u32, model_index: usize, pos: Vec3, scale: f32, rot: Vec3, csys: &Arc<RwLock<ChunkSystem>>, cam: &Arc<Mutex<Camera>>) -> ModelEntity {
+
+        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
+            //let csys_arc = Arc::clone(&chunksys);
+            Box::new(move |_: vec::IVec3| {
+                return false;
+            })
+        };
+
+
+
+            ModelEntity {
+                model_index,
+                position: pos,
+                lastpos: pos,
+                id,
+                scale,
+                rot,
+                coll_cage: CollCage::new(solid_pred),
+                velocity: Vec3::new(0.0, 0.0, 0.0),
+                grounded: false,
+                time_falling_scalar: 1.0,
+                jumping_up: false,
+                allowable_jump_height: 7.0,
+                current_jump_y: 0.0,
+                bound_box: BoundBox::new(Vec3::new(0.0,0.0,0.0)),
+                controls: ControlsState::new(),
+                direction: Vec3::new(0.0, 0.0, 0.0),
+                right: Vec3::new(0.0, 0.0, 0.0),
+                up: Vec3::new(0.0, 1.0, 0.0),
+                behavior_timer: 0.0,
+                rng: StdRng::from_entropy(),
+                csys: csys.clone(),
+                cam: cam.clone(),
+                target: AggroTarget::NoAggro,
+                speedfactor: 1.0,
+                soundtimer: 0.0,
+                was_grounded: false,
+                current_animation: None,
+                animation_time: 0.0,
+                animations: Vec::new(),
+                nodes: Vec::new()
+            }
+     
+        
+    }
+
     pub fn recalculate(&mut self) {
         self.direction = euler_to_direction(self.rot);
         self.right = Vec3::new(0.0, 1.0, 0.0).cross(self.direction).normalize();

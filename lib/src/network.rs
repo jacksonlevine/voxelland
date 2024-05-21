@@ -12,6 +12,7 @@ use lockfree::queue::Queue;
 use uuid::Uuid;
 
 use crate::chunk::ChunkSystem;
+use crate::modelentity::ModelEntity;
 use crate::server_types::{Message, MessageType};
 use crate::vec::IVec3;
 
@@ -26,12 +27,13 @@ pub struct NetworkConnector {
     pub commqueue: Arc<Queue<Message>>,
     pub received_id: Arc<AtomicBool>,
     pub gknowncams: Arc<DashMap<Uuid, Vec3>>,
-    pub my_uuid: Arc<RwLock<Option<Uuid>>>
+    pub my_uuid: Arc<RwLock<Option<Uuid>>>,
+    pub nsme: Arc<DashMap<u32, ModelEntity>>
 }
 
 impl NetworkConnector {
     pub fn new(csys: &Arc<RwLock<ChunkSystem>>, commqueue: &Arc<Queue<Message>>, gkc: &Arc<DashMap<Uuid, Vec3>>,
-                my_uuid: &Arc<RwLock<Option<Uuid>>>) -> NetworkConnector {
+                my_uuid: &Arc<RwLock<Option<Uuid>>>, nsme: &Arc<DashMap<u32, ModelEntity>>) -> NetworkConnector {
         NetworkConnector {
             stream: None,
             recvthread: None,
@@ -42,7 +44,8 @@ impl NetworkConnector {
             commqueue: commqueue.clone(),
             received_id: Arc::new(AtomicBool::new(false)),
             gknowncams: gkc.clone(),
-            my_uuid: my_uuid.clone()
+            my_uuid: my_uuid.clone(),
+            nsme: nsme.clone()
         }
     }
 
@@ -89,6 +92,7 @@ impl NetworkConnector {
         let commqueue = self.commqueue.clone();
         let gknowncams = self.gknowncams.clone();
         let my_uuid = self.my_uuid.clone();
+        let nsmes = self.nsme.clone();
 
         self.sendthread = Some(thread::spawn(move || {
             let sr = sr2.clone();
@@ -185,6 +189,8 @@ impl NetworkConnector {
 
                                     file.write_all(recv_s.as_bytes()).unwrap();
                                     
+                                    commqueue.push(recv_m.clone());
+                                    
                                     NetworkConnector::sendtolocked(&reqpt, &mut stream_lock);
                                 },
                                 MessageType::RequestTakeoff => {
@@ -225,6 +231,18 @@ impl NetworkConnector {
                                     *(my_uuid.write().unwrap()) = Some(uuid);
 
                                 },
+                                MessageType::MobUpdate => {
+                                    
+                                    commqueue.push(recv_m.clone());
+                                },
+                                MessageType::NewMob => {
+                                    let newid = recv_m.info;
+
+                                    let newtype = recv_m.info2;
+
+                                    let newpos = Vec3::new(recv_m.x, recv_m.y, recv_m.z);
+                                },
+                                MessageType::WhatsThatMob => todo!(),
                             }
 
                             println!("Received message from server: {:?}", recv_m);

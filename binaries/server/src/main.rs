@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
@@ -27,7 +28,8 @@ fn handle_client(
     client_id: Uuid,
     clients: Arc<Mutex<HashMap<Uuid, Client>>>,
     csys: &Arc<RwLock<ChunkSystem>>,
-    knowncams: &Arc<DashMap<Uuid, Vec3>>
+    knowncams: &Arc<DashMap<Uuid, Vec3>>,
+    mobspawnqueued: &Arc<AtomicBool>
 ) {
     let mut buffer;
     unsafe {
@@ -98,6 +100,9 @@ fn handle_client(
                                 );
                                 mystream.write_all(&bincode::serialize(&seedmsg).unwrap()).unwrap();
                                 mystream.write_all(&bincode::serialize(&seed).unwrap()).unwrap();
+
+
+                                
                             }
                             MessageType::PlayerUpdate => {
                                 knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
@@ -128,6 +133,7 @@ fn handle_client(
                                 let curr_planet_type = csys.planet_type;
                                 println!("Got planet type");
                                 csys.reset(0, newseed, ((curr_planet_type + 1) % 2) as usize);
+                                mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
                                 csys.save_current_world_to_file(format!("world/{}", newseed));
                                 println!("Reset csys");
                             }
@@ -226,7 +232,9 @@ fn main() {
 
     let nsme = &gamewrite.non_static_model_entities.clone();
 
-    let mut nsme_bare = nsme.iter().map(|e| (e.id, e.position)).collect::<Vec<_>>();
+    let mut nsme_bare = nsme.iter().map(|e| (e.id, e.position, e.rot.y, e.model_index)).collect::<Vec<_>>();
+
+    let mut mobspawnqueued = Arc::new(AtomicBool::new(false));
 
     drop(gamewrite);
 
@@ -236,6 +244,7 @@ fn main() {
                 println!("New connection: {}", stream.peer_addr().unwrap());
                 let client_id = Uuid::new_v4();
                 let stream = Arc::new(Mutex::new(stream));
+                let stream2 = stream.clone();
                 let mut locked_clients = clients.lock().unwrap();
                 locked_clients.insert(
                     client_id,
@@ -251,25 +260,60 @@ fn main() {
                 let knowncams_clone = Arc::clone(&knowncams);
                 let nsme_clone = Arc::clone(&nsme);
 
-                thread::spawn(move || {
-                    handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone);
-                });
+                let msq_clone = Arc::clone(&mobspawnqueued);
 
                 thread::spawn(move || {
-                    for nsme in nsme_clone.iter() {
-                        let modent = nsme.value();
-                        let stream = {
-                            let clients = clients.lock().unwrap();
-                            clients[&client_id].stream.clone()
-                        };
-                    }
+                    handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone);
                 });
+
+                
+
+                
             }
             Err(e) => {
                 println!("Connection failed: {}", e);
             }
         }
+        glfw.poll_events();
         gamearc.write().unwrap().update();
+        nsme_bare = nsme.iter().map(|e| (e.id, e.position, e.rot.y, e.model_index)).collect::<Vec<_>>();
+
+            for nsme in nsme_bare.iter() {
+
+
+                let id = nsme.0;
+                let pos = nsme.1;
+                let rot = nsme.2;
+                let modind = nsme.3;
+
+                for (uuid, client) in clients.lock().unwrap().iter() {
+                    let mut stream = client.stream.lock().unwrap();
+                    let mut mobmsg = Message::new(MessageType::MobUpdate, pos, rot, id);
+                    mobmsg.info2 = modind as u32;
+
+
+                    stream.write_all(&bincode::serialize(&mobmsg).unwrap());
+                }
+            }
         
+            if mobspawnqueued.load(std::sync::atomic::Ordering::Relaxed) {
+
+                if chunksys.read().unwrap().planet_type == 1 {
+                    let mut rng = StdRng::from_entropy();
+                    let mut gamewrite = gamearc.write().unwrap();
+                    gamewrite.create_non_static_model_entity(0, Vec3::new(-100.0, 100.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+        
+                    for i in 0..4 {
+                        if rng.gen_range(0..3) <= 2 {
+                            gamewrite.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+                            gamewrite.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+                            
+                            gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
+                            gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
+                        }
+                    }
+                    
+                }
+            }
     }
 }

@@ -207,6 +207,28 @@ impl Game {
         self.non_static_model_entities.insert(modent.id, modent);
     }
 
+    pub fn insert_static_model_entity(&mut self, id: u32, model_index: usize, pos: Vec3, scale: f32, rot: Vec3, jump_height: f32) {
+        let mut modent = ModelEntity::new_with_id(id, model_index, pos, scale, rot, &self.chunksys, &self.camera);
+        modent.allowable_jump_height = jump_height;
+
+        let animations = self.animations[model_index].clone();
+        let nodes = self.nodes[model_index].clone();
+
+        modent.animations = animations;
+        modent.nodes = nodes;
+
+        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
+            let csys_arc = Arc::clone(&self.chunksys);
+            Box::new(move |v: vec::IVec3| {
+                return csys_arc.read().unwrap().collision_predicate(v);
+            })
+        };
+
+        modent.coll_cage = CollCage::new(solid_pred);
+
+        self.non_static_model_entities.insert(modent.id, modent);
+    }
+
     pub fn update_non_static_model_entities(&mut self) {
         for mut model in self.non_static_model_entities.iter_mut() {
             let model: &mut ModelEntity = model.value_mut();

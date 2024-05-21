@@ -25,7 +25,10 @@ pub enum MessageType {
     PlayerUpdate,
     BlockSet,
     RequestTakeoff,
-    YourId
+    YourId,
+    MobUpdate,
+    NewMob,
+    WhatsThatMob
 }
 
 impl Display for MessageType {
@@ -64,6 +67,15 @@ impl Display for MessageType {
             MessageType::YourId => {
                 write!(f, "YourId")
             },
+            MessageType::MobUpdate => {
+                write!(f, "MobUpdate")
+            },
+            MessageType::NewMob => {
+                write!(f, "NewMob")
+            },
+            MessageType::WhatsThatMob => {
+                write!(f, "WhatsThatMob")
+            },
         }
     } 
 }
@@ -76,6 +88,7 @@ pub struct Message {
     pub z: f32,
     pub rot: f32,
     pub info: u32,
+    pub info2: u32
 }
 impl Message {
     pub fn new(t: MessageType, pos: Vec3, rot: f32, info: u32) -> Message {
@@ -85,7 +98,8 @@ impl Message {
             y: pos.y,
             z: pos.z,
             rot,
-            info
+            info,
+            info2: 0
         }
     }
 

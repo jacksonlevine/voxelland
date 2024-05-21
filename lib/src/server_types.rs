@@ -25,6 +25,7 @@ pub enum MessageType {
     PlayerUpdate,
     BlockSet,
     RequestTakeoff,
+    YourId
 }
 
 impl Display for MessageType {
@@ -60,6 +61,9 @@ impl Display for MessageType {
             MessageType::None => {
                 write!(f, "None")
             }
+            MessageType::YourId => {
+                write!(f, "YourId")
+            },
         }
     } 
 }

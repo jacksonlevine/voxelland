@@ -6,8 +6,10 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use bincode;
+use dashmap::DashMap;
 use glam::Vec3;
 use lockfree::queue::Queue;
+use uuid::Uuid;
 
 use crate::chunk::ChunkSystem;
 use crate::server_types::{Message, MessageType};
@@ -21,11 +23,15 @@ pub struct NetworkConnector {
     pub shouldrun: Arc<AtomicBool>,
     pub csys: Arc<RwLock<ChunkSystem>>,
     pub received_world: Arc<AtomicBool>,
-    pub commqueue: Arc<Queue<Message>>
+    pub commqueue: Arc<Queue<Message>>,
+    pub received_id: Arc<AtomicBool>,
+    pub gknowncams: Arc<DashMap<Uuid, Vec3>>,
+    pub my_uuid: Arc<RwLock<Option<Uuid>>>
 }
 
 impl NetworkConnector {
-    pub fn new(csys: &Arc<RwLock<ChunkSystem>>, commqueue: &Arc<Queue<Message>>) -> NetworkConnector {
+    pub fn new(csys: &Arc<RwLock<ChunkSystem>>, commqueue: &Arc<Queue<Message>>, gkc: &Arc<DashMap<Uuid, Vec3>>,
+                my_uuid: &Arc<RwLock<Option<Uuid>>>) -> NetworkConnector {
         NetworkConnector {
             stream: None,
             recvthread: None,
@@ -33,7 +39,10 @@ impl NetworkConnector {
             shouldrun: Arc::new(AtomicBool::new(false)),
             csys: csys.clone(),
             received_world: Arc::new(AtomicBool::new(false)),
-            commqueue: commqueue.clone()
+            commqueue: commqueue.clone(),
+            received_id: Arc::new(AtomicBool::new(false)),
+            gknowncams: gkc.clone(),
+            my_uuid: my_uuid.clone()
         }
     }
 
@@ -76,11 +85,10 @@ impl NetworkConnector {
         let stream2 = stream.clone();
 
         let csys = self.csys.clone();
-
-
         let recv_world_bool = self.received_world.clone();
-
         let commqueue = self.commqueue.clone();
+        let gknowncams = self.gknowncams.clone();
+        let my_uuid = self.my_uuid.clone();
 
         self.sendthread = Some(thread::spawn(move || {
             let sr = sr2.clone();
@@ -200,6 +208,22 @@ impl NetworkConnector {
                                     csys.write().unwrap().load_world_from_file(String::from("mp"));
                                     recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
                                     stream_lock.set_nonblocking(true).unwrap();
+                                },
+                                MessageType::YourId => {
+                                    println!("Receiving Your ID:");
+                                    let mut buff = vec![0 as u8; recv_m.info as usize];
+                                    stream_lock.read_exact(&mut buff).unwrap();
+                                    let recv_s: (u64, u64) = bincode::deserialize(&buff).unwrap();
+
+                                    let uuid = Uuid::from_u64_pair(recv_s.0, recv_s.1);
+                                    println!("{}", uuid);
+
+
+                                    gknowncams.insert(
+                                        uuid.clone(), Vec3::ZERO
+                                    );
+                                    *(my_uuid.write().unwrap()) = Some(uuid);
+
                                 },
                             }
 

@@ -2,13 +2,16 @@
 
 use std::{ops::Bound, sync::{Arc, Mutex, RwLock}};
 
+use dashmap::DashMap;
 use glam::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
+use uuid::Uuid;
 
 pub enum AggroTarget {
     ThisCamera,
     ModelEntityID(u32),
-    NoAggro
+    NoAggro,
+    UUID(Uuid)
 }
 
 fn direction_to_euler(direction: Vec3) -> Vec3 {
@@ -189,7 +192,7 @@ impl ModelEntity {
         }
     }
 
-    pub fn behavior_loop(&mut self, delta: &f32) {
+    pub fn behavior_loop(&mut self, delta: &f32, knowncams: &Arc<DashMap<Uuid, Vec3>>) {
         
         if self.behavior_timer < 1.0 {
             self.behavior_timer += delta;
@@ -211,6 +214,23 @@ impl ModelEntity {
                     self.controls.up = true;
                     self.controls.forward = true;
                 }
+                AggroTarget::UUID(targ_id) => {
+                    self.speedfactor = 2.5;
+                    let campos = match knowncams.get(&targ_id) {
+                        Some(vec3) => {
+                            *vec3.value()
+                        }
+                        None => {
+                            self.target = AggroTarget::NoAggro;
+                            Vec3::ZERO
+                        }
+                    };
+                    let mut diff = campos - self.position;
+                    diff.y = 0.0;
+                    self.set_direction(diff.normalize());
+                    self.controls.up = true;
+                    self.controls.forward = true;
+                },
             }
             
             

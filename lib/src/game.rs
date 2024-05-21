@@ -3,8 +3,10 @@ use std::cmp::max;
 use std::collections::HashSet;
 use std::f32::consts::PI;
 use std::io::Write;
+use std::ops::DerefMut;
 use std::slice::Chunks;
 use std::time::Duration;
+use dashmap::DashMap;
 use gl::types::{GLenum, GLuint};
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
@@ -13,6 +15,7 @@ use gltf::Gltf;
 use lockfree::queue::Queue;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use uuid::Uuid;
 use vox_format::types::Model;
 use walkdir::WalkDir;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -162,7 +165,7 @@ pub struct Game {
     pub gltf_textures: Vec<Vec<Vec<GLuint>>>,
     pub gltf_paths: Vec<String>,
     pub static_model_entities: Vec<ModelEntity>,
-    pub non_static_model_entities: Vec<ModelEntity>,
+    pub non_static_model_entities: Arc<DashMap<u32, ModelEntity>>,
     pub select_cube: SelectCube,
     pub block_overlay: BlockOverlay,
     pub ship_pos: Vec3,
@@ -178,7 +181,10 @@ pub struct Game {
     pub nodes: Vec<Vec<Node>>,
     pub current_time: f32,
     pub netconn: NetworkConnector,
-    pub server_command_queue: Arc<lockfree::queue::Queue<Message>>
+    pub server_command_queue: Arc<lockfree::queue::Queue<Message>>,
+    pub headless: bool,
+    pub known_cameras: Arc<DashMap<Uuid, Vec3>>,
+    pub my_uuid: Arc<RwLock<Option<Uuid>>>
 }
 
 enum FaderNames {
@@ -186,7 +192,7 @@ enum FaderNames {
 }
 
 impl Game {
-    pub fn new(window: &Arc<RwLock<PWindow>>) -> Game {
+    pub fn new(window: &Arc<RwLock<PWindow>>, connectonstart: bool, headless: bool) -> Game {
         let shader0 = Shader::new("assets/vert.glsl", "assets/frag.glsl");
         let skyshader = Shader::new("assets/skyvert.glsl", "assets/skyfrag.glsl");
         let faders: RwLock<Vec<Fader>> = RwLock::new(Vec::new());
@@ -340,7 +346,9 @@ impl Game {
 
         let server_command_queue = Arc::new(Queue::<Message>::new());
 
-        
+        let kc = Arc::new(DashMap::new());
+
+        let my_uuid: Arc<RwLock<Option<Uuid>>> = Arc::new(RwLock::new(None));
 
         let mut g = Game {
             chunksys: chunksys.clone(),
@@ -367,7 +375,7 @@ impl Game {
                 near_ship: false,
                 ship_taken_off: true,
                 on_new_world: true,
-                in_multiplayer: true //For now
+                in_multiplayer: connectonstart //For now
             },
             controls: ControlsState::new(),
             faders: Arc::new(faders),
@@ -391,7 +399,7 @@ impl Game {
             gltf_textures: Vec::new(),
             gltf_paths: Vec::new(),
             static_model_entities: Vec::new(),
-            non_static_model_entities: Vec::new(),
+            non_static_model_entities: Arc::new(DashMap::new()),
             select_cube: SelectCube::new(),
             block_overlay: BlockOverlay::new(tex.id),
             ship_pos: Vec3::new(0.0,0.0,0.0),
@@ -406,97 +414,104 @@ impl Game {
             skins: Vec::new(),
             nodes: Vec::new(),
             current_time: 0.0,
-            netconn: NetworkConnector::new(&chunksys, &server_command_queue),
-            server_command_queue: server_command_queue.clone()
+            netconn: NetworkConnector::new(&chunksys, &server_command_queue, &kc, &my_uuid.clone()),
+            server_command_queue: server_command_queue.clone(),
+            headless,
+            known_cameras: kc,
+            my_uuid
         };
 
+        if !headless {
+            g.load_model("assets/models/car/scene.gltf");
+            g.load_model("assets/models/ship/scene.gltf");
+            g.load_model("assets/models/monster1/scene.gltf");
+            g.load_model("assets/models/monster2/scene.gltf");
+            g.load_model("assets/models/ship2/scene.gltf");
+            g.create_model_vbos();
+        
+            // g.setup_vertex_attributes();
 
-        g.load_model("assets/models/car/scene.gltf");
-        g.load_model("assets/models/ship/scene.gltf");
-        g.load_model("assets/models/monster1/scene.gltf");
-        g.load_model("assets/models/monster2/scene.gltf");
-        g.load_model("assets/models/ship2/scene.gltf");
-        g.create_model_vbos();
-    
-        // g.setup_vertex_attributes();
+            //start coming down from the sky in ship
+            g.vars.ship_going_down = true;
+            g.vars.ship_going_up = false;
 
-        //start coming down from the sky in ship
-        g.vars.ship_going_down = true;
-        g.vars.ship_going_up = false;
+            if g.vars.in_multiplayer {
+                g.netconn.connect(String::from("127.0.0.1:6969"));
+                println!("Connected to the server!");
 
-        if g.vars.in_multiplayer {
-            g.netconn.connect(String::from("127.0.0.1:6969"));
-            println!("Connected to the server!");
-
-            
-        }
-            
-
-
-        g.audiop.preload_series("grassstepseries", vec![
-            "assets/sfx/grassstep1.mp3",
-            "assets/sfx/grassstep2.mp3",
-            "assets/sfx/grassstep3.mp3",
-            "assets/sfx/grassstep4.mp3",
-            "assets/sfx/grassstep5.mp3",
-            "assets/sfx/grassstep6.mp3",
-        ]);
-
-        g.audiop.preload_series("stonestepseries", vec![
-            "assets/sfx/stonestep1.mp3",
-           "assets/sfx/stonestep2.mp3",
-           "assets/sfx/stonestep3.mp3",
-            "assets/sfx/stonestep4.mp3"
-        ]);
-
-
-        let mut ship_pos = vec::IVec3::new(20,200,0);
-        let mut ship_front = vec::IVec3::new(30,200,0);
-        let mut ship_back = vec::IVec3::new(10,200,0);
-         // Function to decrement y until a block is found
-        fn find_ground_y(position: &mut vec::IVec3, game: &Game) {
-            while game.chunksys.read().unwrap().blockat(*position) == 0 {
-                position.y -= 1;
+                
             }
+                
+
+
+            g.audiop.preload_series("grassstepseries", vec![
+                "assets/sfx/grassstep1.mp3",
+                "assets/sfx/grassstep2.mp3",
+                "assets/sfx/grassstep3.mp3",
+                "assets/sfx/grassstep4.mp3",
+                "assets/sfx/grassstep5.mp3",
+                "assets/sfx/grassstep6.mp3",
+            ]);
+
+            g.audiop.preload_series("stonestepseries", vec![
+                "assets/sfx/stonestep1.mp3",
+            "assets/sfx/stonestep2.mp3",
+            "assets/sfx/stonestep3.mp3",
+                "assets/sfx/stonestep4.mp3"
+            ]);
+
+
+            let mut ship_pos = vec::IVec3::new(20,200,0);
+            let mut ship_front = vec::IVec3::new(30,200,0);
+            let mut ship_back = vec::IVec3::new(10,200,0);
+            // Function to decrement y until a block is found
+            fn find_ground_y(position: &mut vec::IVec3, game: &Game) {
+                while game.chunksys.read().unwrap().blockat(*position) == 0 {
+                    position.y -= 1;
+                }
+            }
+
+            // Find the ground positions
+            find_ground_y(&mut ship_pos, &g);
+            find_ground_y(&mut ship_front, &g);
+            find_ground_y(&mut ship_back, &g);
+
+
+
+            // Determine the highest y position found
+            let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y) + 10;
+
+            // Update the ship's position
+            ship_pos.y = decided_pos_y;
+
+    
+
+
+            let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
+
+            if g.vars.in_multiplayer {
+                //ChunkSystem::initial_rebuild_on_main_thread(&g.chunksys.clone(), &g.shader0, &g.camera.lock().unwrap().position);
+                while !g.netconn.received_world.load(Ordering::Relaxed) {
+                    thread::sleep(Duration::from_millis(500));
+                }
+            }
+
+            g.rebuild_whole_world_while_showing_loading_screen();
+            g.vars.hostile_world = (g.chunksys.read().unwrap().planet_type % 2) != 0;
+
+
+
+            g.audiop.play("assets/music/Farfromhome.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
+            g.audiop.play("assets/sfx/shipland28sec.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
+
+
+
+            g.ship_pos = ship_float_pos;
+            //g.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0), &g.chunksys, &g.camera));
+            g.static_model_entities.push(ModelEntity::new(4, ship_float_pos, 1.5, Vec3::new(0.0, 0.0, 0.0), &g.chunksys, &g.camera));
+            g.camera.lock().unwrap().position = ship_float_pos  + Vec3::new(5.0, 2.0, 0.0);
+            g.add_ship_colliders();
         }
-
-        // Find the ground positions
-        find_ground_y(&mut ship_pos, &g);
-        find_ground_y(&mut ship_front, &g);
-        find_ground_y(&mut ship_back, &g);
-
-
-
-        // Determine the highest y position found
-        let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y) + 10;
-
-        // Update the ship's position
-        ship_pos.y = decided_pos_y;
-
- 
-
-
-        let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
-
-
-        //ChunkSystem::initial_rebuild_on_main_thread(&g.chunksys.clone(), &g.shader0, &g.camera.lock().unwrap().position);
-        while !g.netconn.received_world.load(Ordering::Relaxed) {
-            thread::sleep(Duration::from_millis(500));
-        }
-
-        g.rebuild_whole_world_while_showing_loading_screen();
-        g.vars.hostile_world = (g.chunksys.read().unwrap().planet_type % 2) != 0;
-
-        g.audiop.play("assets/music/Farfromhome.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
-        g.audiop.play("assets/sfx/shipland28sec.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
-
-
-
-        g.ship_pos = ship_float_pos;
-        //g.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0), &g.chunksys, &g.camera));
-        g.static_model_entities.push(ModelEntity::new(4, ship_float_pos, 1.5, Vec3::new(0.0, 0.0, 0.0), &g.chunksys, &g.camera));
-        g.camera.lock().unwrap().position = ship_float_pos  + Vec3::new(5.0, 2.0, 0.0);
-        g.add_ship_colliders();
         
         g
     }
@@ -656,21 +671,24 @@ impl Game {
 
         self.prev_time = current_time;
 
-        match self.server_command_queue.pop() {
-            Some(comm) => {
-                match comm.message_type {
-                    MessageType::RequestTakeoff => {
-                        self.takeoff_ship();
-                    }
-                    _ => {
+        if !self.headless {
+            match self.server_command_queue.pop() {
+                Some(comm) => {
+                    match comm.message_type {
+                        MessageType::RequestTakeoff => {
+                            self.takeoff_ship();
+                        }
+                        _ => {
 
+                        }
                     }
                 }
-            }
-            None => {
+                None => {
 
+                }
             }
         }
+            
 
         for i in self.faders.write().unwrap().iter_mut().enumerate() {
             if i.1.tick(self.delta_time) {
@@ -696,11 +714,19 @@ impl Game {
         }
         
         self.guisys.draw_text(0);
+
         let mvp = self.camera.lock().unwrap().mvp;
+
         self.drops.update_and_draw_drops(&self.delta_time, &mvp);
+
+
         self.hud.update();
         self.hud.draw();
+
+
         self.audiop.update();
+
+
         let camlock = self.camera.lock().unwrap();
         let pos = camlock.position;
         let forward = camlock.direction;
@@ -770,6 +796,22 @@ impl Game {
 
     pub fn update_movement_and_physics(&mut self) { 
         let mut camlock = self.camera.lock().unwrap();
+
+        match *self.my_uuid.read().unwrap() {
+            Some(uuid) => {
+                match self.known_cameras.get_mut(&uuid) {
+                    Some(mut pos) => {
+                        *pos = camlock.position;
+                    }
+                    None => {
+
+                    }
+                }
+            }
+            None => {
+
+            }
+        }
 
         if !self.coll_cage.solid.contains(&Side::FLOOR) {
             self.grounded = false;

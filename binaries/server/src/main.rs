@@ -14,6 +14,7 @@ use voxelland::chunk::ChunkSystem;
 use voxelland::game::Game;
 use voxelland::vec::IVec3;
 use voxelland::server_types::*;
+use dashmap::DashMap;
 
 static mut PACKET_SIZE: usize = 0;
 
@@ -26,6 +27,7 @@ fn handle_client(
     client_id: Uuid,
     clients: Arc<Mutex<HashMap<Uuid, Client>>>,
     csys: &Arc<RwLock<ChunkSystem>>,
+    knowncams: &Arc<DashMap<Uuid, Vec3>>
 ) {
     let mut buffer;
     unsafe {
@@ -42,6 +44,18 @@ fn handle_client(
             };
 
             let mut mystream = stream.lock().unwrap();
+
+            //ID header then ID as u64 pair
+            let idmsg = Message::new(
+                MessageType::YourId,
+                Vec3::ZERO,
+                0.0,
+                bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32,
+            );
+            mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
+            mystream.write_all(&bincode::serialize(&client_id.as_u64_pair()).unwrap()).unwrap();
+
+
             match mystream.read(&mut buffer) {
                 Ok(numbytes) => {
                     if numbytes > 0 {
@@ -86,6 +100,7 @@ fn handle_client(
                                 mystream.write_all(&bincode::serialize(&seed).unwrap()).unwrap();
                             }
                             MessageType::PlayerUpdate => {
+                                knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
                                 println!("Recvd player update");
                             }
                             MessageType::BlockSet => {
@@ -190,15 +205,30 @@ fn main() {
 
     let initialseed: u32 = 0;
 
-    // let mut game = Game::new(&Arc::new(RwLock::new(window)));
+    let mut game = Game::new(&Arc::new(RwLock::new(window)), false, true);
 
-    // game.vars.in_multiplayer = false;
 
-    let mut csys = ChunkSystem::new(0, initialseed, 0, true);
+    let gamearc = Arc::new(RwLock::new(game));
+
+    let gamewrite = gamearc.write().unwrap();
+
+    let mut csys = gamewrite.chunksys.write().unwrap();
+
+
 
     csys.load_world_from_file(format!("world/{}", initialseed));
 
-    let csysarc = Arc::new(RwLock::new(csys));
+    drop(csys);
+
+    let mut knowncams = &gamewrite.known_cameras.clone();
+
+    let mut chunksys = &gamewrite.chunksys.clone();
+
+    let nsme = &gamewrite.non_static_model_entities.clone();
+
+    let mut nsme_bare = nsme.iter().map(|e| (e.id, e.position)).collect::<Vec<_>>();
+
+    drop(gamewrite);
 
     loop {
         match listener.accept() {
@@ -217,14 +247,29 @@ fn main() {
                 drop(locked_clients);
 
                 let clients_ref_clone = Arc::clone(&clients);
-                let csysarc_clone = Arc::clone(&csysarc);
+                let csysarc_clone = Arc::clone(&chunksys);
+                let knowncams_clone = Arc::clone(&knowncams);
+                let nsme_clone = Arc::clone(&nsme);
+
                 thread::spawn(move || {
-                    handle_client(client_id, clients_ref_clone, &csysarc_clone);
+                    handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone);
+                });
+
+                thread::spawn(move || {
+                    for nsme in nsme_clone.iter() {
+                        let modent = nsme.value();
+                        let stream = {
+                            let clients = clients.lock().unwrap();
+                            clients[&client_id].stream.clone()
+                        };
+                    }
                 });
             }
             Err(e) => {
                 println!("Connection failed: {}", e);
             }
         }
+        gamearc.write().unwrap().update();
+        
     }
 }

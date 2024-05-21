@@ -3190,6 +3190,7 @@ name = "voxelland-server"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "dashmap",
  "gl",
  "glam",
  "glfw",

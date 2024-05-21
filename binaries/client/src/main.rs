@@ -24,7 +24,7 @@ fn main() {
 
     let mut wak_context = WindowAndKeyContext::new("Barkaroo");
 
-    let game = Game::new(&wak_context.window);
+    let game = Game::new(&wak_context.window, true, false);
 
     wak_context.game = Some(game);
     wak_context.game.as_mut().unwrap().start_world();

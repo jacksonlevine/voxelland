@@ -1,3 +1,5 @@
+
+
 use std::{collections::HashMap, fs, path::Path, str::FromStr, sync::Arc};
 
 use dashmap::DashMap;
@@ -202,11 +204,12 @@ impl Game {
 
         modent.coll_cage = CollCage::new(solid_pred);
 
-        self.non_static_model_entities.push(modent);
+        self.non_static_model_entities.insert(modent.id, modent);
     }
 
     pub fn update_non_static_model_entities(&mut self) {
-        for model in &mut self.non_static_model_entities {
+        for mut model in self.non_static_model_entities.iter_mut() {
+            let model: &mut ModelEntity = model.value_mut();
             if !model.coll_cage.solid.contains(&Side::FLOOR) {
                 model.grounded = false;
                 model.was_grounded = false;
@@ -256,20 +259,32 @@ impl Game {
             let cc_center = model.position + Vec3::new(0.0, -1.0, 0.0);
             model.coll_cage.update_readings(cc_center);
             model.respond_to_own_controls(&self.delta_time, 5.0);
-            model.behavior_loop(&self.delta_time);
+            model.behavior_loop(&self.delta_time, &self.known_cameras);
 
             let makebelievepos = model.position + Vec3::new(0.0, self.planet_y_offset, 0.0);
             
-            if (makebelievepos).distance(self.camera.lock().unwrap().position) < 30.0 {
-                model.target = AggroTarget::ThisCamera;
-                if model.soundtimer > 0.0 {
-                    model.soundtimer += self.delta_time;
-                } else {
-                    let sndstr = Monsters::get_aggro_sound(model.model_index);
-                    self.audiop.play(sndstr, &makebelievepos, &model.velocity);
-                    model.soundtimer = 3.0;
+            // if (makebelievepos).distance(self.camera.lock().unwrap().position) < 30.0 {
+            //     model.target = AggroTarget::ThisCamera;
+            //     if model.soundtimer > 0.0 {
+            //         model.soundtimer += self.delta_time;
+            //     } else {
+            //         let sndstr = Monsters::get_aggro_sound(model.model_index);
+            //         self.audiop.play(sndstr, &makebelievepos, &model.velocity);
+            //         model.soundtimer = 3.0;
+            //     }
+            // }
+
+            for knowncam in self.known_cameras.iter() {
+
+                let kc = knowncam.value();
+                if (makebelievepos).distance(*kc) < 30.0 {
+                    model.target = AggroTarget::UUID(*knowncam.key());
                 }
+
             }
+
+
+
             let mut proposed = if model.velocity.length() > 0.0 {
                 let amt_to_subtract = model.velocity * self.delta_time * 5.0;
                 model.velocity -= amt_to_subtract;
@@ -331,11 +346,12 @@ impl Game {
                 1,
             );
 
-            
+            let nsme = self.non_static_model_entities.iter().map(|e| e).collect::<Vec<_>>();
 
 
             for modelt in self.static_model_entities.iter().map(ModelEntityType::Static)
-                .chain(self.non_static_model_entities.iter().map(ModelEntityType::NonStatic)) {
+            .chain(nsme.iter().map(|arg0| ModelEntityType::NonStatic(arg0.value())))
+                 {
 
                 let modelent = match modelt {
                     ModelEntityType::Static(entity) => {

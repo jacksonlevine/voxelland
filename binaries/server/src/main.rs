@@ -19,6 +19,8 @@ use dashmap::DashMap;
 
 static mut PACKET_SIZE: usize = 0;
 
+type Nsme = (u32, Vec3, f32, usize);
+
 pub struct Client {
     stream: Arc<Mutex<TcpStream>>,
     errorstrikes: i8,
@@ -30,7 +32,9 @@ fn handle_client(
     csys: &Arc<RwLock<ChunkSystem>>,
     knowncams: &Arc<DashMap<Uuid, Vec3>>,
     mobspawnqueued: &Arc<AtomicBool>,
-    shutupmobmsgs: &Arc<AtomicBool>
+    shutupmobmsgs: &Arc<AtomicBool>,
+    nsmes: &Arc<Mutex<Vec<Nsme>>>,
+    wl: &Arc<Mutex<u8>>
 ) {
     let mut buffer;
     unsafe {
@@ -65,6 +69,7 @@ fn handle_client(
                                 shutupmobmsgs.store(true, std::sync::atomic::Ordering::Relaxed);
                             }
                             MessageType::RequestUdm => {
+                                let writelock = wl.lock().unwrap();
                                 let csys = csys.read().unwrap();
                                 let currseed = *(csys.currentseed.read().unwrap());
                                 println!("Recvd req world");
@@ -81,6 +86,7 @@ fn handle_client(
                                 mystream.write_all(&bincode::serialize(&world).unwrap()).unwrap();
                             }
                             MessageType::RequestSeed => {
+                                let writelock = wl.lock().unwrap();
                                 let csys = csys.read().unwrap();
                                 let currseed = *(csys.currentseed.read().unwrap());
                                 println!("Recvd req seed");
@@ -102,6 +108,25 @@ fn handle_client(
                             MessageType::PlayerUpdate => {
                                 knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
                                 println!("Recvd player update");
+                                let nlock = nsmes.lock().unwrap();
+                                
+                                println!("Number of mobs: {}", nlock.len());
+                                for nsme in nlock.iter() {
+    
+                                    let writelock = wl.lock().unwrap();
+                                    let id = nsme.0;
+                                    let pos = nsme.1;
+                                    let rot = nsme.2;
+                                    let modind = nsme.3;
+                    
+                                    let mut mobmsg = Message::new(MessageType::MobUpdate, pos, rot, id);
+                                    mobmsg.info2 = modind as u32;
+                
+                                    mystream.write_all(&bincode::serialize(&mobmsg).unwrap());
+
+                                }
+
+
                             }
                             MessageType::BlockSet => {
                                 println!("Recvd block set");
@@ -137,7 +162,7 @@ fn handle_client(
                             }
                             MessageType::RequestPt => {
 
-
+                                let writelock = wl.lock().unwrap();
                                 let csys = csys.read().unwrap();
                                 let currseed = *(csys.currentseed.read().unwrap());
                                 let currpt = csys.planet_type;
@@ -171,6 +196,7 @@ fn handle_client(
 
                         // Redistribute the message to all clients
                         let clients = clients.lock().unwrap();
+                        let writelock = wl.lock().unwrap();
                         for (id, client) in clients.iter() {
                             if *id != client_id {
                                 let mut stream = client.stream.lock().unwrap();
@@ -254,6 +280,10 @@ fn main() {
     let mut mobspawnqueued = Arc::new(AtomicBool::new(false));
 
 
+    
+
+    let mut nsme_bare_arc: Arc<Mutex<Vec<Nsme>>> = Arc::new(Mutex::new(nsme_bare));
+
 
 
     let mut shutupmobmsgs = Arc::new(AtomicBool::new(false));
@@ -261,6 +291,9 @@ fn main() {
     drop(gamewrite);
 
     listener.set_nonblocking(true);
+
+
+    let writelock: Arc<Mutex<u8>> = Arc::new(Mutex::new(0u8));
 
     loop {
 
@@ -272,6 +305,7 @@ fn main() {
                     println!("New connection: {}", stream.peer_addr().unwrap());
                     let client_id = Uuid::new_v4();
                     let stream = Arc::new(Mutex::new(stream));
+                    stream.lock().unwrap().set_nonblocking(false);
 
                     let mut locked_clients = clients.lock().unwrap();
                     locked_clients.insert(
@@ -290,9 +324,11 @@ fn main() {
 
                     let msq_clone = Arc::clone(&mobspawnqueued);
                     let su_clone = Arc::clone(&shutupmobmsgs);
+                    let nsme_clone = Arc::clone(&nsme_bare_arc);
+                    let wl_clone = Arc::clone(&writelock);
 
                     thread::spawn(move || {
-                        handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone, &su_clone);
+                        handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone, &su_clone, &nsme_clone, &wl_clone);
                     });
                     
                 }
@@ -311,26 +347,32 @@ fn main() {
         //println!("Running this");
         glfw.poll_events();
         gamearc.write().unwrap().update();
-        nsme_bare = nsme.iter().map(|e| (e.id, e.position, e.rot.y, e.model_index)).collect::<Vec<_>>();
-            if !shutupmobmsgs.load(std::sync::atomic::Ordering::Relaxed) {
-                for nsme in nsme_bare.iter() {
+        let mut nblock = nsme_bare_arc.lock().unwrap();
+        
+        
+        *nblock = nsme.iter().map(|e| (*e.key(), e.position, e.rot.y, e.model_index)).collect::<Vec<_>>();
 
+        drop(nblock);
+            // if !shutupmobmsgs.load(std::sync::atomic::Ordering::Relaxed) {
 
-                    let id = nsme.0;
-                    let pos = nsme.1;
-                    let rot = nsme.2;
-                    let modind = nsme.3;
+            //     for nsme in nsme_bare.iter() {
+                    
+
+            //         let id = nsme.0;
+            //         let pos = nsme.1;
+            //         let rot = nsme.2;
+            //         let modind = nsme.3;
     
-                    for (uuid, client) in clients.lock().unwrap().iter() {
-                        let mut stream = client.stream.lock().unwrap();
-                        let mut mobmsg = Message::new(MessageType::MobUpdate, pos, rot, id);
-                        mobmsg.info2 = modind as u32;
+            //         for (uuid, client) in clients.lock().unwrap().iter() {
+            //             let mut stream = client.stream.lock().unwrap();
+            //             let mut mobmsg = Message::new(MessageType::MobUpdate, pos, rot, id);
+            //             mobmsg.info2 = modind as u32;
     
     
-                        stream.write_all(&bincode::serialize(&mobmsg).unwrap());
-                    }
-                }
-            }
+            //             stream.write_all(&bincode::serialize(&mobmsg).unwrap());
+            //         }
+            //     }
+            // }
             
         
             if mobspawnqueued.load(std::sync::atomic::Ordering::Relaxed) {

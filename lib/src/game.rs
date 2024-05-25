@@ -231,7 +231,7 @@ impl Game {
         //let seed = rng.gen_range(0..229232);
 
 
-        let mut csys = ChunkSystem::new(10, 0, 0, false);
+        let mut csys = ChunkSystem::new(10, 0, 0, headless);
 
         //csys.load_world_from_file(String::from("saves/world1"));
 
@@ -417,7 +417,7 @@ impl Game {
             skins: Vec::new(),
             nodes: Vec::new(),
             current_time: 0.0,
-            netconn: NetworkConnector::new(&chunksys, &server_command_queue, &kc, &my_uuid.clone(), &nsme),
+            netconn: NetworkConnector::new(&chunksys, &server_command_queue, &kc, &my_uuid.clone(), &nsme, &cam.clone()),
             server_command_queue: server_command_queue.clone(),
             headless,
             known_cameras: kc,
@@ -816,9 +816,12 @@ impl Game {
         } else {
             if !self.headless {
                 self.update_movement_and_physics();
+                
+            } else if !self.vars.in_multiplayer {
+                self.update_non_static_model_entities();    
             }
             
-            self.update_non_static_model_entities();
+            
         }
 
         //println!("Planet y off: {}", self.planet_y_offset);

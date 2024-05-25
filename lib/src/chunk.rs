@@ -85,6 +85,7 @@ impl ChunkGeo {
             tvbo8
         }
     }
+
     pub fn clear(&self) {
         self.data32.lock().unwrap().clear();
         self.data8.lock().unwrap().clear();

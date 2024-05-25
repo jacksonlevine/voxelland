@@ -19,9 +19,8 @@ pub struct WindowAndKeyContext {
 }
 
 impl WindowAndKeyContext {
-    pub fn new(windowname: &'static str) -> Self {
-        let width = 1280;
-        let height = 720;
+    pub fn new(windowname: &'static str, width: u32, height: u32) -> Self {
+        
         let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
         let (mut window, events) = glfw
             .create_window(width, height, windowname, glfw::WindowMode::Windowed)

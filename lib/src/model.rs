@@ -230,6 +230,7 @@ impl Game {
     }
 
     pub fn update_non_static_model_entities(&mut self) {
+        //println!("Updating NSMEs, delta time: {}", self.delta_time);
         for mut model in self.non_static_model_entities.iter_mut() {
             let model: &mut ModelEntity = model.value_mut();
             if !model.coll_cage.solid.contains(&Side::FLOOR) {
@@ -330,9 +331,12 @@ impl Game {
                         corr_made.push(model.coll_cage.normals[*side as usize]);
                     }
                     if *side == Side::FLOOR {
-                        if !model.was_grounded && model.model_index == 2 {
-                            self.audiop.play("assets/sfx/slam.mp3", &makebelievepos, &model.velocity);
+                        if !self.headless {
+                            if !model.was_grounded && model.model_index == 2 {
+                                self.audiop.play("assets/sfx/slam.mp3", &makebelievepos, &model.velocity);
+                            }
                         }
+                        
                         model.grounded = true;
                         model.was_grounded = true;
                     }

@@ -22,7 +22,7 @@ fn main() {
     tracing::subscriber::set_global_default(subscriber)
         .expect("setting default subscriber failed");
 
-    let mut wak_context = WindowAndKeyContext::new("Barkaroo");
+    let mut wak_context = WindowAndKeyContext::new("Barkaroo", 640, 480);
 
     let game = Game::new(&wak_context.window, true, false);
 

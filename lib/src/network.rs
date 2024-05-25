@@ -11,6 +11,7 @@ use glam::Vec3;
 use lockfree::queue::Queue;
 use uuid::Uuid;
 
+use crate::camera::Camera;
 use crate::chunk::ChunkSystem;
 use crate::modelentity::ModelEntity;
 use crate::server_types::{Message, MessageType};
@@ -28,12 +29,14 @@ pub struct NetworkConnector {
     pub received_id: Arc<AtomicBool>,
     pub gknowncams: Arc<DashMap<Uuid, Vec3>>,
     pub my_uuid: Arc<RwLock<Option<Uuid>>>,
-    pub nsme: Arc<DashMap<u32, ModelEntity>>
+    pub nsme: Arc<DashMap<u32, ModelEntity>>,
+    pub mycam: Arc<Mutex<Camera>>,
+    pub shouldsend: Arc<AtomicBool>
 }
 
 impl NetworkConnector {
     pub fn new(csys: &Arc<RwLock<ChunkSystem>>, commqueue: &Arc<Queue<Message>>, gkc: &Arc<DashMap<Uuid, Vec3>>,
-                my_uuid: &Arc<RwLock<Option<Uuid>>>, nsme: &Arc<DashMap<u32, ModelEntity>>) -> NetworkConnector {
+                my_uuid: &Arc<RwLock<Option<Uuid>>>, nsme: &Arc<DashMap<u32, ModelEntity>>, mycam: &Arc<Mutex<Camera>>) -> NetworkConnector {
         NetworkConnector {
             stream: None,
             recvthread: None,
@@ -45,7 +48,9 @@ impl NetworkConnector {
             received_id: Arc::new(AtomicBool::new(false)),
             gknowncams: gkc.clone(),
             my_uuid: my_uuid.clone(),
-            nsme: nsme.clone()
+            nsme: nsme.clone(),
+            mycam: mycam.clone(),
+            shouldsend: Arc::new(AtomicBool::new(false))
         }
     }
 
@@ -94,12 +99,26 @@ impl NetworkConnector {
         let my_uuid = self.my_uuid.clone();
         let nsmes = self.nsme.clone();
 
+
+        let shouldsend = self.shouldsend.clone();
+        let shouldsend2 = self.shouldsend.clone();
+
+
+        let camclone = self.mycam.clone();
+
         self.sendthread = Some(thread::spawn(move || {
             let sr = sr2.clone();
             let stream = stream2.clone();
+            let cam = camclone.clone();
+            let shouldsend = shouldsend.clone();
             while sr.load(std::sync::atomic::Ordering::Relaxed) {
-                //let message = Message::new(MessageType::PlayerUpdate, Vec3::new(0.0, 0.0, 0.0), 0.0, 0);
-                //NetworkConnector::sendto(&message, &stream);
+                if shouldsend.load(std::sync::atomic::Ordering::Relaxed) {
+                    let c = cam.lock().unwrap();
+                    let message = Message::new(MessageType::PlayerUpdate, c.position, 0.0, 0);
+                    drop(c);
+
+                    NetworkConnector::sendto(&message, &stream);
+                }
                 thread::sleep(Duration::from_secs(1));
             }
         }));
@@ -110,6 +129,7 @@ impl NetworkConnector {
             let csys = csys.clone();
 
             let sumsg = Message::new(MessageType::ShutUpMobMsgs, Vec3::ZERO, 0.0, 0);
+            let shouldsend = shouldsend2.clone();
 
             NetworkConnector::sendto(&sumsg, &stream);
 
@@ -138,7 +158,14 @@ impl NetworkConnector {
 
                     match stream_lock.read(&mut buffer) {
                         Ok(size) if size > 0 => {
-                            let recv_m: Message = bincode::deserialize(&buffer[..size]).unwrap();
+                            let recv_m: Message = match bincode::deserialize(&buffer[..size]) {
+                                Ok(msg) => {
+                                    msg
+                                }
+                                Err(e) => {
+                                    Message::new(MessageType::None, Vec3::ZERO, 0.0, 0)
+                                }
+                            };
 
                             match recv_m.message_type {
                                 MessageType::None => {
@@ -217,6 +244,7 @@ impl NetworkConnector {
                                     csys.write().unwrap().load_world_from_file(String::from("mp"));
                                     recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
                                     stream_lock.set_nonblocking(true).unwrap();
+                                    shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
                                 },
                                 MessageType::YourId => {
                                     println!("Receiving Your ID:");

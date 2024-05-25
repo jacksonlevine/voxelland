@@ -190,6 +190,8 @@ impl NetworkConnector {
                                     }
                                 },
                                 MessageType::Udm => {
+                                    shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
+                                    thread::sleep(Duration::from_millis(200));
                                     stream_lock.set_nonblocking(false).unwrap();
                                     println!("Receiving Udm:");
                                     let mut buff = vec![0 as u8; recv_m.info as usize];

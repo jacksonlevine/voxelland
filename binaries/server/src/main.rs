@@ -112,7 +112,7 @@ fn handle_client(
                                 
                                 println!("Number of mobs: {}", nlock.len());
                                 for nsme in nlock.iter() {
-    
+                                    
                                     let writelock = wl.lock().unwrap();
                                     let id = nsme.0;
                                     let pos = nsme.1;
@@ -123,7 +123,7 @@ fn handle_client(
                                     mobmsg.info2 = modind as u32;
                 
                                     mystream.write_all(&bincode::serialize(&mobmsg).unwrap());
-
+                                    thread::sleep(Duration::from_millis(100));
                                 }
 
 

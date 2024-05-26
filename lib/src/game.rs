@@ -78,7 +78,7 @@ pub struct Node {
 }
 
 
-static REQUIRED_SHIP_FLYAWAY_HEIGHT: f32 = -560.0;
+static REQUIRED_SHIP_FLYAWAY_HEIGHT: f32 = 0.0;
 
 pub struct ControlsState {
     pub left: bool,
@@ -376,7 +376,7 @@ impl Game {
                 ship_going_down: false,
                 break_time: 0.0,
                 near_ship: false,
-                ship_taken_off: true,
+                ship_taken_off: false,
                 on_new_world: true,
                 in_multiplayer: connectonstart //For now
             },
@@ -426,17 +426,18 @@ impl Game {
 
         if !headless {
             g.load_model("assets/models/car/scene.gltf");
-            g.load_model("assets/models/ship/scene.gltf");
+            g.load_model("assets/models/car/scene.gltf");
+            //g.load_model("assets/models/ship/scene.gltf");
             g.load_model("assets/models/monster1/scene.gltf");
             g.load_model("assets/models/monster2/scene.gltf");
-            g.load_model("assets/models/ship2/scene.gltf");
+
             g.create_model_vbos();
         
             // g.setup_vertex_attributes();
 
             //start coming down from the sky in ship
-            g.vars.ship_going_down = true;
-            g.vars.ship_going_up = false;
+            //g.vars.ship_going_down = true;
+            //g.vars.ship_going_up = false;
 
             if g.vars.in_multiplayer {
                 g.netconn.connect(String::from("127.0.0.1:6969"));
@@ -463,60 +464,65 @@ impl Game {
                 "assets/sfx/stonestep4.mp3"
             ]);
 
+            g.initialize_being_in_world();
 
-            let mut ship_pos = vec::IVec3::new(20,200,0);
-            let mut ship_front = vec::IVec3::new(30,200,0);
-            let mut ship_back = vec::IVec3::new(10,200,0);
-            // Function to decrement y until a block is found
-            fn find_ground_y(position: &mut vec::IVec3, game: &Game) {
-                while game.chunksys.read().unwrap().blockat(*position) == 0 {
-                    position.y -= 1;
-                }
-            }
-
-            // Find the ground positions
-            find_ground_y(&mut ship_pos, &g);
-            find_ground_y(&mut ship_front, &g);
-            find_ground_y(&mut ship_back, &g);
-
-
-
-            // Determine the highest y position found
-            let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y) + 10;
-
-            // Update the ship's position
-            ship_pos.y = decided_pos_y;
-
-    
-
-
-            let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
-
-            if g.vars.in_multiplayer {
-                //ChunkSystem::initial_rebuild_on_main_thread(&g.chunksys.clone(), &g.shader0, &g.camera.lock().unwrap().position);
-                while !g.netconn.received_world.load(Ordering::Relaxed) {
-                    thread::sleep(Duration::from_millis(500));
-                }
-            }
-
-            g.rebuild_whole_world_while_showing_loading_screen();
-            g.vars.hostile_world = (g.chunksys.read().unwrap().planet_type % 2) != 0;
-
-
-
-            g.audiop.play("assets/music/Farfromhome.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
-            g.audiop.play("assets/sfx/shipland28sec.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
-
-
-
-            g.ship_pos = ship_float_pos;
-            //g.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0), &g.chunksys, &g.camera));
-            g.static_model_entities.push(ModelEntity::new(4, ship_float_pos, 1.5, Vec3::new(0.0, 0.0, 0.0), &g.chunksys, &g.camera));
-            g.camera.lock().unwrap().position = ship_float_pos  + Vec3::new(5.0, 2.0, 0.0);
-            g.add_ship_colliders();
+            // g.add_ship_colliders();
         }
         
         g
+    }
+
+
+    pub fn initialize_being_in_world(&mut self) {
+        let mut ship_pos = vec::IVec3::new(20,200,0);
+        let mut ship_front = vec::IVec3::new(30,200,0);
+        let mut ship_back = vec::IVec3::new(10,200,0);
+        // Function to decrement y until a block is found
+        fn find_ground_y(position: &mut vec::IVec3, game: &Game) {
+            while game.chunksys.read().unwrap().blockat(*position) == 0 {
+                position.y -= 1;
+            }
+        }
+
+        // Find the ground positions
+        find_ground_y(&mut ship_pos, &self);
+        find_ground_y(&mut ship_front, &self);
+        find_ground_y(&mut ship_back, &self);
+
+
+
+        // Determine the highest y position found
+        let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y) + 10;
+
+        // Update the ship's position
+        ship_pos.y = decided_pos_y;
+
+
+
+
+        let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
+
+        if self.vars.in_multiplayer {
+            //ChunkSystem::initial_rebuild_on_main_thread(&self.chunksys.clone(), &self.shader0, &self.camera.lock().unwrap().position);
+            while !self.netconn.received_world.load(Ordering::Relaxed) {
+                thread::sleep(Duration::from_millis(500));
+            }
+        }
+
+        self.rebuild_whole_world_while_showing_loading_screen();
+        self.vars.hostile_world = (self.chunksys.read().unwrap().planet_type % 2) != 0;
+
+
+
+        //self.audiop.play("assets/music/Farfromhome.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
+        //self.audiop.play("assets/sfx/shipland28sec.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
+
+
+
+        self.ship_pos = ship_float_pos;
+        //self.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0), &self.chunksys, &self.camera));
+        // self.static_model_entities.push(ModelEntity::new(4, ship_float_pos, 1.5, Vec3::new(0.0, 0.0, 0.0), &self.chunksys, &self.camera));
+        self.camera.lock().unwrap().position = ship_float_pos  + Vec3::new(5.0, 2.0, 0.0);
     }
 
     pub fn update_inventory(&mut self) {
@@ -670,7 +676,7 @@ impl Game {
     pub fn update(&mut self) {
         
         let current_time = unsafe { glfwGetTime() as f32 };
-        self.delta_time = current_time - self.prev_time;
+        self.delta_time = (current_time - self.prev_time).min(0.05);
 
         self.prev_time = current_time;
 
@@ -688,14 +694,14 @@ impl Game {
                             let rot = comm.rot;
 
                             let nsme = self.non_static_model_entities.clone();
-
+                            println!("NSME Length: {}", nsme.len());
                             match nsme.get_mut(&id) {
                                 Some(mut me) => {
                                     let modent = me.value_mut();
                                     (*modent).position = newpos;
                                 }
                                 None => {
-                                    println!("Received an update for a mob that doesn't exist. Creating it...");
+                                    println!("Received an update for a mob {} that doesn't exist. Creating it...", id);
                                     self.insert_static_model_entity(id, modind as usize, newpos, 5.0, Vec3::new(0.0,rot,0.0), 5.0);
                                 }
                             };
@@ -775,7 +781,7 @@ impl Game {
                         self.new_world_func();
                         
                         
-                        self.audiop.play("assets/sfx/shipland28sec.mp3", &self.ship_pos, &Vec3::ZERO);
+                        //self.audiop.play("assets/sfx/shipland28sec.mp3", &self.ship_pos, &Vec3::ZERO);
                         
                         self.vars.on_new_world = true;
                         self.vars.ship_going_down = true;
@@ -790,15 +796,15 @@ impl Game {
             }
             
             
-            let camlock = self.camera.lock().unwrap();
-            let shipdist = camlock.position.distance(self.ship_pos);
-            if shipdist < 30.0 && shipdist > 10.0 {
-                self.vars.near_ship = true;
-                self.guisys.draw_text(1);
-            } else {
-                self.vars.near_ship = false;
-            }
-            drop(camlock);
+            // let camlock = self.camera.lock().unwrap();
+            // let shipdist = camlock.position.distance(self.ship_pos);
+            // if shipdist < 30.0 && shipdist > 10.0 {
+            //     self.vars.near_ship = true;
+            //     self.guisys.draw_text(1);
+            // } else {
+            //     self.vars.near_ship = false;
+            // }
+            // drop(camlock);
 
             
             let planet_speed = -self.planet_y_offset.clamp(-100.0, -0.5);
@@ -814,11 +820,14 @@ impl Game {
         if self.initial_timer < 1.5  {
             self.initial_timer += self.delta_time;
         } else {
-            if !self.headless {
-                self.update_movement_and_physics();
+            if self.headless {
                 
-            } else if !self.vars.in_multiplayer {
-                self.update_non_static_model_entities();    
+                self.update_non_static_model_entities();  
+            } else {
+                if !self.vars.in_multiplayer {
+                    self.update_non_static_model_entities();  
+                }
+                self.update_movement_and_physics();
             }
             
             
@@ -1463,45 +1472,7 @@ impl Game {
             }
         }
 
-        
-
-        // self.coll_cage.solid_pred  = {
-        //     let csys_arc = Arc::clone(&self.chunksys);
-        //     Box::new(move |v: vec::IVec3| {
-        //         return csys_arc.read().unwrap().collision_predicate(v)
-        //     })
-        // };
-
-        let mut ship_pos = vec::IVec3::new(20,200,0);
-        let mut ship_front = vec::IVec3::new(30,200,0);
-        let mut ship_back = vec::IVec3::new(10,200,0);
-         // Function to decrement y until a block is found
-        fn find_ground_y(position: &mut vec::IVec3, game: &Game) {
-            while game.chunksys.read().unwrap().blockat(*position) == 0 {
-                position.y -= 1;
-            }
-        }
-
-        // Find the ground positions
-        find_ground_y(&mut ship_pos, &self);
-        find_ground_y(&mut ship_front, &self);
-        find_ground_y(&mut ship_back, &self);
-
-        // Determine the highest y position found
-        let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y) + 10;
-
-
-
-
-        self.rebuild_whole_world_while_showing_loading_screen();
-        // Update the ship's position
-        ship_pos.y = decided_pos_y;
-        let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
-        self.ship_pos = ship_float_pos;
-        let ship_index = self.static_model_entities.len()-1;
-        self.static_model_entities[ship_index].position = ship_float_pos;
-        self.camera.lock().unwrap().position = ship_float_pos + Vec3::new(5.0, 2.0, 0.0);
-        self.add_ship_colliders();
+        self.initialize_being_in_world();
 
         self.start_world();
     }
@@ -1969,7 +1940,7 @@ impl Game {
             self.netconn.send(&msg);
 
             self.netconn.received_world.store(false, Ordering::Relaxed);
-
+ 
 
             let msg = Message::new(MessageType::RequestUdm, Vec3::ZERO, 0.0, 0);
             self.netconn.send(&msg);
@@ -2056,21 +2027,21 @@ impl Game {
                     self.controls.up = false;
                 }
             }
-            Key::M => {
-                if action == Action::Press {
-                    if self.vars.in_multiplayer {
-                        self.netconn.send(&Message::new(MessageType::RequestTakeoff, Vec3::ZERO, 0.0, 0));
-                    } else {
-                        self.takeoff_ship();
-                    }
+            // Key::M => {
+            //     if action == Action::Press {
+            //         if self.vars.in_multiplayer {
+            //             self.netconn.send(&Message::new(MessageType::RequestTakeoff, Vec3::ZERO, 0.0, 0));
+            //         } else {
+            //             self.takeoff_ship();
+            //         }
                     
-                }
-            }
-            Key::L => {
-                if action == Action::Press {
-                    self.chunksys.read().unwrap().save_current_world_to_file(String::from("saves/world1"));
-                }
-            }
+            //     }
+            // }
+            // Key::L => {
+            //     if action == Action::Press {
+            //         self.chunksys.read().unwrap().save_current_world_to_file(String::from("saves/world1"));
+            //     }
+            // }
             // Key::Num8 => {
             //     self.vars.ship_going_down = false;
             //     self.vars.ship_going_up = false;
@@ -2084,12 +2055,12 @@ impl Game {
             //     self.vars.ship_going_down = false;
             //     self.vars.ship_going_up = true;
             // }
-            Key::B => {
-                if self.vars.near_ship {
-                    let mut camlock = self.camera.lock().unwrap();
-                    camlock.position = self.ship_pos + Vec3::new(5.0, 2.0, 0.0);
-                }
-            }
+            // Key::B => {
+            //     if self.vars.near_ship {
+            //         let mut camlock = self.camera.lock().unwrap();
+            //         camlock.position = self.ship_pos + Vec3::new(5.0, 2.0, 0.0);
+            //     }
+            // }
             _ => {}
         }
     }

@@ -102,8 +102,6 @@ fn handle_client(
                                 mystream.write_all(&bincode::serialize(&seedmsg).unwrap()).unwrap();
                                 mystream.write_all(&bincode::serialize(&seed).unwrap()).unwrap();
 
-
-                                
                             }
                             MessageType::PlayerUpdate => {
                                 knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
@@ -111,9 +109,10 @@ fn handle_client(
                                 let nlock = nsmes.lock().unwrap();
                                 
                                 println!("Number of mobs: {}", nlock.len());
+                                let writelock = wl.lock().unwrap();
                                 for nsme in nlock.iter() {
                                     
-                                    let writelock = wl.lock().unwrap();
+                                    
                                     let id = nsme.0;
                                     let pos = nsme.1;
                                     let rot = nsme.2;
@@ -121,9 +120,17 @@ fn handle_client(
                     
                                     let mut mobmsg = Message::new(MessageType::MobUpdate, pos, rot, id);
                                     mobmsg.info2 = modind as u32;
-                
-                                    mystream.write_all(&bincode::serialize(&mobmsg).unwrap());
-                                    thread::sleep(Duration::from_millis(100));
+                                    
+
+                                    match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
+                                        Ok(_) => {
+
+                                        }
+                                        Err(e) => {
+                                            println!("Error sending mob update {}", e)
+                                        }
+                                    }
+                                    thread::sleep(Duration::from_millis(20));
                                 }
 
 
@@ -277,7 +284,7 @@ fn main() {
 
     let mut nsme_bare = nsme.iter().map(|e| (e.id, e.position, e.rot.y, e.model_index)).collect::<Vec<_>>();
 
-    let mut mobspawnqueued = Arc::new(AtomicBool::new(false));
+    let mut mobspawnqueued = Arc::new(AtomicBool::new(true));
 
 
     
@@ -377,18 +384,18 @@ fn main() {
         
             if mobspawnqueued.load(std::sync::atomic::Ordering::Relaxed) {
 
-                if chunksys.read().unwrap().planet_type == 1 {
+                if true {//chunksys.read().unwrap().planet_type == 1 {
                     let mut rng = StdRng::from_entropy();
                     let mut gamewrite = gamearc.write().unwrap();
                     gamewrite.create_non_static_model_entity(0, Vec3::new(-100.0, 100.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
         
                     for i in 0..4 {
                         if rng.gen_range(0..3) <= 2 {
-                            gamewrite.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
-                            gamewrite.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+                            gamewrite.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-20.0..20.0),600.0,rng.gen_range(-20.0..20.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+                            gamewrite.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-20.0..20.0),600.0,rng.gen_range(-20.0..20.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
                             
-                            gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
-                            gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
+                            gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-20.0..20.0),600.0,rng.gen_range(-20.0..20.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
+                            gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-20.0..20.0),600.0,rng.gen_range(-20.0..20.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
                         }
                     }
                     

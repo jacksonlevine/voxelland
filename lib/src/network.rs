@@ -132,7 +132,8 @@ impl NetworkConnector {
             let shouldsend = shouldsend2.clone();
 
             NetworkConnector::sendto(&sumsg, &stream);
-
+            
+            shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
             
             let requdm = Message::new(MessageType::RequestUdm, Vec3::ZERO, 0.0, 0);
             let reqseed = Message::new(MessageType::RequestSeed, Vec3::ZERO, 0.0, 0);
@@ -191,7 +192,7 @@ impl NetworkConnector {
                                 },
                                 MessageType::Udm => {
                                     shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
-                                    thread::sleep(Duration::from_millis(200));
+                                    
                                     stream_lock.set_nonblocking(false).unwrap();
                                     println!("Receiving Udm:");
                                     let mut buff = vec![0 as u8; recv_m.info as usize];

@@ -42,5 +42,5 @@ void main() {
     vec4 rotatedPosition = rotationMatrix * vec4(aPos * scale, 1.0);
 
     TexCoord = uv;
-    gl_Position = mvp * (rotatedPosition + vec4(mix(lastpos, pos, min(interp_time*2.0, 0.5)), 0.0));
+    gl_Position = mvp * (rotatedPosition + vec4(mix(lastpos, pos, min(interp_time*2.0, 1.0)), 0.0));
 }

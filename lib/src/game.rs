@@ -681,48 +681,51 @@ impl Game {
         self.prev_time = current_time;
 
         if !self.headless {
-            match self.server_command_queue.pop() {
-                Some(comm) => {
-                    match comm.message_type {
-                        MessageType::RequestTakeoff => {
-                            self.takeoff_ship();
-                        }
-                        MessageType::MobUpdate => {
-                            let newpos = Vec3::new(comm.x, comm.y, comm.z);
-                            let id = comm.info;
-                            let modind = comm.info2;
-                            let rot = comm.rot;
+            let mut morestuff = true;
+            while morestuff {
+                match self.server_command_queue.pop() {
+                    Some(comm) => {
+                        match comm.message_type {
+                            MessageType::RequestTakeoff => {
+                                self.takeoff_ship();
+                            }
+                            MessageType::MobUpdate => {
+                                let newpos = Vec3::new(comm.x, comm.y, comm.z);
+                                let id = comm.info;
+                                let modind = comm.info2;
+                                let rot = comm.rot;
 
-                            let nsme = self.non_static_model_entities.clone();
-                            println!("NSME Length: {}", nsme.len());
-                            match nsme.get_mut(&id) {
-                                Some(mut me) => {
-                                    let modent = me.value_mut();
-                                    (*modent).lastpos = (*modent).position.clone();
-                                    (*modent).position = newpos;
-                                    unsafe {
-                                        (*modent).time_stamp = glfwGetTime();
+                                let nsme = self.non_static_model_entities.clone();
+                                println!("NSME Length: {}", nsme.len());
+                                match nsme.get_mut(&id) {
+                                    Some(mut me) => {
+                                        let modent = me.value_mut();
+                                        (*modent).lastpos = (*modent).position.clone();
+                                        (*modent).position = newpos;
+                                        unsafe {
+                                            (*modent).time_stamp = glfwGetTime();
+                                        }
+                                        
+                                        
                                     }
-                                    
-                                    
-                                }
-                                None => {
-                                    println!("Received an update for a mob {} that doesn't exist. Creating it...", id);
-                                    self.insert_static_model_entity(id, modind as usize, newpos, 5.0, Vec3::new(0.0,rot,0.0), 5.0);
-                                }
-                            };
-                        }
-                        MessageType::Seed => {
-                            //Means we're going to a new world
-                            self.non_static_model_entities.clear();
-                        }
-                        _ => {
+                                    None => {
+                                        println!("Received an update for a mob {} that doesn't exist. Creating it...", id);
+                                        self.insert_static_model_entity(id, modind as usize, newpos, 5.0, Vec3::new(0.0,rot,0.0), 5.0);
+                                    }
+                                };
+                            }
+                            MessageType::Seed => {
+                                //Means we're going to a new world
+                                self.non_static_model_entities.clear();
+                            }
+                            _ => {
 
+                            }
                         }
                     }
-                }
-                None => {
-
+                    None => {
+                        morestuff = false;
+                    }
                 }
             }
         

@@ -185,7 +185,8 @@ pub struct Game {
     pub server_command_queue: Arc<lockfree::queue::Queue<Message>>,
     pub headless: bool,
     pub known_cameras: Arc<DashMap<Uuid, Vec3>>,
-    pub my_uuid: Arc<RwLock<Option<Uuid>>>
+    pub my_uuid: Arc<RwLock<Option<Uuid>>>,
+    pub ambient_bright_mult: f32
 }
 
 enum FaderNames {
@@ -421,7 +422,8 @@ impl Game {
             server_command_queue: server_command_queue.clone(),
             headless,
             known_cameras: kc,
-            my_uuid
+            my_uuid,
+            ambient_bright_mult: 1.0
         };
 
         if !headless {
@@ -430,6 +432,7 @@ impl Game {
             //g.load_model("assets/models/ship/scene.gltf");
             g.load_model("assets/models/monster1/scene.gltf");
             g.load_model("assets/models/monster2/scene.gltf");
+            g.load_model("assets/models/cow/scene.glb");
 
             g.create_model_vbos();
         
@@ -710,7 +713,7 @@ impl Game {
                                     }
                                     None => {
                                         println!("Received an update for a mob {} that doesn't exist. Creating it...", id);
-                                        self.insert_static_model_entity(id, modind as usize, newpos, 5.0, Vec3::new(0.0,rot,0.0), 5.0);
+                                        self.insert_static_model_entity(id, modind as usize, newpos, 1.0, Vec3::new(0.0,rot,0.0), 5.0);
                                     }
                                 };
                             }
@@ -1316,7 +1319,7 @@ impl Game {
                 cam_lock.position.y,
                 cam_lock.position.z,
             );
-            gl::Uniform1f(AMBIENT_BRIGHT_MULT_LOC, 1.0);
+            gl::Uniform1f(AMBIENT_BRIGHT_MULT_LOC, self.ambient_bright_mult);
             gl::Uniform1f(VIEW_DISTANCE_LOC, 8.0);
             gl::Uniform1f(UNDERWATER_LOC, 0.0);
             gl::Uniform3f(

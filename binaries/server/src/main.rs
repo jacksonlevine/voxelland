@@ -169,7 +169,8 @@ fn handle_client(
                             
                                 let mut csys = csys.write().unwrap();
                                 let currseed = *(csys.currentseed.read().unwrap());
-                                //TODO: MAKE THIS CSYS NOT QUEUE ANYTHING SO THEY DONT BUILD UP FOR NOTHING
+
+
                                 csys.set_block(spot, block, true);
 
                                 //TODO: MAKE THIS JUST WRITE A NEW LINE TO THE FILE INSTEAD OF REWRITING THE WHOLE THING
@@ -415,14 +416,18 @@ fn main() {
                     let mut rng = StdRng::from_entropy();
                     let mut gamewrite = gamearc.write().unwrap();
                     gamewrite.create_non_static_model_entity(0, Vec3::new(-100.0, 100.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
-        
-                    for i in 0..4 {
-                        if rng.gen_range(0..3) <= 2 {
-                            gamewrite.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-20.0..20.0),600.0,rng.gen_range(-20.0..20.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
-                            gamewrite.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-20.0..20.0),600.0,rng.gen_range(-20.0..20.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+                    
+                    gamewrite.create_non_static_model_entity(4, Vec3::new(-100.0, 100.0, -450.0), 10.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+                    
+                    for i in 0..6 {
+                        if rng.gen_range(0..=3) <= 1 {
+                            gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-20.0..20.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1);
+                            gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-20.0..20.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1);
+                            gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-20.0..20.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1);
+                            gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-20.0..20.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1);
                             
-                            gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-20.0..20.0),600.0,rng.gen_range(-20.0..20.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
-                            gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-20.0..20.0),600.0,rng.gen_range(-20.0..20.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
+                            gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-20.0..20.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
+                            gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-20.0..20.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
                         }
                     }
                     

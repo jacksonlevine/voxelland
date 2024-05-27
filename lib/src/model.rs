@@ -299,15 +299,17 @@ impl Game {
             //         model.soundtimer = 3.0;
             //     }
             // }
+            if model.hostile {
+                for knowncam in self.known_cameras.iter() {
 
-            for knowncam in self.known_cameras.iter() {
+                    let kc = knowncam.value();
+                    if (makebelievepos).distance(*kc) < 30.0 {
+                        model.target = AggroTarget::UUID(*knowncam.key());
+                    }
 
-                let kc = knowncam.value();
-                if (makebelievepos).distance(*kc) < 30.0 {
-                    model.target = AggroTarget::UUID(*knowncam.key());
                 }
-
             }
+                
 
 
 
@@ -489,6 +491,14 @@ impl Game {
                                     b"zrot\0".as_ptr() as *const i8,
                                 ),
                                 modelent.rot.z,
+                            );
+
+                            gl::Uniform1f(
+                                gl::GetUniformLocation(
+                                    self.modelshader.shader_id,
+                                    b"ambientBrightMult\0".as_ptr() as *const i8,
+                                ),
+                                self.ambient_bright_mult,
                             );
 
                             gl::Uniform3f(

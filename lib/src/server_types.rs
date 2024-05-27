@@ -10,6 +10,9 @@ use glam::Vec3;
 
 use crate::collisioncage::CollCage;
 
+
+const MOB_BATCH_SIZE: usize = 8;
+
 impl Display for Message {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
@@ -124,13 +127,13 @@ pub struct Message {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MobUpdateBatch {
     pub count: u8,
-    pub msgs: [Message; 8]
+    pub msgs: [Message; MOB_BATCH_SIZE]
 }
 
 impl MobUpdateBatch {
     pub fn new(count: usize, slice: &[Message]) -> MobUpdateBatch {
-        if count > 8 {
-            panic!("No MobUpdateBatch over size 8");
+        if count > MOB_BATCH_SIZE {
+            panic!("No MobUpdateBatch over size {}", MOB_BATCH_SIZE);
         }
         let emptymsg = Message::new(MessageType::None, Vec3::ZERO, 0.0, 0);
 

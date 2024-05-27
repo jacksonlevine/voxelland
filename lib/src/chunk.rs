@@ -928,14 +928,17 @@ impl ChunkSystem {
 
     pub fn noise_func(&self, spot: vec::IVec3) -> f64 {
 
+        let xzdivisor1 = 25.35 * 4.0;
+        let xzdivisor2 = 55.35 * 4.0;
+
         let mut y = spot.y - 20;
 
         let noise1 = f64::max(
             0.0,
             20.0 + self.perlin.get([
-                spot.x as f64 / 25.35,
+                spot.x as f64 / xzdivisor1,
                 y as f64 / 20.35,
-                spot.z as f64 / 25.35,
+                spot.z as f64 / xzdivisor1,
             ]) * 5.0
                 - f64::max(
                     y as f64 / 2.0
@@ -952,14 +955,14 @@ impl ChunkSystem {
         let noise2 = f64::max(
             0.0,
             50.0 + self.perlin.get([
-                spot.x as f64 / 55.35,
+                spot.x as f64 / xzdivisor2,
                 y as f64 / 25.35,
-                spot.z as f64 / 55.35,
+                spot.z as f64 / xzdivisor2,
             ]) * 10.0
                 + self.perlin.get([
-                    spot.x as f64 / 25.35,
+                    spot.x as f64 / xzdivisor1,
                     y as f64 / 65.35,
-                    spot.z as f64 / 25.35,
+                    spot.z as f64 / xzdivisor1,
                 ]) * 20.0
                 - f64::max(y as f64 / 3.0, 0.0),
         );

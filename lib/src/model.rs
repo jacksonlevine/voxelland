@@ -511,6 +511,17 @@ impl Game {
                                 cam_lock.position.z
                             );
 
+
+                            gl::Uniform3f(
+                                gl::GetUniformLocation(
+                                    self.modelshader.shader_id,
+                                    b"camDir\0".as_ptr() as *const i8,
+                                ),
+                                cam_lock.direction.x,
+                                cam_lock.direction.y,
+                                cam_lock.direction.z
+                            );
+
                             gl::Uniform1f(
                                 gl::GetUniformLocation(
                                     self.modelshader.shader_id,
@@ -535,11 +546,11 @@ impl Game {
                             gl::Uniform1f(gl::GetUniformLocation(
                                 self.modelshader.shader_id,
                                 b"sunset\0".as_ptr() as *const i8,
-                            ), 0.0);
+                            ), self.sunset_factor);
                             gl::Uniform1f(gl::GetUniformLocation(
                                 self.modelshader.shader_id,
                                 b"sunrise\0".as_ptr() as *const i8,
-                            ), 0.0);
+                            ), self.sunrise_factor);
 
 
 

@@ -186,7 +186,11 @@ pub struct Game {
     pub headless: bool,
     pub known_cameras: Arc<DashMap<Uuid, Vec3>>,
     pub my_uuid: Arc<RwLock<Option<Uuid>>>,
-    pub ambient_bright_mult: f32
+    pub ambient_bright_mult: f32,
+    pub daylength: f32,
+    pub timeofday: Arc<Mutex<f32>>,
+    pub sunrise_factor: f32,
+    pub sunset_factor: f32
 }
 
 enum FaderNames {
@@ -423,7 +427,11 @@ impl Game {
             headless,
             known_cameras: kc,
             my_uuid,
-            ambient_bright_mult: 1.0
+            ambient_bright_mult: 1.0,
+            daylength: 900.0,
+            timeofday: Arc::new(Mutex::new(900.0/4.0)),
+            sunrise_factor: 0.0,
+            sunset_factor: 0.0
         };
 
         if !headless {
@@ -676,12 +684,35 @@ impl Game {
         
     }
 
+    pub fn gaussian (x: f32, peak: f32, radius: f32) -> f32 {
+        let std_dev = radius / 3.0;  // Controls the spread
+        let variance = std_dev * std_dev;
+
+        // Gaussian formula
+        let b = f32::exp(-(x - peak).powf(2.0) / (2.0 * variance));
+
+        // Normalize the peak to 1
+        let peak_height = f32::exp(-(peak - peak).powf(2.0) / (2.0 * variance));
+
+        return b / peak_height;
+    }
+
     pub fn update(&mut self) {
         
         let current_time = unsafe { glfwGetTime() as f32 };
         self.delta_time = (current_time - self.prev_time).min(0.05);
 
         self.prev_time = current_time;
+        let mut todlock = self.timeofday.lock().unwrap();
+        *todlock = (*todlock + self.delta_time) % self.daylength;
+
+        let gaussian_value = Self::gaussian(*todlock, self.daylength / 2.0, self.daylength / 2.0) * 1.3;
+        self.ambient_bright_mult = gaussian_value.clamp(0.08, 1.0);
+
+        self.sunset_factor = Self::gaussian(*todlock, self.daylength*(3.0/4.0), self.daylength/16.0);
+        self.sunrise_factor = Self::gaussian(*todlock, self.daylength/6.0, self.daylength/16.0);
+
+        drop(todlock);
 
         if !self.headless {
             let mut morestuff = true;
@@ -1010,9 +1041,9 @@ impl Game {
             gl::Uniform4f(T_C_LOC, top.x, top.y, top.z, top.w);
             gl::Uniform4f(B_C_LOC, bot.x, bot.y, bot.z, bot.w);
 
-            gl::Uniform1f(A_B_LOC, 1.0);
-            gl::Uniform1f(S_S_LOC, 0.0);
-            gl::Uniform1f(S_R_LOC, 0.0);
+            gl::Uniform1f(A_B_LOC, self.ambient_bright_mult);
+            gl::Uniform1f(S_S_LOC, self.sunset_factor);
+            gl::Uniform1f(S_R_LOC, self.sunrise_factor);
 
             gl::Uniform1f(P_Y_LOC, self.planet_y_offset);
 
@@ -1328,8 +1359,8 @@ impl Game {
                 cam_lock.direction.y,
                 cam_lock.direction.z,
             );
-            gl::Uniform1f(SUNSET_LOC, 0.0);
-            gl::Uniform1f(SUNRISE_LOC, 0.0);
+            gl::Uniform1f(SUNSET_LOC, self.sunset_factor);
+            gl::Uniform1f(SUNRISE_LOC, self.sunrise_factor);
             gl::Uniform1f(PLANET_Y_LOC, self.planet_y_offset);
             gl::Uniform1i(
                 gl::GetUniformLocation(

@@ -19,8 +19,14 @@ void main()
     vec3 east = vec3(0, 0, 1);
     vec3 west = vec3(0, 0, -1);
     float space = abs(min(planety + 128, 0));
-    vec4 botColor = mix(bot_color * vec4(brightMult, brightMult, brightMult, 1.0f), bot_color, (similarity(camDir, east)) * sunrise);
-    botColor = mix(botColor, bot_color, (similarity(camDir, west)) * sunset);
+
+    vec4 sunsetcol = vec4(1.0f, 0.651f, 0.0f, 1.0f);
+    vec4 sunrisecol = vec4(1.0f, 0.651f, 0.0f, 1.0f);
+
+
+
+    vec4 botColor = mix(bot_color * vec4(brightMult, brightMult, brightMult, 1.0f), sunrisecol, (similarity(camDir, east)) * sunrise);
+    botColor = mix(botColor, sunsetcol, (similarity(camDir, west)) * sunset);
     frag_color = mix(botColor, top_color * vec4(brightMult, brightMult, brightMult, 1.0f), max(min(pow(v_uv.y-0.4, 1.0), 1.0), 0.0));
 
 

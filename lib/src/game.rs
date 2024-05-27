@@ -698,7 +698,13 @@ impl Game {
                             match nsme.get_mut(&id) {
                                 Some(mut me) => {
                                     let modent = me.value_mut();
+                                    (*modent).lastpos = (*modent).position.clone();
                                     (*modent).position = newpos;
+                                    unsafe {
+                                        (*modent).time_stamp = glfwGetTime();
+                                    }
+                                    
+                                    
                                 }
                                 None => {
                                     println!("Received an update for a mob {} that doesn't exist. Creating it...", id);

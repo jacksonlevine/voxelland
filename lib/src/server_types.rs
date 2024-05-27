@@ -10,6 +10,28 @@ use glam::Vec3;
 
 use crate::collisioncage::CollCage;
 
+impl Display for Message {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Message {{ type: {}, x: {}, y: {}, z: {}, rot: {}, info: {}, info2: {} }}",
+            self.message_type, self.x, self.y, self.z, self.rot, self.info, self.info2
+        )
+    }
+}
+
+impl Display for MobUpdateBatch {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "MobUpdateBatch {{ count: {}, msgs: [", self.count)?;
+        for (i, msg) in self.msgs.iter().enumerate() {
+            if i != 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}", msg)?;
+        }
+        write!(f, "] }}")
+    }
+}
 
 
 
@@ -29,7 +51,8 @@ pub enum MessageType {
     MobUpdate,
     NewMob,
     WhatsThatMob,
-    ShutUpMobMsgs
+    ShutUpMobMsgs,
+    MobUpdateBatch
 }
 
 impl Display for MessageType {
@@ -80,6 +103,9 @@ impl Display for MessageType {
             MessageType::ShutUpMobMsgs => {
                 write!(f, "ShutUpMobMsgs")
             },
+            MessageType::MobUpdateBatch => {
+                write!(f, "MobUpdateBatch")
+            },
         }
     } 
 }
@@ -94,6 +120,45 @@ pub struct Message {
     pub info: u32,
     pub info2: u32
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MobUpdateBatch {
+    pub count: u8,
+    pub msgs: [Message; 8]
+}
+
+impl MobUpdateBatch {
+    pub fn new(count: usize, slice: &[Message]) -> MobUpdateBatch {
+        if count > 8 {
+            panic!("No MobUpdateBatch over size 8");
+        }
+        let emptymsg = Message::new(MessageType::None, Vec3::ZERO, 0.0, 0);
+
+
+        let mut msgs: [Message; 8] = [
+            emptymsg.clone(),
+            emptymsg.clone(),
+            emptymsg.clone(),
+            emptymsg.clone(),
+
+            emptymsg.clone(),
+            emptymsg.clone(),
+            emptymsg.clone(),
+            emptymsg.clone()
+        ];
+
+        for i in 0..count {
+            msgs[i] = slice[i].clone();
+        }
+
+        MobUpdateBatch {
+            count: count as u8,
+            msgs
+        }
+    }
+}
+
+
 impl Message {
     pub fn new(t: MessageType, pos: Vec3, rot: f32, info: u32) -> Message {
         Message {

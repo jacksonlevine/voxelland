@@ -88,6 +88,7 @@ pub struct ModelEntity {
     pub animation_time: f32,
     pub animations: Vec<Animation>,
     pub nodes: Vec<Node>,
+    pub time_stamp: f64
 }
 
 impl ModelEntity {
@@ -140,7 +141,8 @@ impl ModelEntity {
                 current_animation: None,
                 animation_time: 0.0,
                 animations: Vec::new(),
-                nodes: Vec::new()
+                nodes: Vec::new(),
+                time_stamp: 0.0
             }
         }
         
@@ -189,7 +191,8 @@ impl ModelEntity {
                 current_animation: None,
                 animation_time: 0.0,
                 animations: Vec::new(),
-                nodes: Vec::new()
+                nodes: Vec::new(),
+                time_stamp: 0.0
             }
      
         

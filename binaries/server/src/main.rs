@@ -82,6 +82,7 @@ fn handle_client(
                                     0.0,
                                     bincode::serialized_size(&world).unwrap() as u32,
                                 );
+
                                 mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
                                 mystream.write_all(&bincode::serialize(&world).unwrap()).unwrap();
                             }
@@ -109,9 +110,10 @@ fn handle_client(
                                 let nlock = nsmes.lock().unwrap();
                                 
                                 println!("Number of mobs: {}", nlock.len());
-                                let writelock = wl.lock().unwrap();
+
+                                let mut mobmsgs: Vec<Message> = Vec::new();
+                                
                                 for nsme in nlock.iter() {
-                                    
                                     
                                     let id = nsme.0;
                                     let pos = nsme.1;
@@ -121,18 +123,43 @@ fn handle_client(
                                     let mut mobmsg = Message::new(MessageType::MobUpdate, pos, rot, id);
                                     mobmsg.info2 = modind as u32;
                                     
+                                    mobmsgs.push(mobmsg);
+
+                                }
+
+                                drop(nlock);
+
+                                for chunk in mobmsgs.chunks(8) {
+                                    let writelock = wl.lock().unwrap();
+                                    println!("THIS CHUNK HAS LEN {}", chunk.len());
+                                    let mobmsgbatch = MobUpdateBatch::new(chunk.len(), chunk);
+
+                                    let mobmsg = Message::new(MessageType::MobUpdateBatch, Vec3::ZERO, 0.0, bincode::serialized_size(&mobmsgbatch).unwrap() as u32);
 
                                     match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
                                         Ok(_) => {
 
                                         }
                                         Err(e) => {
-                                            println!("Error sending mob update {}", e)
+                                            println!("Error sending mob update header {}", e)
                                         }
                                     }
-                                    thread::sleep(Duration::from_millis(20));
+
+                                    thread::sleep(Duration::from_millis(10));
+
+                                    match mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap()) {
+                                        Ok(_) => {
+                                            
+                                        }
+                                        Err(e) => {
+                                            println!("Error sending mob update payload {}", e)
+                                        }
+                                    }
+                                    drop(writelock);
+                                    thread::sleep(Duration::from_millis(10));
                                 }
 
+                                
 
                             }
                             MessageType::BlockSet => {

@@ -14,7 +14,7 @@ use uuid::Uuid;
 use crate::camera::Camera;
 use crate::chunk::ChunkSystem;
 use crate::modelentity::ModelEntity;
-use crate::server_types::{Message, MessageType};
+use crate::server_types::{Message, MessageType, MobUpdateBatch};
 use crate::vec::IVec3;
 
 
@@ -119,7 +119,7 @@ impl NetworkConnector {
 
                     NetworkConnector::sendto(&message, &stream);
                 }
-                thread::sleep(Duration::from_secs(1));
+                thread::sleep(Duration::from_millis(500));
             }
         }));
 
@@ -269,6 +269,7 @@ impl NetworkConnector {
                                 MessageType::MobUpdate => {
                                     
                                     commqueue.push(recv_m.clone());
+                                    
                                 },
                                 MessageType::NewMob => {
                                     let newid = recv_m.info;
@@ -279,6 +280,40 @@ impl NetworkConnector {
                                 },
                                 MessageType::WhatsThatMob => todo!(),
                                 MessageType::ShutUpMobMsgs =>  {
+                                    
+                                },
+                                MessageType::MobUpdateBatch =>  {
+                                    println!("Receiving a Mob Batch:");
+                                
+                                    stream_lock.set_nonblocking(false).unwrap();
+                                    let mut buff = vec![0 as u8; recv_m.info as usize];
+                                    stream_lock.set_read_timeout(Some(Duration::from_millis(50)));
+                                    match stream_lock.read_exact(&mut buff) {
+                                        Ok(_) => {
+                                            let recv_s: MobUpdateBatch = bincode::deserialize(&buff).unwrap();
+
+                                            if recv_s.count > 8 {
+                                                println!("Ignoring invalid packe with count > 8 of {}", recv_s.count);
+                                            } else {
+                                                for i in 0..recv_s.count.min(8) {
+                                                    let msg = recv_s.msgs[i as usize].clone();
+                                                    commqueue.push(msg);
+                                                }
+                                                
+                                            }
+
+                                            println!("{}", recv_s);
+                                        },
+                                        Err(e) => {
+                                            println!("Sorry champ! Missed that one!, {}", e);
+                                        },
+                                    }
+                                    
+
+                                    stream_lock.set_nonblocking(true).unwrap();
+
+                                    
+
                                     
                                 },
                             }

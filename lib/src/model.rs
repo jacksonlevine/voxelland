@@ -5,6 +5,7 @@ use std::{collections::HashMap, fs, path::Path, str::FromStr, sync::Arc};
 use dashmap::DashMap;
 use gl::types::{GLsizeiptr, GLuint, GLvoid};
 use glam::{Mat4, Vec3, Vec4};
+use glfw::ffi::glfwGetTime;
 use gltf::{accessor::{DataType, Dimensions}, image::Source, mesh::util::ReadIndices, Semantic};
 use crate::{monsters::Monsters, planetinfo::Planets};
 use gltf::{animation::Interpolation, animation::util::ReadOutputs};
@@ -245,6 +246,8 @@ impl Game {
             } else {
                 model.time_falling_scalar = 1.0;
             }
+
+            
     
             if !model.grounded && !model.jumping_up {
                 model.velocity +=
@@ -355,9 +358,14 @@ impl Game {
     pub fn draw_models(&self) {
 
 
-                
+        
 
         unsafe {
+
+
+            
+
+
             gl::Disable(gl::CULL_FACE);
             gl::UseProgram(self.modelshader.shader_id);
             let mvp_loc = gl::GetUniformLocation(self.modelshader.shader_id, b"mvp\0".as_ptr() as *const i8);
@@ -441,6 +449,23 @@ impl Game {
                                 },
                             }
 
+                            gl::Uniform1f(
+                                gl::GetUniformLocation(
+                                    self.modelshader.shader_id,
+                                    b"interp_time\0".as_ptr() as *const i8,
+                                ),
+                                glfwGetTime() as f32 - modelent.time_stamp as f32
+                            );
+
+                            gl::Uniform3f(
+                                gl::GetUniformLocation(
+                                    self.modelshader.shader_id,
+                                    b"lastpos\0".as_ptr() as *const i8,
+                                ),
+                                modelent.lastpos.x,
+                                modelent.lastpos.y,
+                                modelent.lastpos.z
+                            );
                             
 
                             gl::Uniform1f(

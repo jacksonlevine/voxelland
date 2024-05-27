@@ -5,10 +5,14 @@ layout (location = 1) in vec2 uv;
 uniform mat4 mvp;
 
 uniform vec3 pos;
+uniform vec3 lastpos;
+
 uniform float scale;
 uniform float xrot;
 uniform float yrot;
 uniform float zrot;
+
+uniform float interp_time;
 
 out vec2 TexCoord;
 
@@ -38,5 +42,5 @@ void main() {
     vec4 rotatedPosition = rotationMatrix * vec4(aPos * scale, 1.0);
 
     TexCoord = uv;
-    gl_Position = mvp * (rotatedPosition + vec4(pos, 0.0));
+    gl_Position = mvp * (rotatedPosition + vec4(mix(lastpos, pos, min(interp_time*2.0, 0.5)), 0.0));
 }

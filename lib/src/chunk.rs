@@ -56,7 +56,7 @@ impl LightSegment {
         for ray in &self.rays {
             res += ray.value;
         }
-        return res.min(16);
+        return res.min(15);
     }
 }
 
@@ -923,10 +923,21 @@ impl ChunkSystem {
                         
                         if Blocks::is_transparent(block) || Blocks::is_semi_transparent(block) {
                             for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
-                                let neigh_block = self.blockatmemo(spot + *neigh, &mut memo);
+                                let neighspot = spot + *neigh;
+                                let neigh_block = self.blockatmemo(neighspot, &mut memo);
                                 let cubeside = CubeSide::from_primitive(indie);
                                 let neigh_semi_trans = Blocks::is_semi_transparent(neigh_block);
                                 let water_bordering_transparent = block == 2 && neigh_block != 2 && Blocks::is_transparent(neigh_block);
+
+
+                                let blocklighthere = match self.lightmap.get(&neighspot) {
+                                    Some(k) => {
+                                        k.sum()
+                                    }
+                                    None => {
+                                        0
+                                    }
+                                };
 
                                 hit_block = match tops.get(&vec::IVec2{x: i + neigh.x, y: k + neigh.z}) {
                                     Some(t) => {
@@ -971,7 +982,7 @@ impl ChunkSystem {
                                             k as u8 + v[2],
                                             ind as u8,
                                             clamped_light,
-                                            0,
+                                            blocklighthere,
                                             texcoord.0,
                                             texcoord.1,
                                         );
@@ -988,7 +999,9 @@ impl ChunkSystem {
                         } else {
 
                             for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
-                                let neigh_block = self.blockatmemo(spot + *neigh, &mut memo);
+                                let neighspot = spot + *neigh;
+                                let neigh_block = self.blockatmemo(neighspot, &mut memo);
+
                                 let cubeside = CubeSide::from_primitive(indie);
                                 let neighbor_transparent = Blocks::is_transparent(neigh_block) || Blocks::is_semi_transparent(neigh_block);
                                 
@@ -998,6 +1011,16 @@ impl ChunkSystem {
                                     }
                                     None => { false }
                                 };
+
+                                let blocklighthere = match self.lightmap.get(&neighspot) {
+                                    Some(k) => {
+                                        k.sum()
+                                    }
+                                    None => {
+                                        0
+                                    }
+                                };
+
 
                                 if neigh_block == 0 || neighbor_transparent {
                                     let side = Cube::get_side(cubeside);
@@ -1031,7 +1054,7 @@ impl ChunkSystem {
                                             k as u8 + v[2],
                                             ind as u8,
                                             clamped_light,
-                                            0,
+                                            blocklighthere,
                                             texcoord.0,
                                             texcoord.1,
                                         );

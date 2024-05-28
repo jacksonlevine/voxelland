@@ -38,6 +38,35 @@ use crate::worldgeometry::WorldGeometry;
 
 use std::str::FromStr;
 use std::io::Write;
+
+
+pub struct LightRay {
+    pub value: u8,
+    pub origin: vec::IVec3,
+    pub directions: Vec<CubeSide>
+}
+
+pub struct LightSegment {
+    pub rays: Vec<LightRay>
+}
+
+impl LightSegment {
+    pub fn sum(&self) -> u8 {
+        let mut res = 0u8;
+        for ray in &self.rays {
+            res += ray.value;
+        }
+        return res.min(16);
+    }
+}
+
+
+
+
+
+
+
+
 pub struct ChunkGeo {
     pub data32: Mutex<Vec<u32>>,
     pub data8: Mutex<Vec<u8>>,
@@ -149,7 +178,8 @@ pub struct ChunkSystem {
     pub planet_type: u8,
     pub currentseed: RwLock<u32>,
     pub headless: bool,
-    pub hashadinitiallightpass: DashMap<vec::IVec2, bool>
+    pub hashadinitiallightpass: DashMap<vec::IVec2, bool>,
+    pub lightmap: DashMap<vec::IVec3, LightSegment>
 }
 
 impl ChunkSystem {
@@ -312,7 +342,8 @@ impl ChunkSystem {
             planet_type: noisetype as u8,
             currentseed: RwLock::new(0),
             headless,
-            hashadinitiallightpass: DashMap::new()
+            hashadinitiallightpass: DashMap::new(),
+            lightmap: DashMap::new()
         };
 
 
@@ -561,6 +592,180 @@ impl ChunkSystem {
         }
     }
 
+    pub fn depropogate_light_origin(&self, origin: vec::IVec3, imp: &mut HashSet<vec::IVec2>) {
+        let mut stack: Vec<vec::IVec3> = Vec::new();
+
+        stack.push(origin);
+
+        while !stack.is_empty() {
+            let spot = stack.pop().unwrap();
+
+            let chunkcoordoforigin = Self::spot_to_chunk_pos(&origin);
+
+            let chunkcoordhere = Self::spot_to_chunk_pos(&spot);
+
+            if chunkcoordoforigin != chunkcoordhere {
+                imp.insert(chunkcoordhere);
+            }
+
+            match self.lightmap.get_mut(&spot) {
+                Some(mut k) => {
+                    let mut i = 0;
+                    while i < k.value().rays.len() {
+                        if k.value().rays[i].origin == origin {
+                            let directions = k.value().rays[i].directions.clone();
+                            k.value_mut().rays.remove(i);
+                            let neighbs = Cube::get_neighbors();
+                            for dir in directions {
+                                stack.push(neighbs[dir as usize] + spot);
+                            }
+                        } else {
+                            i += 1;
+                        }
+                    }
+                }
+                None => {
+
+                }
+            }
+        }
+    }
+    pub fn propogate_light_origin(&self, spot: vec::IVec3, origin: vec::IVec3, value: u8, imp: &mut HashSet<vec::IVec2>) {
+        let mut stack: Vec<(u8, vec::IVec3)> = Vec::new();
+        let mut visited: HashSet<vec::IVec3> = HashSet::new();
+
+        stack.push((value, spot));
+        visited.insert(spot);
+
+        while !stack.is_empty() {
+            let n = stack.pop().unwrap();
+
+
+            let blockbitshere = self.blockat(spot);
+            let blockidhere = (blockbitshere & Blocks::block_id_bits());
+
+            let goinghere = (blockidhere == 0 || 
+                Blocks::is_transparent(blockidhere) ||
+                Blocks::is_semi_transparent(blockidhere) ||
+                n.1 == origin
+            );
+            
+            if goinghere {
+                let chunkcoordoforigin = Self::spot_to_chunk_pos(&origin);
+                let chunkcoordhere = Self::spot_to_chunk_pos(&n.1);
+
+                if chunkcoordoforigin != chunkcoordhere {
+                    imp.insert(chunkcoordhere);
+                }
+
+                let mut k;
+
+                match self.lightmap.get_mut(&n.1) {
+                    Some(mut k2) => {
+                        k = k2
+
+                    }
+                    None => {
+                        self.lightmap.insert(n.1, LightSegment {
+                            rays: Vec::new()
+                        });
+                        k = self.lightmap.get_mut(&n.1).unwrap();
+                    }
+                }
+
+                let mut rayit = None;
+
+                for ray in &mut k.value_mut().rays {
+                    if ray.origin == origin {
+                        rayit = Some(ray);
+                    }
+                }
+
+                match rayit {
+                    Some(ray) => {
+                        if ray.value < n.0 {
+                            ray.value = n.0;
+                        }
+                        rayit = Some(ray);
+                    }
+                    None => {
+                        k.value_mut().rays.push(LightRay{
+                        value: n.0, origin, directions: Vec::new()
+                        });
+                        rayit = Some(k.value_mut().rays.last_mut().unwrap());
+                    }
+                }
+
+                if n.0 > 1 {
+                    let neighbs = Cube::get_neighbors();
+                    for (index, neigh) in neighbs.iter().enumerate() {
+                        let next = n.1 + *neigh;
+
+                        let mut k;
+
+                        match self.lightmap.get_mut(&next) {
+                            Some(k2) => {
+                                k = k2;
+                            }
+                            None => {
+                                self.lightmap.insert(next, LightSegment {
+                                    rays: Vec::new()
+                                });
+                                k = self.lightmap.get_mut(&next).unwrap();
+                            }
+                        }
+
+                        let mut nextrayit = None;
+
+                        for ray in &mut k.value_mut().rays {
+                            if ray.origin == origin {
+                                nextrayit = Some(ray);
+                            }
+                        }
+
+                        let mut nextvalue = 0u8;
+
+                        match nextrayit {
+                            Some(r) => {
+                                nextvalue = r.value.clone();
+                                nextrayit = Some(r);
+                            }   
+                            None => {
+
+                            }
+                        }
+
+                        if !visited.contains(&next) || nextvalue < n.0 - 1 {
+                            stack.push((n.0 - 1, next));
+                            visited.insert(next);
+
+                            match nextrayit {
+                                Some(_r) => {
+
+                                }
+                                None => {
+                                    k.value_mut().rays.push(LightRay {
+                                        value: n.0 - 1,
+                                        origin,
+                                        directions: Vec::new()
+                                    });
+
+                                }
+                            }
+                            for ray in &mut k.value_mut().rays {
+                                if ray.origin == origin {
+                                    if !ray.directions.contains(&CubeSide::from_primitive(index)) {
+                                        ray.directions.push(CubeSide::from_primitive(index));
+                                    }
+                                }
+                            }
+                            
+                        }
+                    }
+                }
+            }
+        }
+    }
     pub fn lightpass_on_chunk(&self, pos: vec::IVec2) {
         match self.hashadinitiallightpass.get(&pos) {
             Some(k) => {
@@ -571,7 +776,53 @@ impl ChunkSystem {
             }
         }
 
-        let implicated: HashSet<> = HashSet::new();
+        let mut implicated: HashSet<vec::IVec2> = HashSet::new();
+
+        let mut lightsources: HashSet<vec::IVec3> = HashSet::new();
+
+        for x in 0..CW {
+            for z in 0..CW {
+                for y in 0..CH {
+                    let blockcoord = IVec3::new(pos.x*CW + x,y,pos.y*CW + z);
+                    match self.lightmap.get(&blockcoord) {
+                        Some(k) => {
+                            for ray in &k.value().rays {
+                                let chunkcoord_of_origin = Self::spot_to_chunk_pos(&ray.origin);
+
+                                if chunkcoord_of_origin == pos {
+                                    let originweremoving = ray.origin;
+
+                                    //DEPROPOGATE THIS ORIGIN ITERATIVELY
+                                    self.depropogate_light_origin(ray.origin, &mut implicated);
+
+                                    if Blocks::is_light(self.blockat(originweremoving)) {
+                                        lightsources.insert(originweremoving);
+                                    }
+                                }
+                            }
+                        }
+                        None => {
+
+                        }
+                    }
+
+                    if Blocks::is_light(self.blockat(blockcoord)) {
+                        lightsources.insert(blockcoord);
+                    }
+                }
+            }
+        }
+
+        for source in lightsources {
+            self.propogate_light_origin(source, source, 8, &mut implicated);
+        }
+
+        for imp in implicated {
+            if self.takencare.contains_key(&imp) {
+                let tc = self.takencare.get(&imp).unwrap();
+                self.user_rebuild_requests.push(tc.value().geo_index);
+            }
+        }
     }
 
     pub fn rebuild_index(&self, index: usize, user_power: bool, light: bool) {

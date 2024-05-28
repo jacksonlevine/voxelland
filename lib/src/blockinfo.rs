@@ -76,6 +76,9 @@ impl Blocks {
         ];
         return LIGHTS.contains(&id);
     }
+    pub fn block_id_bits() -> u32 {
+        0b0000_0000_0000_0000_1111_1111_1111_1111
+    }
     pub fn get_walk_series(id: u32) -> &'static str {
         match id {
             3 => {

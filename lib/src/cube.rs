@@ -2,7 +2,7 @@ use crate::vec::{self, IVec3};
 use glam::Vec3;
 use num_enum::FromPrimitive;
 
-#[derive(Debug, Clone, Copy, FromPrimitive)]
+#[derive(Debug, Clone, Copy, FromPrimitive, PartialEq)]
 #[repr(usize)]
 pub enum CubeSide {
     #[num_enum(default)]

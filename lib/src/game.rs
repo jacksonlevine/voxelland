@@ -342,10 +342,10 @@ impl Game {
         let inv = Arc::new(RwLock::new(Inventory{
             dirty: true,
             inv: [
-                (0, 0),
-                (0, 0),
-                (0, 0),
-                (0, 0),
+                (18, 99),
+                (5, 99),
+                (8, 99),
+                (10, 99),
                 (0, 0)
             ]
         }));
@@ -723,11 +723,16 @@ impl Game {
                             MessageType::RequestTakeoff => {
                                 self.takeoff_ship();
                             }
+                            MessageType::TimeUpdate => {
+                                let mut todlock = self.timeofday.lock().unwrap();
+                                *todlock = comm.infof;
+                            }
                             MessageType::MobUpdate => {
                                 let newpos = Vec3::new(comm.x, comm.y, comm.z);
                                 let id = comm.info;
                                 let modind = comm.info2;
                                 let rot = comm.rot;
+                                let scale = comm.infof;
 
                                 let nsme = self.non_static_model_entities.clone();
                                 println!("NSME Length: {}", nsme.len());
@@ -736,6 +741,9 @@ impl Game {
                                         let modent = me.value_mut();
                                         (*modent).lastpos = (*modent).position.clone();
                                         (*modent).position = newpos;
+                                        (*modent).scale = scale;
+                                        (*modent).lastrot = (*modent).rot.clone();
+                                        (*modent).rot = Vec3::new(0.0, rot, 0.0);
                                         unsafe {
                                             (*modent).time_stamp = glfwGetTime();
                                         }
@@ -1563,7 +1571,7 @@ impl Game {
 
             match csys_arc.user_rebuild_requests.pop() {
                 Some(index) => {
-                    csys_arc.rebuild_index(index, true);
+                    csys_arc.rebuild_index(index, true, false);
                 }
                 None => {
                     userstuff = false;
@@ -1576,15 +1584,15 @@ impl Game {
 
             match csys_arc.gen_rebuild_requests.pop() {
                 Some(index) => {
-                    csys_arc.rebuild_index(index, true);
+                    csys_arc.rebuild_index(index, true, false);
                     match csys_arc.user_rebuild_requests.pop() {
                         Some(index) => {
-                            csys_arc.rebuild_index(index, true);
+                            csys_arc.rebuild_index(index, true, false);
                             let mut userstuff = true;
                             while userstuff {
                                 match csys_arc.user_rebuild_requests.pop() {
                                     Some(index) => {
-                                        csys_arc.rebuild_index(index, true);
+                                        csys_arc.rebuild_index(index, true, false);
                                     }
                                     None => {
                                         userstuff = false;
@@ -1607,15 +1615,15 @@ impl Game {
             let csys_arc = csys_arc.read().unwrap();
             match csys_arc.background_rebuild_requests.pop() {
                 Some(index) => {
-                    csys_arc.rebuild_index(index, false);
+                    csys_arc.rebuild_index(index, false, false);
                     match csys_arc.user_rebuild_requests.pop() {
                         Some(index) => {
-                            csys_arc.rebuild_index(index, true);
+                            csys_arc.rebuild_index(index, true, false);
                             let mut userstuff = true;
                             while userstuff {
                                 match csys_arc.user_rebuild_requests.pop() {
                                     Some(index) => {
-                                        csys_arc.rebuild_index(index, true);
+                                        csys_arc.rebuild_index(index, true, false);
                                     }
                                     None => {
                                         userstuff = false;
@@ -1627,12 +1635,12 @@ impl Game {
                     }
                     match csys_arc.gen_rebuild_requests.pop() {
                         Some(index) => {
-                            csys_arc.rebuild_index(index, true);
+                            csys_arc.rebuild_index(index, true, false);
                             let mut genstuff = true;
                             while genstuff {
                                 match csys_arc.gen_rebuild_requests.pop() {
                                     Some(index) => {
-                                        csys_arc.rebuild_index(index, true);
+                                        csys_arc.rebuild_index(index, true, false);
                                     }
                                     None => {
                                         genstuff = false;
@@ -1730,14 +1738,14 @@ impl Game {
                     csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns);
                     match csys_arc.user_rebuild_requests.pop() {
                         Some(index) => {
-                            csys_arc.rebuild_index(index, true);
+                            csys_arc.rebuild_index(index, true, false);
                             break;
                         }
                         None => {}
                     }
                     match csys_arc.gen_rebuild_requests.pop() {
                         Some(index) => {
-                            csys_arc.rebuild_index(index, true);
+                            csys_arc.rebuild_index(index, true, false);
                         }
                         None => {}
                     }

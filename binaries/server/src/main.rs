@@ -19,7 +19,7 @@ use dashmap::DashMap;
 
 static mut PACKET_SIZE: usize = 0;
 
-type Nsme = (u32, Vec3, f32, usize);
+type Nsme = (u32, Vec3, f32, usize, f32);
 
 pub struct Client {
     stream: Arc<Mutex<TcpStream>>,
@@ -34,7 +34,8 @@ fn handle_client(
     mobspawnqueued: &Arc<AtomicBool>,
     shutupmobmsgs: &Arc<AtomicBool>,
     nsmes: &Arc<Mutex<Vec<Nsme>>>,
-    wl: &Arc<Mutex<u8>>
+    wl: &Arc<Mutex<u8>>,
+    tod: &Arc<Mutex<f32>>
 ) {
     let mut buffer;
     unsafe {
@@ -107,6 +108,20 @@ fn handle_client(
                             MessageType::PlayerUpdate => {
                                 knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
                                 println!("Recvd player update");
+
+                                let mut timeupdate = Message::new(MessageType::TimeUpdate, Vec3::ZERO, 0.0, 0);
+                                timeupdate.infof = *tod.lock().unwrap();
+
+                                match mystream.write_all(&bincode::serialize(&timeupdate).unwrap()) {
+                                    Ok(_) => {
+                                        
+                                    }
+                                    Err(e) => {
+                                        println!("Error sending mob update payload {}", e)
+                                    }
+                                }
+
+
                                 let nlock = nsmes.lock().unwrap();
                                 
                                 println!("Number of mobs: {}", nlock.len());
@@ -122,7 +137,7 @@ fn handle_client(
                     
                                     let mut mobmsg = Message::new(MessageType::MobUpdate, pos, rot, id);
                                     mobmsg.info2 = modind as u32;
-                                    
+                                    mobmsg.infof = nsme.4;
                                     mobmsgs.push(mobmsg);
 
                                 }
@@ -310,7 +325,7 @@ fn main() {
 
     let nsme = &gamewrite.non_static_model_entities.clone();
 
-    let mut nsme_bare = nsme.iter().map(|e| (e.id, e.position, e.rot.y, e.model_index)).collect::<Vec<_>>();
+    let mut nsme_bare = nsme.iter().map(|e| (e.id, e.position, e.rot.y, e.model_index, e.scale)).collect::<Vec<_>>();
 
     let mut mobspawnqueued = Arc::new(AtomicBool::new(true));
 
@@ -322,6 +337,9 @@ fn main() {
 
 
     let mut shutupmobmsgs = Arc::new(AtomicBool::new(false));
+
+
+    let mut todclone = gamewrite.timeofday.clone();
 
     drop(gamewrite);
 
@@ -362,8 +380,10 @@ fn main() {
                     let nsme_clone = Arc::clone(&nsme_bare_arc);
                     let wl_clone = Arc::clone(&writelock);
 
+                    let todclone = todclone.clone();
+
                     thread::spawn(move || {
-                        handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone, &su_clone, &nsme_clone, &wl_clone);
+                        handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone, &su_clone, &nsme_clone, &wl_clone, &todclone);
                     });
                     
                 }
@@ -385,7 +405,7 @@ fn main() {
         let mut nblock = nsme_bare_arc.lock().unwrap();
         
         
-        *nblock = nsme.iter().map(|e| (*e.key(), e.position, e.rot.y, e.model_index)).collect::<Vec<_>>();
+        *nblock = nsme.iter().map(|e| (*e.key(), e.position, e.rot.y, e.model_index, e.scale)).collect::<Vec<_>>();
 
         drop(nblock);
             // if !shutupmobmsgs.load(std::sync::atomic::Ordering::Relaxed) {
@@ -417,7 +437,7 @@ fn main() {
                     let mut gamewrite = gamearc.write().unwrap();
                     gamewrite.create_non_static_model_entity(0, Vec3::new(-100.0, 100.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
                     
-                    gamewrite.create_non_static_model_entity(4, Vec3::new(-100.0, 100.0, -450.0), 10.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+                    gamewrite.create_non_static_model_entity(4, Vec3::new(-100.0, 100.0, -450.0), 30.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
                     
                     for i in 0..6 {
                         if rng.gen_range(0..=3) <= 1 {

@@ -55,7 +55,8 @@ pub enum MessageType {
     NewMob,
     WhatsThatMob,
     ShutUpMobMsgs,
-    MobUpdateBatch
+    MobUpdateBatch,
+    TimeUpdate
 }
 
 impl Display for MessageType {
@@ -109,6 +110,9 @@ impl Display for MessageType {
             MessageType::MobUpdateBatch => {
                 write!(f, "MobUpdateBatch")
             },
+            MessageType::TimeUpdate => {
+                write!(f, "TimeUpdate")
+            },
         }
     } 
 }
@@ -121,7 +125,8 @@ pub struct Message {
     pub z: f32,
     pub rot: f32,
     pub info: u32,
-    pub info2: u32
+    pub info2: u32,
+    pub infof: f32
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -171,7 +176,8 @@ impl Message {
             z: pos.z,
             rot,
             info,
-            info2: 0
+            info2: 0,
+            infof: 1.0
         }
     }
 

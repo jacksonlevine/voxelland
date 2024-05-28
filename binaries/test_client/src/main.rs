@@ -19,7 +19,8 @@ fn main() -> io::Result<()> {
         z: 3.0,
         rot: 4.0,
         info: 42,
-        info2: 0
+        info2: 0,
+        infof: 1.0
     };
 
 

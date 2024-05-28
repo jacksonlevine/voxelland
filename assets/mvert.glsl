@@ -8,9 +8,15 @@ uniform vec3 pos;
 uniform vec3 lastpos;
 
 uniform float scale;
+
+
+
 uniform float xrot;
 uniform float yrot;
 uniform float zrot;
+
+uniform vec3 lastrot;
+
 
 uniform float interp_time;
 
@@ -38,7 +44,9 @@ mat4 getRotationMatrix(float xrot, float yrot, float zrot) {
 
 void main() {
 
-    mat4 rotationMatrix = getRotationMatrix(xrot, yrot, zrot);
+    vec3 mixedrots = mix(lastrot, vec3(xrot, yrot, zrot), min(interp_time*2.0, 1.0));
+
+    mat4 rotationMatrix = getRotationMatrix(mixedrots.x, mixedrots.y, mixedrots.z);
     vec4 rotatedPosition = rotationMatrix * vec4(aPos * scale, 1.0);
 
     TexCoord = uv;

@@ -148,7 +148,8 @@ pub struct ChunkSystem {
     pub chunk_memories: Mutex<ChunkRegistry>,
     pub planet_type: u8,
     pub currentseed: RwLock<u32>,
-    pub headless: bool
+    pub headless: bool,
+    pub hashadinitiallightpass: DashMap<vec::IVec2, bool>
 }
 
 impl ChunkSystem {
@@ -310,7 +311,8 @@ impl ChunkSystem {
             }),
             planet_type: noisetype as u8,
             currentseed: RwLock::new(0),
-            headless
+            headless,
+            hashadinitiallightpass: DashMap::new()
         };
 
 
@@ -551,20 +553,38 @@ impl ChunkSystem {
 
             
 
-            self.rebuild_index(index, false);
+            self.rebuild_index(index, false, false);
         } else {
             println!("This path");
             let ind = tc.get(&cpos).unwrap().geo_index;
-            self.rebuild_index(ind, false);
+            self.rebuild_index(ind, false, false);
         }
     }
 
-    pub fn rebuild_index(&self, index: usize, user_power: bool) {
+    pub fn lightpass_on_chunk(&self, pos: vec::IVec2) {
+        match self.hashadinitiallightpass.get(&pos) {
+            Some(k) => {
+                
+            }
+            None => {
+                self.hashadinitiallightpass.insert(pos, true);
+            }
+        }
 
+        let implicated: HashSet<> = HashSet::new();
+    }
 
+    pub fn rebuild_index(&self, index: usize, user_power: bool, light: bool) {
+
+        
         //println!("Rebuilding!");
         let chunkarc = self.chunks[index].clone();
         let mut chunklock = chunkarc.lock().unwrap();
+
+        if light {
+            self.lightpass_on_chunk(chunklock.pos);
+        }
+
 
         chunklock.used = true;
 

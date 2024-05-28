@@ -89,7 +89,8 @@ pub struct ModelEntity {
     pub animations: Vec<Animation>,
     pub nodes: Vec<Node>,
     pub time_stamp: f64,
-    pub hostile: bool
+    pub hostile: bool,
+    pub lastrot: Vec3
 }
 
 impl ModelEntity {
@@ -144,7 +145,8 @@ impl ModelEntity {
                 animations: Vec::new(),
                 nodes: Vec::new(),
                 time_stamp: 0.0,
-                hostile: false
+                hostile: false,
+                lastrot: Vec3::ZERO
             }
         }
         
@@ -195,7 +197,8 @@ impl ModelEntity {
                 animations: Vec::new(),
                 nodes: Vec::new(),
                 time_stamp: 0.0,
-                hostile: false
+                hostile: false,
+                lastrot: Vec3::ZERO
             }
      
         

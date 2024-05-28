@@ -316,6 +316,9 @@ impl NetworkConnector {
 
                                     
                                 },
+                                MessageType::TimeUpdate => {
+                                    commqueue.push(recv_m.clone());
+                                }
                             }
 
                             println!("Received message from server: {:?}", recv_m);

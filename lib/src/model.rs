@@ -511,6 +511,16 @@ impl Game {
                                 cam_lock.position.z
                             );
 
+                            gl::Uniform3f(
+                                gl::GetUniformLocation(
+                                    self.modelshader.shader_id,
+                                    b"lastrot\0".as_ptr() as *const i8,
+                                ),
+                                modelent.lastrot.x,
+                                modelent.lastrot.y,
+                                modelent.lastrot.z
+                            );
+
 
                             gl::Uniform3f(
                                 gl::GetUniformLocation(

@@ -17,7 +17,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let csys = ChunkSystem::new(8, 1, 0, false);
 
-    c.bench_function("rebuild 20 chunks", |b| b.iter(|| csys.rebuild_index(black_box(20), false)));
+    c.bench_function("rebuild 20 chunks", |b| b.iter(|| csys.rebuild_index(black_box(20), false, false)));
 }
 
 

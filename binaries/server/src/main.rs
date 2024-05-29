@@ -416,6 +416,8 @@ fn main() {
         *nblock = nsme.iter().map(|e| (*e.key(), e.position, e.rot.y, e.model_index, e.scale)).collect::<Vec<_>>();
 
         drop(nblock);
+
+        thread::sleep(Duration::from_millis(50));
             // if !shutupmobmsgs.load(std::sync::atomic::Ordering::Relaxed) {
 
             //     for nsme in nsme_bare.iter() {

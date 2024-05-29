@@ -14,7 +14,7 @@ use uuid::Uuid;
 use crate::camera::Camera;
 use crate::chunk::ChunkSystem;
 use crate::modelentity::ModelEntity;
-use crate::server_types::{Message, MessageType, MobUpdateBatch};
+use crate::server_types::{self, Message, MessageType, MobUpdateBatch};
 use crate::vec::IVec3;
 
 
@@ -55,7 +55,7 @@ impl NetworkConnector {
     }
 
     pub fn send(&self, message: &Message) {
-        println!("Sending a {}", message.message_type);
+        //println!("Sending a {}", message.message_type);
 
         if let Some(stream) = &self.stream {
             let serialized_message = bincode::serialize(message).unwrap();
@@ -65,14 +65,14 @@ impl NetworkConnector {
     }
 
     pub fn sendto(message: &Message, stream: &Arc<Mutex<TcpStream>>) {
-        println!("Sending a {}", message.message_type);
+        //println!("Sending a {}", message.message_type);
         let serialized_message = bincode::serialize(message).unwrap();
         let mut stream_lock = stream.lock().unwrap();
         stream_lock.write_all(&serialized_message).unwrap();
     }
 
     pub fn sendtolocked(message: &Message, stream: &mut TcpStream) {
-        println!("Sending a {}", message.message_type);
+        //println!("Sending a {}", message.message_type);
         let serialized_message = bincode::serialize(message).unwrap();
         stream.write_all(&serialized_message).unwrap();
     }
@@ -119,7 +119,7 @@ impl NetworkConnector {
 
                     NetworkConnector::sendto(&message, &stream);
                 }
-                thread::sleep(Duration::from_millis(500));
+                thread::sleep(Duration::from_millis(1000));
             }
         }));
 
@@ -182,26 +182,27 @@ impl NetworkConnector {
                                     
                                 },
                                 MessageType::BlockSet => {
-                                    if recv_m.info == 0 {
-                                        csys.read().unwrap().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
-                                        recv_m.info, true, true);
-                                    } else {
-                                        csys.read().unwrap().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
-                                        recv_m.info, false, true);
-                                    }
+                                    // if recv_m.info == 0 {
+                                    //     csys.read().unwrap().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
+                                    //     recv_m.info, true, true);
+                                    // } else {
+                                    //     csys.read().unwrap().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
+                                    //     recv_m.info, false, true);
+                                    // }
+                                    commqueue.push(recv_m.clone());
                                 },
                                 MessageType::Udm => {
                                     shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
                                     
                                     stream_lock.set_nonblocking(false).unwrap();
-                                    println!("Receiving Udm:");
+                                    //println!("Receiving Udm:");
                                     let mut buff = vec![0 as u8; recv_m.info as usize];
                                     stream_lock.read_exact(&mut buff).unwrap();
 
 
                                     let recv_s: String = bincode::deserialize(&buff).unwrap();
 
-                                    println!("{}", recv_s);
+                                    //println!("{}", recv_s);
 
                                     fs::create_dir_all("mp").unwrap();
                                     let mut file = File::create("mp/udm").unwrap(); 
@@ -210,7 +211,7 @@ impl NetworkConnector {
                                     NetworkConnector::sendtolocked(&reqseed, &mut stream_lock);
                                 },
                                 MessageType::Seed => {
-                                    println!("Receiving Seed:");
+                                    //println!("Receiving Seed:");
                                     let mut buff = vec![0 as u8; recv_m.info as usize];
                                     stream_lock.read_exact(&mut buff).unwrap();
                                     fs::create_dir_all("mp").unwrap();
@@ -218,7 +219,7 @@ impl NetworkConnector {
 
                                     
                                     let recv_s: String = bincode::deserialize(&buff).unwrap();
-                                    println!("{}", recv_s);
+                                    //println!("{}", recv_s);
 
                                     file.write_all(recv_s.as_bytes()).unwrap();
 
@@ -233,7 +234,7 @@ impl NetworkConnector {
                                     
                                 },
                                 MessageType::Pt => {
-                                    println!("Receiving Pt:");
+                                    //println!("Receiving Pt:");
                                     let mut buff = vec![0 as u8; recv_m.info as usize];
                                     stream_lock.read_exact(&mut buff).unwrap();
                                     fs::create_dir_all("mp").unwrap();
@@ -241,7 +242,7 @@ impl NetworkConnector {
 
                                     
                                     let recv_s: String = bincode::deserialize(&buff).unwrap();
-                                    println!("{}", recv_s);
+                                    //println!("{}", recv_s);
 
                                     file.write_all(recv_s.as_bytes()).unwrap();
                                     csys.write().unwrap().load_world_from_file(String::from("mp"));
@@ -250,14 +251,14 @@ impl NetworkConnector {
                                     shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
                                 },
                                 MessageType::YourId => {
-                                    println!("Receiving Your ID:");
+                                    //println!("Receiving Your ID:");
                                     stream_lock.set_nonblocking(false).unwrap();
                                     let mut buff = vec![0 as u8; recv_m.info as usize];
                                     stream_lock.read_exact(&mut buff).unwrap();
                                     let recv_s: (u64, u64) = bincode::deserialize(&buff).unwrap();
 
                                     let uuid = Uuid::from_u64_pair(recv_s.0, recv_s.1);
-                                    println!("{}", uuid);
+                                    //println!("{}", uuid);
 
 
                                     gknowncams.insert(
@@ -283,7 +284,7 @@ impl NetworkConnector {
                                     
                                 },
                                 MessageType::MobUpdateBatch =>  {
-                                    println!("Receiving a Mob Batch:");
+                                    //println!("Receiving a Mob Batch:");
                                 
                                     stream_lock.set_nonblocking(false).unwrap();
                                     let mut buff = vec![0 as u8; recv_m.info as usize];
@@ -292,8 +293,8 @@ impl NetworkConnector {
                                         Ok(_) => {
                                             let recv_s: MobUpdateBatch = bincode::deserialize(&buff).unwrap();
 
-                                            if recv_s.count > 8 {
-                                                println!("Ignoring invalid packe with count > 8 of {}", recv_s.count);
+                                            if recv_s.count > server_types::MOB_BATCH_SIZE as u8 {
+                                                println!("Ignoring invalid packe with count > {} of {}", server_types::MOB_BATCH_SIZE, recv_s.count);
                                             } else {
                                                 for i in 0..recv_s.count.min(8) {
                                                     let msg = recv_s.msgs[i as usize].clone();
@@ -302,10 +303,10 @@ impl NetworkConnector {
                                                 
                                             }
 
-                                            println!("{}", recv_s);
+                                            //println!("{}", recv_s);
                                         },
                                         Err(e) => {
-                                            println!("Sorry champ! Missed that one!, {}", e);
+                                            //println!("Sorry champ! Missed that one!, {}", e);
                                         },
                                     }
                                     
@@ -321,7 +322,7 @@ impl NetworkConnector {
                                 }
                             }
 
-                            println!("Received message from server: {:?}", recv_m);
+                            //println!("Received message from server: {:?}", recv_m);
                         }
                         Ok(_) => {
                             println!("Connection closed by server");

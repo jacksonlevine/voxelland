@@ -14,7 +14,7 @@ use glam::Vec3;
 use voxelland::chunk::ChunkSystem;
 use voxelland::game::Game;
 use voxelland::vec::IVec3;
-use voxelland::server_types::*;
+use voxelland::server_types::{self, *};
 use dashmap::DashMap;
 
 static mut PACKET_SIZE: usize = 0;
@@ -107,7 +107,7 @@ fn handle_client(
                             }
                             MessageType::PlayerUpdate => {
                                 knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
-                                println!("Recvd player update");
+                                //println!("Recvd player update");
 
                                 let mut timeupdate = Message::new(MessageType::TimeUpdate, Vec3::ZERO, 0.0, 0);
                                 timeupdate.infof = *tod.lock().unwrap();
@@ -124,7 +124,7 @@ fn handle_client(
 
                                 let nlock = nsmes.lock().unwrap();
                                 
-                                println!("Number of mobs: {}", nlock.len());
+                                //println!("Number of mobs: {}", nlock.len());
 
                                 let mut mobmsgs: Vec<Message> = Vec::new();
                                 
@@ -144,9 +144,9 @@ fn handle_client(
 
                                 drop(nlock);
 
-                                for chunk in mobmsgs.chunks(8) {
+                                for chunk in mobmsgs.chunks(server_types::MOB_BATCH_SIZE) {
                                     let writelock = wl.lock().unwrap();
-                                    println!("THIS CHUNK HAS LEN {}", chunk.len());
+                                    //println!("THIS CHUNK HAS LEN {}", chunk.len());
                                     let mobmsgbatch = MobUpdateBatch::new(chunk.len(), chunk);
 
                                     let mobmsg = Message::new(MessageType::MobUpdateBatch, Vec3::ZERO, 0.0, bincode::serialized_size(&mobmsgbatch).unwrap() as u32);
@@ -159,9 +159,9 @@ fn handle_client(
                                             println!("Error sending mob update header {}", e)
                                         }
                                     }
-
-                                    thread::sleep(Duration::from_millis(10));
-
+                                    // drop(writelock);
+                                     thread::sleep(Duration::from_millis(10));
+                                    // let writelock = wl.lock().unwrap();
                                     match mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap()) {
                                         Ok(_) => {
                                             
@@ -170,8 +170,8 @@ fn handle_client(
                                             println!("Error sending mob update payload {}", e)
                                         }
                                     }
-                                    drop(writelock);
-                                    thread::sleep(Duration::from_millis(10));
+                                    // drop(writelock);
+                                     thread::sleep(Duration::from_millis(10));
                                 }
 
                                 
@@ -247,6 +247,14 @@ fn handle_client(
                         // Redistribute the message to all clients
                         let clients = clients.lock().unwrap();
                         let writelock = wl.lock().unwrap();
+                        match message.message_type {
+                            MessageType::BlockSet => {
+                                println!("REDISTRIB  A BLOCKSET  RIGHT NOW");
+                            }
+                            _ => {
+                                
+                            }
+                        }
                         for (id, client) in clients.iter() {
                             if *id != client_id {
                                 let mut stream = client.stream.lock().unwrap();
@@ -280,7 +288,7 @@ fn handle_client(
             break;
         }
 
-        thread::sleep(Duration::from_millis(50));
+        //thread::sleep(Duration::from_millis(50));
     }
 }
 

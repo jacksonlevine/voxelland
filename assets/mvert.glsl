@@ -44,11 +44,11 @@ mat4 getRotationMatrix(float xrot, float yrot, float zrot) {
 
 void main() {
 
-    vec3 mixedrots = mix(lastrot, vec3(xrot, yrot, zrot), min(interp_time*2.0, 1.0));
+    vec3 mixedrots = mix(lastrot, vec3(xrot, yrot, zrot), min(interp_time, 1.0));
 
     mat4 rotationMatrix = getRotationMatrix(mixedrots.x, mixedrots.y, mixedrots.z);
     vec4 rotatedPosition = rotationMatrix * vec4(aPos * scale, 1.0);
 
     TexCoord = uv;
-    gl_Position = mvp * (rotatedPosition + vec4(mix(lastpos, pos, min(interp_time*2.0, 1.0)), 0.0));
+    gl_Position = mvp * (rotatedPosition + vec4(mix(lastpos, pos, min(interp_time, 1.0)), 0.0));
 }

@@ -429,7 +429,7 @@ impl Game {
             my_uuid,
             ambient_bright_mult: 1.0,
             daylength: 900.0,
-            timeofday: Arc::new(Mutex::new(900.0/4.0)),
+            timeofday: Arc::new(Mutex::new(700.0)),
             sunrise_factor: 0.0,
             sunset_factor: 0.0
         };
@@ -715,8 +715,8 @@ impl Game {
         drop(todlock);
 
         if !self.headless {
-            let mut morestuff = true;
-            while morestuff {
+            //let mut morestuff = true;
+            //while morestuff {
                 match self.server_command_queue.pop() {
                     Some(comm) => {
                         match comm.message_type {
@@ -727,6 +727,15 @@ impl Game {
                                 let mut todlock = self.timeofday.lock().unwrap();
                                 *todlock = comm.infof;
                             }
+                            MessageType::BlockSet => {
+                                if comm.info == 0 {
+                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
+                                        comm.info, true, true);
+                                    } else {
+                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
+                                        comm.info, false, true);
+                                    }
+                            }
                             MessageType::MobUpdate => {
                                 let newpos = Vec3::new(comm.x, comm.y, comm.z);
                                 let id = comm.info;
@@ -735,7 +744,7 @@ impl Game {
                                 let scale = comm.infof;
 
                                 let nsme = self.non_static_model_entities.clone();
-                                println!("NSME Length: {}", nsme.len());
+                                //println!("NSME Length: {}", nsme.len());
                                 match nsme.get_mut(&id) {
                                     Some(mut me) => {
                                         let modent = me.value_mut();
@@ -751,8 +760,8 @@ impl Game {
                                         
                                     }
                                     None => {
-                                        println!("Received an update for a mob {} that doesn't exist. Creating it...", id);
-                                        self.insert_static_model_entity(id, modind as usize, newpos, 1.0, Vec3::new(0.0,rot,0.0), 5.0);
+                                        //println!("Received an update for a mob {} that doesn't exist. Creating it...", id);
+                                        self.insert_static_model_entity(id, modind as usize, newpos, scale, Vec3::new(0.0,rot,0.0), 5.0);
                                     }
                                 };
                             }
@@ -766,10 +775,10 @@ impl Game {
                         }
                     }
                     None => {
-                        morestuff = false;
+                        //morestuff = false;
                     }
                 }
-            }
+            //}
         
             
 
@@ -1561,7 +1570,20 @@ impl Game {
 
     pub fn chunk_thread_inner_function(cam_arc: &Arc<Mutex<Camera>>, csys_arc: &Arc<RwLock<ChunkSystem>>, last_user_c_pos: &mut vec::IVec2) {
 
+        let mut lightstuff = true;
+        while lightstuff {
 
+            let csys_arc = csys_arc.read().unwrap();
+
+            match csys_arc.light_rebuild_requests.pop() {
+                Some(index) => {
+                    csys_arc.rebuild_index(index, true, true);
+                }
+                None => {
+                    lightstuff = false;
+                }
+            }
+        }
         
 
         let mut userstuff = true;
@@ -1572,6 +1594,15 @@ impl Game {
             match csys_arc.user_rebuild_requests.pop() {
                 Some(index) => {
                     csys_arc.rebuild_index(index, true, false);
+
+
+                    match csys_arc.light_rebuild_requests.pop() {
+                        Some(index) => {
+                            csys_arc.rebuild_index(index, true, true);
+                        }
+                        None => {
+                        }
+                    }
                 }
                 None => {
                     userstuff = false;
@@ -1588,19 +1619,16 @@ impl Game {
                     match csys_arc.user_rebuild_requests.pop() {
                         Some(index) => {
                             csys_arc.rebuild_index(index, true, false);
-                            let mut userstuff = true;
-                            while userstuff {
-                                match csys_arc.user_rebuild_requests.pop() {
-                                    Some(index) => {
-                                        csys_arc.rebuild_index(index, true, false);
-                                    }
-                                    None => {
-                                        userstuff = false;
-                                    }
-                                }
-                            }
+                            
                         }
                         None => {}
+                    }
+                    match csys_arc.light_rebuild_requests.pop() {
+                        Some(index) => {
+                            csys_arc.rebuild_index(index, true, true);
+                        }
+                        None => {
+                        }
                     }
                 }
                 None => {
@@ -1616,23 +1644,24 @@ impl Game {
             match csys_arc.background_rebuild_requests.pop() {
                 Some(index) => {
                     csys_arc.rebuild_index(index, false, false);
+                    
                     match csys_arc.user_rebuild_requests.pop() {
                         Some(index) => {
                             csys_arc.rebuild_index(index, true, false);
                             let mut userstuff = true;
-                            while userstuff {
-                                match csys_arc.user_rebuild_requests.pop() {
-                                    Some(index) => {
-                                        csys_arc.rebuild_index(index, true, false);
-                                    }
-                                    None => {
-                                        userstuff = false;
-                                    }
-                                }
-                            }
+                            
                         }
                         None => {}
                     }
+
+                    match csys_arc.light_rebuild_requests.pop() {
+                        Some(index) => {
+                            csys_arc.rebuild_index(index, true, true);
+                        }
+                        None => {
+                        }
+                    }
+
                     match csys_arc.gen_rebuild_requests.pop() {
                         Some(index) => {
                             csys_arc.rebuild_index(index, true, false);
@@ -1742,6 +1771,14 @@ impl Game {
                             break;
                         }
                         None => {}
+                    }
+                    match csys_arc.light_rebuild_requests.pop() {
+                        Some(index) => {
+                            csys_arc.rebuild_index(index, true, true);
+                            break;
+                        }
+                        None => {
+                        }
                     }
                     match csys_arc.gen_rebuild_requests.pop() {
                         Some(index) => {
@@ -1860,7 +1897,7 @@ impl Game {
                     let mut set: HashSet<IVec2> = HashSet::new();
                     Game::delete_block_recursively(&self.chunksys, 16,  block_hit, &mut set);
                     for key in set {
-                        self.chunksys.read().unwrap().queue_rerender_with_key(key, true)
+                        self.chunksys.read().unwrap().queue_rerender_with_key(key, true, false);
                     }
                     self.drops.add_drop(tip, 17);
                 } else {
@@ -1934,7 +1971,7 @@ impl Game {
 
 
                     let place_point = block_hit + hit_normal;
-                    println!("Placing {} at {} {} {}", 1, place_point.x, place_point.y, place_point.z);
+                    println!("Placing {} at {} {} {}", id, place_point.x, place_point.y, place_point.z);
 
                     if self.vars.in_multiplayer {
                         let message = Message::new(MessageType::BlockSet, Vec3::new(place_point.x as f32, place_point.y as f32, place_point.z as f32), 0.0, id);

@@ -25,7 +25,7 @@ static TEXS: [[(u8, u8); 3]; 19] = [
             [(12, 1), (12, 1), (12, 1)], // 18 light
         ];
 
-static BREAKTIMES: [f32; 18] = [
+static BREAKTIMES: [f32; 19] = [
     0.1,
     0.5,
     0.7,
@@ -43,7 +43,8 @@ static BREAKTIMES: [f32; 18] = [
     0.7,
     9999999.0,
     1.2,
-    0.5
+    0.5,
+    1.0
 ];
 
 impl Blocks {

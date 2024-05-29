@@ -11,7 +11,7 @@ use glam::Vec3;
 use crate::collisioncage::CollCage;
 
 
-const MOB_BATCH_SIZE: usize = 8;
+pub const MOB_BATCH_SIZE: usize = 16;
 
 impl Display for Message {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -143,7 +143,7 @@ impl MobUpdateBatch {
         let emptymsg = Message::new(MessageType::None, Vec3::ZERO, 0.0, 0);
 
 
-        let mut msgs: [Message; 8] = [
+        let mut msgs: [Message; MOB_BATCH_SIZE] = [
             emptymsg.clone(),
             emptymsg.clone(),
             emptymsg.clone(),
@@ -152,7 +152,18 @@ impl MobUpdateBatch {
             emptymsg.clone(),
             emptymsg.clone(),
             emptymsg.clone(),
-            emptymsg.clone()
+            emptymsg.clone(),
+
+
+            emptymsg.clone(),
+            emptymsg.clone(),
+            emptymsg.clone(),
+            emptymsg.clone(),
+
+            emptymsg.clone(),
+            emptymsg.clone(),
+            emptymsg.clone(),
+            emptymsg.clone(),
         ];
 
         for i in 0..count {

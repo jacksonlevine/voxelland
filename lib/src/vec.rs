@@ -3,6 +3,8 @@ use std::hash::Hash;
 use std::ops::{Add, Sub};
 use std::str::FromStr;
 
+use serde::{Deserialize, Serialize};
+
 #[derive(Hash, Eq, PartialEq, Debug, Clone, Copy)]
 pub struct IVec2 {
     pub x: i32,
@@ -33,7 +35,7 @@ impl Sub for IVec2 {
     }
 }
 
-#[derive(Hash, Eq, PartialEq, Debug, Clone, Copy)]
+#[derive(Hash, Eq, PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct IVec3 {
     pub x: i32,
     pub y: i32,

@@ -15,6 +15,8 @@ use num_enum::FromPrimitive;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
+use rusqlite::params;
+use rusqlite::Connection;
 use vox_format::data::VoxModels;
 use vox_format::types::Model;
 use walkdir::WalkDir;
@@ -185,14 +187,62 @@ pub struct ChunkSystem {
 
 impl ChunkSystem {
 
+    pub fn write_new_udm_entry(&self, spot: vec::IVec3, block: u32) {
+        let seed = self.currentseed.read().unwrap();
+        let table_name = format!("userdatamap_{}", seed);
+
+
+        let conn = Connection::open("db").unwrap();
+
+        // Insert userdatamap entries
+        let mut stmt = conn.prepare(&format!(
+            "INSERT OR REPLACE INTO {} (x, y, z, value) VALUES (?, ?, ?, ?)",
+            table_name
+        )).unwrap();
+
+        stmt.execute(params![spot.x, spot.y, spot.z, block]).unwrap();
+
+    }
+
     pub fn save_current_world_to_file(&self, path: String) {
+
+        let seed = self.currentseed.read().unwrap();
+        let table_name = format!("userdatamap_{}", seed);
+
+
+        let conn = Connection::open("db").unwrap();
+        
+
+        conn.execute(&format!(
+                "CREATE TABLE IF NOT EXISTS {} (
+                    x INTEGER,
+                    y INTEGER,
+                    z INTEGER,
+                    value INTEGER,
+                    PRIMARY KEY (x, y, z)
+                )",
+                table_name
+            ), ()).unwrap();
+
+
+        // Insert userdatamap entries
+        let mut stmt = conn.prepare(&format!(
+            "INSERT OR REPLACE INTO {} (x, y, z, value) VALUES (?, ?, ?, ?)",
+            table_name
+        )).unwrap();
+        for entry in self.userdatamap.iter() {
+            stmt.execute(params![entry.key().x, entry.key().y, entry.key().z, *entry.value()]).unwrap();
+        }
+
+
+
 
         fs::create_dir_all(&path).unwrap();
         
-        let mut file = File::create(path.clone() + "/udm").unwrap();
-        for entry in self.userdatamap.iter() {
-            writeln!(file, "{} {}", entry.key(), entry.value()).unwrap();
-        }
+        // let mut file = File::create(path.clone() + "/udm").unwrap();
+        // for entry in self.userdatamap.iter() {
+        //     writeln!(file, "{} {}", entry.key(), entry.value()).unwrap();
+        // }
 
         let mut file = File::create(path.clone() + "/seed").unwrap();
         writeln!(file, "{}", self.currentseed.read().unwrap()).unwrap();
@@ -216,17 +266,19 @@ impl ChunkSystem {
             }
         }
 
-        let file = File::open(format!("{}/udm", path)).unwrap();
-        let reader = BufReader::new(file);
+        let conn = Connection::open("db").unwrap();
+
+        // let file = File::open(format!("{}/udm", path)).unwrap();
+        // let reader = BufReader::new(file);
     
-        for line in reader.lines() {
-            let line = line.unwrap();
-            let mut parts = line.splitn(4, ' ');
-            if let (Some(x), Some(y), Some(z), Some(value)) = (parts.next(), parts.next(), parts.next(), parts.next()) {
-                let key = format!("{} {} {}", x, y, z);
-                self.userdatamap.insert(vec::IVec3::from_str(&key).unwrap(), value.parse::<u32>().unwrap());
-            }
-        }
+        // for line in reader.lines() {
+        //     let line = line.unwrap();
+        //     let mut parts = line.splitn(4, ' ');
+        //     if let (Some(x), Some(y), Some(z), Some(value)) = (parts.next(), parts.next(), parts.next(), parts.next()) {
+        //         let key = format!("{} {} {}", x, y, z);
+        //         self.userdatamap.insert(vec::IVec3::from_str(&key).unwrap(), value.parse::<u32>().unwrap());
+        //     }
+        // }
     
         let file = File::open(format!("{}/seed", path)).unwrap();
         let reader = BufReader::new(file);
@@ -238,6 +290,29 @@ impl ChunkSystem {
                 *self.currentseed.write().unwrap() = seed.parse::<u32>().unwrap();
             }
         }
+
+        let seed = self.currentseed.read().unwrap();
+        let table_name = format!("userdatamap_{}", seed);
+
+
+
+        // Query the userdatamap table
+        let mut stmt = conn.prepare(&format!(
+            "SELECT x, y, z, value FROM {}",
+            table_name
+        )).unwrap();
+
+        let userdatamap_iter = stmt.query_map([], |row| {
+            Ok((vec::IVec3::new(row.get(0)?, row.get(1)?, row.get(2)?), row.get(3)?))
+        }).unwrap();
+
+        for entry in userdatamap_iter {
+            let (key, value): (vec::IVec3, u32) = entry.unwrap();
+            self.userdatamap.insert(key, value);
+        }
+
+
+
 
 
         let file = File::open(format!("{}/pt", path)).unwrap();

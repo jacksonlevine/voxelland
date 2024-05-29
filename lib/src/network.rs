@@ -1,6 +1,6 @@
 use std::fs::{self, File};
 use std::net::{TcpStream, ToSocketAddrs};
-use std::io::{self, Write, Read};
+use std::io::{self, BufRead, BufReader, Read, Write};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread::{self, JoinHandle};
@@ -14,7 +14,7 @@ use uuid::Uuid;
 use crate::camera::Camera;
 use crate::chunk::ChunkSystem;
 use crate::modelentity::ModelEntity;
-use crate::server_types::{self, Message, MessageType, MobUpdateBatch};
+use crate::server_types::{self, Entry, Message, MessageType, MobUpdateBatch};
 use crate::vec::IVec3;
 
 
@@ -196,19 +196,35 @@ impl NetworkConnector {
                                     
                                     stream_lock.set_nonblocking(false).unwrap();
                                     //println!("Receiving Udm:");
+
+
+
                                     let mut buff = vec![0 as u8; recv_m.info as usize];
                                     stream_lock.read_exact(&mut buff).unwrap();
 
+                                    let vec: Result<Vec<Entry>, Box<bincode::ErrorKind>> = bincode::deserialize(&buff);
+                                    match  vec {
+                                        Ok(entries) => {
+                                            for entry in entries {
+                                                csys.write().unwrap().set_block(entry.key, entry.value, true);
+                                            }
+                                            
+                                            
+                                            csys.write().unwrap().save_current_world_to_file(String::from("mp"));
+                                            NetworkConnector::sendtolocked(&reqseed, &mut stream_lock);
+                                        }
+                                        Err(e) => {
 
-                                    let recv_s: String = bincode::deserialize(&buff).unwrap();
+                                            NetworkConnector::sendtolocked(&requdm, &mut stream_lock);
+
+                                        }
+                                    }
 
                                     //println!("{}", recv_s);
-
-                                    fs::create_dir_all("mp").unwrap();
-                                    let mut file = File::create("mp/udm").unwrap(); 
-                                    file.write_all(recv_s.as_bytes()).unwrap();
-
-                                    NetworkConnector::sendtolocked(&reqseed, &mut stream_lock);
+        
+                                            // fs::create_dir_all("mp").unwrap();
+                                            // let mut file = File::create("mp/udm").unwrap(); 
+                                            // file.write_all(recv_s.as_bytes()).unwrap();
                                 },
                                 MessageType::Seed => {
                                     //println!("Receiving Seed:");
@@ -222,6 +238,8 @@ impl NetworkConnector {
                                     //println!("{}", recv_s);
 
                                     file.write_all(recv_s.as_bytes()).unwrap();
+
+
 
                                     commqueue.push(recv_m.clone());
                                     
@@ -245,6 +263,10 @@ impl NetworkConnector {
                                     //println!("{}", recv_s);
 
                                     file.write_all(recv_s.as_bytes()).unwrap();
+
+
+
+
                                     csys.write().unwrap().load_world_from_file(String::from("mp"));
                                     recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
                                     stream_lock.set_nonblocking(true).unwrap();

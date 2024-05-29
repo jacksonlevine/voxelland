@@ -1,5 +1,6 @@
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use rusqlite::Connection;
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::fs;
@@ -71,21 +72,67 @@ fn handle_client(
                             }
                             MessageType::RequestUdm => {
                                 let writelock = wl.lock().unwrap();
+
+
+                                let conn = Connection::open("db").unwrap();
+        
+                                
+
+
+
                                 let csys = csys.read().unwrap();
-                                let currseed = *(csys.currentseed.read().unwrap());
+
+                                let seed = csys.currentseed.read().unwrap();
+                                let table_name = format!("userdatamap_{}", seed);
+
                                 println!("Recvd req world");
-                                let world = fs::read_to_string(format!("world/{}/udm", currseed))
-                                    .unwrap();
+
+
+                                let mut stmt = conn.prepare(&format!(
+                                    "SELECT x, y, z, value FROM {}",
+                                    table_name
+                                )).unwrap();
+                                let userdatamap_iter = stmt.query_map([], |row| {
+                                    Ok(Entry {
+                                        key: IVec3::new(row.get(0)?, row.get(1)?, row.get(2)?),
+                                        value: row.get(3)?,
+                                    })
+                                }).unwrap();
+                        
+                                let mut entries: Vec<Entry> = Vec::new();
+                                for entry in userdatamap_iter {
+                                    entries.push(entry.unwrap());
+                                }
+                        
+                                let serialized_udm = bincode::serialize(&entries).unwrap();
+
+                                let size = bincode::serialized_size(&entries).unwrap(); 
+
 
                                 let udmmsg = Message::new(
                                     MessageType::Udm,
                                     Vec3::ZERO,
                                     0.0,
-                                    bincode::serialized_size(&world).unwrap() as u32,
+                                    size as u32,
                                 );
 
                                 mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
-                                mystream.write_all(&bincode::serialize(&world).unwrap()).unwrap();
+                                mystream.write_all(&serialized_udm).unwrap();
+
+                                // let currseed = *(csys.currentseed.read().unwrap());
+                                // println!("Recvd req world");
+                                // let world = fs::read_to_string(format!("world/{}/udm", currseed))
+                                //     .unwrap();
+
+                                // let udmmsg = Message::new(
+                                //     MessageType::Udm,
+                                //     Vec3::ZERO,
+                                //     0.0,
+                                //     bincode::serialized_size(&world).unwrap() as u32,
+                                // );
+
+                                // mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
+                                // mystream.write_all(&bincode::serialize(&world).unwrap()).unwrap();
                             }
                             MessageType::RequestSeed => {
                                 let writelock = wl.lock().unwrap();
@@ -190,7 +237,9 @@ fn handle_client(
 
                                 //TODO: MAKE THIS JUST WRITE A NEW LINE TO THE FILE INSTEAD OF REWRITING THE WHOLE THING
                                 //(IT WILL "COMPRESS" WHEN THE SERVER RELOADS)
-                                csys.save_current_world_to_file(format!("world/{}", currseed));
+                                //csys.save_current_world_to_file(format!("world/{}", currseed));
+
+                                csys.write_new_udm_entry(spot, block);
                             },
                             MessageType::RequestTakeoff => {
                                 println!("Recvd req takeoff");
@@ -324,6 +373,8 @@ fn main() {
 
 
     csys.load_world_from_file(format!("world/{}", initialseed));
+
+    csys.save_current_world_to_file(format!("world/{}", initialseed));
 
     drop(csys);
 

@@ -9,6 +9,7 @@ use uuid::Uuid;
 use glam::Vec3;
 
 use crate::collisioncage::CollCage;
+use crate::vec;
 
 
 pub const MOB_BATCH_SIZE: usize = 16;
@@ -127,6 +128,12 @@ pub struct Message {
     pub info: u32,
     pub info2: u32,
     pub infof: f32
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Entry {
+    pub key: vec::IVec3,
+    pub value: u32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

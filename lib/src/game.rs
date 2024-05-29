@@ -2149,6 +2149,15 @@ impl Game {
             //         camlock.position = self.ship_pos + Vec3::new(5.0, 2.0, 0.0);
             //     }
             // }
+            Key::Num0 => {
+                self.faders.write().unwrap()[FaderNames::FovFader as usize].top += 1.0;
+                self.faders.write().unwrap()[FaderNames::FovFader as usize].bottom += 1.0;
+            }
+            Key::Num9 => {
+                self.faders.write().unwrap()[FaderNames::FovFader as usize].top -= 1.0;
+                self.faders.write().unwrap()[FaderNames::FovFader as usize].bottom -= 1.0;
+                
+            }
             _ => {}
         }
     }

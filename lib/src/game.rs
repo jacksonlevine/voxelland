@@ -3,7 +3,7 @@ use std::borrow::BorrowMut;
 use std::cmp::max;
 use std::collections::HashSet;
 use std::f32::consts::PI;
-use std::io::Write;
+use std::io::{self, Write};
 use std::ops::DerefMut;
 use std::slice::Chunks;
 use std::time::Duration;
@@ -80,6 +80,7 @@ pub struct Node {
 
 static REQUIRED_SHIP_FLYAWAY_HEIGHT: f32 = 0.0;
 
+
 pub struct ControlsState {
     pub left: bool,
     pub right: bool,
@@ -131,6 +132,11 @@ pub struct GameVariables {
     pub ship_taken_off: bool,
     pub on_new_world: bool,
     pub in_multiplayer: bool
+}
+
+pub enum VisionType {
+    Model(usize),
+    Vox(usize)
 }
 
 
@@ -191,7 +197,9 @@ pub struct Game {
     pub timeofday: Arc<Mutex<f32>>,
     pub sunrise_factor: f32,
     pub sunset_factor: f32,
-    pub visions_timer: f32
+    pub visions_timer: f32,
+    pub visions_camera: Camera,
+    pub current_vision: Option<VisionType>
 }
 
 enum FaderNames {
@@ -363,6 +371,11 @@ impl Game {
 
         let nsme = Arc::new(DashMap::new());
 
+        let mut visions_camera = Camera::new();
+        visions_camera.position = Vec3::new(0.0, 3.0, -5.0);
+        visions_camera.recalculate();
+        println!("Visions camera direction: {} {} {}", visions_camera.direction.x, visions_camera.direction.y, visions_camera.direction.z);
+
         let mut g = Game {
             chunksys: chunksys.clone(),
             shader0,
@@ -437,7 +450,9 @@ impl Game {
             timeofday: Arc::new(Mutex::new(700.0)),
             sunrise_factor: 0.0,
             sunset_factor: 0.0,
-            visions_timer : 0.0
+            visions_timer : 0.0,
+            visions_camera,
+            current_vision: Some(VisionType::Model(0))
         };
 
         if !headless {
@@ -457,9 +472,17 @@ impl Game {
             //g.vars.ship_going_up = false;
 
             if g.vars.in_multiplayer {
-                g.netconn.connect(String::from("127.0.0.1:6969"));
-                println!("Connected to the server!");
 
+
+                print!("Enter server address (e.g., 127.0.0.1:6969): ");
+                io::stdout().flush().unwrap(); // Ensure the prompt is printed before reading input
+
+                let mut address = String::new();
+                io::stdin().read_line(&mut address).expect("Failed to read line");
+                let address = address.trim().to_string(); // Remove any trailing newline characters
+
+                g.netconn.connect(address); // Connect to the provided address
+                println!("Connected to the server!");
                 
             }
                 
@@ -725,7 +748,7 @@ impl Game {
         let overlayfade = fadersread[FaderNames::VisionsFader as usize].value.clone();
 
         drop(fadersread);
-        
+
         if !self.headless {
             //let mut morestuff = true;
             //while morestuff {
@@ -826,10 +849,18 @@ impl Game {
 
   
             
+            
+
+
+            self.hud.update();
+            self.hud.draw();
+
+
             let overlaycolor = Vec4::new(0.0, 0.0, 1.0, overlayfade);
             let overlaycolor2 = Vec4::new(1.0, 0.0, 0.0, overlayfade);
             if overlayfade > 0.0 {
                 self.draw_sky(overlaycolor, overlaycolor2, 1.0, 0.0);
+                self.draw_current_vision(overlayfade);
                 unsafe {
                     if self.visions_timer > 3.0 {
                         self.faders.write().unwrap()[FaderNames::VisionsFader as usize].down();
@@ -839,10 +870,6 @@ impl Game {
                     }
                 }
             }
-
-
-            self.hud.update();
-            self.hud.draw();
             
 
 
@@ -2195,6 +2222,8 @@ impl Game {
             }
             Key::P => {
                 if action == Action::Press && !self.faders.read().unwrap()[FaderNames::VisionsFader as usize].mode {
+                    let mut rng = StdRng::from_entropy();
+                    self.current_vision = Some(VisionType::Model(rng.gen_range(0..self.gltf_models.len())));
                     self.visions_timer = 0.0;
                     self.faders.write().unwrap()[FaderNames::VisionsFader as usize].up();
                     self.audiop.play_in_head("assets/sfx/dreambell.mp3");

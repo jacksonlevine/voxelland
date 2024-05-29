@@ -417,54 +417,75 @@ fn main() {
     let qs = queued_sql.clone();
     let qs2 = qs.clone();
 
-    thread::spawn(move || {
+    fn handlesql(sql: &(u32, IVec3, u32)) {
+        let mut retry = true;
+                        let mut retries = 0;
+
+                        while retry {
+                            match {
+
+                                let seed = sql.0;
+                                let spot = sql.1;
+                                let block = sql.2;
+                                
+                                let table_name = format!("userdatamap_{}", seed);
+        
+        
+                                let conn = Connection::open("db").unwrap();
+        
+                                // Insert userdatamap entries
+                                let mut stmt = conn.prepare(&format!(
+                                    "INSERT OR REPLACE INTO {} (x, y, z, value) VALUES (?, ?, ?, ?)",
+                                    table_name
+                                )).unwrap();
+        
+                                stmt.execute(params![spot.x, spot.y, spot.z, block])
+                                
+                            } {
+                                Ok(_) => {
+                                    retry = false;
+                                }
+                                Err(e) => {
+                                    println!("Sqlite failure, retrying..");
+                                    retry = true;
+                                    retries += 1;
+                                    thread::sleep(Duration::from_millis(100));
+                                }
+                            }
+                            if retries > 30 {
+                                panic!("Retried an operation more than 30 times. Aborting.");
+                                
+                            }
+                        }
+    }
+
+
+    let _sqlthread = thread::spawn(move || {
         let queued_sql = qs.clone();
         loop {
             match queued_sql.pop() {
-                Some(queued_sql) => {
-                    let mut retry = true;
-                    let mut retries = 0;
-                    while retry {
-                        match {
-
-                            let seed = queued_sql.0;
-                            let spot = queued_sql.1;
-                            let block = queued_sql.2;
-                            
-                            let table_name = format!("userdatamap_{}", seed);
-    
-    
-                            let conn = Connection::open("db").unwrap();
-    
-                            // Insert userdatamap entries
-                            let mut stmt = conn.prepare(&format!(
-                                "INSERT OR REPLACE INTO {} (x, y, z, value) VALUES (?, ?, ?, ?)",
-                                table_name
-                            )).unwrap();
-    
-                            stmt.execute(params![spot.x, spot.y, spot.z, block])
-                            
-                        } {
-                            Ok(_) => {
-                                retry = false;
-                            }
-                            Err(e) => {
-                                println!("Sqlite failure, retrying..");
-                                retry = true;
-                                retries += 1;
-                                thread::sleep(Duration::from_millis(100));
+                Some(sql) => {
+                    
+                        handlesql(&sql);
+                        let mut morestuff = true;
+                        while morestuff {
+                            match queued_sql.pop() {
+                                Some(sql) => {
+                                    handlesql(&sql);
+                                }
+                                None => {
+                                    morestuff = false;
+                                }
                             }
                         }
-                        if retries > 30 {
-                            panic!("Retried an operation more than 30 times. Aborting.");
-                            
-                        }
-                    }
+                        
+                    
                     
                 }
                 None => {
-
+                    thread::sleep(Duration::from_secs(1));
                 }
+                
             }
         }
     });

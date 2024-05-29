@@ -13,6 +13,8 @@ uniform vec3 camDir;
 
 uniform vec3 pos;
 
+uniform float opacity;
+
 uniform float ambientBrightMult;
 
 float similarity(vec3 dir1, vec3 dir2) {
@@ -40,4 +42,6 @@ void main() {
     vec4 texColor = texture(ourTexture, TexCoord);
     FragColor = texColor  * vec4(ambientBrightMult, ambientBrightMult, ambientBrightMult, 1.0);
     FragColor = mix(FragColor, fogColor, min(1, max(distance, 0)));
+
+    FragColor = vec4(FragColor.xyz, FragColor.w*opacity);
 }

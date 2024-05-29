@@ -1,9 +1,11 @@
+use lockfree::queue::{self, Queue};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
-use rusqlite::Connection;
+use rusqlite::{params, Connection};
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::fs;
+
 use std::io::{ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::AtomicBool;
@@ -36,7 +38,8 @@ fn handle_client(
     shutupmobmsgs: &Arc<AtomicBool>,
     nsmes: &Arc<Mutex<Vec<Nsme>>>,
     wl: &Arc<Mutex<u8>>,
-    tod: &Arc<Mutex<f32>>
+    tod: &Arc<Mutex<f32>>,
+    queued_sql: &Arc<Queue<(u32, IVec3, u32)>>
 ) {
     let mut buffer;
     unsafe {
@@ -238,8 +241,8 @@ fn handle_client(
                                 //TODO: MAKE THIS JUST WRITE A NEW LINE TO THE FILE INSTEAD OF REWRITING THE WHOLE THING
                                 //(IT WILL "COMPRESS" WHEN THE SERVER RELOADS)
                                 //csys.save_current_world_to_file(format!("world/{}", currseed));
-
-                                csys.write_new_udm_entry(spot, block);
+                                queued_sql.push((currseed, spot, block));
+                                //csys.write_new_udm_entry(spot, block);
                             },
                             MessageType::RequestTakeoff => {
                                 println!("Recvd req takeoff");
@@ -407,6 +410,65 @@ fn main() {
 
     let writelock: Arc<Mutex<u8>> = Arc::new(Mutex::new(0u8));
 
+
+    let queued_sql: Arc<Queue<(u32, IVec3, u32)>> = Arc::new(Queue::new());
+
+
+    let qs = queued_sql.clone();
+    let qs2 = qs.clone();
+
+    thread::spawn(move || {
+        let queued_sql = qs.clone();
+        loop {
+            match queued_sql.pop() {
+                Some(queued_sql) => {
+                    let mut retry = true;
+                    let mut retries = 0;
+                    while retry {
+                        match {
+
+                            let seed = queued_sql.0;
+                            let spot = queued_sql.1;
+                            let block = queued_sql.2;
+                            
+                            let table_name = format!("userdatamap_{}", seed);
+    
+    
+                            let conn = Connection::open("db").unwrap();
+    
+                            // Insert userdatamap entries
+                            let mut stmt = conn.prepare(&format!(
+                                "INSERT OR REPLACE INTO {} (x, y, z, value) VALUES (?, ?, ?, ?)",
+                                table_name
+                            )).unwrap();
+    
+                            stmt.execute(params![spot.x, spot.y, spot.z, block])
+                            
+                        } {
+                            Ok(_) => {
+                                retry = false;
+                            }
+                            Err(e) => {
+                                println!("Sqlite failure, retrying..");
+                                retry = true;
+                                retries += 1;
+                                thread::sleep(Duration::from_millis(100));
+                            }
+                        }
+                        if retries > 30 {
+                            panic!("Retried an operation more than 30 times. Aborting.");
+                            
+                        }
+                    }
+                    
+                }
+                None => {
+
+                }
+            }
+        }
+    });
+
     loop {
 
 
@@ -441,8 +503,10 @@ fn main() {
 
                     let todclone = todclone.clone();
 
+                    let queued_sql = qs2.clone();
+
                     thread::spawn(move || {
-                        handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone, &su_clone, &nsme_clone, &wl_clone, &todclone);
+                        handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone, &su_clone, &nsme_clone, &wl_clone, &todclone, &queued_sql);
                     });
                     
                 }

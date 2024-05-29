@@ -190,11 +190,13 @@ pub struct Game {
     pub daylength: f32,
     pub timeofday: Arc<Mutex<f32>>,
     pub sunrise_factor: f32,
-    pub sunset_factor: f32
+    pub sunset_factor: f32,
+    pub visions_timer: f32
 }
 
 enum FaderNames {
     FovFader = 0,
+    VisionsFader = 1
 }
 
 impl Game {
@@ -207,7 +209,10 @@ impl Game {
         faders
             .write()
             .unwrap()
-            .extend(vec![Fader::new(83.0, 80.0, 30.0, false)]);
+            .extend(vec![
+                Fader::new(83.0, 80.0, 30.0, false), //FOV fader for moving
+                Fader::new(1.0, 0.0, 5.0, false)    //"Visions" fader for overlay
+                ]);
 
         unsafe {
             gl::BindVertexArray(shader0.vao);
@@ -431,7 +436,8 @@ impl Game {
             daylength: 900.0,
             timeofday: Arc::new(Mutex::new(700.0)),
             sunrise_factor: 0.0,
-            sunset_factor: 0.0
+            sunset_factor: 0.0,
+            visions_timer : 0.0
         };
 
         if !headless {
@@ -714,6 +720,12 @@ impl Game {
 
         drop(todlock);
 
+        let fadersread = self.faders.read().unwrap();
+
+        let overlayfade = fadersread[FaderNames::VisionsFader as usize].value.clone();
+
+        drop(fadersread);
+        
         if !self.headless {
             //let mut morestuff = true;
             //while morestuff {
@@ -812,8 +824,26 @@ impl Game {
             self.drops.update_and_draw_drops(&self.delta_time, &mvp);
 
 
+  
+            
+            let overlaycolor = Vec4::new(0.0, 0.0, 1.0, overlayfade);
+            let overlaycolor2 = Vec4::new(1.0, 0.0, 0.0, overlayfade);
+            if overlayfade > 0.0 {
+                self.draw_sky(overlaycolor, overlaycolor2, 1.0, 0.0);
+                unsafe {
+                    if self.visions_timer > 3.0 {
+                        self.faders.write().unwrap()[FaderNames::VisionsFader as usize].down();
+
+                    } else {
+                        self.visions_timer += self.delta_time;
+                    }
+                }
+            }
+
+
             self.hud.update();
             self.hud.draw();
+            
 
 
             self.audiop.update();
@@ -887,7 +917,10 @@ impl Game {
                 if !self.vars.in_multiplayer {
                     self.update_non_static_model_entities();  
                 }
-                self.update_movement_and_physics();
+                if overlayfade <= 0.1 {
+                    self.update_movement_and_physics();
+                }
+                
             }
             
             
@@ -993,7 +1026,7 @@ impl Game {
         camlock.recalculate();
     }
 
-    pub fn draw_sky(&self, top: Vec4, bot: Vec4) {
+    pub fn draw_sky(&self, top: Vec4, bot: Vec4, amb: f32, pitch: f32) {
         //Sky
         unsafe {
             gl::BindVertexArray(self.skyshader.vao);
@@ -1046,7 +1079,7 @@ impl Game {
             }
 
             let camlock = self.camera.lock().unwrap();
-            gl::Uniform1f(C_P_LOC, camlock.pitch);
+            gl::Uniform1f(C_P_LOC, pitch);
             gl::Uniform3f(
                 C_D_LOC,
                 camlock.direction.x,
@@ -1058,7 +1091,7 @@ impl Game {
             gl::Uniform4f(T_C_LOC, top.x, top.y, top.z, top.w);
             gl::Uniform4f(B_C_LOC, bot.x, bot.y, bot.z, bot.w);
 
-            gl::Uniform1f(A_B_LOC, self.ambient_bright_mult);
+            gl::Uniform1f(A_B_LOC, amb);
             gl::Uniform1f(S_S_LOC, self.sunset_factor);
             gl::Uniform1f(S_R_LOC, self.sunrise_factor);
 
@@ -1142,13 +1175,15 @@ impl Game {
             gl::ClearColor(0.5, 0.7, 1.0, 1.0);
         }
 
+        let campitch = self.camera.lock().unwrap().pitch;
+
         //Sky
         match self.vars.hostile_world {
             true => {
-                self.draw_sky(self.vars.hostile_world_sky_color, self.vars.hostile_world_sky_bottom);
+                self.draw_sky(self.vars.hostile_world_sky_color, self.vars.hostile_world_sky_bottom, self.ambient_bright_mult, campitch);
             }
             false => {
-                self.draw_sky(self.vars.sky_color, self.vars.sky_bottom);
+                self.draw_sky(self.vars.sky_color, self.vars.sky_bottom, self.ambient_bright_mult, campitch);
             }
         }
         
@@ -2157,6 +2192,18 @@ impl Game {
                 self.faders.write().unwrap()[FaderNames::FovFader as usize].top -= 1.0;
                 self.faders.write().unwrap()[FaderNames::FovFader as usize].bottom -= 1.0;
                 
+            }
+            Key::P => {
+                if action == Action::Press && !self.faders.read().unwrap()[FaderNames::VisionsFader as usize].mode {
+                    self.visions_timer = 0.0;
+                    self.faders.write().unwrap()[FaderNames::VisionsFader as usize].up();
+                    self.audiop.play_in_head("assets/sfx/dreambell.mp3");
+                }
+                
+
+            }
+            Key::O => {
+                //self.faders.write().unwrap()[FaderNames::VisionsFader as usize].down();
             }
             _ => {}
         }

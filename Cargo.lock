@@ -3268,6 +3268,7 @@ dependencies = [
  "gl",
  "glam",
  "glfw",
+ "lockfree",
  "no_deadlocks",
  "rand 0.8.5",
  "rusqlite",

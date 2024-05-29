@@ -201,7 +201,7 @@ impl ChunkSystem {
         )).unwrap();
 
         stmt.execute(params![spot.x, spot.y, spot.z, block]).unwrap();
-
+        
     }
 
     pub fn save_current_world_to_file(&self, path: String) {
@@ -599,7 +599,44 @@ impl ChunkSystem {
 
         self.set_block(spot, block, user_power);
 
-        let light = Blocks::is_light(block) || Blocks::is_light(existingblock);
+        let blockislight = Blocks::is_light(block);
+        let blockwaslight = Blocks::is_light(existingblock);
+
+        let light = blockislight || blockwaslight;
+
+
+        if !light { //If not light still check if it intercepts any lights, we will need to update.
+
+            let mut implicated = HashSet::new();
+            for i in Cube::get_neighbors() {
+                match self.lightmap.lock().unwrap().get(&(*i + spot)) {
+                    Some(k) => {
+                        for ray in &k.rays {
+                            let chunkofthisraysorigin = ChunkSystem::spot_to_chunk_pos(&ray.origin);
+                            // match self.takencare.get(&chunkofthisraysorigin) {
+                            //     Some(chunk) => {
+                            //         implicated.insert(chunk.geo_index);
+                            //     }
+                            //     None => {
+
+                            //     }
+                            // }
+                            implicated.insert(chunkofthisraysorigin);
+                            
+                        }
+                        
+                    }
+                    None => {
+
+                    }
+                }
+            }
+
+            for i in implicated {
+                self.queue_rerender_with_key(i, true, true);
+            }
+        }
+
         if neighbors {
 
             let mut neighbs: HashSet<vec::IVec2> = HashSet::new();

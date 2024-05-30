@@ -2290,7 +2290,7 @@ impl Game {
             Key::P => {
                 if action == Action::Press && !self.faders.read().unwrap()[FaderNames::VisionsFader as usize].mode {
                     let mut rng = StdRng::from_entropy();
-                    self.current_vision = Some(VisionType::Model(rng.gen_range(0..self.gltf_models.len())));
+                    self.current_vision = Some(VisionType::Model(rng.gen_range(2..self.gltf_models.len())));
                     self.visions_timer = 0.0;
                     self.faders.write().unwrap()[FaderNames::VisionsFader as usize].up();
                     self.audiop.play_in_head("assets/sfx/dreambell.mp3");

@@ -88,7 +88,8 @@ pub struct ControlsState {
     pub back: bool,
     pub up: bool,
     pub lookingleft: bool,
-    pub lookingright: bool
+    pub lookingright: bool,
+    pub shift: bool
 }
 
 impl ControlsState {
@@ -100,7 +101,8 @@ impl ControlsState {
             back: false,
             up: false,
             lookingleft: false,
-            lookingright: false
+            lookingright: false,
+            shift: false,
         }
     }
     pub fn clear(&mut self) {
@@ -199,7 +201,10 @@ pub struct Game {
     pub sunset_factor: f32,
     pub visions_timer: f32,
     pub visions_camera: Camera,
-    pub current_vision: Option<VisionType>
+    pub current_vision: Option<VisionType>,
+    pub tex: Texture,
+    pub inwater: bool,
+    pub headinwater: bool
 }
 
 enum FaderNames {
@@ -452,7 +457,10 @@ impl Game {
             sunset_factor: 0.0,
             visions_timer : 0.0,
             visions_camera,
-            current_vision: Some(VisionType::Model(0))
+            current_vision: Some(VisionType::Model(0)),
+            tex,
+            inwater: false,
+            headinwater: false
         };
 
         if !headless {
@@ -855,6 +863,8 @@ impl Game {
             self.hud.update();
             self.hud.draw();
 
+            self.tex.update_texture(self.delta_time);
+
 
             let overlaycolor = Vec4::new(0.0, 0.0, 1.0, overlayfade);
             let overlaycolor2 = Vec4::new(1.0, 0.0, 0.0, overlayfade);
@@ -977,45 +987,82 @@ impl Game {
             }
         }
 
+
+        let feetpos = camlock.position - Vec3::new(0.0, 1.0, 0.0);
+
+        let feetposi = vec::IVec3::new(feetpos.x.floor() as i32, feetpos.y.floor() as i32, feetpos.z.floor() as i32);
+        let feetposi2 = vec::IVec3::new(feetpos.x.floor() as i32, (feetpos.y-0.25).floor() as i32, feetpos.z.floor() as i32);
+
+        let blockfeetin = self.chunksys.read().unwrap().blockat(feetposi);
+        let blockfeetinlower = self.chunksys.read().unwrap().blockat(feetposi2);
+        
+
+        let feetinwater = blockfeetin == 2;
+        let feetinwaterlower = blockfeetinlower == 2;
+
+        if feetinwater {
+            self.inwater = true;
+        }
+
+        if !feetinwaterlower {
+            self.inwater = false;
+        }
+
+
         if !self.coll_cage.solid.contains(&Side::FLOOR) {
             self.grounded = false;
         } else {
         }
 
         const GRAV: f32 = 9.8;
-
-        if !self.grounded && !self.jumping_up {
-            self.time_falling_scalar = (self.time_falling_scalar + self.delta_time * 5.0).min(3.0);
-        } else {
+        if self.inwater {
             self.time_falling_scalar = 1.0;
-        }
+            if !self.grounded {
+                camlock.velocity += Vec3::new(0.0, -2.0*self.delta_time, 0.0);
+                if self.controls.shift {
+                    camlock.velocity += Vec3::new(0.0, -5.0*self.delta_time, 0.0);
+                }
+            }
 
-        if !self.grounded && !self.jumping_up {
-            camlock.velocity +=
-                Vec3::new(0.0, -GRAV * self.time_falling_scalar * self.delta_time, 0.0);
-        }
-
-        if self.jumping_up {
-            if camlock.position.y < self.current_jump_y + self.allowable_jump_height {
-                let curr_cam_y = camlock.position.y;
-                camlock.velocity += Vec3::new(
-                    0.0,
-                    (((self.current_jump_y + self.allowable_jump_height + 0.3) - curr_cam_y)
-                        * 15.0)
-                        * self.delta_time,
-                    0.0,
-                );
-            } else {
-                self.jumping_up = false;
+            if self.controls.up {
+                camlock.velocity += Vec3::new(0.0, 5.0*self.delta_time, 0.0);
             }
         }
+        else {
+            if !self.grounded && !self.jumping_up {
+                self.time_falling_scalar = (self.time_falling_scalar + self.delta_time * 5.0).min(3.0);
+            } else {
+                self.time_falling_scalar = 1.0;
+            }
 
-        if self.controls.up && self.grounded {
-            self.grounded = false;
-            self.current_jump_y = camlock.position.y;
-            self.jumping_up = true;
-            self.controls.up = false;
+            if !self.grounded && !self.jumping_up {
+                camlock.velocity +=
+                    Vec3::new(0.0, -GRAV * self.time_falling_scalar * self.delta_time, 0.0);
+            }
+
+            if self.jumping_up {
+                if camlock.position.y < self.current_jump_y + self.allowable_jump_height {
+                    let curr_cam_y = camlock.position.y;
+                    camlock.velocity += Vec3::new(
+                        0.0,
+                        (((self.current_jump_y + self.allowable_jump_height + 0.3) - curr_cam_y)
+                            * 15.0)
+                            * self.delta_time,
+                        0.0,
+                    );
+                } else {
+                    self.jumping_up = false;
+                }
+            }
+
+            if self.controls.up && self.grounded {
+                self.grounded = false;
+                self.current_jump_y = camlock.position.y;
+                self.jumping_up = true;
+                self.controls.up = false;
+            }
         }
+           
 
         let cc_center = camlock.position + Vec3::new(0.0, -1.0, 0.0);
         self.coll_cage.update_readings(cc_center);
@@ -1051,6 +1098,9 @@ impl Game {
         //camlock.position.y = offset;
 
         camlock.recalculate();
+
+        
+
     }
 
     pub fn draw_sky(&self, top: Vec4, bot: Vec4, amb: f32, pitch: f32) {
@@ -1492,6 +1542,10 @@ impl Game {
                 }
             }
         }
+        unsafe {
+            gl::Disable(gl::CULL_FACE);
+        }
+        
         for (index, cfl) in cmem.memories.iter().enumerate() {
             if cfl.used {
                 let dd1: Mutex<Vec<u32>> = Mutex::new(Vec::new());
@@ -1521,6 +1575,9 @@ impl Game {
                     // println!("Chunk rending!");
                 }
             }
+        }
+        unsafe {
+            gl::Enable(gl::CULL_FACE);
         }
 
     }
@@ -2177,6 +2234,13 @@ impl Game {
                     self.controls.up = false;
                 }
             }
+            Key::LeftShift => {
+                if action == Action::Press || action == Action::Repeat {
+                    self.controls.shift = true;
+                } else {
+                    self.controls.shift = false;
+                }
+            }
             // Key::M => {
             //     if action == Action::Press {
             //         if self.vars.in_multiplayer {
@@ -2212,10 +2276,13 @@ impl Game {
             //     }
             // }
             Key::Num0 => {
+                self.faders.write().unwrap()[FaderNames::FovFader as usize].up();
                 self.faders.write().unwrap()[FaderNames::FovFader as usize].top += 1.0;
                 self.faders.write().unwrap()[FaderNames::FovFader as usize].bottom += 1.0;
+
             }
             Key::Num9 => {
+                self.faders.write().unwrap()[FaderNames::FovFader as usize].down();
                 self.faders.write().unwrap()[FaderNames::FovFader as usize].top -= 1.0;
                 self.faders.write().unwrap()[FaderNames::FovFader as usize].bottom -= 1.0;
                 

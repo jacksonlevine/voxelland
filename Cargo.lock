@@ -3233,6 +3233,7 @@ dependencies = [
  "no_deadlocks",
  "noise",
  "num_enum 0.7.2",
+ "once_cell",
  "percent-encoding",
  "rand 0.8.5",
  "rodio",

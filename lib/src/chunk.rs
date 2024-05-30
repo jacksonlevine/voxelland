@@ -328,7 +328,8 @@ impl ChunkSystem {
     }
 
     pub fn collision_predicate(&self, vec: vec::IVec3) -> bool {
-        return self.blockat(vec.clone()) != 0 || self.justcollisionmap.contains_key(&vec);
+        let isntwater = self.blockat(vec.clone()) != 2;
+        return isntwater && self.blockat(vec.clone()) != 0 || self.justcollisionmap.contains_key(&vec);
     }
     
 

@@ -133,7 +133,8 @@ pub struct GameVariables {
     pub near_ship: bool,
     pub ship_taken_off: bool,
     pub on_new_world: bool,
-    pub in_multiplayer: bool
+    pub in_multiplayer: bool,
+    pub menu_open: bool
 }
 
 pub enum VisionType {
@@ -204,7 +205,9 @@ pub struct Game {
     pub current_vision: Option<VisionType>,
     pub tex: Texture,
     pub inwater: bool,
-    pub headinwater: bool
+    pub headinwater: bool,
+
+    pub currentbuttons: Vec<(&'static str, &'static str)>
 }
 
 enum FaderNames {
@@ -406,7 +409,8 @@ impl Game {
                 near_ship: false,
                 ship_taken_off: false,
                 on_new_world: true,
-                in_multiplayer: connectonstart //For now
+                in_multiplayer: connectonstart, //For now,
+                menu_open: false
             },
             controls: ControlsState::new(),
             faders: Arc::new(faders),
@@ -460,7 +464,11 @@ impl Game {
             current_vision: Some(VisionType::Model(0)),
             tex,
             inwater: false,
-            headinwater: false
+            headinwater: false,
+            currentbuttons: vec![
+                ("Test", "Yoo"),
+                ("Test22", "22"),
+            ]
         };
 
         if !headless {
@@ -518,6 +526,20 @@ impl Game {
         }
         
         g
+    }
+
+    pub fn button_command(&mut self, str: &'static str) {
+        match str {
+            "Yoo" => {
+                println!("Yoo command given");
+            }
+            "22" => {
+                println!("22 command given");
+            }
+            _ => {
+                println!("Unknown button command given");
+            }
+        }
     }
 
 
@@ -2294,6 +2316,14 @@ impl Game {
                     self.visions_timer = 0.0;
                     self.faders.write().unwrap()[FaderNames::VisionsFader as usize].up();
                     self.audiop.play_in_head("assets/sfx/dreambell.mp3");
+                }
+                
+
+            }
+
+            Key::L => {
+                if action == Action::Press {
+                    self.vars.menu_open = !self.vars.menu_open;
                 }
                 
 

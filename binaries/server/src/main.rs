@@ -364,8 +364,21 @@ fn main() {
 
     let initialseed: u32 = 0;
 
-    let mut game = Game::new(&Arc::new(RwLock::new(window)), false, true);
+    let mut gameh = Game::new(&Arc::new(RwLock::new(window)), false, true);
 
+    while !gameh.is_finished() {
+        thread::sleep(Duration::from_millis(100));
+    }
+    let mut game: Game;
+
+    match gameh.join() {
+        Ok(g) => {
+            game = g;
+        }
+        Err(e) => {
+            panic!("Jumbotron Shit Broken");
+        }
+    }
 
     let gamearc = Arc::new(RwLock::new(game));
 

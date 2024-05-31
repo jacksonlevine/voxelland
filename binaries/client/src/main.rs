@@ -24,7 +24,22 @@ fn main() {
 
     let mut wak_context = WindowAndKeyContext::new("Barkaroo", 1280, 720);
 
-    let mut game = Game::new(&wak_context.window, true, false);
+    let mut gameh = Game::new(&wak_context.window, true, false);
+
+    while !gameh.is_finished() {
+        wak_context.run();
+    }
+
+    let mut game: Game;
+
+    match gameh.join() {
+        Ok(gamei) => {
+            game = gamei;
+        }
+        Err(e) => {
+            panic!("Jumbotron Shit Broken");
+        }
+    }
 
     wak_context.game = Some(game);
 

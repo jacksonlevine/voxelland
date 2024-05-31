@@ -25,7 +25,7 @@ pub struct Drop {
 impl Drop {
     pub fn new(block_id: u32, position: Vec3, csys: &Arc<RwLock<ChunkSystem>>) -> Drop {
 
-        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
+        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             let csys_arc = Arc::clone(&csys);
             Box::new(move |v: vec::IVec3| {
                 return csys_arc.read().unwrap().collision_predicate(v);

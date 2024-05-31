@@ -58,7 +58,7 @@ pub struct CollCage {
     pub penetrations: Vec<f32>,
     pub normals: Vec<Vec3>,
     pub positions: Vec<glam::IVec3>,
-    pub solid_pred: Box<dyn Fn(vec::IVec3) -> bool>,
+    pub solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync>,
     pub smoothed_y_offset: f32,
 }
 
@@ -111,7 +111,7 @@ impl BoundBox {
 }
 
 impl CollCage {
-    pub fn new(solid_pred: Box<dyn Fn(vec::IVec3) -> bool>) -> CollCage {
+    pub fn new(solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> ) -> CollCage {
         let num_boxes = 18;
         let colliding: Vec<Side> = Vec::new();
         let solid: Vec<Side> = Vec::new();

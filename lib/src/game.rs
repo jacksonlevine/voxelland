@@ -143,7 +143,6 @@ pub enum VisionType {
 }
 
 
-
 pub struct Game {
     pub chunksys: Arc<RwLock<ChunkSystem>>,
     pub shader0: Shader,
@@ -217,7 +216,8 @@ enum FaderNames {
 }
 
 impl Game {
-    pub fn new(window: &Arc<RwLock<PWindow>>, connectonstart: bool, headless: bool) -> Game {
+    pub fn new(window: &Arc<RwLock<PWindow>>, connectonstart: bool, headless: bool) -> JoinHandle<Game> {
+
         let shader0 = Shader::new("assets/vert.glsl", "assets/frag.glsl");
         let skyshader = Shader::new("assets/skyvert.glsl", "assets/skyfrag.glsl");
         let faders: RwLock<Vec<Fader>> = RwLock::new(Vec::new());
@@ -241,6 +241,7 @@ impl Game {
         let tex = Texture::new("assets/world.png").unwrap();
         tex.add_to_unit(0);
 
+        let mut csys = ChunkSystem::new(10, 0, 0, headless);
         let voxel_models = vec![
             JVoxModel::new("assets/voxelmodels/bush.vox"),
             JVoxModel::new("assets/voxelmodels/tree1.vox"),
@@ -254,11 +255,7 @@ impl Game {
         ];
 
         
-        let mut rng = StdRng::from_entropy();
-        //let seed = rng.gen_range(0..229232);
-
-
-        let mut csys = ChunkSystem::new(10, 0, 0, headless);
+        
 
         //csys.load_world_from_file(String::from("saves/world1"));
 
@@ -277,7 +274,7 @@ impl Game {
 
         let chunksys = Arc::new(RwLock::new(csys));
 
-        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
+        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             let csys_arc = Arc::clone(&chunksys);
             Box::new(move |v: vec::IVec3| {
                 return csys_arc.read().unwrap().collision_predicate(v);
@@ -371,6 +368,17 @@ impl Game {
                 (0, 0)
             ]
         }));
+
+
+        
+
+        
+        
+
+        
+        //let mut rng = StdRng::from_entropy();
+        //let seed = rng.gen_range(0..229232);
+
 
         let server_command_queue = Arc::new(Queue::<Message>::new());
 
@@ -473,61 +481,68 @@ impl Game {
             loadedworld: AtomicBool::new(false)
         };
 
-        if !headless {
-            g.load_model("assets/models/car/scene.gltf");
-            g.load_model("assets/models/car/scene.gltf");
-            //g.load_model("assets/models/ship/scene.gltf");
-            g.load_model("assets/models/monster1/scene.gltf");
-            g.load_model("assets/models/monster2/scene.gltf");
-            g.load_model("assets/models/cow/scene.glb");
-
-            g.create_model_vbos();
-        
-            // g.setup_vertex_attributes();
-
-            //start coming down from the sky in ship
-            //g.vars.ship_going_down = true;
-            //g.vars.ship_going_up = false;
-
-            if g.vars.in_multiplayer {
 
 
-                print!("Enter server address (e.g., 127.0.0.1:6969): ");
-                io::stdout().flush().unwrap(); // Ensure the prompt is printed before reading input
+        thread::spawn(move || {
 
-                let mut address = String::new();
-                io::stdin().read_line(&mut address).expect("Failed to read line");
-                let address = address.trim().to_string(); // Remove any trailing newline characters
-
-                g.netconn.connect(address); // Connect to the provided address
-                println!("Connected to the server!");
-                
+            if !headless {
+                g.load_model("assets/models/car/scene.gltf");
+                g.load_model("assets/models/car/scene.gltf");
+                //g.load_model("assets/models/ship/scene.gltf");
+                g.load_model("assets/models/monster1/scene.gltf");
+                g.load_model("assets/models/monster2/scene.gltf");
+                g.load_model("assets/models/cow/scene.glb");
+    
+                g.create_model_vbos();
+            
+                // g.setup_vertex_attributes();
+    
+                //start coming down from the sky in ship
+                //g.vars.ship_going_down = true;
+                //g.vars.ship_going_up = false;
+    
+                if g.vars.in_multiplayer {
+    
+    
+                    print!("Enter server address (e.g., 127.0.0.1:6969): ");
+                    io::stdout().flush().unwrap(); // Ensure the prompt is printed before reading input
+    
+                    let mut address = String::new();
+                    io::stdin().read_line(&mut address).expect("Failed to read line");
+                    let address = address.trim().to_string(); // Remove any trailing newline characters
+    
+                    g.netconn.connect(address); // Connect to the provided address
+                    println!("Connected to the server!");
+                    
+                }
+                    
+    
+    
+                g.audiop.preload_series("grassstepseries", vec![
+                    "assets/sfx/grassstep1.mp3",
+                    "assets/sfx/grassstep2.mp3",
+                    "assets/sfx/grassstep3.mp3",
+                    "assets/sfx/grassstep4.mp3",
+                    "assets/sfx/grassstep5.mp3",
+                    "assets/sfx/grassstep6.mp3",
+                ]);
+    
+                g.audiop.preload_series("stonestepseries", vec![
+                    "assets/sfx/stonestep1.mp3",
+                "assets/sfx/stonestep2.mp3",
+                "assets/sfx/stonestep3.mp3",
+                    "assets/sfx/stonestep4.mp3"
+                ]);
+    
+                // g.initialize_being_in_world();
+    
+                // g.add_ship_colliders();
             }
-                
+            g
+        })
 
-
-            g.audiop.preload_series("grassstepseries", vec![
-                "assets/sfx/grassstep1.mp3",
-                "assets/sfx/grassstep2.mp3",
-                "assets/sfx/grassstep3.mp3",
-                "assets/sfx/grassstep4.mp3",
-                "assets/sfx/grassstep5.mp3",
-                "assets/sfx/grassstep6.mp3",
-            ]);
-
-            g.audiop.preload_series("stonestepseries", vec![
-                "assets/sfx/stonestep1.mp3",
-            "assets/sfx/stonestep2.mp3",
-            "assets/sfx/stonestep3.mp3",
-                "assets/sfx/stonestep4.mp3"
-            ]);
-
-            // g.initialize_being_in_world();
-
-            // g.add_ship_colliders();
-        }
         
-        g
+        
     }
 
     pub fn button_command(&mut self, str: &'static str) {

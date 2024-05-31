@@ -103,7 +103,7 @@ impl ModelEntity {
 
     pub fn new(model_index: usize, pos: Vec3, scale: f32, rot: Vec3, csys: &Arc<RwLock<ChunkSystem>>, cam: &Arc<Mutex<Camera>>) -> ModelEntity {
 
-        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
+        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             //let csys_arc = Arc::clone(&chunksys);
             Box::new(move |_: vec::IVec3| {
                 return false;
@@ -156,7 +156,7 @@ impl ModelEntity {
 
     pub fn new_with_id(id: u32, model_index: usize, pos: Vec3, scale: f32, rot: Vec3, csys: &Arc<RwLock<ChunkSystem>>, cam: &Arc<Mutex<Camera>>) -> ModelEntity {
 
-        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
+        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             //let csys_arc = Arc::clone(&chunksys);
             Box::new(move |_: vec::IVec3| {
                 return false;

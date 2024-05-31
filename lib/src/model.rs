@@ -196,7 +196,7 @@ impl Game {
         modent.animations = Vec::new();
         modent.nodes = Vec::new();
 
-        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
+        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             let csys_arc = Arc::clone(&self.chunksys);
             Box::new(move |v: vec::IVec3| {
                 return csys_arc.read().unwrap().collision_predicate(v);
@@ -218,7 +218,7 @@ impl Game {
         modent.animations = animations;
         modent.nodes = nodes;
 
-        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool> = {
+        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             let csys_arc = Arc::clone(&self.chunksys);
             Box::new(move |v: vec::IVec3| {
                 return csys_arc.read().unwrap().collision_predicate(v);

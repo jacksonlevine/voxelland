@@ -81,163 +81,240 @@ impl WindowAndKeyContext {
             .as_secs_f32();
         self.previous_time = current_time;
 
-        let g = self.game.as_mut().unwrap();
+        match self.game.as_mut() {
+            Some(g) => {
+                let gmenuopen = g.vars.menu_open;
 
-        let gmenuopen = g.vars.menu_open;
+                if g.loadedworld.load(std::sync::atomic::Ordering::Relaxed) {
 
-        if g.loadedworld.load(std::sync::atomic::Ordering::Relaxed) {
+                    
+                    g.update();
 
-            
-            g.update();
+                    
 
-            
-
-            
+                    
 
 
-        }
+                }
 
-        if gmenuopen {
+                if gmenuopen {
 
-            let cb = g.currentbuttons.clone();
+                    let cb = g.currentbuttons.clone();
 
-            self.imgui.io_mut().update_delta_time(Duration::from_secs_f32(self.delta_time));
+                    self.imgui.io_mut().update_delta_time(Duration::from_secs_f32(self.delta_time));
 
-            let (width, height) = self.window.read().unwrap().get_framebuffer_size();
-            self.imgui.io_mut().display_size = [width as f32, height as f32];
-            
-            // Start the ImGui frame
-            let ui = self.imgui.frame();
+                    let (width, height) = self.window.read().unwrap().get_framebuffer_size();
+                    self.imgui.io_mut().display_size = [width as f32, height as f32];
+                    
+                    // Start the ImGui frame
+                    let ui = self.imgui.frame();
 
-            let window_flags = WindowFlags::NO_DECORATION
-                | WindowFlags::NO_MOVE
-                | WindowFlags::NO_RESIZE
-                | WindowFlags::NO_SCROLLBAR
-                | WindowFlags::NO_TITLE_BAR
-                | WindowFlags::NO_BACKGROUND;
+                    let window_flags = WindowFlags::NO_DECORATION
+                        | WindowFlags::NO_MOVE
+                        | WindowFlags::NO_RESIZE
+                        | WindowFlags::NO_SCROLLBAR
+                        | WindowFlags::NO_TITLE_BAR
+                        | WindowFlags::NO_BACKGROUND;
 
-            let window_pos = [width as f32 / 2.0 - 100.0, height as f32 / 2.0 - 100.0];
+                    let window_pos = [width as f32 / 2.0 - 100.0, height as f32 / 2.0 - 100.0];
 
-            ui.window("Transparent Window")
-                .size([200.0, 200.0], Condition::Always)
-                .position(window_pos, Condition::Always)
-                .flags(window_flags)
-                .build(|| {
-                    let button_width = 100.0;
-                    let button_height = 20.0;
-                    let window_size = ui.window_size();
+                    ui.window("Transparent Window")
+                        .size([200.0, 200.0], Condition::Always)
+                        .position(window_pos, Condition::Always)
+                        .flags(window_flags)
+                        .build(|| {
+                            let button_width = 100.0;
+                            let button_height = 20.0;
+                            let window_size = ui.window_size();
 
-                    let available_width = window_size[0];
-                    let available_height = window_size[1];
+                            let available_width = window_size[0];
+                            let available_height = window_size[1];
 
-                    let pos_x = (available_width - button_width) / 2.0;
-                    let mut pos_y = (available_height - (cb.len() as f32 * button_height) - 10.0 * (cb.len() as f32 - 1.0)) / 2.0;
+                            let pos_x = (available_width - button_width) / 2.0;
+                            let mut pos_y = (available_height - (cb.len() as f32 * button_height) - 10.0 * (cb.len() as f32 - 1.0)) / 2.0;
 
-                    for (buttonname, command) in cb {
-                        ui.set_cursor_pos([pos_x, pos_y]);
-                        if ui.button_with_size(buttonname, [button_width, button_height]) {
-                            g.button_command(command);
-                        }
-                        pos_y += button_height + 10.0; // Add some spacing between buttons
-                    }
-                });
-
-            // Render the ImGui frame
-            self.guirenderer.render(&mut self.imgui);
-        }
-
-        
-
-        
-        let io = self.imgui.io_mut();
-        for (_, event) in glfw::flush_messages(&self.events) {
-
-            
-
-            match event {
-                glfw::WindowEvent::MouseButton(mousebutton, action, _) => {
-                    let index = match mousebutton {
-                        glfw::MouseButton::Button1 => 0,
-                        glfw::MouseButton::Button2 => 1,
-                        glfw::MouseButton::Button3 => 2,
-                        glfw::MouseButton::Button4 => 3,
-                        glfw::MouseButton::Button5 => 4,
-                        glfw::MouseButton::Button6 => 5,
-                        glfw::MouseButton::Button7 => 6,
-                        glfw::MouseButton::Button8 => 7,
-                        _ => return,
-                    };
-                    io.mouse_down[index] = action == glfw::Action::Press;
-
-                    if !io.want_capture_mouse || !gmenuopen {
-                        if mousebutton == glfw::MouseButtonLeft {
-                            
-                            if !io.want_capture_mouse {
-                                
-                                if !gmenuopen {
-                                    self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
-                                    self.game.as_mut().unwrap().set_mouse_focused(true);
+                            for (buttonname, command) in cb {
+                                ui.set_cursor_pos([pos_x, pos_y]);
+                                if ui.button_with_size(buttonname, [button_width, button_height]) {
+                                    g.button_command(command);
                                 }
+                                pos_y += button_height + 10.0; // Add some spacing between buttons
+                            }
+                        });
+
+                    // Render the ImGui frame
+                    self.guirenderer.render(&mut self.imgui);
+                }
+
+                
+
+                
+                let io = self.imgui.io_mut();
+                for (_, event) in glfw::flush_messages(&self.events) {
+
+                    
+
+                    match event {
+                        glfw::WindowEvent::MouseButton(mousebutton, action, _) => {
+                            let index = match mousebutton {
+                                glfw::MouseButton::Button1 => 0,
+                                glfw::MouseButton::Button2 => 1,
+                                glfw::MouseButton::Button3 => 2,
+                                glfw::MouseButton::Button4 => 3,
+                                glfw::MouseButton::Button5 => 4,
+                                glfw::MouseButton::Button6 => 5,
+                                glfw::MouseButton::Button7 => 6,
+                                glfw::MouseButton::Button8 => 7,
+                                _ => return,
+                            };
+                            io.mouse_down[index] = action == glfw::Action::Press;
+
+                            if !io.want_capture_mouse || !gmenuopen {
+                                if mousebutton == glfw::MouseButtonLeft {
+                                    
+                                    if !io.want_capture_mouse {
+                                        
+                                        if !gmenuopen {
+                                            self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+                                            self.game.as_mut().unwrap().set_mouse_focused(true);
+                                        }
+                                        
+                                    }
+                                    
+                                }
+                                self.game
+                                    .as_mut()
+                                    .unwrap()
+                                    .mouse_button(mousebutton, action);
+                            }
                                 
+                        }
+                        glfw::WindowEvent::FramebufferSize(wid, hei) => {
+                            self.width = wid as u32;
+                            self.height = hei as u32;
+                            unsafe {
+                                gl::Viewport(0, 0, wid, hei);
+                            }
+                        }
+                        glfw::WindowEvent::CursorPos(xpos, ypos) => {
+                            let g = self.game.as_mut().unwrap();
+                            g.cursor_pos(xpos, ypos);
+                            if !g.vars.mouse_focused {
+                                io.mouse_pos = [xpos as f32, ypos as f32];
                             }
                             
                         }
-                        self.game
-                            .as_mut()
-                            .unwrap()
-                            .mouse_button(mousebutton, action);
-                    }
-                        
-                }
-                glfw::WindowEvent::FramebufferSize(wid, hei) => {
-                    self.width = wid as u32;
-                    self.height = hei as u32;
-                    unsafe {
-                        gl::Viewport(0, 0, wid, hei);
-                    }
-                }
-                glfw::WindowEvent::CursorPos(xpos, ypos) => {
-                    let g = self.game.as_mut().unwrap();
-                    g.cursor_pos(xpos, ypos);
-                    if !g.vars.mouse_focused {
-                        io.mouse_pos = [xpos as f32, ypos as f32];
-                    }
-                    
-                }
-                glfw::WindowEvent::Key(key, scancode, action, _modifiers) => {
+                        glfw::WindowEvent::Key(key, scancode, action, _modifiers) => {
 
-                    let pressed = action == glfw::Action::Press || action == glfw::Action::Repeat;
-                    io.keys_down[scancode as usize] = pressed;
+                            let pressed = action == glfw::Action::Press || action == glfw::Action::Repeat;
+                            io.keys_down[scancode as usize] = pressed;
 
-                    if (!io.want_capture_keyboard && !io.want_text_input  ) || gmenuopen {
-                        
-                        self.game.as_mut().unwrap().keyboard(key, action);
+                            if (!io.want_capture_keyboard && !io.want_text_input  ) || gmenuopen {
+                                
+                                self.game.as_mut().unwrap().keyboard(key, action);
 
-                        if key == Key::Escape {
-                            if self.game.as_mut().unwrap().vars.menu_open {
-                               
-                                self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Normal);
-                                self.game.as_mut().unwrap().set_mouse_focused(false);
-                            } else {
-                                self.game.as_mut().unwrap().vars.menu_open = false;
-                                self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
-                                self.game.as_mut().unwrap().set_mouse_focused(true);
+                                if key == Key::Escape {
+                                    if self.game.as_mut().unwrap().vars.menu_open {
+                                    
+                                        self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Normal);
+                                        self.game.as_mut().unwrap().set_mouse_focused(false);
+                                    } else {
+                                        self.game.as_mut().unwrap().vars.menu_open = false;
+                                        self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+                                        self.game.as_mut().unwrap().set_mouse_focused(true);
+                                    }
+                                    
+                                }
+
                             }
                             
                         }
+                        glfw::WindowEvent::Scroll(x, y) => {
+                            io.mouse_wheel_h += x as f32;
+                            io.mouse_wheel += y as f32;
 
+                            self.game.as_mut().unwrap().scroll(y);
+                        }
+                        _ => {}
                     }
-                    
                 }
-                glfw::WindowEvent::Scroll(x, y) => {
-                    io.mouse_wheel_h += x as f32;
-                    io.mouse_wheel += y as f32;
+            }
+            None => {
 
-                    self.game.as_mut().unwrap().scroll(y);
-                }
-                _ => {}
+
+
+
+
+
+
+
+
+
+                
+
+                    self.imgui.io_mut().update_delta_time(Duration::from_secs_f32(self.delta_time));
+
+                    let (width, height) = self.window.read().unwrap().get_framebuffer_size();
+                    self.imgui.io_mut().display_size = [width as f32, height as f32];
+                    
+                    // Start the ImGui frame
+                    let ui = self.imgui.frame();
+
+                    let window_flags = WindowFlags::NO_DECORATION
+                        | WindowFlags::NO_MOVE
+                        | WindowFlags::NO_RESIZE
+                        | WindowFlags::NO_SCROLLBAR
+                        | WindowFlags::NO_TITLE_BAR
+                        | WindowFlags::NO_BACKGROUND;
+
+                    let window_pos = [width as f32 / 2.0 - 100.0, height as f32 / 2.0 - 100.0];
+
+                    ui.window("Transparent Window")
+                        .size([200.0, 200.0], Condition::Always)
+                        .position(window_pos, Condition::Always)
+                        .flags(window_flags)
+                        .build(|| {
+                            let button_width = 100.0;
+                            let button_height = 20.0;
+                            let window_size = ui.window_size();
+
+                            let available_width = window_size[0];
+                            let available_height = window_size[1];
+
+                            let pos_x = (available_width - button_width) / 2.0;
+                            let mut pos_y = (available_height - (button_height) - 10.0 ) / 2.0;
+
+                                ui.set_cursor_pos([pos_x, pos_y]);
+                                if ui.button_with_size("Loading game...", [button_width, button_height]) {
+                                    
+                                }
+                                pos_y += button_height + 10.0; // Add some spacing between buttons
+
+                        });
+
+                    // Render the ImGui frame
+                    self.guirenderer.render(&mut self.imgui);
+
+
+
+
+
+
+                        
+
+
+
+
+
+
+
+
+
+
             }
         }
+
+        
 
         self.window.write().unwrap().swap_buffers();
     }

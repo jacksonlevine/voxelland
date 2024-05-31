@@ -21,7 +21,7 @@ use vox_format::types::Model;
 use walkdir::WalkDir;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::thread::{self, current};
+use std::thread::{self, current, JoinHandle};
 
 use crate::audio::{self, AudioPlayer};
 use crate::blockinfo::Blocks;
@@ -207,7 +207,8 @@ pub struct Game {
     pub inwater: bool,
     pub headinwater: bool,
 
-    pub currentbuttons: Vec<(&'static str, &'static str)>
+    pub currentbuttons: Vec<(&'static str, &'static str)>,
+    pub loadedworld: AtomicBool
 }
 
 enum FaderNames {
@@ -468,7 +469,8 @@ impl Game {
             currentbuttons: vec![
                 ("Test", "Yoo"),
                 ("Test22", "22"),
-            ]
+            ],
+            loadedworld: AtomicBool::new(false)
         };
 
         if !headless {
@@ -520,7 +522,7 @@ impl Game {
                 "assets/sfx/stonestep4.mp3"
             ]);
 
-            g.initialize_being_in_world();
+            // g.initialize_being_in_world();
 
             // g.add_ship_colliders();
         }
@@ -543,7 +545,7 @@ impl Game {
     }
 
 
-    pub fn initialize_being_in_world(&mut self) {
+    pub fn initialize_being_in_world(&mut self) -> JoinHandle<()> {
         let mut ship_pos = vec::IVec3::new(20,200,0);
         let mut ship_front = vec::IVec3::new(30,200,0);
         let mut ship_back = vec::IVec3::new(10,200,0);
@@ -579,7 +581,6 @@ impl Game {
             }
         }
 
-        self.rebuild_whole_world_while_showing_loading_screen();
         self.vars.hostile_world = (self.chunksys.read().unwrap().planet_type % 2) != 0;
 
 
@@ -593,6 +594,17 @@ impl Game {
         //self.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0), &self.chunksys, &self.camera));
         // self.static_model_entities.push(ModelEntity::new(4, ship_float_pos, 1.5, Vec3::new(0.0, 0.0, 0.0), &self.chunksys, &self.camera));
         self.camera.lock().unwrap().position = ship_float_pos  + Vec3::new(5.0, 2.0, 0.0);
+
+        self.currentbuttons = vec![
+            ("Loading...", "loading")
+        ];
+        self.vars.menu_open = true;
+
+        let handle = self.rebuild_whole_world_while_showing_loading_screen();
+
+        handle
+
+        
     }
 
     pub fn update_inventory(&mut self) {
@@ -1679,7 +1691,7 @@ impl Game {
     }
 
 
-    pub fn rebuild_whole_world_while_showing_loading_screen(&mut self) {
+    pub fn rebuild_whole_world_while_showing_loading_screen(&mut self) -> std::thread::JoinHandle<()> {
 
         let csys = self.chunksys.clone();
         let campos = self.camera.lock().unwrap().position.clone();
@@ -1689,24 +1701,27 @@ impl Game {
             ChunkSystem::initial_rebuild_on_main_thread(&csys, &shader, &campos)
         });
 
-        while !threadhandle.is_finished() {
+        threadhandle
 
-            //self.draw();
-            let current_time = unsafe { glfwGetTime() as f32 };
-            self.delta_time = current_time - self.prev_time;
+        // while !threadhandle.is_finished() {
+
+        //     //self.draw();
+        //     self.window.read().unwrap()
+        //     let current_time = unsafe { glfwGetTime() as f32 };
+        //     self.delta_time = current_time - self.prev_time;
     
-            self.prev_time = current_time;
+        //     self.prev_time = current_time;
 
-        }
+        // }
         
-        match threadhandle.join() {
-            Ok(_) => {
+        // match threadhandle.join() {
+        //     Ok(_) => {
 
-            }
-            Err(_) => {
-                tracing::info!("The whole-world-rebuild thread didn't join back I guess????");
-            }
-        };
+        //     }
+        //     Err(_) => {
+        //         tracing::info!("The whole-world-rebuild thread didn't join back I guess????");
+        //     }
+        // };
     }
 
     pub fn chunk_thread_inner_function(cam_arc: &Arc<Mutex<Camera>>, csys_arc: &Arc<RwLock<ChunkSystem>>, last_user_c_pos: &mut vec::IVec2) {

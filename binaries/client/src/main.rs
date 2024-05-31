@@ -24,9 +24,26 @@ fn main() {
 
     let mut wak_context = WindowAndKeyContext::new("Barkaroo", 1280, 720);
 
-    let game = Game::new(&wak_context.window, true, false);
+    let mut game = Game::new(&wak_context.window, true, false);
 
     wak_context.game = Some(game);
+
+    let handle = wak_context.game.as_mut().unwrap().initialize_being_in_world();
+
+    while !handle.is_finished() {
+        wak_context.run();
+    }
+
+    match handle.join() {
+        Ok(_) => {
+            wak_context.game.as_mut().unwrap().loadedworld.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+        Err(e) => {
+
+        }
+    }
+    wak_context.game.as_mut().unwrap().vars.menu_open = false;
+    
     wak_context.game.as_mut().unwrap().start_world();
     while !wak_context.window.read().unwrap().should_close() {
         wak_context.run();

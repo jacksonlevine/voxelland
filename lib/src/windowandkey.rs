@@ -82,9 +82,20 @@ impl WindowAndKeyContext {
         self.previous_time = current_time;
 
         let g = self.game.as_mut().unwrap();
-        g.update();
 
         let gmenuopen = g.vars.menu_open;
+
+        if g.loadedworld.load(std::sync::atomic::Ordering::Relaxed) {
+
+            
+            g.update();
+
+            
+
+            
+
+
+        }
 
         if gmenuopen {
 
@@ -134,6 +145,8 @@ impl WindowAndKeyContext {
             // Render the ImGui frame
             self.guirenderer.render(&mut self.imgui);
         }
+
+        
 
         
         let io = self.imgui.io_mut();

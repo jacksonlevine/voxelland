@@ -530,11 +530,11 @@ impl Game {
 
     pub fn button_command(&mut self, str: &'static str) {
         match str {
-            "Yoo" => {
-                println!("Yoo command given");
+            "quittomainmenu" => {
+                println!("Quit to main memnu");
             }
-            "22" => {
-                println!("22 command given");
+            "closemenu" => {
+                self.vars.menu_open = false;
             }
             _ => {
                 println!("Unknown button command given");
@@ -2221,6 +2221,22 @@ impl Game {
 
     pub fn keyboard(&mut self, key: Key, action: Action) {
         match key {
+            Key::Escape => {
+                if action == Action::Press {
+                    if !self.vars.menu_open {
+
+                        self.currentbuttons = vec![
+                            ("Quit to main menu", "quittomainmenu")
+                        ];
+                        self.vars.menu_open = true;
+    
+                    } else {
+                        self.vars.menu_open = false;
+                    }
+                }
+                
+                
+            }
             Key::W => {
                 if action == Action::Press || action == Action::Repeat {
                     self.controls.forward = true;

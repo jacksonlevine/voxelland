@@ -84,7 +84,9 @@ impl WindowAndKeyContext {
         let g = self.game.as_mut().unwrap();
         g.update();
 
-        if g.vars.menu_open {
+        let gmenuopen = g.vars.menu_open;
+
+        if gmenuopen {
 
             let cb = g.currentbuttons.clone();
 
@@ -103,20 +105,30 @@ impl WindowAndKeyContext {
                 | WindowFlags::NO_TITLE_BAR
                 | WindowFlags::NO_BACKGROUND;
 
-            let window_pos = [width as f32 / 2.0 - 50.0, height as f32 / 2.0 - 100.0];
+            let window_pos = [width as f32 / 2.0 - 100.0, height as f32 / 2.0 - 100.0];
 
             ui.window("Transparent Window")
-                .size([100.0, 200.0], Condition::Always)
+                .size([200.0, 200.0], Condition::Always)
                 .position(window_pos, Condition::Always)
                 .flags(window_flags)
                 .build(|| {
+                    let button_width = 100.0;
+                    let button_height = 20.0;
+                    let window_size = ui.window_size();
+
+                    let available_width = window_size[0];
+                    let available_height = window_size[1];
+
+                    let pos_x = (available_width - button_width) / 2.0;
+                    let mut pos_y = (available_height - (cb.len() as f32 * button_height) - 10.0 * (cb.len() as f32 - 1.0)) / 2.0;
 
                     for (buttonname, command) in cb {
-                        if ui.button(buttonname) {
+                        ui.set_cursor_pos([pos_x, pos_y]);
+                        if ui.button_with_size(buttonname, [button_width, button_height]) {
                             g.button_command(command);
                         }
+                        pos_y += button_height + 10.0; // Add some spacing between buttons
                     }
-                    
                 });
 
             // Render the ImGui frame
@@ -144,12 +156,16 @@ impl WindowAndKeyContext {
                     };
                     io.mouse_down[index] = action == glfw::Action::Press;
 
-                    if !io.want_capture_mouse {
+                    if !io.want_capture_mouse || !gmenuopen {
                         if mousebutton == glfw::MouseButtonLeft {
                             
                             if !io.want_capture_mouse {
-                                self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
-                                self.game.as_mut().unwrap().set_mouse_focused(true);
+                                
+                                if !gmenuopen {
+                                    self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+                                    self.game.as_mut().unwrap().set_mouse_focused(true);
+                                }
+                                
                             }
                             
                         }
@@ -180,12 +196,23 @@ impl WindowAndKeyContext {
                     let pressed = action == glfw::Action::Press || action == glfw::Action::Repeat;
                     io.keys_down[scancode as usize] = pressed;
 
-                    if !io.want_capture_keyboard && !io.want_text_input {
-                        if key == Key::Escape {
-                            self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Normal);
-                            self.game.as_mut().unwrap().set_mouse_focused(false);
-                        }
+                    if (!io.want_capture_keyboard && !io.want_text_input  ) || gmenuopen {
+                        
                         self.game.as_mut().unwrap().keyboard(key, action);
+
+                        if key == Key::Escape {
+                            if self.game.as_mut().unwrap().vars.menu_open {
+                               
+                                self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Normal);
+                                self.game.as_mut().unwrap().set_mouse_focused(false);
+                            } else {
+                                self.game.as_mut().unwrap().vars.menu_open = false;
+                                self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+                                self.game.as_mut().unwrap().set_mouse_focused(true);
+                            }
+                            
+                        }
+
                     }
                     
                 }

@@ -207,7 +207,9 @@ pub struct Game {
     pub headinwater: bool,
 
     pub currentbuttons: Vec<(&'static str, &'static str)>,
-    pub loadedworld: AtomicBool
+    pub loadedworld: AtomicBool,
+    pub addressentered: Arc<AtomicBool>,
+    pub address: Arc<Mutex<Option<String>>>
 }
 
 enum FaderNames {
@@ -216,7 +218,7 @@ enum FaderNames {
 }
 
 impl Game {
-    pub fn new(window: &Arc<RwLock<PWindow>>, connectonstart: bool, headless: bool) -> JoinHandle<Game> {
+    pub fn new(window: &Arc<RwLock<PWindow>>, connectonstart: bool, headless: bool, addressentered: &Arc<AtomicBool>, address: &Arc<Mutex<Option<String>>>) -> JoinHandle<Game> {
 
         let shader0 = Shader::new("assets/vert.glsl", "assets/frag.glsl");
         let skyshader = Shader::new("assets/skyvert.glsl", "assets/skyfrag.glsl");
@@ -478,10 +480,14 @@ impl Game {
                 ("Test", "Yoo"),
                 ("Test22", "22"),
             ],
-            loadedworld: AtomicBool::new(false)
+            loadedworld: AtomicBool::new(false),
+            addressentered: addressentered.clone(),
+            address: address.clone()
         };
 
 
+        let aeclone = g.addressentered.clone();
+        let aclone = g.address.clone();
 
         thread::spawn(move || {
 
@@ -504,12 +510,17 @@ impl Game {
                 if g.vars.in_multiplayer {
     
     
-                    print!("Enter server address (e.g., 127.0.0.1:6969): ");
-                    io::stdout().flush().unwrap(); // Ensure the prompt is printed before reading input
+                    //print!("Enter server address (e.g., 127.0.0.1:6969): ");
+                    //io::stdout().flush().unwrap(); // Ensure the prompt is printed before reading input
     
-                    let mut address = String::new();
-                    io::stdin().read_line(&mut address).expect("Failed to read line");
-                    let address = address.trim().to_string(); // Remove any trailing newline characters
+                    //let mut address = String::new();
+                    //io::stdin().read_line(&mut address).expect("Failed to read line");
+
+                    while !aeclone.load(Ordering::Relaxed) {
+                        thread::sleep(Duration::from_millis(500));
+                    }
+
+                    let address = aclone.lock().unwrap().as_ref().unwrap().trim().to_string(); // Remove any trailing newline characters
     
                     g.netconn.connect(address); // Connect to the provided address
                     println!("Connected to the server!");

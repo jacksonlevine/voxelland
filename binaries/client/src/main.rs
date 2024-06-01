@@ -24,7 +24,9 @@ fn main() {
 
     let mut wak_context = WindowAndKeyContext::new("Barkaroo", 1280, 720);
 
-    let mut gameh = Game::new(&wak_context.window, true, false);
+    
+
+    let mut gameh = Game::new(&wak_context.window, true, false, &wak_context.addressentered, &wak_context.serveraddress);
 
     while !gameh.is_finished() {
         wak_context.run();

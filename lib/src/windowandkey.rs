@@ -1,7 +1,8 @@
 use crate::{game::Game, shader::Shader, text::Text, texture::Texture};
 use glam::Vec2;
 use glfw::{Context, Glfw, GlfwReceiver, Key, PWindow, WindowEvent};
-use std::{sync::{Arc, RwLock}, time::{Duration, Instant}};
+use once_cell::sync::Lazy;
+use std::{ptr::addr_of_mut, sync::{atomic::AtomicBool, Arc, Mutex, RwLock}, time::{Duration, Instant}};
 use imgui::*;
 use imgui_opengl_renderer::Renderer;
 pub struct WindowAndKeyContext {
@@ -17,7 +18,11 @@ pub struct WindowAndKeyContext {
     pub events: GlfwReceiver<(f64, WindowEvent)>,
 
     pub imgui: imgui::Context,
-    pub guirenderer: imgui_opengl_renderer::Renderer
+    pub guirenderer: imgui_opengl_renderer::Renderer,
+    pub addressentered: Arc<AtomicBool>,
+    pub serveraddress: Arc<Mutex<Option<String>>>,
+
+    pub serveraddrbuffer: String
 }
 
 impl WindowAndKeyContext {
@@ -34,6 +39,7 @@ impl WindowAndKeyContext {
         window.set_mouse_button_polling(true);
         window.set_cursor_pos_polling(true);
         window.set_scroll_polling(true);
+        window.set_char_polling(true);
         window.make_current();
 
         // Initialize ImGui
@@ -64,7 +70,10 @@ impl WindowAndKeyContext {
             window: Arc::new(RwLock::new(window)),
             events,
             imgui,
-            guirenderer: renderer
+            guirenderer: renderer,
+            addressentered: Arc::new(AtomicBool::new(false)),
+            serveraddress: Arc::new(Mutex::new(None)),
+            serveraddrbuffer: String::with_capacity(128)
         };
 
         wak
@@ -80,6 +89,9 @@ impl WindowAndKeyContext {
             .duration_since(self.previous_time)
             .as_secs_f32();
         self.previous_time = current_time;
+
+
+
 
         match self.game.as_mut() {
             Some(g) => {
@@ -285,8 +297,26 @@ impl WindowAndKeyContext {
                             let mut pos_y = (available_height - (button_height) - 10.0 ) / 2.0;
 
                                 ui.set_cursor_pos([pos_x, pos_y]);
-                                if ui.button_with_size("Loading game...", [button_width, button_height]) {
-                                    
+
+                                
+
+                                if ui.button_with_size("Enter server address:", [button_width, button_height]) {
+
+                                }
+
+                                ui.set_cursor_pos([pos_x, pos_y + 25.0]);
+                                
+                                ui.input_text("##serveraddress", &mut self.serveraddrbuffer)
+                                
+                                
+                                .build();
+
+                                ui.set_cursor_pos([pos_x, pos_y + 50.0]);
+
+
+                                if ui.button_with_size("Connect", [button_width, button_height]) {
+                                    *(self.serveraddress.lock().unwrap()) = Some(self.serveraddrbuffer.clone());
+                                    self.addressentered.store(true, std::sync::atomic::Ordering::Relaxed);
                                 }
                                 pos_y += button_height + 10.0; // Add some spacing between buttons
 
@@ -297,7 +327,81 @@ impl WindowAndKeyContext {
 
 
 
+                    let io = self.imgui.io_mut();
+                    for (_, event) in glfw::flush_messages(&self.events) {
+    
+                        
+    
+                        match event {
+                            glfw::WindowEvent::MouseButton(mousebutton, action, _) => {
+                                let index = match mousebutton {
+                                    glfw::MouseButton::Button1 => 0,
+                                    glfw::MouseButton::Button2 => 1,
+                                    glfw::MouseButton::Button3 => 2,
+                                    glfw::MouseButton::Button4 => 3,
+                                    glfw::MouseButton::Button5 => 4,
+                                    glfw::MouseButton::Button6 => 5,
+                                    glfw::MouseButton::Button7 => 6,
+                                    glfw::MouseButton::Button8 => 7,
+                                    _ => return,
+                                };
+                                io.mouse_down[index] = action == glfw::Action::Press;
+                                    
+                            }
+                            glfw::WindowEvent::FramebufferSize(wid, hei) => {
+                                self.width = wid as u32;
+                                self.height = hei as u32;
+                                unsafe {
+                                    gl::Viewport(0, 0, wid, hei);
+                                }
+                            }
+                            glfw::WindowEvent::CursorPos(xpos, ypos) => {
 
+                                    io.mouse_pos = [xpos as f32, ypos as f32];
+
+                                
+                            }
+                            glfw::WindowEvent::Key(key, scancode, action, _modifiers) => {
+    
+                                let pressed = action == glfw::Action::Press || action == glfw::Action::Repeat;
+                                io.keys_down[key as usize] = pressed;
+
+                            if action == glfw::Action::Press {
+                                match key {
+                                    glfw::Key::LeftShift | glfw::Key::RightShift => io.key_shift = true,
+                                    glfw::Key::LeftControl | glfw::Key::RightControl => io.key_ctrl = true,
+                                    glfw::Key::LeftAlt | glfw::Key::RightAlt => io.key_alt = true,
+                                    glfw::Key::LeftSuper | glfw::Key::RightSuper => io.key_super = true,
+                                    glfw::Key::Backspace => {
+                                        io.keys_down[glfw::Key::Backspace as usize] = true;
+                                        io.add_input_character('\u{8}');
+                                    }
+                                    _ => {}
+                                }
+                            } else if action == glfw::Action::Release {
+                                match key {
+                                    glfw::Key::LeftShift | glfw::Key::RightShift => io.key_shift = false,
+                                    glfw::Key::LeftControl | glfw::Key::RightControl => io.key_ctrl = false,
+                                    glfw::Key::LeftAlt | glfw::Key::RightAlt => io.key_alt = false,
+                                    glfw::Key::LeftSuper | glfw::Key::RightSuper => io.key_super = false,
+                                    glfw::Key::Backspace => io.keys_down[glfw::Key::Backspace as usize] = false,
+                                    _ => {}
+                                }
+                            }
+
+
+                            }   
+                            glfw::WindowEvent::Char(char) => {
+                                io.add_input_character(char);
+                            }
+                            glfw::WindowEvent::Scroll(x, y) => {
+                                io.mouse_wheel_h += x as f32;
+                                io.mouse_wheel += y as f32;
+    
+                            }
+                            _ => {}
+                        }
+                    }
 
 
                         

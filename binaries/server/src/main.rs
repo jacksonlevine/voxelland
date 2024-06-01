@@ -364,7 +364,7 @@ fn main() {
 
     let initialseed: u32 = 0;
 
-    let mut gameh = Game::new(&Arc::new(RwLock::new(window)), false, true);
+    let mut gameh = Game::new(&Arc::new(RwLock::new(window)), false, true, &Arc::new(AtomicBool::new(false)), &Arc::new(Mutex::new(None)));
 
     while !gameh.is_finished() {
         thread::sleep(Duration::from_millis(100));

@@ -1,3 +1,4 @@
+use glfw::ffi::glfwTerminate;
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::fmt::writer::BoxMakeWriter;
 use tracing_subscriber::fmt::Subscriber;
@@ -28,9 +29,15 @@ fn main() {
 
     let mut gameh = Game::new(&wak_context.window, true, false, &wak_context.addressentered, &wak_context.serveraddress);
 
-    while !gameh.is_finished() && !wak_context.window.read().unwrap().should_close() {
-        wak_context.run();
+    while !gameh.is_finished() {
+        if !wak_context.window.read().unwrap().should_close() {
+            wak_context.run();
+        } else {
+            return ();
+        }
+        
     }
+
 
     let mut game: Game;
 
@@ -49,8 +56,12 @@ fn main() {
 
     let handle = wak_context.game.as_mut().unwrap().initialize_being_in_world();
 
-    while !handle.is_finished() && !wak_context.window.read().unwrap().should_close() {
-        wak_context.run();
+    while !handle.is_finished() {
+        if !wak_context.window.read().unwrap().should_close() {
+            wak_context.run();
+        } else {
+            return ();
+        }
     }
 
     match handle.join() {

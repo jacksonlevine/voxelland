@@ -144,14 +144,16 @@ impl WindowAndKeyContext {
                         | WindowFlags::NO_TITLE_BAR
                         | WindowFlags::NO_BACKGROUND;
 
-                    let window_pos = [width as f32 / 2.0 - 100.0, height as f32 / 2.0 - 100.0];
+                    let window_size = (700.0, 700.0);
+
+                    let window_pos = [width as f32 / 2.0 - (window_size.0/2.0), height as f32 / 2.0 - (window_size.1/2.0)];
 
                     ui.window("Transparent Window")
-                        .size([200.0, 200.0], Condition::Always)
+                        .size([window_size.0, window_size.1], Condition::Always)
                         .position(window_pos, Condition::Always)
                         .flags(window_flags)
                         .build(|| {
-                            let button_width = 100.0;
+                            let button_width = 200.0;
                             let button_height = 20.0;
                             let window_size = ui.window_size();
 
@@ -295,14 +297,16 @@ impl WindowAndKeyContext {
                         | WindowFlags::NO_TITLE_BAR
                         | WindowFlags::NO_BACKGROUND;
 
-                    let window_pos = [width as f32 / 2.0 - 100.0, height as f32 / 2.0 - 100.0];
+                    let window_size = (700.0, 700.0);
+
+                    let window_pos = [width as f32 / 2.0 - (window_size.0/2.0), height as f32 / 2.0 - (window_size.1/2.0)];
 
                     ui.window("Transparent Window")
-                        .size([200.0, 200.0], Condition::Always)
+                        .size([window_size.0, window_size.1], Condition::Always)
                         .position(window_pos, Condition::Always)
                         .flags(window_flags)
                         .build(|| {
-                            let button_width = 100.0;
+                            let button_width = 500.0;
                             let button_height = 20.0;
                             let window_size = ui.window_size();
 
@@ -323,7 +327,7 @@ impl WindowAndKeyContext {
                                 ui.set_cursor_pos([pos_x, pos_y + 25.0]);
                                 
                                 ui.input_text("##serveraddress", &mut self.serveraddrbuffer)
-                                
+                                .flags(InputTextFlags::ALWAYS_OVERWRITE)
                                 
                                 .build();
 

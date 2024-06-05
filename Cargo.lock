@@ -3301,6 +3301,7 @@ dependencies = [
 name = "voxelland-client"
 version = "0.1.0"
 dependencies = [
+ "glfw",
  "no_deadlocks",
  "steamworks",
  "tracing",

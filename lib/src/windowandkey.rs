@@ -2,7 +2,7 @@ use crate::{game::Game, shader::Shader, text::Text, texture::Texture};
 use glam::Vec2;
 use glfw::{Context, Glfw, GlfwReceiver, Key, PWindow, WindowEvent};
 use once_cell::sync::Lazy;
-use std::{ptr::addr_of_mut, sync::{atomic::AtomicBool, Arc, Mutex, RwLock}, time::{Duration, Instant}};
+use std::{path::Path, ptr::addr_of_mut, sync::{atomic::AtomicBool, Arc, Mutex, RwLock}, time::{Duration, Instant}};
 use imgui::*;
 use imgui_opengl_renderer::Renderer;
 pub struct WindowAndKeyContext {
@@ -45,6 +45,19 @@ impl WindowAndKeyContext {
         // Initialize ImGui
         let mut imgui = imgui::Context::create();
         imgui.set_ini_filename(None);
+
+
+        let font_size = 16.0;
+        imgui.fonts().add_font(&[FontSource::TtfData {
+            data: include_bytes!("../../font.ttf"),
+            size_pixels: font_size,
+            config: Some(FontConfig {
+                oversample_h: 4,
+                oversample_v: 4,
+                pixel_snap_h: true,
+                ..Default::default()
+            }),
+        }]);
         let mut renderer = Renderer::new(&mut imgui, |s| window.get_proc_address(s) as *const _);
 
 

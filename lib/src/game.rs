@@ -505,15 +505,8 @@ impl Game {
             addressentered: addressentered.clone(),
             address: address.clone()
         };
-
-
-        let aeclone = g.addressentered.clone();
-        let aclone = g.address.clone();
-
-        thread::spawn(move || {
-
-            if !headless {
-                g.load_model("assets/models/car/scene.gltf");
+        if !headless {
+            g.load_model("assets/models/car/scene.gltf");
                 g.load_model("assets/models/car/scene.gltf");
                 //g.load_model("assets/models/ship/scene.gltf");
                 g.load_model("assets/models/monster1/scene.gltf");
@@ -523,6 +516,18 @@ impl Game {
                 println!("gltf model count: {}", g.gltf_models.len());
     
                 g.create_model_vbos();
+        }
+        
+                
+
+
+        let aeclone = g.addressentered.clone();
+        let aclone = g.address.clone();
+
+        thread::spawn(move || {
+
+            if !headless {
+                
             
                 // g.setup_vertex_attributes();
     

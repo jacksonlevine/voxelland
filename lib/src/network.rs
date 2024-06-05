@@ -9,6 +9,7 @@ use bincode;
 use dashmap::DashMap;
 use glam::Vec3;
 use lockfree::queue::Queue;
+use rusqlite::Connection;
 use uuid::Uuid;
 
 use crate::camera::Camera;
@@ -26,6 +27,7 @@ pub struct NetworkConnector {
     pub csys: Arc<RwLock<ChunkSystem>>,
     pub received_world: Arc<AtomicBool>,
     pub commqueue: Arc<Queue<Message>>,
+    pub highprioritycommqueue: Arc<Queue<Message>>,
     pub received_id: Arc<AtomicBool>,
     pub gknowncams: Arc<DashMap<Uuid, Vec3>>,
     pub my_uuid: Arc<RwLock<Option<Uuid>>>,
@@ -35,7 +37,7 @@ pub struct NetworkConnector {
 }
 
 impl NetworkConnector {
-    pub fn new(csys: &Arc<RwLock<ChunkSystem>>, commqueue: &Arc<Queue<Message>>, gkc: &Arc<DashMap<Uuid, Vec3>>,
+    pub fn new(csys: &Arc<RwLock<ChunkSystem>>, commqueue: &Arc<Queue<Message>>, commqueue2: &Arc<Queue<Message>>, gkc: &Arc<DashMap<Uuid, Vec3>>,
                 my_uuid: &Arc<RwLock<Option<Uuid>>>, nsme: &Arc<DashMap<u32, ModelEntity>>, mycam: &Arc<Mutex<Camera>>) -> NetworkConnector {
         NetworkConnector {
             stream: None,
@@ -45,6 +47,7 @@ impl NetworkConnector {
             csys: csys.clone(),
             received_world: Arc::new(AtomicBool::new(false)),
             commqueue: commqueue.clone(),
+            highprioritycommqueue: commqueue2.clone(),
             received_id: Arc::new(AtomicBool::new(false)),
             gknowncams: gkc.clone(),
             my_uuid: my_uuid.clone(),
@@ -105,6 +108,8 @@ impl NetworkConnector {
 
 
         let camclone = self.mycam.clone();
+
+        let hpcommqueue = self.highprioritycommqueue.clone();
 
         self.sendthread = Some(thread::spawn(move || {
             let sr = sr2.clone();
@@ -189,7 +194,7 @@ impl NetworkConnector {
                                     //     csys.read().unwrap().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
                                     //     recv_m.info, false, true);
                                     // }
-                                    commqueue.push(recv_m.clone());
+                                    hpcommqueue.push(recv_m.clone());
                                 },
                                 MessageType::Udm => {
                                     shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
@@ -200,25 +205,48 @@ impl NetworkConnector {
 
 
                                     let mut buff = vec![0 as u8; recv_m.info as usize];
-                                    stream_lock.read_exact(&mut buff).unwrap();
 
-                                    let vec: Result<Vec<Entry>, Box<bincode::ErrorKind>> = bincode::deserialize(&buff);
-                                    match  vec {
-                                        Ok(entries) => {
-                                            for entry in entries {
-                                                csys.write().unwrap().set_block(entry.key, entry.value, true);
-                                            }
-                                            
-                                            
-                                            csys.write().unwrap().save_current_world_to_file(String::from("mp"));
+                                    stream_lock.set_read_timeout(Some(Duration::from_secs(2)));
+
+                                    match stream_lock.read_exact(&mut buff) {
+
+
+                                        Ok(_) => {
+                                            let mut file = File::create("db").unwrap();
+                                            file.write_all(&buff).unwrap();
+
+                                            // Now open the SQLite database file
+                                            //let conn = Connection::open("db").unwrap();
+
+                                            // // Perform operations on the SQLite database as needed
+                                            // let mut stmt = conn.prepare("SELECT x, y, z, value FROM userdatamap").unwrap();
+                                            // let userdatamap_iter = stmt.query_map([], |row| {
+                                            //     Ok(Entry {
+                                            //         key: IVec3::new(row.get(0)?, row.get(1)?, row.get(2)?),
+                                            //         value: row.get(3)?,
+                                            //     })
+                                            // }).unwrap();
+
+                                            // let mut entries: Vec<Entry> = Vec::new();
+                                            // for entry in userdatamap_iter {
+                                            //     entries.push(entry.unwrap());
+                                            // }
+
+                                            // for entry in entries {
+                                            //     csys.write().unwrap().set_block(entry.key, entry.value, true);
+                                            // }
+
+                                            // csys.write().unwrap().save_current_world_to_file(String::from("mp"));
                                             NetworkConnector::sendtolocked(&reqseed, &mut stream_lock);
                                         }
                                         Err(e) => {
-
+                                            println!("Error receiving, trying again...");
                                             NetworkConnector::sendtolocked(&requdm, &mut stream_lock);
-
                                         }
+
                                     }
+
+                                    
 
                                     //println!("{}", recv_s);
         

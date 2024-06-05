@@ -28,7 +28,7 @@ fn main() {
 
     let mut gameh = Game::new(&wak_context.window, true, false, &wak_context.addressentered, &wak_context.serveraddress);
 
-    while !gameh.is_finished() {
+    while !gameh.is_finished() && !wak_context.window.read().unwrap().should_close() {
         wak_context.run();
     }
 
@@ -43,11 +43,13 @@ fn main() {
         }
     }
 
+    println!("gltf model count: {}", game.gltf_models.len());
+
     wak_context.game = Some(game);
 
     let handle = wak_context.game.as_mut().unwrap().initialize_being_in_world();
 
-    while !handle.is_finished() {
+    while !handle.is_finished() && !wak_context.window.read().unwrap().should_close() {
         wak_context.run();
     }
 

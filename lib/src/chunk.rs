@@ -266,7 +266,15 @@ impl ChunkSystem {
             }
         }
 
+        
+
         let conn = Connection::open("db").unwrap();
+
+        conn.execute_batch("
+            PRAGMA synchronous = OFF;
+            PRAGMA journal_mode = WAL;
+            PRAGMA cache_size = 10000;
+        ").unwrap();
 
         // let file = File::open(format!("{}/udm", path)).unwrap();
         // let reader = BufReader::new(file);

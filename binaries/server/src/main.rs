@@ -4,7 +4,7 @@ use rand::{Rng, SeedableRng};
 use rusqlite::{params, Connection};
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
-use std::fs;
+use std::fs::{self, File};
 
 use std::io::{ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -90,37 +90,58 @@ fn handle_client(
 
                                 println!("Recvd req world");
 
+                                // Open the SQLite database file
+                                let mut file = File::open("db").unwrap();
 
-                                let mut stmt = conn.prepare(&format!(
-                                    "SELECT x, y, z, value FROM {}",
-                                    table_name
-                                )).unwrap();
-                                let userdatamap_iter = stmt.query_map([], |row| {
-                                    Ok(Entry {
-                                        key: IVec3::new(row.get(0)?, row.get(1)?, row.get(2)?),
-                                        value: row.get(3)?,
-                                    })
-                                }).unwrap();
-                        
-                                let mut entries: Vec<Entry> = Vec::new();
-                                for entry in userdatamap_iter {
-                                    entries.push(entry.unwrap());
-                                }
-                        
-                                let serialized_udm = bincode::serialize(&entries).unwrap();
+                                // Read the entire database file into a byte buffer
+                                let mut buffer = Vec::new();
+                                file.read_to_end(&mut buffer).unwrap();
 
-                                let size = bincode::serialized_size(&entries).unwrap(); 
-
-
+                                // Prepare the message
                                 let udmmsg = Message::new(
                                     MessageType::Udm,
                                     Vec3::ZERO,
                                     0.0,
-                                    size as u32,
+                                    buffer.len() as u32,
                                 );
 
+                                // Serialize and send the message header
                                 mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
-                                mystream.write_all(&serialized_udm).unwrap();
+
+                                // Send the raw binary data of the database file
+                                mystream.write_all(&buffer).unwrap();
+
+
+                                                        // let mut stmt = conn.prepare(&format!(
+                                                        //     "SELECT x, y, z, value FROM {}",
+                                                        //     table_name
+                                                        // )).unwrap();
+                                                        // let userdatamap_iter = stmt.query_map([], |row| {
+                                                        //     Ok(Entry {
+                                                        //         key: IVec3::new(row.get(0)?, row.get(1)?, row.get(2)?),
+                                                        //         value: row.get(3)?,
+                                                        //     })
+                                                        // }).unwrap();
+                                                
+                                                        // let mut entries: Vec<Entry> = Vec::new();
+                                                        // for entry in userdatamap_iter {
+                                                        //     entries.push(entry.unwrap());
+                                                        // }
+                                                
+                                                        // let serialized_udm = bincode::serialize(&entries).unwrap();
+
+                                                        // let size = bincode::serialized_size(&entries).unwrap(); 
+
+
+                                                        // let udmmsg = Message::new(
+                                                        //     MessageType::Udm,
+                                                        //     Vec3::ZERO,
+                                                        //     0.0,
+                                                        //     size as u32,
+                                                        // );
+
+                                                        // mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
+                                                        // mystream.write_all(&serialized_udm).unwrap();
 
                                 // let currseed = *(csys.currentseed.read().unwrap());
                                 // println!("Recvd req world");

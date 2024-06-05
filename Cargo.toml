@@ -6,7 +6,7 @@ members = [
     "binaries/test_client"
 ]
 
-# [profile.release]
+[profile.release]
 # opt-level = 3  # Maximum optimization level
 # lto = true     # Enables Link Time Optimization
 # debug = true   # Includes debug information even in release builds

@@ -50,6 +50,21 @@ use crate::voxmodel::JVoxModel;
 use crate::worldgeometry::WorldGeometry;
 use crate::inventory::*;
 use std::sync::RwLock;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #[derive(Clone)]
 pub struct AnimationChannel {
     pub node_index: usize,
@@ -191,6 +206,7 @@ pub struct Game {
     pub current_time: f32,
     pub netconn: NetworkConnector,
     pub server_command_queue: Arc<lockfree::queue::Queue<Message>>,
+    pub hp_server_command_queue: Arc<lockfree::queue::Queue<Message>>,
     pub headless: bool,
     pub known_cameras: Arc<DashMap<Uuid, Vec3>>,
     pub my_uuid: Arc<RwLock<Option<Uuid>>>,
@@ -383,6 +399,10 @@ impl Game {
 
 
         let server_command_queue = Arc::new(Queue::<Message>::new());
+        let server_command_hp_queue = Arc::new(Queue::<Message>::new());
+
+
+
 
         let kc = Arc::new(DashMap::new());
 
@@ -460,8 +480,9 @@ impl Game {
             skins: Vec::new(),
             nodes: Vec::new(),
             current_time: 0.0,
-            netconn: NetworkConnector::new(&chunksys, &server_command_queue, &kc, &my_uuid.clone(), &nsme, &cam.clone()),
+            netconn: NetworkConnector::new(&chunksys, &server_command_queue, &server_command_hp_queue, &kc, &my_uuid.clone(), &nsme, &cam.clone()),
             server_command_queue: server_command_queue.clone(),
+            hp_server_command_queue: server_command_hp_queue.clone(),
             headless,
             known_cameras: kc,
             my_uuid,
@@ -498,6 +519,8 @@ impl Game {
                 g.load_model("assets/models/monster1/scene.gltf");
                 g.load_model("assets/models/monster2/scene.gltf");
                 g.load_model("assets/models/cow/scene.glb");
+
+                println!("gltf model count: {}", g.gltf_models.len());
     
                 g.create_model_vbos();
             
@@ -818,6 +841,30 @@ impl Game {
         drop(fadersread);
 
         if !self.headless {
+            let mut morestuff = true;
+            while morestuff {
+                match self.hp_server_command_queue.pop() {
+                    Some(comm) => {
+                        match comm.message_type {
+                            MessageType::BlockSet => {
+                                if comm.info == 0 {
+                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
+                                        comm.info, true, true);
+                                    } else {
+                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
+                                        comm.info, false, true);
+                                    }
+                            }
+                            _ => {
+
+                            }
+                        }
+                    }
+                    None => {
+                        morestuff = false;
+                    }
+                }
+            }
             //let mut morestuff = true;
             //while morestuff {
                 match self.server_command_queue.pop() {
@@ -1307,10 +1354,7 @@ impl Game {
     }
 
     pub fn draw(&self) {
-        unsafe {
-            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-            gl::ClearColor(0.5, 0.7, 1.0, 1.0);
-        }
+        
 
         let campitch = self.camera.lock().unwrap().pitch;
 

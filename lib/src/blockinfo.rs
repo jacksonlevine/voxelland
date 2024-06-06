@@ -2,7 +2,7 @@ use crate::cube::CubeSide;
 
 pub struct Blocks {}
 
-static TEXS: [[(u8, u8); 3]; 19] = [
+static TEXS: [[(u8, u8); 3]; 20] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],  // 0
             [(1, 0), (1, 0), (1, 0)],  // 1 sand
@@ -23,9 +23,10 @@ static TEXS: [[(u8, u8); 3]; 19] = [
             [(0, 3), (0, 3), (0, 3)], // 16 red crystal unattainable
             [(0, 4), (0, 4), (0, 4)], // 17 red crystal
             [(12, 1), (12, 1), (12, 1)], // 18 light
+            [(12, 0), (12, 0), (12, 0)], // 19 door
         ];
 
-static BREAKTIMES: [f32; 19] = [
+static BREAKTIMES: [f32; 20] = [
     0.1,
     0.5,
     0.7,
@@ -44,6 +45,7 @@ static BREAKTIMES: [f32; 19] = [
     9999999.0,
     1.2,
     0.5,
+    1.0,
     1.0
 ];
 
@@ -79,6 +81,10 @@ impl Blocks {
     }
     pub fn block_id_bits() -> u32 {
         0b0000_0000_0000_0000_1111_1111_1111_1111
+    }
+
+    pub fn block_flag_bits() -> u32 {
+        0b1111_1111_1111_1111_0000_0000_0000_0000
     }
     pub fn get_walk_series(id: u32) -> &'static str {
         match id {

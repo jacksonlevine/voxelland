@@ -10,6 +10,7 @@ use std::sync::RwLock;
 
 use dashmap::DashMap;
 use dashmap::DashSet;
+use gl::types::GLuint;
 use glam::Vec3;
 use num_enum::FromPrimitive;
 use rand::rngs::StdRng;
@@ -31,6 +32,8 @@ use crate::cube::CubeSide;
 use crate::packedvertex::PackedVertex;
 use crate::planetinfo::Planets;
 use crate::shader::Shader;
+use crate::specialblocks::door::DoorInfo;
+use crate::textureface::TextureFace;
 use crate::vec::IVec3;
 use crate::vec::{self, IVec2};
 
@@ -78,7 +81,12 @@ pub struct ChunkGeo {
     pub tdata32: Mutex<Vec<u32>>,
     pub tdata8: Mutex<Vec<u8>>,
     pub tvbo32: gl::types::GLuint,
-    pub tvbo8: gl::types::GLuint
+    pub tvbo8: gl::types::GLuint,
+
+    pub vvbo: GLuint,
+    pub uvvbo: GLuint,
+    pub vdata: Mutex<Vec<f32>>,
+    pub uvdata: Mutex<Vec<f32>>
 }
 impl ChunkGeo {
     pub fn new() -> ChunkGeo {
@@ -87,11 +95,17 @@ impl ChunkGeo {
         let mut tvbo32: gl::types::GLuint = 0;
         let mut tvbo8: gl::types::GLuint = 0;
 
+        let mut vvbo: gl::types::GLuint = 0;
+        let mut uvvbo: gl::types::GLuint = 0;
+
         unsafe {
             gl::CreateBuffers(1, &mut vbo32);
             gl::CreateBuffers(1, &mut vbo8);
             gl::CreateBuffers(1, &mut tvbo32);
             gl::CreateBuffers(1, &mut tvbo8);
+
+            gl::CreateBuffers(1, &mut vvbo);
+            gl::CreateBuffers(1, &mut uvvbo);
             let error = gl::GetError();
             if error != gl::NO_ERROR {
                 println!(
@@ -113,7 +127,12 @@ impl ChunkGeo {
             tdata32: Mutex::new(Vec::new()),
             tdata8: Mutex::new(Vec::new()),
             tvbo32,
-            tvbo8
+            tvbo8,
+
+            vvbo,
+            uvvbo,
+            vdata: Mutex::new(Vec::new()),
+            uvdata: Mutex::new(Vec::new())
         }
     }
 
@@ -122,6 +141,9 @@ impl ChunkGeo {
         self.data8.lock().unwrap().clear();
         self.tdata32.lock().unwrap().clear();
         self.tdata8.lock().unwrap().clear();
+
+        self.vdata.lock().unwrap().clear();
+        self.uvdata.lock().unwrap().clear();
     }
     pub fn solids(&self) -> (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>) {
         return (&self.data32, &self.data8);
@@ -1009,6 +1031,8 @@ impl ChunkSystem {
 
         chunklock.used = true;
 
+        let doorbottomuvs = DoorInfo::get_door_uvs(TextureFace::new(11, 0));
+        let doortopuvs = DoorInfo::get_door_uvs(TextureFace::new(11, 1));
 
         let geobankarc = self.geobank[index].clone();
         // if num == 0 { num = 1; } else { num = 0; }
@@ -1026,6 +1050,9 @@ impl ChunkSystem {
         let mut tdata32 = geobankarc.tdata32.lock().unwrap();
         let mut tdata8 = geobankarc.tdata8.lock().unwrap();
 
+        let mut vdata = geobankarc.vdata.lock().unwrap();
+        let mut uvdata = geobankarc.uvdata.lock().unwrap();
+
         let mut tops: HashMap<vec::IVec2, i32> = HashMap::new();
 
         for i in 0..CW {
@@ -1037,7 +1064,9 @@ impl ChunkSystem {
                         y: j,
                         z: (chunklock.pos.y * CW) + k,
                     };
-                    let block = self.blockatmemo(spot, &mut memo);
+                    let combined = self.blockatmemo(spot, &mut memo);
+                    let block = combined & Blocks::block_id_bits();
+                    let flags = combined & Blocks::block_flag_bits();
                     // if self.justcollisionmap.contains_key(&spot) {
                     //     for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
                     //         let cubeside = CubeSide::from_primitive(indie);
@@ -1090,172 +1119,222 @@ impl ChunkSystem {
                     // }
                     if block != 0 {
  
-                        
-                        if Blocks::is_transparent(block) || Blocks::is_semi_transparent(block) {
-                            for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
-                                let neighspot = spot + *neigh;
-                                let neigh_block = self.blockatmemo(neighspot, &mut memo);
-                                let cubeside = CubeSide::from_primitive(indie);
-                                let neigh_semi_trans = Blocks::is_semi_transparent(neigh_block);
-                                let water_bordering_transparent = block == 2 && neigh_block != 2 && Blocks::is_transparent(neigh_block);
+                        if block == 11 {
+                            let direction = DoorInfo::get_direction_bits(flags);
+                            let open = DoorInfo::get_door_open_bit(flags);
+                            let opposite = DoorInfo::get_opposite_door_bits(flags);
 
-                                let mut lmlock = self.lightmap.lock().unwrap();
-        
-                                let blocklighthere = match lmlock.get(&neighspot) {
-                                    Some(k) => {
-                                        k.sum()
-                                    }
-                                    None => {
-                                        0
-                                    }
-                                };
-
-                                // if blocklighthere != 0 {
-                                //     println!("Block light here: {}", blocklighthere);
-                                // }
-                                drop(lmlock);
-
-                                hit_block = match tops.get(&vec::IVec2{x: i + neigh.x, y: k + neigh.z}) {
-                                    Some(t) => {
-                                        *t > j + neigh.y
-                                    }
-                                    None => { false }
-                                };
-    
-                                if neigh_block == 0 || neigh_semi_trans || water_bordering_transparent {
-                                    let side = Cube::get_side(cubeside);
-                                    let mut packed32: [u32; 6] = [0, 0, 0, 0, 0, 0];
-                                    let mut packed8: [u8; 6] = [0, 0, 0, 0, 0, 0];
-    
-                                    let texcoord = Blocks::get_tex_coords(block, cubeside);
-                                    for (ind, v) in side.chunks(4).enumerate() {
-
-
-                                        static AMB_CHANGES: [u8; 4] = [
-                                            0, 3, 6, 10
-                                        ];
-
-                                        let amb_spots: &[vec::IVec3; 3] = Cube::get_amb_occul_spots(cubeside, ind as u8);
-
-                                        let amb_change = amb_spots.iter()
-                                                                  .map(|vec| self.blockatmemo(*vec + spot, &mut memo))
-                                                                  .filter(|&result| result != 0)
-                                                                  .count();
-
-                                        let base_light: i32 = v[3] as i32 - AMB_CHANGES[amb_change] as i32; // Perform calculations as i32
-                                        let adjusted_light: i32 = if hit_block {
-                                            base_light - 3
-                                        } else {
-                                            base_light
-                                        };
-                                        let clamped_light: u8 = adjusted_light.clamp(0, 15) as u8; // Clamp in i32 context, then cast to u8
-                                        
-
-
-                                        let pack = PackedVertex::pack(
-                                            i as u8 + v[0],
-                                            j as u8 + v[1],
-                                            k as u8 + v[2],
-                                            ind as u8,
-                                            clamped_light,
-                                            blocklighthere,
-                                            texcoord.0,
-                                            texcoord.1,
-                                        );
-                                        packed32[ind] = pack.0;
-                                        packed8[ind] = pack.1;
-                                    }
-    
-                                    tdata32.extend_from_slice(packed32.as_slice());
-                                    tdata8.extend_from_slice(packed8.as_slice());
-                                } else {
-                                    tops.insert(vec::IVec2{x: i + neigh.x, y: k + neigh.z}, j + neigh.y);
+                            let mut modelindex: i32;
+                            if opposite == 1 {
+                                modelindex = direction as i32 - open as i32;
+                                if modelindex < 0 {
+                                    modelindex = 3;
                                 }
+                            } else {
+                                modelindex = (direction as i32 + open as i32) % 4;
                             }
+
+
+                            let doortop = DoorInfo::get_door_top_bit(flags);
+
+                            let mut blocklightval = 0.0;
+
+                            let lmlock = self.lightmap.lock().unwrap();
+                            if lmlock.contains_key(&spot) {
+                                blocklightval = lmlock.get(&spot).unwrap().sum() as f32;
+                            }
+                            drop(lmlock);
+
+                            for vert in DoorInfo::door_model_from_index(modelindex as usize).chunks(5) {
+                                vdata.extend_from_slice(&[
+                                    vert[0] + spot.x as f32,
+                                    vert[1] + spot.y as f32,
+                                    vert[2] + spot.z as f32,
+                                    vert[3] + blocklightval,
+                                    vert[4]
+                                ])
+                            }
+
+                            if doortop != 0 {
+                                uvdata.extend_from_slice(&doortopuvs);
+                            } else {
+                                uvdata.extend_from_slice(&doorbottomuvs);
+                            }
+
+                            
                         } else {
 
-                            for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
-                                let neighspot = spot + *neigh;
-                                let neigh_block = self.blockatmemo(neighspot, &mut memo);
 
-                                let cubeside = CubeSide::from_primitive(indie);
-                                let neighbor_transparent = Blocks::is_transparent(neigh_block) || Blocks::is_semi_transparent(neigh_block);
-                                
-                                hit_block = match tops.get(&vec::IVec2{x: i + neigh.x, y: k + neigh.z}) {
-                                    Some(t) => {
-                                        *t > j + neigh.y
-                                    }
-                                    None => { false }
-                                };
+                            if Blocks::is_transparent(block) || Blocks::is_semi_transparent(block) {
+                                for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
+                                    let neighspot = spot + *neigh;
+                                    let neigh_block = self.blockatmemo(neighspot, &mut memo);
+                                    let cubeside = CubeSide::from_primitive(indie);
+                                    let neigh_semi_trans = Blocks::is_semi_transparent(neigh_block);
+                                    let water_bordering_transparent = block == 2 && neigh_block != 2 && Blocks::is_transparent(neigh_block);
 
-                                let mut lmlock = self.lightmap.lock().unwrap();
+                                    let mut lmlock = self.lightmap.lock().unwrap();
+            
+                                    let blocklighthere = match lmlock.get(&neighspot) {
+                                        Some(k) => {
+                                            k.sum()
+                                        }
+                                        None => {
+                                            0
+                                        }
+                                    };
+
+                                    // if blocklighthere != 0 {
+                                    //     println!("Block light here: {}", blocklighthere);
+                                    // }
+                                    drop(lmlock);
+
+                                    hit_block = match tops.get(&vec::IVec2{x: i + neigh.x, y: k + neigh.z}) {
+                                        Some(t) => {
+                                            *t > j + neigh.y
+                                        }
+                                        None => { false }
+                                    };
         
-                                let blocklighthere = match lmlock.get(&neighspot) {
-                                    Some(k) => {
-                                        k.sum()
-                                    }
-                                    None => {
-                                        0
-                                    }
-                                };
-                                // if blocklighthere != 0 {
-                                //     println!("Block light here: {}", blocklighthere);
-                                // }
-                                
-
-                                drop(lmlock);
+                                    if neigh_block == 0 || neigh_semi_trans || water_bordering_transparent {
+                                        let side = Cube::get_side(cubeside);
+                                        let mut packed32: [u32; 6] = [0, 0, 0, 0, 0, 0];
+                                        let mut packed8: [u8; 6] = [0, 0, 0, 0, 0, 0];
+        
+                                        let texcoord = Blocks::get_tex_coords(block, cubeside);
+                                        for (ind, v) in side.chunks(4).enumerate() {
 
 
-                                if neigh_block == 0 || neighbor_transparent {
-                                    let side = Cube::get_side(cubeside);
-                                    let mut packed32: [u32; 6] = [0, 0, 0, 0, 0, 0];
-                                    let mut packed8: [u8; 6] = [0, 0, 0, 0, 0, 0];
-    
-                                    let texcoord = Blocks::get_tex_coords(block, cubeside);
-                                    for (ind, v) in side.chunks(4).enumerate() {
-                                        static AMB_CHANGES: [u8; 4] = [
-                                            0, 3, 6, 10
-                                        ];
+                                            static AMB_CHANGES: [u8; 4] = [
+                                                0, 3, 6, 10
+                                            ];
 
-                                        let amb_spots: &[vec::IVec3; 3] = Cube::get_amb_occul_spots(cubeside, ind as u8);
+                                            let amb_spots: &[vec::IVec3; 3] = Cube::get_amb_occul_spots(cubeside, ind as u8);
 
-                                        let amb_change = amb_spots.iter()
-                                                                  .map(|vec| self.blockatmemo(*vec + spot, &mut memo))
-                                                                  .filter(|&result| result != 0)
-                                                                  .count();
+                                            let amb_change = amb_spots.iter()
+                                                                    .map(|vec| self.blockatmemo(*vec + spot, &mut memo))
+                                                                    .filter(|&result| result != 0)
+                                                                    .count();
 
-                                        let base_light: i32 = v[3] as i32 - AMB_CHANGES[amb_change] as i32; // Perform calculations as i32
-                                        let adjusted_light: i32 = if hit_block {
-                                            base_light - 3
-                                        } else {
-                                            base_light
-                                        };
-                                        let clamped_light: u8 = adjusted_light.clamp(0, 15) as u8; // Clamp in i32 context, then cast to u8
-                                        
-                                        let pack = PackedVertex::pack(
-                                            i as u8 + v[0],
-                                            j as u8 + v[1],
-                                            k as u8 + v[2],
-                                            ind as u8,
-                                            clamped_light,
-                                            blocklighthere,
-                                            texcoord.0,
-                                            texcoord.1,
-                                        );
-                                        packed32[ind] = pack.0;
-                                        packed8[ind] = pack.1;
-                                    }
-    
-                                    data32.extend_from_slice(packed32.as_slice());
-                                    data8.extend_from_slice(packed8.as_slice());
+                                            let base_light: i32 = v[3] as i32 - AMB_CHANGES[amb_change] as i32; // Perform calculations as i32
+                                            let adjusted_light: i32 = if hit_block {
+                                                base_light - 3
+                                            } else {
+                                                base_light
+                                            };
+                                            let clamped_light: u8 = adjusted_light.clamp(0, 15) as u8; // Clamp in i32 context, then cast to u8
+                                            
 
-                                    if Blocks::is_semi_transparent(neigh_block) {
+
+                                            let pack = PackedVertex::pack(
+                                                i as u8 + v[0],
+                                                j as u8 + v[1],
+                                                k as u8 + v[2],
+                                                ind as u8,
+                                                clamped_light,
+                                                blocklighthere,
+                                                texcoord.0,
+                                                texcoord.1,
+                                            );
+                                            packed32[ind] = pack.0;
+                                            packed8[ind] = pack.1;
+                                        }
+        
+                                        tdata32.extend_from_slice(packed32.as_slice());
+                                        tdata8.extend_from_slice(packed8.as_slice());
+                                    } else {
                                         tops.insert(vec::IVec2{x: i + neigh.x, y: k + neigh.z}, j + neigh.y);
                                     }
-                                } else {
-                                    tops.insert(vec::IVec2{x: i + neigh.x, y: k + neigh.z}, j + neigh.y);
+                                }
+                            } else {
+
+                                for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
+                                    let neighspot = spot + *neigh;
+                                    let neigh_block = self.blockatmemo(neighspot, &mut memo);
+
+                                    let cubeside = CubeSide::from_primitive(indie);
+                                    let neighbor_transparent = Blocks::is_transparent(neigh_block) || Blocks::is_semi_transparent(neigh_block);
+                                    
+                                    hit_block = match tops.get(&vec::IVec2{x: i + neigh.x, y: k + neigh.z}) {
+                                        Some(t) => {
+                                            *t > j + neigh.y
+                                        }
+                                        None => { false }
+                                    };
+
+                                    let mut lmlock = self.lightmap.lock().unwrap();
+            
+                                    let blocklighthere = match lmlock.get(&neighspot) {
+                                        Some(k) => {
+                                            k.sum()
+                                        }
+                                        None => {
+                                            0
+                                        }
+                                    };
+                                    // if blocklighthere != 0 {
+                                    //     println!("Block light here: {}", blocklighthere);
+                                    // }
+                                    
+
+                                    drop(lmlock);
+
+
+                                    if neigh_block == 0 || neighbor_transparent {
+                                        let side = Cube::get_side(cubeside);
+                                        let mut packed32: [u32; 6] = [0, 0, 0, 0, 0, 0];
+                                        let mut packed8: [u8; 6] = [0, 0, 0, 0, 0, 0];
+        
+                                        let texcoord = Blocks::get_tex_coords(block, cubeside);
+                                        for (ind, v) in side.chunks(4).enumerate() {
+                                            static AMB_CHANGES: [u8; 4] = [
+                                                0, 3, 6, 10
+                                            ];
+
+                                            let amb_spots: &[vec::IVec3; 3] = Cube::get_amb_occul_spots(cubeside, ind as u8);
+
+                                            let amb_change = amb_spots.iter()
+                                                                    .map(|vec| self.blockatmemo(*vec + spot, &mut memo))
+                                                                    .filter(|&result| result != 0)
+                                                                    .count();
+
+                                            let base_light: i32 = v[3] as i32 - AMB_CHANGES[amb_change] as i32; // Perform calculations as i32
+                                            let adjusted_light: i32 = if hit_block {
+                                                base_light - 3
+                                            } else {
+                                                base_light
+                                            };
+                                            let clamped_light: u8 = adjusted_light.clamp(0, 15) as u8; // Clamp in i32 context, then cast to u8
+                                            
+                                            let pack = PackedVertex::pack(
+                                                i as u8 + v[0],
+                                                j as u8 + v[1],
+                                                k as u8 + v[2],
+                                                ind as u8,
+                                                clamped_light,
+                                                blocklighthere,
+                                                texcoord.0,
+                                                texcoord.1,
+                                            );
+                                            packed32[ind] = pack.0;
+                                            packed8[ind] = pack.1;
+                                        }
+        
+                                        data32.extend_from_slice(packed32.as_slice());
+                                        data8.extend_from_slice(packed8.as_slice());
+
+                                        if Blocks::is_semi_transparent(neigh_block) {
+                                            tops.insert(vec::IVec2{x: i + neigh.x, y: k + neigh.z}, j + neigh.y);
+                                        }
+                                    } else {
+                                        tops.insert(vec::IVec2{x: i + neigh.x, y: k + neigh.z}, j + neigh.y);
+                                    }
                                 }
                             }
+
+
+
+
                         }
                         
                     }

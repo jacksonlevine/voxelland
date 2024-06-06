@@ -1,6 +1,6 @@
 use crate::{game::Game, shader::Shader, text::Text, texture::Texture};
 use glam::Vec2;
-use glfw::{Context, Glfw, GlfwReceiver, Key, PWindow, WindowEvent};
+use glfw::{ffi::{glfwGetWindowMonitor, glfwSetWindowMonitor}, Action, Context, Glfw, GlfwReceiver, Key, Monitor, PWindow, Window, WindowEvent};
 use once_cell::sync::Lazy;
 use std::{path::Path, ptr::addr_of_mut, sync::{atomic::AtomicBool, Arc, Mutex, RwLock}, time::{Duration, Instant}};
 use imgui::*;
@@ -23,6 +23,39 @@ pub struct WindowAndKeyContext {
     pub serveraddress: Arc<Mutex<Option<String>>>,
 
     pub serveraddrbuffer: String
+}
+
+fn toggle_fullscreen(window_ptr: *mut glfw::ffi::GLFWwindow) {
+    unsafe {
+        let monitor = glfw::ffi::glfwGetWindowMonitor(window_ptr);
+        if monitor.is_null() {
+            let primary_monitor = glfw::ffi::glfwGetPrimaryMonitor();
+            if !primary_monitor.is_null() {
+                let mode = glfw::ffi::glfwGetVideoMode(primary_monitor);
+                if !mode.is_null() {
+                    glfw::ffi::glfwSetWindowMonitor(
+                        window_ptr,
+                        primary_monitor,
+                        0,
+                        0,
+                        (*mode).width as i32,
+                        (*mode).height as i32,
+                        glfw::ffi::DONT_CARE,
+                    );
+                }
+            }
+        } else {
+            glfw::ffi::glfwSetWindowMonitor(
+                window_ptr,
+                std::ptr::null_mut(),
+                100,
+                100,
+                1280,
+                720,
+                glfw::ffi::DONT_CARE,
+            );
+        }
+    }
 }
 
 impl WindowAndKeyContext {
@@ -185,6 +218,7 @@ impl WindowAndKeyContext {
                     
 
                     match event {
+                        
                         glfw::WindowEvent::MouseButton(mousebutton, action, _) => {
                             let index = match mousebutton {
                                 glfw::MouseButton::Button1 => 0,
@@ -256,6 +290,19 @@ impl WindowAndKeyContext {
                                     
                                 }
 
+                            }
+
+                            match key {
+                                Key::F11 => {
+                                    if action == Action::Press {
+                                        let wind = self.window.write().unwrap();
+                                        toggle_fullscreen(wind.window_ptr())
+                                        
+                                    }
+                                }
+                                _ => {
+
+                                }
                             }
                             
                         }

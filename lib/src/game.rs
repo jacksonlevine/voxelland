@@ -149,7 +149,8 @@ pub struct GameVariables {
     pub ship_taken_off: bool,
     pub on_new_world: bool,
     pub in_multiplayer: bool,
-    pub menu_open: bool
+    pub menu_open: bool,
+    pub main_menu: bool
 }
 
 pub enum VisionType {
@@ -225,7 +226,8 @@ pub struct Game {
     pub currentbuttons: Vec<(&'static str, &'static str)>,
     pub loadedworld: AtomicBool,
     pub addressentered: Arc<AtomicBool>,
-    pub address: Arc<Mutex<Option<String>>>
+    pub address: Arc<Mutex<Option<String>>>,
+    pub player_model_entities: Arc<DashMap<Uuid, ModelEntity>>,
 }
 
 enum FaderNames {
@@ -441,7 +443,8 @@ impl Game {
                 ship_taken_off: false,
                 on_new_world: true,
                 in_multiplayer: connectonstart, //For now,
-                menu_open: false
+                menu_open: false,
+                main_menu: false
             },
             controls: ControlsState::new(),
             faders: Arc::new(faders),
@@ -503,7 +506,8 @@ impl Game {
             ],
             loadedworld: AtomicBool::new(false),
             addressentered: addressentered.clone(),
-            address: address.clone()
+            address: address.clone(),
+            player_model_entities: Arc::new(DashMap::new())
         };
         if !headless {
             g.load_model("assets/models/car/scene.gltf");
@@ -535,26 +539,7 @@ impl Game {
                 //g.vars.ship_going_down = true;
                 //g.vars.ship_going_up = false;
     
-                if g.vars.in_multiplayer {
-    
-    
-                    //print!("Enter server address (e.g., 127.0.0.1:6969): ");
-                    //io::stdout().flush().unwrap(); // Ensure the prompt is printed before reading input
-    
-                    //let mut address = String::new();
-                    //io::stdin().read_line(&mut address).expect("Failed to read line");
-
-                    while !aeclone.load(Ordering::Relaxed) {
-                        thread::sleep(Duration::from_millis(500));
-                    }
-
-                    let address = aclone.lock().unwrap().as_ref().unwrap().trim().to_string(); // Remove any trailing newline characters
-    
-                    g.netconn.connect(address); // Connect to the provided address
-                    println!("Connected to the server!");
-                    
-                }
-                    
+                g.wait_for_new_address();
     
     
                 g.audiop.preload_series("grassstepseries", vec![
@@ -583,11 +568,33 @@ impl Game {
         
         
     }
+    
+    pub fn wait_for_new_address(&mut self) {
+        if self.vars.in_multiplayer {
+    
+    
+            //print!("Enter server address (e.g., 127.0.0.1:6969): ");
+            //io::stdout().flush().unwrap(); // Ensure the prompt is printed before reading input
 
+            //let mut address = String::new();
+            //io::stdin().read_line(&mut address).expect("Failed to read line");
+
+            while !self.addressentered.load(Ordering::Relaxed) {
+                thread::sleep(Duration::from_millis(500));
+            }
+
+            let address = self.address.lock().unwrap().as_ref().unwrap().trim().to_string(); // Remove any trailing newline characters
+
+            self.netconn.connect(address); // Connect to the provided address
+            println!("Connected to the server!");
+            
+        }
+    }
     pub fn button_command(&mut self, str: &'static str) {
         match str {
             "quittomainmenu" => {
-                println!("Quit to main memnu");
+                self.exit();
+                self.window.write().unwrap().set_should_close(true);
             }
             "closemenu" => {
                 self.vars.menu_open = false;
@@ -917,6 +924,38 @@ impl Game {
                                     None => {
                                         //println!("Received an update for a mob {} that doesn't exist. Creating it...", id);
                                         self.insert_static_model_entity(id, modind as usize, newpos, scale, Vec3::new(0.0,rot,0.0), 5.0);
+                                    }
+                                };
+                            }
+                            MessageType::PlayerUpdate => {
+                                let newpos = Vec3::new(comm.x, comm.y, comm.z);
+                                //let id = comm.info;
+                                let modind = comm.info2;
+                                let rot = comm.rot;
+                                let scale = comm.infof;
+
+                                let pme = self.player_model_entities.clone();
+
+
+                                let uuid = Uuid::from_u64_pair(comm.goose.0, comm.goose.1);
+                                //println!("NSME Length: {}", nsme.len());
+                                match pme.get_mut(&uuid) {
+                                    Some(mut me) => {
+                                        let modent = me.value_mut();
+                                        (*modent).lastpos = (*modent).position.clone();
+                                        (*modent).position = newpos;
+                                        (*modent).scale = scale;
+                                        (*modent).lastrot = (*modent).rot.clone();
+                                        (*modent).rot = Vec3::new(0.0, rot, 0.0);
+                                        unsafe {
+                                            (*modent).time_stamp = glfwGetTime();
+                                        }
+                                        
+                                        
+                                    }
+                                    None => {
+                                        println!("Received an update for a player {} that doesn't exist. Creating it...", uuid);
+                                        self.insert_player_model_entity(uuid, modind as usize, newpos, scale, Vec3::new(0.0,rot,0.0), 5.0);
                                     }
                                 };
                             }
@@ -1714,6 +1753,22 @@ impl Game {
         self.update_model_collisions(self.static_model_entities.len() - 1);
     }
 
+    pub fn exit(&mut self) {
+        (*self.run_chunk_thread).store(false, Ordering::Relaxed);
+
+
+        if let Some(handle) = self.chunk_thread.take() {
+            handle.join().unwrap();
+            println!("Thread joined successfully!");
+        } else {
+            println!("No thread to join or already joined.");
+        }
+
+        self.drops.drops.clear();
+        self.non_static_model_entities.clear();
+        self.chunksys.write().unwrap().exit();
+    }
+
     
     pub fn start_chunks_with_radius(&mut self, newradius: u8, seed: u32, nt: usize) {
 
@@ -2316,7 +2371,7 @@ impl Game {
                     if !self.vars.menu_open {
 
                         self.currentbuttons = vec![
-                            ("Quit to main menu", "quittomainmenu")
+                            ("Quit Game", "quittomainmenu")
                         ];
                         self.vars.menu_open = true;
     

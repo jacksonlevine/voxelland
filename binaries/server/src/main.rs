@@ -62,13 +62,18 @@ fn handle_client(
             match mystream.read(&mut buffer) {
                 Ok(numbytes) => {
                     if numbytes > 0 {
-                        let message: Message = match bincode::deserialize(&buffer[..numbytes]) {
+                        let mut message: Message = match bincode::deserialize(&buffer[..numbytes]) {
                             Ok(m) => m,
                             Err(_) => {
                                 println!("Erroneous message received!");
                                 Message::new(MessageType::None, Vec3::ZERO, 0.0, 0)
                             }
                         };
+                        let pair = client_id.as_u64_pair();
+                        //println!("Setting goose of incoming to: {}", Uuid::from_u64_pair(pair.0, pair.1));
+                        message.goose = pair;
+
+
                         match message.message_type {
                             MessageType::ShutUpMobMsgs => {
                                 shutupmobmsgs.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -179,6 +184,8 @@ fn handle_client(
                             MessageType::PlayerUpdate => {
                                 knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
                                 //println!("Recvd player update");
+                                
+                                message.info2 = 2;
 
                                 let mut timeupdate = Message::new(MessageType::TimeUpdate, Vec3::ZERO, 0.0, 0);
                                 timeupdate.infof = *tod.lock().unwrap();
@@ -328,12 +335,24 @@ fn handle_client(
                                 
                             }
                         }
+
+                        let newmessageserial = bincode::serialize(&message).unwrap();
                         for (id, client) in clients.iter() {
                             if *id != client_id {
                                 let mut stream = client.stream.lock().unwrap();
-                                let _ = stream.write_all(&buffer[..numbytes]);
+                                let _ = stream.write_all(&newmessageserial);
                             } else {
-                                let _ = mystream.write_all(&buffer[..numbytes]);
+                                // match message.message_type {
+                                //     MessageType::PlayerUpdate => {
+                                //         //Not sending player his own updates
+                                //     }
+                                //     _ => {
+                                //         let _ = mystream.write_all(&buffer[..numbytes]);
+                                //     }
+                                // }
+                                let _ = mystream.write_all(&newmessageserial);
+                                
+                                
                             }
                         }
                     } else {

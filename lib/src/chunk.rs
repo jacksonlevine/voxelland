@@ -364,11 +364,10 @@ impl ChunkSystem {
     
 
     pub fn start_with_seed(seed: u32) {
-
+        
     }
 
-    pub fn reset(&mut self, radius: u8, seed: u32, noisetype: usize) {
-        println!("Start of reset func");
+    pub fn exit(&mut self) {
         if !self.headless {
             for cg in &self.geobank {
                 unsafe {
@@ -399,6 +398,11 @@ impl ChunkSystem {
         self.nonuserdatamap.clear();
         self.justcollisionmap.clear();
         println!("After clearing the next 3 things");
+    }
+
+    pub fn reset(&mut self, radius: u8, seed: u32, noisetype: usize) {
+        println!("Start of reset func");
+        
         self.radius = radius;
         self.perlin = Perlin::new(seed);
         self.voxel_models = None;

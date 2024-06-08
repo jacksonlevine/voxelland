@@ -7,6 +7,7 @@ use gl::types::{GLsizeiptr, GLuint, GLvoid};
 use glam::{Mat4, Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
 use gltf::{accessor::{DataType, Dimensions}, image::Source, mesh::util::ReadIndices, Semantic};
+use uuid::Uuid;
 use crate::{monsters::Monsters, planetinfo::Planets};
 use gltf::{animation::Interpolation, animation::util::ReadOutputs};
 use crate::{collisioncage::{CollCage, Side}, game::*, modelentity::{AggroTarget, ModelEntity}, vec};
@@ -229,6 +230,29 @@ impl Game {
 
         self.non_static_model_entities.insert(modent.id, modent);
     }
+    
+
+    pub fn insert_player_model_entity(&mut self, id: Uuid, model_index: usize, pos: Vec3, scale: f32, rot: Vec3, jump_height: f32) {
+        let mut modent = ModelEntity::new_with_id(0/*Does not use model entities id system, uses players id system */, model_index, pos, scale, rot, &self.chunksys, &self.camera);
+        modent.allowable_jump_height = jump_height;
+
+        let animations = self.animations[model_index].clone();
+        let nodes = self.nodes[model_index].clone();
+
+        modent.animations = animations;
+        modent.nodes = nodes;
+
+        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
+            let csys_arc = Arc::clone(&self.chunksys);
+            Box::new(move |v: vec::IVec3| {
+                return csys_arc.read().unwrap().collision_predicate(v);
+            })
+        };
+
+        modent.coll_cage = CollCage::new(solid_pred);
+
+        self.player_model_entities.insert(id, modent);
+    }
 
     pub fn update_non_static_model_entities(&mut self) {
         //println!("Updating NSMEs, delta time: {}", self.delta_time);
@@ -391,10 +415,11 @@ impl Game {
             );
 
             let nsme = self.non_static_model_entities.iter().map(|e| e).collect::<Vec<_>>();
-
+            let pme = self.player_model_entities.iter().map(|e| e).collect::<Vec<_>>();
 
             for modelt in self.static_model_entities.iter().map(ModelEntityType::Static)
             .chain(nsme.iter().map(|arg0| ModelEntityType::NonStatic(arg0.value())))
+            .chain(pme.iter().map(|arg0| ModelEntityType::NonStatic(arg0.value())))
                  {
 
                 let modelent = match modelt {

@@ -127,7 +127,8 @@ pub struct Message {
     pub rot: f32,
     pub info: u32,
     pub info2: u32,
-    pub infof: f32
+    pub infof: f32,
+    pub goose: (u64, u64)
 }
 
 #[derive(Serialize, Deserialize)]
@@ -195,7 +196,8 @@ impl Message {
             rot,
             info,
             info2: 0,
-            infof: 1.0
+            infof: 1.0,
+            goose: Uuid::new_v4().as_u64_pair()
         }
     }
 

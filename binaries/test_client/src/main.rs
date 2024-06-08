@@ -3,6 +3,7 @@ use std::net::TcpStream;
 use std::io::{self, Write, Read};
 use std::thread;
 use bincode;
+use glam::Vec3;
 
 fn main() -> io::Result<()> {
 
@@ -12,16 +13,7 @@ fn main() -> io::Result<()> {
 
 
 
-    let message = Message {
-        message_type: MessageType::RequestSeed,
-        x: 1.0,
-        y: 2.0,
-        z: 3.0,
-        rot: 4.0,
-        info: 42,
-        info2: 0,
-        infof: 1.0
-    };
+    let message = Message::new(MessageType::RequestSeed, Vec3::ZERO, 0.0, 0);
 
 
 

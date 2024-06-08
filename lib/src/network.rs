@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::camera::Camera;
 use crate::chunk::ChunkSystem;
-use crate::modelentity::ModelEntity;
+use crate::modelentity::{direction_to_euler, ModelEntity};
 use crate::server_types::{self, Entry, Message, MessageType, MobUpdateBatch};
 use crate::vec::IVec3;
 
@@ -119,7 +119,8 @@ impl NetworkConnector {
             while sr.load(std::sync::atomic::Ordering::Relaxed) {
                 if shouldsend.load(std::sync::atomic::Ordering::Relaxed) {
                     let c = cam.lock().unwrap();
-                    let message = Message::new(MessageType::PlayerUpdate, c.position, 0.0, 0);
+                    let dir = direction_to_euler(c.direction);
+                    let message = Message::new(MessageType::PlayerUpdate, c.position, dir.y, 0);
                     drop(c);
 
                     NetworkConnector::sendto(&message, &stream);
@@ -184,7 +185,7 @@ impl NetworkConnector {
                                     
                                 },
                                 MessageType::PlayerUpdate => {
-                                    
+                                    commqueue.push(recv_m.clone());
                                 },
                                 MessageType::BlockSet => {
                                     // if recv_m.info == 0 {

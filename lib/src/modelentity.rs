@@ -14,7 +14,7 @@ pub enum AggroTarget {
     UUID(Uuid)
 }
 
-fn direction_to_euler(direction: Vec3) -> Vec3 {
+pub fn direction_to_euler(direction: Vec3) -> Vec3 {
     // Assume forward direction is along positive z-axis
     let forward = Vec3::new(0.0, 0.0, 1.0).normalize();
     
@@ -32,7 +32,7 @@ fn direction_to_euler(direction: Vec3) -> Vec3 {
 
 
 /// Converts a Vec3 containing Euler angles (in radians) to a normalized direction vector.
-fn euler_to_direction(euler_angles: Vec3) -> Vec3 {
+pub fn euler_to_direction(euler_angles: Vec3) -> Vec3 {
     // Create a quaternion from the Euler angles
     // The from_euler method needs an order for rotations, which is specified by EulerRot
     let quat = Quat::from_euler(

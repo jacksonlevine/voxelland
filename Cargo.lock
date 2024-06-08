@@ -3334,6 +3334,7 @@ name = "voxelland-test-client"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "glam",
  "voxelland",
 ]
 

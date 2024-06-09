@@ -932,7 +932,7 @@ impl Game {
                                 //let id = comm.info;
                                 let modind = comm.info2;
                                 let rot = comm.rot;
-                                let scale = comm.infof;
+                                let scale = 0.3;
 
                                 let pme = self.player_model_entities.clone();
 

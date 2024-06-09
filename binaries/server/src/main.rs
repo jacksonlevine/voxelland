@@ -342,15 +342,15 @@ fn handle_client(
                                 let mut stream = client.stream.lock().unwrap();
                                 let _ = stream.write_all(&newmessageserial);
                             } else {
-                                // match message.message_type {
-                                //     MessageType::PlayerUpdate => {
-                                //         //Not sending player his own updates
-                                //     }
-                                //     _ => {
-                                //         let _ = mystream.write_all(&buffer[..numbytes]);
-                                //     }
-                                // }
-                                let _ = mystream.write_all(&newmessageserial);
+                                match message.message_type {
+                                    MessageType::PlayerUpdate => {
+                                        //Not sending player his own updates
+                                    }
+                                    _ => {
+                                        let _ = mystream.write_all(&buffer[..numbytes]);
+                                    }
+                                }
+                                //let _ = mystream.write_all(&newmessageserial);
                                 
                                 
                             }

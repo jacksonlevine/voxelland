@@ -14,31 +14,30 @@ pub enum AggroTarget {
     UUID(Uuid)
 }
 
+/// Converts a direction vector to Euler angles (yaw, pitch, roll).
 pub fn direction_to_euler(direction: Vec3) -> Vec3 {
-    // Assume forward direction is along positive z-axis
-    let forward = Vec3::new(0.0, 0.0, 1.0).normalize();
-    
-    // Calculate the rotation quaternion that aligns the forward direction with the given direction
-    let rotation_axis = forward.cross(direction).normalize();
-    let rotation_angle = forward.dot(direction).acos(); // Angle between the two vectors
-    let rotation = Quat::from_axis_angle(rotation_axis, rotation_angle);
+    // Normalize the input direction
+    let direction = direction.normalize();
 
-    // Extract Euler angles from the quaternion
-    let euler_angles = rotation.to_euler(EulerRot::YXZ); // Choose appropriate rotation order
+    // Calculate yaw (rotation around Y axis)
+    let yaw = direction.x.atan2(direction.z);
 
-    // Return Euler angles in the order of yaw, pitch, and roll
-    Vec3::new(euler_angles.1, euler_angles.0, euler_angles.2)
+    // Calculate pitch (rotation around X axis)
+    let pitch = (-direction.y).asin();
+
+    // Roll is typically zero when converting a direction to Euler angles (depends on the use case)
+    let roll = 0.0;
+
+    Vec3::new(pitch, yaw, roll)
 }
-
 
 /// Converts a Vec3 containing Euler angles (in radians) to a normalized direction vector.
 pub fn euler_to_direction(euler_angles: Vec3) -> Vec3 {
     // Create a quaternion from the Euler angles
-    // The from_euler method needs an order for rotations, which is specified by EulerRot
     let quat = Quat::from_euler(
-        EulerRot::YXZ,  // Rotation order: first yaw (Y), then pitch (X), then roll (Z)
-        euler_angles.y, // Yaw around the Y-axis
-        euler_angles.x, // Pitch around the X-axis
+        EulerRot::XYZ,  // Rotation order: first pitch (X), then yaw (Y), then roll (Z)
+        euler_angles.x, // Yaw around the Y-axis
+        euler_angles.y, // Pitch around the X-axis
         euler_angles.z  // Roll around the Z-axis
     );
 
@@ -46,7 +45,7 @@ pub fn euler_to_direction(euler_angles: Vec3) -> Vec3 {
     let forward = Vec3::new(0.0, 0.0, 1.0);
 
     // Rotate the forward vector by the quaternion
-    let direction = quat.mul_vec3(forward);
+    let direction = quat * forward;
 
     // Normalize the direction vector to handle any numerical inaccuracies
     direction.normalize()

@@ -451,6 +451,15 @@ impl Game {
                                 gl::BindTextureUnit(1, *texture_id); 
                             }
 
+                            match modelt {
+                                ModelEntityType::Static(_) => {
+
+                                },
+                                ModelEntityType::NonStatic(_) => {
+                                    
+                                },
+                            }
+
                             gl::Uniform1f(
                                 gl::GetUniformLocation(
                                     self.modelshader.shader_id,
@@ -467,7 +476,7 @@ impl Game {
                                             b"pos\0".as_ptr() as *const i8,
                                         ),
                                         entity.position.x,
-                                        entity.position.y,
+                                        entity.position.y  - 1.0,
                                         entity.position.z
                                     );
                                 },
@@ -478,7 +487,7 @@ impl Game {
                                             b"pos\0".as_ptr() as *const i8,
                                         ),
                                         entity.position.x,
-                                        entity.position.y + self.planet_y_offset,
+                                        entity.position.y + self.planet_y_offset - 1.0,
                                         entity.position.z
                                     );
                                 },
@@ -498,7 +507,7 @@ impl Game {
                                     b"lastpos\0".as_ptr() as *const i8,
                                 ),
                                 modelent.lastpos.x,
-                                modelent.lastpos.y,
+                                modelent.lastpos.y  - 1.0,
                                 modelent.lastpos.z
                             );
                             
@@ -526,13 +535,51 @@ impl Game {
                                 modelent.rot.z,
                             );
 
-                            gl::Uniform1f(
-                                gl::GetUniformLocation(
-                                    self.modelshader.shader_id,
-                                    b"ambientBrightMult\0".as_ptr() as *const i8,
-                                ),
-                                self.ambient_bright_mult,
-                            );
+                            match modelt {
+                                ModelEntityType::Static(entity) => {
+                                    gl::Uniform1f(
+                                        gl::GetUniformLocation(
+                                            self.modelshader.shader_id,
+                                            b"ambientBrightMult\0".as_ptr() as *const i8,
+                                        ),
+                                        self.ambient_bright_mult,
+                                    );
+                                },
+                                ModelEntityType::NonStatic(entity) => {
+
+                                    let mut blocklighthere = 0.0;
+
+                                    let samplingcoord = vec::IVec3::new(
+                                        entity.position.x as i32,
+                                        entity.position.y as i32,
+                                        entity.position.z as i32
+                                    );
+                                    let csyslock = self.chunksys.read().unwrap();
+                                    let lmlock = csyslock.lightmap.lock().unwrap();
+
+                                    match lmlock.get(&samplingcoord) {
+                                        Some(t) => {
+                                            blocklighthere = t.sum() as f32;
+                                        }
+                                        None => {
+
+                                        }
+                                    }  
+
+                                    let scaledbl = blocklighthere / 16.0;
+                                    
+
+                                    gl::Uniform1f(
+                                        gl::GetUniformLocation(
+                                            self.modelshader.shader_id,
+                                            b"ambientBrightMult\0".as_ptr() as *const i8,
+                                        ),
+                                        (self.ambient_bright_mult + scaledbl).clamp(0.0, 1.0),
+                                    );
+                                },
+                            }
+
+                            
 
                             gl::Uniform3f(
                                 gl::GetUniformLocation(

@@ -46,6 +46,10 @@ fn handle_client(
         buffer = vec![0; PACKET_SIZE];
     }
 
+
+
+    println!("Inside thread");
+
     loop {
         let mut should_break = false;
 
@@ -554,8 +558,9 @@ fn main() {
                     let client_id = Uuid::new_v4();
                     let stream = Arc::new(Mutex::new(stream));
                     stream.lock().unwrap().set_nonblocking(false);
-
+                    println!("About to lock clients");
                     let mut locked_clients = clients.lock().unwrap();
+                    println!("Locked clients");
                     locked_clients.insert(
                         client_id,
                         Client {
@@ -578,10 +583,11 @@ fn main() {
                     let todclone = todclone.clone();
 
                     let queued_sql = qs2.clone();
-
+                    println!("About to spawn thread");
                     thread::spawn(move || {
                         handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone, &su_clone, &nsme_clone, &wl_clone, &todclone, &queued_sql);
                     });
+                    println!("Spawned thread");
                     
                 }
                 Err(ref e) if e.kind() == ErrorKind::WouldBlock => {

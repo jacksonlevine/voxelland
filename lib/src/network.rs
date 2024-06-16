@@ -58,7 +58,7 @@ impl NetworkConnector {
     }
 
     pub fn send(&self, message: &Message) {
-        //println!("Sending a {}", message.message_type);
+        println!("Sending a {}", message.message_type);
 
         if let Some(stream) = &self.stream {
             let serialized_message = bincode::serialize(message).unwrap();
@@ -68,14 +68,14 @@ impl NetworkConnector {
     }
 
     pub fn sendto(message: &Message, stream: &Arc<Mutex<TcpStream>>) {
-        //println!("Sending a {}", message.message_type);
+        println!("Sending a {}", message.message_type);
         let serialized_message = bincode::serialize(message).unwrap();
         let mut stream_lock = stream.lock().unwrap();
         stream_lock.write_all(&serialized_message).unwrap();
     }
 
     pub fn sendtolocked(message: &Message, stream: &mut TcpStream) {
-        //println!("Sending a {}", message.message_type);
+        println!("Sending a {}", message.message_type);
         let serialized_message = bincode::serialize(message).unwrap();
         stream.write_all(&serialized_message).unwrap();
     }
@@ -149,15 +149,12 @@ impl NetworkConnector {
             while sr.load(std::sync::atomic::Ordering::Relaxed) {
                 let mut temp_buffer = vec![0; PACKET_SIZE];
 
-                {
+                let data_available = {
                     let stream_lock = stream.lock().unwrap();
-                    match stream_lock.peek(&mut temp_buffer) {
-                        Ok(_) => {}
-                        Err(_) => continue,
-                    }
-                }
+                    stream_lock.peek(&mut temp_buffer).is_ok()
+                };
 
-                {
+                if data_available {
                     let mut stream_lock = stream.lock().unwrap();
 
 

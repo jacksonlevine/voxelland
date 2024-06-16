@@ -59,323 +59,400 @@ fn handle_client(
                 clients[&client_id].stream.clone()
             };
 
-            let mut mystream = stream.lock().unwrap();
+            //println!("Got stream");
 
+            let mut numbytes2 = 0;
 
+            let mut message = {
+                let mut mystream = stream.lock().unwrap();
 
-            match mystream.read(&mut buffer) {
-                Ok(numbytes) => {
-                    if numbytes > 0 {
-                        let mut message: Message = match bincode::deserialize(&buffer[..numbytes]) {
-                            Ok(m) => m,
-                            Err(_) => {
-                                println!("Erroneous message received!");
-                                Message::new(MessageType::None, Vec3::ZERO, 0.0, 0)
-                            }
-                        };
-                        let pair = client_id.as_u64_pair();
-                        //println!("Setting goose of incoming to: {}", Uuid::from_u64_pair(pair.0, pair.1));
-                        message.goose = pair;
-
-
-                        match message.message_type {
-                            MessageType::ShutUpMobMsgs => {
-                                shutupmobmsgs.store(true, std::sync::atomic::Ordering::Relaxed);
-                            }
-                            MessageType::RequestUdm => {
-                                let writelock = wl.lock().unwrap();
-
-
-                                let conn = Connection::open("db").unwrap();
-        
-                                
-
-
-
-                                let csys = csys.read().unwrap();
-
-                                let seed = csys.currentseed.read().unwrap();
-                                let table_name = format!("userdatamap_{}", seed);
-
-                                println!("Recvd req world");
-
-                                // Open the SQLite database file
-                                let mut file = File::open("db").unwrap();
-
-                                // Read the entire database file into a byte buffer
-                                let mut buffer = Vec::new();
-                                file.read_to_end(&mut buffer).unwrap();
-
-                                // Prepare the message
-                                let udmmsg = Message::new(
-                                    MessageType::Udm,
-                                    Vec3::ZERO,
-                                    0.0,
-                                    buffer.len() as u32,
-                                );
-
-                                // Serialize and send the message header
-                                mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
-
-                                // Send the raw binary data of the database file
-                                mystream.write_all(&buffer).unwrap();
-
-
-                                                        // let mut stmt = conn.prepare(&format!(
-                                                        //     "SELECT x, y, z, value FROM {}",
-                                                        //     table_name
-                                                        // )).unwrap();
-                                                        // let userdatamap_iter = stmt.query_map([], |row| {
-                                                        //     Ok(Entry {
-                                                        //         key: IVec3::new(row.get(0)?, row.get(1)?, row.get(2)?),
-                                                        //         value: row.get(3)?,
-                                                        //     })
-                                                        // }).unwrap();
-                                                
-                                                        // let mut entries: Vec<Entry> = Vec::new();
-                                                        // for entry in userdatamap_iter {
-                                                        //     entries.push(entry.unwrap());
-                                                        // }
-                                                
-                                                        // let serialized_udm = bincode::serialize(&entries).unwrap();
-
-                                                        // let size = bincode::serialized_size(&entries).unwrap(); 
-
-
-                                                        // let udmmsg = Message::new(
-                                                        //     MessageType::Udm,
-                                                        //     Vec3::ZERO,
-                                                        //     0.0,
-                                                        //     size as u32,
-                                                        // );
-
-                                                        // mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
-                                                        // mystream.write_all(&serialized_udm).unwrap();
-
-                                // let currseed = *(csys.currentseed.read().unwrap());
-                                // println!("Recvd req world");
-                                // let world = fs::read_to_string(format!("world/{}/udm", currseed))
-                                //     .unwrap();
-
-                                // let udmmsg = Message::new(
-                                //     MessageType::Udm,
-                                //     Vec3::ZERO,
-                                //     0.0,
-                                //     bincode::serialized_size(&world).unwrap() as u32,
-                                // );
-
-                                // mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
-                                // mystream.write_all(&bincode::serialize(&world).unwrap()).unwrap();
-                            }
-                            MessageType::RequestSeed => {
-                                let writelock = wl.lock().unwrap();
-                                let csys = csys.read().unwrap();
-                                let currseed = *(csys.currentseed.read().unwrap());
-                                println!("Recvd req seed");
-                                let seed = fs::read_to_string(format!("world/{}/seed", currseed))
-                                    .unwrap();
-
-                                let seedmsg = Message::new(
-                                    MessageType::Seed,
-                                    Vec3::ZERO,
-                                    0.0,
-                                    bincode::serialized_size(&seed).unwrap() as u32,
-                                );
-                                mystream.write_all(&bincode::serialize(&seedmsg).unwrap()).unwrap();
-                                mystream.write_all(&bincode::serialize(&seed).unwrap()).unwrap();
-
-                            }
-                            MessageType::PlayerUpdate => {
-                                knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
-                                //println!("Recvd player update");
-                                
-                                message.info2 = 2;
-
-                                let mut timeupdate = Message::new(MessageType::TimeUpdate, Vec3::ZERO, 0.0, 0);
-                                timeupdate.infof = *tod.lock().unwrap();
-
-                                match mystream.write_all(&bincode::serialize(&timeupdate).unwrap()) {
-                                    Ok(_) => {
-                                        
-                                    }
-                                    Err(e) => {
-                                        println!("Error sending mob update payload {}", e)
-                                    }
+                match mystream.read(&mut buffer) {
+                    Ok(numbytes) => {
+                        numbytes2 = numbytes;
+                        if numbytes > 0 {
+                            let mut message: Message = match bincode::deserialize(&buffer[..numbytes]) {
+                                Ok(m) => m,
+                                Err(_) => {
+                                    println!("Erroneous message received!");
+                                    Message::new(MessageType::None, Vec3::ZERO, 0.0, 0)
                                 }
-
-
-                                let nlock = nsmes.lock().unwrap();
-                                
-                                //println!("Number of mobs: {}", nlock.len());
-
-                                let mut mobmsgs: Vec<Message> = Vec::new();
-                                
-                                for nsme in nlock.iter() {
-                                    
-                                    let id = nsme.0;
-                                    let pos = nsme.1;
-                                    let rot = nsme.2;
-                                    let modind = nsme.3;
-                    
-                                    let mut mobmsg = Message::new(MessageType::MobUpdate, pos, rot, id);
-                                    mobmsg.info2 = modind as u32;
-                                    mobmsg.infof = nsme.4;
-                                    mobmsgs.push(mobmsg);
-
-                                }
-
-                                drop(nlock);
-
-                                for chunk in mobmsgs.chunks(server_types::MOB_BATCH_SIZE) {
-                                    let writelock = wl.lock().unwrap();
-                                    //println!("THIS CHUNK HAS LEN {}", chunk.len());
-                                    let mobmsgbatch = MobUpdateBatch::new(chunk.len(), chunk);
-
-                                    let mobmsg = Message::new(MessageType::MobUpdateBatch, Vec3::ZERO, 0.0, bincode::serialized_size(&mobmsgbatch).unwrap() as u32);
-
-                                    match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
-                                        Ok(_) => {
-
-                                        }
-                                        Err(e) => {
-                                            println!("Error sending mob update header {}", e)
-                                        }
-                                    }
-                                    // drop(writelock);
-                                     thread::sleep(Duration::from_millis(10));
-                                    // let writelock = wl.lock().unwrap();
-                                    match mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap()) {
-                                        Ok(_) => {
-                                            
-                                        }
-                                        Err(e) => {
-                                            println!("Error sending mob update payload {}", e)
-                                        }
-                                    }
-                                    // drop(writelock);
-                                     thread::sleep(Duration::from_millis(10));
-                                }
-
-                                
-
-                            }
-                            MessageType::BlockSet => {
-                                println!("Recvd block set");
-                                let spot = IVec3::new(message.x as i32, message.y as i32, message.z as i32);
-                                let block = message.info;
-                            
-                                let mut csys = csys.write().unwrap();
-                                let currseed = *(csys.currentseed.read().unwrap());
-
-
-                                csys.set_block(spot, block, true);
-
-                                //TODO: MAKE THIS JUST WRITE A NEW LINE TO THE FILE INSTEAD OF REWRITING THE WHOLE THING
-                                //(IT WILL "COMPRESS" WHEN THE SERVER RELOADS)
-                                //csys.save_current_world_to_file(format!("world/{}", currseed));
-                                queued_sql.push((currseed, spot, block));
-                                //csys.write_new_udm_entry(spot, block);
-                            },
-                            MessageType::RequestTakeoff => {
-                                println!("Recvd req takeoff");
-                                let mut rng = StdRng::from_entropy();
-                                println!("Created rng");
-                                let newseed: u32 = rng.gen();
-                                println!("Newseed: {}", newseed);
-                                let mut csys = csys.write().unwrap();
-                                println!("Got csys lock");
-                                let curr_planet_type = csys.planet_type;
-                                println!("Got planet type");
-                                csys.reset(0, newseed, ((curr_planet_type + 1) % 2) as usize);
-                                
-                                csys.save_current_world_to_file(format!("world/{}", newseed));
-                                println!("Reset csys");
-
-                                drop(csys);
-                                mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
-                            }
-                            MessageType::RequestPt => {
-
-                                let writelock = wl.lock().unwrap();
-                                let csys = csys.read().unwrap();
-                                let currseed = *(csys.currentseed.read().unwrap());
-                                let currpt = csys.planet_type;
-                                println!("Recvd req pt");
-                                let pt = fs::read_to_string(format!("world/{}/pt", currseed)).unwrap();
-
-                                let ptmsg: Message = Message::new(MessageType::Pt, Vec3::ZERO, 0.0, bincode::serialized_size(&pt).unwrap() as u32);
-                                mystream.write_all(&bincode::serialize(&ptmsg).unwrap()).unwrap();
-
-                                mystream.write_all(&bincode::serialize(&pt).unwrap()).unwrap();
-
-
-                                thread::sleep(Duration::from_millis(100));
-                                
-                                //ID header then ID as u64 pair
-                                let idmsg = Message::new(
-                                    MessageType::YourId,
-                                    Vec3::ZERO,
-                                    0.0,
-                                    bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32,
-                                );
-                                mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
-                                mystream.write_all(&bincode::serialize(&client_id.as_u64_pair()).unwrap()).unwrap();
-
-                                thread::sleep(Duration::from_millis(100));
-
-                                shutupmobmsgs.store(false, std::sync::atomic::Ordering::Relaxed);
-                            }
-                            _ => {}
+                            };
+                            let pair = client_id.as_u64_pair();
+                            //println!("Setting goose of incoming to: {}", Uuid::from_u64_pair(pair.0, pair.1));
+                            message.goose = pair;
+    
+    
+                            message
+                        } else {
+                            should_break = true;
+                            Message::new(MessageType::None, Vec3::ZERO, 0.0, 0)
+                        }
+                    }
+                    Err(e) => {
+                        if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                            should_break = true;
+                        } else {
+                            // let mut clients = clients.lock().unwrap();
+                            // clients.get_mut(&client_id).unwrap().errorstrikes += 1;
+    
+                            // if clients.get_mut(&client_id).unwrap().errorstrikes > 4 {
+                            //     should_break = true;
+                            // }
                         }
 
-                        // Redistribute the message to all clients
-                        let clients = clients.lock().unwrap();
-                        let writelock = wl.lock().unwrap();
-                        match message.message_type {
-                            MessageType::BlockSet => {
-                                println!("REDISTRIB  A BLOCKSET  RIGHT NOW");
-                            }
-                            _ => {
-                                
-                            }
-                        }
-
-                        let newmessageserial = bincode::serialize(&message).unwrap();
-                        for (id, client) in clients.iter() {
-                            if *id != client_id {
-                                let mut stream = client.stream.lock().unwrap();
-                                let _ = stream.write_all(&newmessageserial);
-                            } else {
-                                match message.message_type {
-                                    MessageType::PlayerUpdate => {
-                                        //Not sending player his own updates
-                                    }
-                                    _ => {
-                                        let _ = mystream.write_all(&buffer[..numbytes]);
-                                    }
-                                }
-                                //let _ = mystream.write_all(&newmessageserial);
-                                
-                                
-                            }
-                        }
-                    } else {
-                        should_break = true;
+                        Message::new(MessageType::None, Vec3::ZERO, 0.0, 0)
                     }
                 }
-                Err(e) => {
-                    if e.kind() == std::io::ErrorKind::UnexpectedEof {
-                        should_break = true;
-                    } else {
-                        // let mut clients = clients.lock().unwrap();
-                        // clients.get_mut(&client_id).unwrap().errorstrikes += 1;
 
-                        // if clients.get_mut(&client_id).unwrap().errorstrikes > 4 {
-                        //     should_break = true;
-                        // }
+
+            };
+
+            match message.message_type {
+                MessageType::ShutUpMobMsgs => {
+                    shutupmobmsgs.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                MessageType::RequestUdm => {
+                    //let writelock = wl.lock().unwrap();
+
+
+                    // let conn = Connection::open("db").unwrap();
+
+                    
+
+
+
+                    // let csys = csys.read().unwrap();
+
+                    // let seed = csys.currentseed.read().unwrap();
+                    // let table_name = format!("userdatamap_{}", seed);
+
+                    println!("Recvd req world");
+
+                    let buffer = {
+                        // Open the SQLite database file
+                        let mut file = File::open("db").unwrap();
+                        println!("Opened the db file");
+                        let mut buffer = Vec::new();
+                        file.read_to_end(&mut buffer).unwrap();
+                        println!("Read the file to end");
+                        buffer
+                    };
+
+                    
+
+                    
+
+                    // Read the entire database file into a byte buffer
+                    
+
+                    
+
+
+                    // Prepare the message
+                    let udmmsg = Message::new(
+                        MessageType::Udm,
+                        Vec3::ZERO,
+                        0.0,
+                        buffer.len() as u32,
+                    );
+
+                    {
+                        let mut mystream = stream.lock().unwrap();
+                        // Serialize and send the message header
+                        mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
+                        println!("Wrote the header");
+                        // Send the raw binary data of the database file
+                        mystream.write_all(&buffer).unwrap();
+                        println!("Wrote the file buffer");
                     }
+
+                    
+
+
+                                            // let mut stmt = conn.prepare(&format!(
+                                            //     "SELECT x, y, z, value FROM {}",
+                                            //     table_name
+                                            // )).unwrap();
+                                            // let userdatamap_iter = stmt.query_map([], |row| {
+                                            //     Ok(Entry {
+                                            //         key: IVec3::new(row.get(0)?, row.get(1)?, row.get(2)?),
+                                            //         value: row.get(3)?,
+                                            //     })
+                                            // }).unwrap();
+                                    
+                                            // let mut entries: Vec<Entry> = Vec::new();
+                                            // for entry in userdatamap_iter {
+                                            //     entries.push(entry.unwrap());
+                                            // }
+                                    
+                                            // let serialized_udm = bincode::serialize(&entries).unwrap();
+
+                                            // let size = bincode::serialized_size(&entries).unwrap(); 
+
+
+                                            // let udmmsg = Message::new(
+                                            //     MessageType::Udm,
+                                            //     Vec3::ZERO,
+                                            //     0.0,
+                                            //     size as u32,
+                                            // );
+
+                                            // mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
+                                            // mystream.write_all(&serialized_udm).unwrap();
+
+                    // let currseed = *(csys.currentseed.read().unwrap());
+                    // println!("Recvd req world");
+                    // let world = fs::read_to_string(format!("world/{}/udm", currseed))
+                    //     .unwrap();
+
+                    // let udmmsg = Message::new(
+                    //     MessageType::Udm,
+                    //     Vec3::ZERO,
+                    //     0.0,
+                    //     bincode::serialized_size(&world).unwrap() as u32,
+                    // );
+
+                    // mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
+                    // mystream.write_all(&bincode::serialize(&world).unwrap()).unwrap();
+                }
+                MessageType::RequestSeed => {
+                    //let writelock = wl.lock().unwrap();
+
+                    println!("Recvd req seed");
+
+                    let csys = csys.read().unwrap();
+                    let currseed = *(csys.currentseed.read().unwrap());
+                    
+                    let seed = fs::read_to_string(format!("world/{}/seed", currseed))
+                        .unwrap();
+
+                    let seedmsg = Message::new(
+                        MessageType::Seed,
+                        Vec3::ZERO,
+                        0.0,
+                        bincode::serialized_size(&seed).unwrap() as u32,
+                    );
+
+
+                    {
+                        let mut mystream = stream.lock().unwrap();
+                        mystream.write_all(&bincode::serialize(&seedmsg).unwrap()).unwrap();
+                        mystream.write_all(&bincode::serialize(&seed).unwrap()).unwrap();
+                    }
+                    
+
+                }
+                MessageType::PlayerUpdate => {
+                    knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
+                    //println!("Recvd player update");
+                    
+                    message.info2 = 2;
+
+                    let mut timeupdate = Message::new(MessageType::TimeUpdate, Vec3::ZERO, 0.0, 0);
+                    let t = *tod.lock().unwrap();
+                    let t2 = t.clone();
+                    drop(t);
+
+                    
+                    timeupdate.infof = t2;
+
+                    {
+                        let mut mystream = stream.lock().unwrap();
+                        match mystream.write_all(&bincode::serialize(&timeupdate).unwrap()) {
+                            Ok(_) => {
+                                
+                            }
+                            Err(e) => {
+                                println!("Error sending mob update payload {}", e)
+                            }
+                        }
+                    }
+                    
+
+
+                    let nlock = nsmes.lock().unwrap();
+                    
+                    //println!("Number of mobs: {}", nlock.len());
+
+                    let mut mobmsgs: Vec<Message> = Vec::new();
+                    
+                    for nsme in nlock.iter() {
+                        
+                        let id = nsme.0;
+                        let pos = nsme.1;
+                        let rot = nsme.2;
+                        let modind = nsme.3;
+        
+                        let mut mobmsg = Message::new(MessageType::MobUpdate, pos, rot, id);
+                        mobmsg.info2 = modind as u32;
+                        mobmsg.infof = nsme.4;
+                        mobmsgs.push(mobmsg);
+
+                    }
+
+                    drop(nlock);
+
+                    for chunk in mobmsgs.chunks(server_types::MOB_BATCH_SIZE) {
+                        //let writelock = wl.lock().unwrap();
+                        //println!("THIS CHUNK HAS LEN {}", chunk.len());
+                        let mobmsgbatch = MobUpdateBatch::new(chunk.len(), chunk);
+
+                        let mobmsg = Message::new(MessageType::MobUpdateBatch, Vec3::ZERO, 0.0, bincode::serialized_size(&mobmsgbatch).unwrap() as u32);
+
+                        {
+                            let mut mystream = stream.lock().unwrap();
+
+                            match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
+                                Ok(_) => {
+    
+                                }
+                                Err(e) => {
+                                    println!("Error sending mob update header {}", e)
+                                }
+                            }
+
+                        }
+                        
+                        //drop(writelock);
+                         thread::sleep(Duration::from_millis(10));
+                        //let writelock = wl.lock().unwrap();
+
+                        {
+                            let mut mystream = stream.lock().unwrap();
+                            match mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap()) {
+                                Ok(_) => {
+                                    
+                                }
+                                Err(e) => {
+                                    println!("Error sending mob update payload {}", e)
+                                }
+                            }
+                        }
+                        
+                        //drop(writelock);
+                         thread::sleep(Duration::from_millis(10));
+                    }
+
+                    
+
+                }
+                MessageType::BlockSet => {
+                    println!("Recvd block set");
+                    let spot = IVec3::new(message.x as i32, message.y as i32, message.z as i32);
+                    let block = message.info;
+                
+                    let mut csys = csys.write().unwrap();
+                    let currseed = *(csys.currentseed.read().unwrap());
+
+
+                    csys.set_block(spot, block, true);
+
+                    //TODO: MAKE THIS JUST WRITE A NEW LINE TO THE FILE INSTEAD OF REWRITING THE WHOLE THING
+                    //(IT WILL "COMPRESS" WHEN THE SERVER RELOADS)
+                    //csys.save_current_world_to_file(format!("world/{}", currseed));
+                    queued_sql.push((currseed, spot, block));
+                    //csys.write_new_udm_entry(spot, block);
+                },
+                MessageType::RequestTakeoff => {
+                    println!("Recvd req takeoff");
+                    let mut rng = StdRng::from_entropy();
+                    println!("Created rng");
+                    let newseed: u32 = rng.gen();
+                    println!("Newseed: {}", newseed);
+                    let mut csys = csys.write().unwrap();
+                    println!("Got csys lock");
+                    let curr_planet_type = csys.planet_type;
+                    println!("Got planet type");
+                    csys.reset(0, newseed, ((curr_planet_type + 1) % 2) as usize);
+                    
+                    csys.save_current_world_to_file(format!("world/{}", newseed));
+                    println!("Reset csys");
+
+                    drop(csys);
+                    mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                MessageType::RequestPt => {
+
+                    //let writelock = wl.lock().unwrap();
+                    let csys = csys.read().unwrap();
+                    let currseed = *(csys.currentseed.read().unwrap());
+                    let currpt = csys.planet_type;
+                    println!("Recvd req pt");
+                    let pt = fs::read_to_string(format!("world/{}/pt", currseed)).unwrap();
+
+                    {
+                        let mut mystream = stream.lock().unwrap();
+                        let ptmsg: Message = Message::new(MessageType::Pt, Vec3::ZERO, 0.0, bincode::serialized_size(&pt).unwrap() as u32);
+                        mystream.write_all(&bincode::serialize(&ptmsg).unwrap()).unwrap();
+                        mystream.write_all(&bincode::serialize(&pt).unwrap()).unwrap();
+                    }
+                    
+
+
+                    thread::sleep(Duration::from_millis(100));
+                    
+                    {
+                        let mut mystream = stream.lock().unwrap();
+                        //ID header then ID as u64 pair
+                        let idmsg = Message::new(
+                            MessageType::YourId,
+                            Vec3::ZERO,
+                            0.0,
+                            bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32,
+                        );
+                        mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
+                        mystream.write_all(&bincode::serialize(&client_id.as_u64_pair()).unwrap()).unwrap();
+                    }
+                    
+
+                    thread::sleep(Duration::from_millis(100));
+
+                    shutupmobmsgs.store(false, std::sync::atomic::Ordering::Relaxed);
+                }
+                _ => {}
+            }
+
+            // Redistribute the message to all clients
+            let clients = clients.lock().unwrap();
+            //let writelock = wl.lock().unwrap();
+            match message.message_type {
+                MessageType::BlockSet => {
+                    println!("REDISTRIB  A BLOCKSET  RIGHT NOW");
+                }
+                _ => {
+                    
                 }
             }
+
+            let newmessageserial = bincode::serialize(&message).unwrap();
+            for (id, client) in clients.iter() {
+                if *id != client_id {
+                    let mut stream = client.stream.lock().unwrap();
+                    let _ = stream.write_all(&newmessageserial);
+                } else {
+                    match message.message_type {
+                        MessageType::PlayerUpdate => {
+                            //Not sending player his own updates
+                        }
+                        _ => {
+                            let mut mystream = stream.lock().unwrap();
+                            let _ = mystream.write_all(&buffer[..numbytes2]);
+                        }
+                    }
+                    //let _ = mystream.write_all(&newmessageserial);
+                    
+                    
+                }
+            }
+
+            
+
+            //println!("Locked my stream stream");
+
+
+
+
+
         }
 
         if should_break {
@@ -557,18 +634,37 @@ fn main() {
                     println!("New connection: {}", stream.peer_addr().unwrap());
                     let client_id = Uuid::new_v4();
                     let stream = Arc::new(Mutex::new(stream));
-                    stream.lock().unwrap().set_nonblocking(false);
+                    stream.lock().unwrap().set_nonblocking(true);
                     println!("About to lock clients");
-                    let mut locked_clients = clients.lock().unwrap();
+                    let mut gotlock = false;
+                    let mut retries = 0;
+                    while !gotlock && retries < 5 {
+                        match clients.try_lock() {
+                            Ok(mut e) => {
+                                
+                                e.insert(
+                                    client_id,
+                                    Client {
+                                        stream: Arc::clone(&stream),
+                                        errorstrikes: 0,
+                                    },
+                                );
+                                gotlock = true;
+                            }
+                            Err(e) => {
+                                println!("Couldnt lock clients, trying again in 2 sec...");
+                                retries += 1;
+                            }
+                        };
+                    }
+
+                    if !gotlock {
+                        panic!("Couldn't lock clients.");
+                    }
+                    
+                    
                     println!("Locked clients");
-                    locked_clients.insert(
-                        client_id,
-                        Client {
-                            stream: Arc::clone(&stream),
-                            errorstrikes: 0,
-                        },
-                    );
-                    drop(locked_clients);
+
 
                     let clients_ref_clone = Arc::clone(&clients);
                     let csysarc_clone = Arc::clone(&chunksys);

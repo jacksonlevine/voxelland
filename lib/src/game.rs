@@ -417,6 +417,8 @@ impl Game {
         visions_camera.recalculate();
         println!("Visions camera direction: {} {} {}", visions_camera.direction.x, visions_camera.direction.y, visions_camera.direction.z);
 
+        let pme = Arc::new(DashMap::new());
+
         let mut g = Game {
             chunksys: chunksys.clone(),
             shader0,
@@ -483,7 +485,7 @@ impl Game {
             skins: Vec::new(),
             nodes: Vec::new(),
             current_time: 0.0,
-            netconn: NetworkConnector::new(&chunksys, &server_command_queue, &server_command_hp_queue, &kc, &my_uuid.clone(), &nsme, &cam.clone()),
+            netconn: NetworkConnector::new(&chunksys, &server_command_queue, &server_command_hp_queue, &kc, &my_uuid.clone(), &nsme, &cam.clone(), &pme.clone()),
             server_command_queue: server_command_queue.clone(),
             hp_server_command_queue: server_command_hp_queue.clone(),
             headless,
@@ -507,7 +509,7 @@ impl Game {
             loadedworld: AtomicBool::new(false),
             addressentered: addressentered.clone(),
             address: address.clone(),
-            player_model_entities: Arc::new(DashMap::new())
+            player_model_entities: pme
         };
         if !headless {
             g.load_model("assets/models/car/scene.gltf");
@@ -934,7 +936,7 @@ impl Game {
                                 let rot = comm.rot;
                                 let scale = 0.3;
 
-                                let pme = self.player_model_entities.clone();
+                                let pme: Arc<DashMap<Uuid, ModelEntity>> = self.player_model_entities.clone();
 
 
                                 let uuid = Uuid::from_u64_pair(comm.goose.0, comm.goose.1);

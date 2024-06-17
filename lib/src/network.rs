@@ -8,6 +8,7 @@ use std::time::Duration;
 use bincode;
 use dashmap::DashMap;
 use glam::Vec3;
+use glfw::ffi::glfwGetTime;
 use lockfree::queue::Queue;
 use rusqlite::Connection;
 use uuid::Uuid;
@@ -33,12 +34,15 @@ pub struct NetworkConnector {
     pub my_uuid: Arc<RwLock<Option<Uuid>>>,
     pub nsme: Arc<DashMap<u32, ModelEntity>>,
     pub mycam: Arc<Mutex<Camera>>,
-    pub shouldsend: Arc<AtomicBool>
+    pub shouldsend: Arc<AtomicBool>,
+    pub pme: Arc<DashMap<Uuid, ModelEntity>>,
+    pub sendqueue: Arc<Queue<Message>>
 }
 
 impl NetworkConnector {
     pub fn new(csys: &Arc<RwLock<ChunkSystem>>, commqueue: &Arc<Queue<Message>>, commqueue2: &Arc<Queue<Message>>, gkc: &Arc<DashMap<Uuid, Vec3>>,
-                my_uuid: &Arc<RwLock<Option<Uuid>>>, nsme: &Arc<DashMap<u32, ModelEntity>>, mycam: &Arc<Mutex<Camera>>) -> NetworkConnector {
+                my_uuid: &Arc<RwLock<Option<Uuid>>>, nsme: &Arc<DashMap<u32, ModelEntity>>, mycam: &Arc<Mutex<Camera>>, pme: &Arc<DashMap<Uuid, ModelEntity>>,
+                ) -> NetworkConnector {
         NetworkConnector {
             stream: None,
             recvthread: None,
@@ -53,7 +57,9 @@ impl NetworkConnector {
             my_uuid: my_uuid.clone(),
             nsme: nsme.clone(),
             mycam: mycam.clone(),
-            shouldsend: Arc::new(AtomicBool::new(false))
+            shouldsend: Arc::new(AtomicBool::new(false)),
+            pme: pme.clone(),
+            sendqueue: Arc::new(Queue::new())
         }
     }
 
@@ -101,6 +107,7 @@ impl NetworkConnector {
         let gknowncams = self.gknowncams.clone();
         let my_uuid = self.my_uuid.clone();
         let nsmes = self.nsme.clone();
+        let pme = self.pme.clone();
 
 
         let shouldsend = self.shouldsend.clone();
@@ -111,6 +118,8 @@ impl NetworkConnector {
 
         let hpcommqueue = self.highprioritycommqueue.clone();
 
+        let sendqueue = self.sendqueue.clone();
+
         self.sendthread = Some(thread::spawn(move || {
             let sr = sr2.clone();
             let stream = stream2.clone();
@@ -118,6 +127,14 @@ impl NetworkConnector {
             let shouldsend = shouldsend.clone();
             while sr.load(std::sync::atomic::Ordering::Relaxed) {
                 if shouldsend.load(std::sync::atomic::Ordering::Relaxed) {
+                    match sendqueue.pop() {
+                        Some(t) => {
+                            NetworkConnector::sendto(&t, &stream);
+                        }
+                        None => {
+
+                        }
+                    }
                     let c = cam.lock().unwrap();
                     let dir = direction_to_euler(c.direction);
                     let message = Message::new(MessageType::PlayerUpdate, c.position, dir.y, 0);
@@ -125,7 +142,7 @@ impl NetworkConnector {
 
                     NetworkConnector::sendto(&message, &stream);
                 }
-                thread::sleep(Duration::from_millis(1000));
+                thread::sleep(Duration::from_millis(250));
             }
         }));
 
@@ -144,6 +161,7 @@ impl NetworkConnector {
             let requdm = Message::new(MessageType::RequestUdm, Vec3::ZERO, 0.0, 0);
             let reqseed = Message::new(MessageType::RequestSeed, Vec3::ZERO, 0.0, 0);
             let reqpt = Message::new(MessageType::RequestPt, Vec3::ZERO, 0.0, 0);
+            
             NetworkConnector::sendto(&requdm, &stream);
 
             while sr.load(std::sync::atomic::Ordering::Relaxed) {
@@ -162,7 +180,7 @@ impl NetworkConnector {
 
                     match stream_lock.read(&mut buffer) {
                         Ok(size) if size > 0 => {
-                            let recv_m: Message = match bincode::deserialize(&buffer[..size]) {
+                            let comm: Message = match bincode::deserialize(&buffer[..size]) {
                                 Ok(msg) => {
                                     msg
                                 }
@@ -171,7 +189,10 @@ impl NetworkConnector {
                                 }
                             };
 
-                            match recv_m.message_type {
+                            match comm.message_type {
+                                MessageType::RequestMyID => {
+
+                                }
                                 MessageType::None => {
                                     
                                 }
@@ -182,7 +203,40 @@ impl NetworkConnector {
                                     
                                 },
                                 MessageType::PlayerUpdate => {
-                                    commqueue.push(recv_m.clone());
+
+                                    
+
+                                    let newpos = Vec3::new(comm.x, comm.y, comm.z);
+                                    //let id = comm.info;
+                                    let modind = comm.info2;
+                                    let rot = comm.rot;
+                                    let scale = 0.3;
+
+                                    let pme: Arc<DashMap<Uuid, ModelEntity>> = pme.clone();
+
+
+                                    let uuid = Uuid::from_u64_pair(comm.goose.0, comm.goose.1);
+                                    //println!("NSME Length: {}", nsme.len());
+                                    match pme.get_mut(&uuid) {
+                                        Some(mut me) => {
+                                            let modent = me.value_mut();
+                                            (*modent).lastpos = (*modent).position.clone();
+                                            (*modent).position = newpos;
+                                            (*modent).scale = scale;
+                                            (*modent).lastrot = (*modent).rot.clone();
+                                            (*modent).rot = Vec3::new(0.0, rot, 0.0);
+                                            unsafe {
+                                                (*modent).time_stamp = glfwGetTime();
+                                            }
+                                            
+                                            
+                                        }
+                                        None => {
+                                            commqueue.push(comm.clone());
+                                        }
+                                    };
+
+                                    
                                 },
                                 MessageType::BlockSet => {
                                     // if recv_m.info == 0 {
@@ -192,7 +246,7 @@ impl NetworkConnector {
                                     //     csys.read().unwrap().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
                                     //     recv_m.info, false, true);
                                     // }
-                                    hpcommqueue.push(recv_m.clone());
+                                    hpcommqueue.push(comm.clone());
                                 },
                                 MessageType::Udm => {
                                     shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
@@ -202,7 +256,7 @@ impl NetworkConnector {
 
 
 
-                                    let mut buff = vec![0 as u8; recv_m.info as usize];
+                                    let mut buff = vec![0 as u8; comm.info as usize];
 
                                     stream_lock.set_read_timeout(Some(Duration::from_secs(2)));
 
@@ -254,7 +308,7 @@ impl NetworkConnector {
                                 },
                                 MessageType::Seed => {
                                     //println!("Receiving Seed:");
-                                    let mut buff = vec![0 as u8; recv_m.info as usize];
+                                    let mut buff = vec![0 as u8; comm.info as usize];
                                     stream_lock.read_exact(&mut buff).unwrap();
                                     fs::create_dir_all("mp").unwrap();
                                     let mut file = File::create("mp/seed").unwrap(); 
@@ -267,65 +321,82 @@ impl NetworkConnector {
 
 
 
-                                    commqueue.push(recv_m.clone());
+                                    commqueue.push(comm.clone());
                                     
                                     NetworkConnector::sendtolocked(&reqpt, &mut stream_lock);
                                 },
                                 MessageType::RequestTakeoff => {
-                                    commqueue.push(recv_m.clone());
+                                    commqueue.push(comm.clone());
                                 },
                                 MessageType::RequestPt => {
                                     
                                 },
                                 MessageType::Pt => {
                                     //println!("Receiving Pt:");
-                                    let mut buff = vec![0 as u8; recv_m.info as usize];
+                                    let mut buff = vec![0 as u8; comm.info as usize];
                                     stream_lock.read_exact(&mut buff).unwrap();
                                     fs::create_dir_all("mp").unwrap();
                                     let mut file = File::create("mp/pt").unwrap(); 
 
                                     
-                                    let recv_s: String = bincode::deserialize(&buff).unwrap();
+                                    match bincode::deserialize::<String>(&buff) {
+                                        Ok(recv_s) => {
+                                            file.write_all(recv_s.as_bytes()).unwrap();
+
+
+
+
+                                            csys.write().unwrap().load_world_from_file(String::from("mp"));
+                                            recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
+                                        }
+                                        Err(ew) => {
+                                            NetworkConnector::sendtolocked(&reqpt, &mut stream_lock);
+                                        }
+                                    };
                                     //println!("{}", recv_s);
 
-                                    file.write_all(recv_s.as_bytes()).unwrap();
-
-
-
-
-                                    csys.write().unwrap().load_world_from_file(String::from("mp"));
-                                    recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
+                                    
                                     stream_lock.set_nonblocking(true).unwrap();
                                     shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
                                 },
                                 MessageType::YourId => {
                                     //println!("Receiving Your ID:");
                                     stream_lock.set_nonblocking(false).unwrap();
-                                    let mut buff = vec![0 as u8; recv_m.info as usize];
+                                    let mut buff = vec![0 as u8; comm.info as usize];
                                     stream_lock.read_exact(&mut buff).unwrap();
-                                    let recv_s: (u64, u64) = bincode::deserialize(&buff).unwrap();
+                                    match bincode::deserialize::<(u64, u64)>(&buff) {
+                                        Ok(recv_s) => {
+                                            let uuid = Uuid::from_u64_pair(recv_s.0, recv_s.1);
+                                            //println!("{}", uuid);
 
-                                    let uuid = Uuid::from_u64_pair(recv_s.0, recv_s.1);
-                                    //println!("{}", uuid);
 
+                                            gknowncams.insert(
+                                                uuid.clone(), Vec3::ZERO
+                                            );
+                                            *(my_uuid.write().unwrap()) = Some(uuid);
+                                        }
+                                        Err(e) => {
 
-                                    gknowncams.insert(
-                                        uuid.clone(), Vec3::ZERO
-                                    );
-                                    *(my_uuid.write().unwrap()) = Some(uuid);
+                                            let reqid = Message::new(MessageType::RequestMyID, Vec3::ZERO, 0.0, 0);
+                                            NetworkConnector::sendtolocked(&reqid, &mut stream_lock);
+
+                                        }
+                                    };
+
+                                    
                                     stream_lock.set_nonblocking(true).unwrap();
                                 },
                                 MessageType::MobUpdate => {
                                     
-                                    commqueue.push(recv_m.clone());
+                                    commqueue.push(comm.clone());
                                     
                                 },
                                 MessageType::NewMob => {
-                                    let newid = recv_m.info;
+                                    let newid = comm.info;
 
-                                    let newtype = recv_m.info2;
+                                    let newtype = comm.info2;
 
-                                    let newpos = Vec3::new(recv_m.x, recv_m.y, recv_m.z);
+                                    let newpos = Vec3::new(comm.x, comm.y, comm.z);
                                 },
                                 MessageType::WhatsThatMob => todo!(),
                                 MessageType::ShutUpMobMsgs =>  {
@@ -335,21 +406,30 @@ impl NetworkConnector {
                                     //println!("Receiving a Mob Batch:");
                                 
                                     stream_lock.set_nonblocking(false).unwrap();
-                                    let mut buff = vec![0 as u8; recv_m.info as usize];
+                                    let mut buff = vec![0 as u8; comm.info as usize];
                                     stream_lock.set_read_timeout(Some(Duration::from_millis(50)));
                                     match stream_lock.read_exact(&mut buff) {
                                         Ok(_) => {
-                                            let recv_s: MobUpdateBatch = bincode::deserialize(&buff).unwrap();
+                                            match bincode::deserialize::<MobUpdateBatch>(&buff) {
+                                                Ok(recv_s) => {
 
-                                            if recv_s.count > server_types::MOB_BATCH_SIZE as u8 {
-                                                println!("Ignoring invalid packe with count > {} of {}", server_types::MOB_BATCH_SIZE, recv_s.count);
-                                            } else {
-                                                for i in 0..recv_s.count.min(8) {
-                                                    let msg = recv_s.msgs[i as usize].clone();
-                                                    commqueue.push(msg);
+                                                    if recv_s.count > server_types::MOB_BATCH_SIZE as u8 {
+                                                        println!("Ignoring invalid packe with count > {} of {}", server_types::MOB_BATCH_SIZE, recv_s.count);
+                                                    } else {
+                                                        for i in 0..recv_s.count.min(8) {
+                                                            let msg = recv_s.msgs[i as usize].clone();
+                                                            commqueue.push(msg);
+                                                        }
+                                                        
+                                                    }
+                                                    
                                                 }
-                                                
-                                            }
+                                                Err(e) => {
+                                                    
+                                                }
+                                            };
+
+                                            
 
                                             //println!("{}", recv_s);
                                         },
@@ -366,7 +446,7 @@ impl NetworkConnector {
                                     
                                 },
                                 MessageType::TimeUpdate => {
-                                    commqueue.push(recv_m.clone());
+                                    commqueue.push(comm.clone());
                                 }
                             }
 

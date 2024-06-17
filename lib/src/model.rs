@@ -564,7 +564,7 @@ impl Game {
                                         None => {
 
                                         }
-                                    }  
+                                    }
 
                                     let scaledbl = blocklighthere / 16.0;
                                     

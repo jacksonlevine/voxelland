@@ -371,6 +371,20 @@ fn handle_client(
                     drop(csys);
                     mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
+                MessageType::RequestMyID => {
+                    {
+                        let mut mystream = stream.lock().unwrap();
+                        //ID header then ID as u64 pair
+                        let idmsg = Message::new(
+                            MessageType::YourId,
+                            Vec3::ZERO,
+                            0.0,
+                            bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32,
+                        );
+                        mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
+                        mystream.write_all(&bincode::serialize(&client_id.as_u64_pair()).unwrap()).unwrap();
+                    }
+                }
                 MessageType::RequestPt => {
 
                     //let writelock = wl.lock().unwrap();

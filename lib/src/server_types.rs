@@ -57,7 +57,8 @@ pub enum MessageType {
     WhatsThatMob,
     ShutUpMobMsgs,
     MobUpdateBatch,
-    TimeUpdate
+    TimeUpdate,
+    RequestMyID
 }
 
 impl Display for MessageType {
@@ -113,6 +114,9 @@ impl Display for MessageType {
             },
             MessageType::TimeUpdate => {
                 write!(f, "TimeUpdate")
+            },
+            MessageType::RequestMyID => {
+                write!(f, "Requestmyid")
             },
         }
     } 

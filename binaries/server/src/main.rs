@@ -89,9 +89,11 @@ fn handle_client(
                         }
                     }
                     Err(e) => {
-                        if e.kind() == std::io::ErrorKind::UnexpectedEof {
-                            should_break = true;
+                        if e.kind() == std::io::ErrorKind::WouldBlock {
+                            
                         } else {
+
+                            should_break = true;
                             // let mut clients = clients.lock().unwrap();
                             // clients.get_mut(&client_id).unwrap().errorstrikes += 1;
     

@@ -221,23 +221,24 @@ fn handle_client(
                     println!("Recvd req seed");
 
                     let csys = csys.read().unwrap();
+                    println!("Got csys lock");
                     let currseed = *(csys.currentseed.read().unwrap());
-                    
-                    let seed = fs::read_to_string(format!("world/{}/seed", currseed))
-                        .unwrap();
+                    println!("Got currseed lock");
 
                     let seedmsg = Message::new(
                         MessageType::Seed,
                         Vec3::ZERO,
                         0.0,
-                        bincode::serialized_size(&seed).unwrap() as u32,
+                        currseed
                     );
 
+                    thread::sleep(Duration::from_millis(100));
 
                     {
                         let mut mystream = stream.lock().unwrap();
+                        println!("Got stream lock");
                         mystream.write_all(&bincode::serialize(&seedmsg).unwrap()).unwrap();
-                        mystream.write_all(&bincode::serialize(&seed).unwrap()).unwrap();
+                        //mystream.write_all(&bincode::serialize(&seed).unwrap()).unwrap();
                     }
                     
 
@@ -416,13 +417,15 @@ fn handle_client(
                     let currseed = *(csys.currentseed.read().unwrap());
                     let currpt = csys.planet_type;
                     println!("Recvd req pt");
-                    let pt = fs::read_to_string(format!("world/{}/pt", currseed)).unwrap();
 
+                    thread::sleep(Duration::from_millis(100));
                     {
                         let mut mystream = stream.lock().unwrap();
-                        let ptmsg: Message = Message::new(MessageType::Pt, Vec3::ZERO, 0.0, bincode::serialized_size(&pt).unwrap() as u32);
+                        println!("Got pt stream lock");
+                        let ptmsg: Message = Message::new(MessageType::Pt, Vec3::ZERO, 0.0, currpt as u32);
                         mystream.write_all(&bincode::serialize(&ptmsg).unwrap()).unwrap();
-                        mystream.write_all(&bincode::serialize(&pt).unwrap()).unwrap();
+                        mystream.flush();
+                        
                     }
                     
 
@@ -432,14 +435,14 @@ fn handle_client(
                     {
                         let mut mystream = stream.lock().unwrap();
                         //ID header then ID as u64 pair
-                        let idmsg = Message::new(
+                        let mut idmsg = Message::new(
                             MessageType::YourId,
                             Vec3::ZERO,
                             0.0,
                             bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32,
                         );
+                        idmsg.goose = client_id.as_u64_pair();
                         mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
-                        mystream.write_all(&bincode::serialize(&client_id.as_u64_pair()).unwrap()).unwrap();
                     }
                     
 

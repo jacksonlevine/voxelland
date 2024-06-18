@@ -320,34 +320,32 @@ impl NetworkConnector {
                                             // let mut file = File::create("mp/udm").unwrap(); 
                                             // file.write_all(recv_s.as_bytes()).unwrap();
 
-                                            shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
                                 },
                                 MessageType::Seed => {
                                     //println!("Receiving Seed:");
-                                    let mut buff = vec![0 as u8; comm.info as usize];
+                                    // let mut buff = vec![0 as u8; comm.info as usize];
 
-                                    stream_lock.set_nonblocking(false).unwrap();
+                                    // stream_lock.set_nonblocking(false).unwrap();
 
 
-                                    stream_lock.read_exact(&mut buff).unwrap();
+                                    // stream_lock.read_exact(&mut buff).unwrap();
+
+
                                     fs::create_dir_all("mp").unwrap();
                                     let mut file = File::create("mp/seed").unwrap(); 
 
                                     
-                                    match bincode::deserialize::<String>(&buff) {
-                                        Ok(recv_s) => {
+                                    let recv_s = format!("{}", comm.info);
+
                                             file.write_all(recv_s.as_bytes()).unwrap();
 
 
 
                                             commqueue.push(comm.clone());
                                             
+                                            thread::sleep(Duration::from_millis(200));
                                             NetworkConnector::sendtolocked(&reqpt, &mut stream_lock);
-                                        }
-                                        Err(e) => {
-                                            NetworkConnector::sendtolocked(&reqseed, &mut stream_lock);
-                                        }
-                                    };
+
 
                                     stream_lock.set_nonblocking(true).unwrap();
                                     //println!("{}", recv_s);
@@ -362,29 +360,27 @@ impl NetworkConnector {
                                 },
                                 MessageType::Pt => {
                                     //println!("Receiving Pt:");
-                                    let mut buff = vec![0 as u8; comm.info as usize];
+                                    // let mut buff = vec![0 as u8; comm.info as usize];
 
-                                    stream_lock.set_nonblocking(false).unwrap();
+                                    // stream_lock.set_nonblocking(false).unwrap();
 
-                                    stream_lock.read_exact(&mut buff).unwrap();
+                                    // stream_lock.read_exact(&mut buff).unwrap();
+
+
                                     fs::create_dir_all("mp").unwrap();
                                     let mut file = File::create("mp/pt").unwrap(); 
 
                                     
-                                    match bincode::deserialize::<String>(&buff) {
-                                        Ok(recv_s) => {
-                                            file.write_all(recv_s.as_bytes()).unwrap();
+                                    let pt = comm.info;
+                                    let recv_s = format!("{pt}");
+                                    file.write_all(recv_s.as_bytes()).unwrap();
 
 
 
 
-                                            csys.write().unwrap().load_world_from_file(String::from("mp"));
-                                            recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
-                                        }
-                                        Err(ew) => {
-                                            NetworkConnector::sendtolocked(&reqpt, &mut stream_lock);
-                                        }
-                                    };
+                                    csys.write().unwrap().load_world_from_file(String::from("mp"));
+                                    recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
+                 
                                     //println!("{}", recv_s);
 
                                     
@@ -392,31 +388,24 @@ impl NetworkConnector {
                                     shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
                                 },
                                 MessageType::YourId => {
-                                    //println!("Receiving Your ID:");
-                                    stream_lock.set_nonblocking(false).unwrap();
-                                    let mut buff = vec![0 as u8; comm.info as usize];
-                                    stream_lock.read_exact(&mut buff).unwrap();
-                                    match bincode::deserialize::<(u64, u64)>(&buff) {
-                                        Ok(recv_s) => {
-                                            let uuid = Uuid::from_u64_pair(recv_s.0, recv_s.1);
-                                            //println!("{}", uuid);
+                                    // //println!("Receiving Your ID:");
+                                    // stream_lock.set_nonblocking(false).unwrap();
+                                    // let mut buff = vec![0 as u8; comm.info as usize];
+                                    // stream_lock.read_exact(&mut buff).unwrap();
+
+                                    let recv_s = comm.goose;
+                                    let uuid = Uuid::from_u64_pair(recv_s.0, recv_s.1);
+                                    //println!("{}", uuid);
 
 
-                                            gknowncams.insert(
-                                                uuid.clone(), Vec3::ZERO
-                                            );
-                                            *(my_uuid.write().unwrap()) = Some(uuid);
-                                        }
-                                        Err(e) => {
+                                    gknowncams.insert(
+                                        uuid.clone(), Vec3::ZERO
+                                    );
+                                    *(my_uuid.write().unwrap()) = Some(uuid);
 
-                                            let reqid = Message::new(MessageType::RequestMyID, Vec3::ZERO, 0.0, 0);
-                                            NetworkConnector::sendtolocked(&reqid, &mut stream_lock);
-
-                                        }
-                                    };
 
                                     
-                                    stream_lock.set_nonblocking(true).unwrap();
+                                    // stream_lock.set_nonblocking(true).unwrap();
                                 },
                                 MessageType::MobUpdate => {
                                     

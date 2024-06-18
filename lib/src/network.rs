@@ -260,10 +260,11 @@ impl NetworkConnector {
                                     hpcommqueue.push(comm.clone());
                                 },
                                 MessageType::Udm => {
+                                    println!("Receiving Udm:");
                                     shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
                                     
                                     stream_lock.set_nonblocking(false).unwrap();
-                                    //println!("Receiving Udm:");
+                                    
 
 
 

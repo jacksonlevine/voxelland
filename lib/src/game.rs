@@ -300,7 +300,9 @@ impl Game {
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             let csys_arc = Arc::clone(&chunksys);
             Box::new(move |v: vec::IVec3| {
-                return csys_arc.read().unwrap().collision_predicate(v);
+                let csys = csys_arc.read().unwrap();
+                let isntopendoor = DoorInfo::get_door_open_bit(csys.blockat(v.clone())) != 1;
+                return isntopendoor && csys_arc.read().unwrap().collision_predicate(v);
             })
         };
         let mut hud = Hud::new(&window.clone(), tex.id);
@@ -2350,7 +2352,8 @@ impl Game {
         let cl = self.camera.lock().unwrap();
         match raycast_voxel(cl.position, cl.direction, &self.chunksys, 10.0) {
             Some((tip, block_hit)) => {
-                let blockat = self.chunksys.read().unwrap().blockat(block_hit);
+                let blockbits = self.chunksys.read().unwrap().blockat(block_hit);
+                let blockat = blockbits & Blocks::block_id_bits();
                 if blockat == 16 {
                     let mut set: HashSet<IVec2> = HashSet::new();
                     Game::delete_block_recursively(&self.chunksys, 16,  block_hit, &mut set);
@@ -2358,6 +2361,32 @@ impl Game {
                         self.chunksys.read().unwrap().queue_rerender_with_key(key, true, false);
                     }
                     self.drops.add_drop(tip, 17);
+                } else if blockat == 19 { //Door stuff
+                    let top = DoorInfo::get_door_top_bit(blockbits);
+                    let mut other_half;
+
+                    if top == 1 {
+                        other_half = block_hit + IVec3::new(0, -1, 0);
+                    } else {
+                        other_half = block_hit + IVec3::new(0, 1, 0);
+                    }
+
+                    if self.vars.in_multiplayer {
+                        let mut message = Message::new(
+                            MessageType::MultiBlockSet,
+                            Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32),
+                            0.0,
+                            0
+                        );
+                        message.info2 = 0;
+                        message.otherpos = other_half;
+
+                        self.netconn.send(&message);
+                    } else {
+                        self.chunksys.read().unwrap().set_block(block_hit, 0, true);
+                        self.chunksys.read().unwrap().set_block_and_queue_rerender(other_half, 0, true, true);
+                    }
+
                 } else {
                     if blockat != 0 {
                         self.drops.add_drop(tip, blockat);
@@ -2395,12 +2424,12 @@ impl Game {
     }
 
     pub fn cast_place_ray(&mut self) {
+        
 
         let slot_selected = self.hud.bumped_slot;
         let slot = self.inventory.read().unwrap().inv[slot_selected];
 
-        if slot.0 != 0 && slot.1 > 0 {
-            let id = slot.0;
+        if true {
 
             let cl = self.camera.lock().unwrap();
 
@@ -2408,202 +2437,240 @@ impl Game {
                 
                 Some((tip, block_hit)) => {
 
-                    let diff = (tip+Vec3::new(-0.5, -0.5, -0.5)) - (Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32));
+                    let mut blockbitshere = self.chunksys.read().unwrap().blockat(block_hit);
+                    let blockidhere = blockbitshere & Blocks::block_id_bits();
 
-                    let hit_normal;
+                    if blockidhere == 19 {
+                        let top = DoorInfo::get_door_top_bit(blockbitshere);
+                        let mut otherhalf;
 
-                    // Determine the primary axis of intersection
-                    if (diff.x).abs() > (diff.y).abs() && (diff.x).abs() > (diff.z).abs() {
-                        // The hit was primarily along the X-axis
-                        hit_normal = vec::IVec3::new( if diff.x > 0.0 { 1 } else { -1 }, 0, 0);
-
-                    } else if (diff.y).abs() > (diff.x).abs() && (diff.y).abs() > (diff.z).abs() {
-                        // The hit was primarily along the Y-axis
-                        hit_normal = vec::IVec3::new(0, if diff.y > 0.0 { 1 } else { -1 }, 0);
-                    } else {
-                        // The hit was primarily along the Z-axis
-                        hit_normal = vec::IVec3::new(0, 0, if diff.z > 0.0 { 1 } else { -1 });
-                    }
-
-                    println!("Hit normal is {} {} {}", hit_normal.x, hit_normal.y, hit_normal.z);
-
-
-                    let place_point = block_hit + hit_normal;
-                    println!("Placing {} at {} {} {}", id, place_point.x, place_point.y, place_point.z);
-
-                    if id == 19 { //Door shit
-
-                        let neighbor_axes = vec![
-                            IVec3::new(1,0,0),
-                            IVec3::new(0,0,1),
-                            IVec3::new(1,0,0),
-                            IVec3::new(0,0,1)
-                        ];
-
-                        let place_above = place_point + IVec3::new(0,1,0);
-                        let place_below = place_point + IVec3::new(0,-1,0);
-
-                        let csysread = self.chunksys.read().unwrap();
-
-                        let condition1 = csysread.blockat(place_above) == 0;
-                        let condition2 = csysread.blockat(place_below) != 0;
-
-                        drop(csysread);
-
-                        if condition1 && condition2 {
-
-                        let mut bottom_id = id;
-                        let mut top_id = id;
-
-                        top_id |= door::DOORTOP_BITS;
-
-
-                        let diffx = cl.position.x - place_point.x as f32;
-                        let diffz = cl.position.z - place_point.z as f32;
-
-
-                        let mut direction = 0;
-
-                        if diffx.abs() > diffz.abs() {
-                            direction = if diffx > 0.0 { 1 } else { 3 };
+                        if top == 1 {
+                            otherhalf = block_hit + IVec3::new(0,-1,0);
+                            
                         } else {
-                            direction = if diffz > 0.0 { 2 } else { 0 };
+                            otherhalf = block_hit + IVec3::new(0, 1, 0);
                         }
+                        let mut otherhalfbits = self.chunksys.read().unwrap().blockat(otherhalf);
 
-                        DoorInfo::set_direction_bits(&mut bottom_id, direction);
-                        DoorInfo::set_direction_bits(&mut top_id, direction);
-
-                        let mut left: IVec3 = IVec3::new(0,0,0);
-                        let mut right: IVec3 = IVec3::new(0,0,0);
-
-                        if direction == 0 || direction == 1 {
-                            left = place_point - neighbor_axes[direction as usize];
-                            right = place_point + neighbor_axes[direction as usize];
-                        } else {
-                            left = place_point + neighbor_axes[direction as usize];
-                            right = place_point - neighbor_axes[direction as usize];
-                        }
-
-                        let csysread = self.chunksys.read().unwrap();
-
-                        let mut blockbitsright = csysread.blockat(right);
-                        let mut blockbitsleft = csysread.blockat(left);
-
-                        drop(csysread);
-
-                        if (blockbitsright & Blocks::block_id_bits()) == 19 {
-
-                            let neighdir = DoorInfo::get_direction_bits(blockbitsright);
-                            if neighdir == direction && DoorInfo::get_door_top_bit(blockbitsright) == 0 {
-
-                                let csysread = self.chunksys.read().unwrap();
-
-                                let rightup = right + IVec3::new(0,1,0);
-                                let mut neightopbits = csysread.blockat(rightup);
-
-                                DoorInfo::set_opposite_door_bits(&mut top_id, 1);
-                                DoorInfo::set_opposite_door_bits(&mut bottom_id, 1);
-
-                                DoorInfo::set_opposite_door_bits(&mut blockbitsright, 0);
-                                DoorInfo::set_opposite_door_bits(&mut neightopbits, 0);
-
-                                let chunktoreb = ChunkSystem::spot_to_chunk_pos(&right);
-
-                                if self.vars.in_multiplayer {
-                                    let mut message = Message::new(
-                                        MessageType::MultiBlockSet, 
-                                        Vec3::new(
-                                            right.x as f32, 
-                                            right.y as f32, 
-                                            right.z as f32), 
-                                        0.0, 
-                                        blockbitsright);
-
-                                        message.info2 = neightopbits;
-                                        message.otherpos = rightup;
-
-
-                                    self.netconn.send(&message);
-
-                                } else {
-                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(right, blockbitsright, false, true);
-                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(rightup, neightopbits, false, true);
-                                }
-
-                            }
-                        }
-
-                        if (blockbitsleft & Blocks::block_id_bits()) == 19 {
-                            let neighdir = DoorInfo::get_direction_bits(blockbitsleft);
-                            if neighdir == direction && DoorInfo::get_door_top_bit(blockbitsleft) == 0 {
-                                let leftup = left + IVec3::new(0,1,0);
-
-                                let csysread = self.chunksys.read().unwrap();
-
-
-                                let mut neightopbits = csysread.blockat(leftup);
-
-                                DoorInfo::set_opposite_door_bits(&mut top_id, 1);
-                                DoorInfo::set_opposite_door_bits(&mut bottom_id, 1);
-
-                                DoorInfo::set_opposite_door_bits(&mut blockbitsleft, 0);
-                                DoorInfo::set_opposite_door_bits(&mut neightopbits, 0);
-
-                                let chunktoreb = ChunkSystem::spot_to_chunk_pos(&left);
-
-                                if self.vars.in_multiplayer {
-                                    let mut message = Message::new(
-                                        MessageType::MultiBlockSet, 
-                                        Vec3::new(
-                                            left.x as f32, 
-                                            left.y as f32, 
-                                            left.z as f32), 
-                                        0.0, 
-                                        blockbitsleft);
-
-
-                                        message.info2 = neightopbits;
-                                        message.otherpos = leftup;
-
-                                    self.netconn.send(&message);
-
-                                } else {
-                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(left, blockbitsleft, false, true);
-                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(leftup, neightopbits, false, true);
-                                }
-
-                            }
-                        }
+                        DoorInfo::toggle_door_open_bit(&mut blockbitshere);
+                        DoorInfo::toggle_door_open_bit(&mut otherhalfbits);
 
                         if self.vars.in_multiplayer {
                             let mut message = Message::new(
-                                MessageType::MultiBlockSet, 
-                                Vec3::new(
-                                    place_point.x as f32, 
-                                    place_point.y as f32, 
-                                    place_point.z as f32), 
-                                0.0, 
-                                bottom_id);
-
-                                message.info2 = top_id;
-                                message.otherpos = place_above;
-
-                            self.netconn.send(&message);
-
-                        } else {
-                            self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, bottom_id, false, true);
-                            self.chunksys.read().unwrap().set_block_and_queue_rerender(place_above, top_id, false, true);
-                        }
-
-                    }
-
-                    } else {
-                        if self.vars.in_multiplayer {
-                            let message = Message::new(MessageType::BlockSet, Vec3::new(place_point.x as f32, place_point.y as f32, place_point.z as f32), 0.0, id);
+                                MessageType::MultiBlockSet,
+                                Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32),
+                                0.0,
+                                blockbitshere
+                            );
+                            message.info2 = otherhalfbits;
+                            message.otherpos = otherhalf;
                             self.netconn.send(&message);
                         } else {
-                            self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, id, false, true);
+                            self.chunksys.write().unwrap().set_block(otherhalf, otherhalfbits, true);
+                            self.chunksys.write().unwrap().set_block_and_queue_rerender(block_hit, blockbitshere, true, true);
                         }
+                    } else if slot.0 != 0 && slot.1 > 0 {
+                         
+                        let id = slot.0;
+                        let diff = (tip+Vec3::new(-0.5, -0.5, -0.5)) - (Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32));
+
+                        let hit_normal;
+
+                        // Determine the primary axis of intersection
+                        if (diff.x).abs() > (diff.y).abs() && (diff.x).abs() > (diff.z).abs() {
+                            // The hit was primarily along the X-axis
+                            hit_normal = vec::IVec3::new( if diff.x > 0.0 { 1 } else { -1 }, 0, 0);
+
+                        } else if (diff.y).abs() > (diff.x).abs() && (diff.y).abs() > (diff.z).abs() {
+                            // The hit was primarily along the Y-axis
+                            hit_normal = vec::IVec3::new(0, if diff.y > 0.0 { 1 } else { -1 }, 0);
+                        } else {
+                            // The hit was primarily along the Z-axis
+                            hit_normal = vec::IVec3::new(0, 0, if diff.z > 0.0 { 1 } else { -1 });
+                        }
+
+                        println!("Hit normal is {} {} {}", hit_normal.x, hit_normal.y, hit_normal.z);
+
+
+                        let place_point = block_hit + hit_normal;
+                        println!("Placing {} at {} {} {}", id, place_point.x, place_point.y, place_point.z);
+
+                        if id == 19 { //Door shit
+
+                            let neighbor_axes = vec![
+                                IVec3::new(1,0,0),
+                                IVec3::new(0,0,1),
+                                IVec3::new(1,0,0),
+                                IVec3::new(0,0,1)
+                            ];
+
+                            let place_above = place_point + IVec3::new(0,1,0);
+                            let place_below = place_point + IVec3::new(0,-1,0);
+
+                            let csysread = self.chunksys.read().unwrap();
+
+                            let condition1 = csysread.blockat(place_above) == 0;
+                            let condition2 = csysread.blockat(place_below) != 0;
+
+                            drop(csysread);
+
+                            if condition1 && condition2 {
+
+                            let mut bottom_id = id;
+                            let mut top_id = id;
+
+                            top_id |= door::DOORTOP_BITS;
+
+
+                            let diffx = cl.position.x - place_point.x as f32;
+                            let diffz = cl.position.z - place_point.z as f32;
+
+
+                            let mut direction = 0;
+
+                            if diffx.abs() > diffz.abs() {
+                                direction = if diffx > 0.0 { 1 } else { 3 };
+                            } else {
+                                direction = if diffz > 0.0 { 2 } else { 0 };
+                            }
+
+                            DoorInfo::set_direction_bits(&mut bottom_id, direction);
+                            DoorInfo::set_direction_bits(&mut top_id, direction);
+
+                            let mut left: IVec3 = IVec3::new(0,0,0);
+                            let mut right: IVec3 = IVec3::new(0,0,0);
+
+                            if direction == 0 || direction == 1 {
+                                left = place_point - neighbor_axes[direction as usize];
+                                right = place_point + neighbor_axes[direction as usize];
+                            } else {
+                                left = place_point + neighbor_axes[direction as usize];
+                                right = place_point - neighbor_axes[direction as usize];
+                            }
+
+                            let csysread = self.chunksys.read().unwrap();
+
+                            let mut blockbitsright = csysread.blockat(right);
+                            let mut blockbitsleft = csysread.blockat(left);
+
+                            drop(csysread);
+
+                            if (blockbitsright & Blocks::block_id_bits()) == 19 {
+
+                                let neighdir = DoorInfo::get_direction_bits(blockbitsright);
+                                if neighdir == direction && DoorInfo::get_door_top_bit(blockbitsright) == 0 {
+
+                                    let csysread = self.chunksys.read().unwrap();
+
+                                    let rightup = right + IVec3::new(0,1,0);
+                                    let mut neightopbits = csysread.blockat(rightup);
+
+                                    DoorInfo::set_opposite_door_bits(&mut top_id, 1);
+                                    DoorInfo::set_opposite_door_bits(&mut bottom_id, 1);
+
+                                    DoorInfo::set_opposite_door_bits(&mut blockbitsright, 0);
+                                    DoorInfo::set_opposite_door_bits(&mut neightopbits, 0);
+
+                                    let chunktoreb = ChunkSystem::spot_to_chunk_pos(&right);
+
+                                    if self.vars.in_multiplayer {
+                                        let mut message = Message::new(
+                                            MessageType::MultiBlockSet, 
+                                            Vec3::new(
+                                                right.x as f32, 
+                                                right.y as f32, 
+                                                right.z as f32), 
+                                            0.0, 
+                                            blockbitsright);
+
+                                            message.info2 = neightopbits;
+                                            message.otherpos = rightup;
+
+
+                                        self.netconn.send(&message);
+
+                                    } else {
+                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(right, blockbitsright, false, true);
+                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(rightup, neightopbits, false, true);
+                                    }
+
+                                }
+                            }
+
+                            if (blockbitsleft & Blocks::block_id_bits()) == 19 {
+                                let neighdir = DoorInfo::get_direction_bits(blockbitsleft);
+                                if neighdir == direction && DoorInfo::get_door_top_bit(blockbitsleft) == 0 {
+                                    let leftup = left + IVec3::new(0,1,0);
+
+                                    let csysread = self.chunksys.read().unwrap();
+
+
+                                    let mut neightopbits = csysread.blockat(leftup);
+
+                                    DoorInfo::set_opposite_door_bits(&mut top_id, 1);
+                                    DoorInfo::set_opposite_door_bits(&mut bottom_id, 1);
+
+                                    DoorInfo::set_opposite_door_bits(&mut blockbitsleft, 0);
+                                    DoorInfo::set_opposite_door_bits(&mut neightopbits, 0);
+
+                                    let chunktoreb = ChunkSystem::spot_to_chunk_pos(&left);
+
+                                    if self.vars.in_multiplayer {
+                                        let mut message = Message::new(
+                                            MessageType::MultiBlockSet, 
+                                            Vec3::new(
+                                                left.x as f32, 
+                                                left.y as f32, 
+                                                left.z as f32), 
+                                            0.0, 
+                                            blockbitsleft);
+
+
+                                            message.info2 = neightopbits;
+                                            message.otherpos = leftup;
+
+                                        self.netconn.send(&message);
+
+                                    } else {
+                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(left, blockbitsleft, false, true);
+                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(leftup, neightopbits, false, true);
+                                    }
+
+                                }
+                            }
+
+                            if self.vars.in_multiplayer {
+                                let mut message = Message::new(
+                                    MessageType::MultiBlockSet, 
+                                    Vec3::new(
+                                        place_point.x as f32, 
+                                        place_point.y as f32, 
+                                        place_point.z as f32), 
+                                    0.0, 
+                                    bottom_id);
+
+                                    message.info2 = top_id;
+                                    message.otherpos = place_above;
+
+                                self.netconn.send(&message);
+
+                            } else {
+                                self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, bottom_id, false, true);
+                                self.chunksys.read().unwrap().set_block_and_queue_rerender(place_above, top_id, false, true);
+                            }
+
+                        }
+
+                        } else {
+                            if self.vars.in_multiplayer {
+                                let message = Message::new(MessageType::BlockSet, Vec3::new(place_point.x as f32, place_point.y as f32, place_point.z as f32), 0.0, id);
+                                self.netconn.send(&message);
+                            } else {
+                                self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, id, false, true);
+                            }
+                        }
+
+                    
                     }
 
                     

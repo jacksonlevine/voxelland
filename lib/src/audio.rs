@@ -3,8 +3,17 @@ use libfmod::ffi::FMOD_DSP_STATE;
 use libfmod::{Channel, ChannelGroup, DspDescription, DspParameterDesc, Sound, System, Vector};
 use libfmod::{Dsp, DspCallbackType, DspState};
 use std::ffi::c_void;
+use std::f32::consts::PI;
 use std::ptr;
 use std::{collections::HashMap, sync::atomic::AtomicBool};
+
+static mut SINE_WAVE_STATE: Option<SineWaveState> = None;
+
+struct SineWaveState {
+    frequency: f32,
+    phase: f32,
+    sample_rate: f32,
+}
 
 extern "C" fn dsp_callback(
     dsp_state: *mut FMOD_DSP_STATE,
@@ -14,16 +23,30 @@ extern "C" fn dsp_callback(
     inchannels: i32,
     outchannels: *mut i32,
 ) -> i32 {
-    // Example: Simply copy the input buffer to the output buffer
-    // unsafe {
-    //     std::ptr::copy_nonoverlapping(inbuffer, outbuffer, (length * outchannels as u32) as usize);
-    // }
+    unsafe {
+        if let Some(state) = &mut SINE_WAVE_STATE {
+            let sample_rate = state.sample_rate;
+            let frequency = state.frequency;
+            let mut phase = state.phase;
 
-    // Return OK to indicate the callback succeeded
-    libfmod::FmodResult::Ok as i32
+            let samples = length * *outchannels as u32;
+            for i in 0..samples {
+                let sample_index = i as usize;
+                let sample = (2.0 * PI * frequency * phase / sample_rate).sin();
+                *outbuffer.add(sample_index) = sample as f32;
+
+                phase += 1.0;
+                if phase >= sample_rate {
+                    phase -= sample_rate;
+                }
+            }
+
+            state.phase = phase;
+        }
+
+        libfmod::FmodResult::Ok as i32
+    }
 }
-
-
 pub struct AudioPlayer {
     system: System,
     sounds: HashMap<&'static str, Sound>,
@@ -58,38 +81,50 @@ impl AudioPlayer {
 
         let name: [i8; 32] = [b'f'.try_into().unwrap(), b'u'.try_into().unwrap(), b's'.try_into().unwrap(), b't'.try_into().unwrap(), b'o'.try_into().unwrap(), b'm'.try_into().unwrap(), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // DSP name
     
-        let dsp = system
-            .create_dsp(libfmod::DspDescription {
-                pluginsdkversion: 110,
-                name,
-                version: 0x00010000, // Version number
-                numinputbuffers: 1,  // Number of input buffers
-                numoutputbuffers: 1, // Number of output buffers
-                read: Some(dsp_callback), // Set the DSP callback function
-                // Set other callbacks to None or default as needed
-                create: None,
-                release: None,
-                reset: None,
-                process: None,
-                setposition: None,
-                paramdesc: Vec::new(),
-                setparameterfloat: None,
-                setparameterint: None,
-                setparameterbool: None,
-                setparameterdata: None,
-                getparameterfloat: None,
-                getparameterint: None,
-                getparameterbool: None,
-                getparameterdata: None,
-                shouldiprocess: None,
-                userdata: std::ptr::null_mut(),
-                sys_register: None,
-                sys_deregister: None,
-                sys_mix: None,
-            })
-            .expect("Failed to create DSP");
+        // let dsp = system
+        //     .create_dsp(libfmod::DspDescription {
+        //         pluginsdkversion: 110,
+        //         name,
+        //         version: 0x00010000, // Version number
+        //         numinputbuffers: 1,  // Number of input buffers
+        //         numoutputbuffers: 1, // Number of output buffers
+        //         read: Some(dsp_callback), // Set the DSP callback function
+        //         // Set other callbacks to None or default as needed
+        //         create: None,
+        //         release: None,
+        //         reset: None,
+        //         process: None,
+        //         setposition: None,
+        //         paramdesc: Vec::new(),
+        //         setparameterfloat: None,
+        //         setparameterint: None,
+        //         setparameterbool: None,
+        //         setparameterdata: None,
+        //         getparameterfloat: None,
+        //         getparameterint: None,
+        //         getparameterbool: None,
+        //         getparameterdata: None,
+        //         shouldiprocess: None,
+        //         userdata: std::ptr::null_mut(),
+        //         sys_register: None,
+        //         sys_deregister: None,
+        //         sys_mix: None,
+        //     })
+        //     .expect("Failed to create DSP");
 
-        dsp_group.add_dsp(0, dsp).expect("Heyoo! It didn't work!");
+        // // Initialize the sine wave state
+        // unsafe {
+        //     SINE_WAVE_STATE = Some(SineWaveState {
+        //         frequency: 440.0, // A4 note
+        //         phase: 0.0,
+        //         sample_rate: 44100.0,
+        //     });
+        // }
+
+
+        // dsp_group.add_dsp(0, dsp).expect("Heyoo! It didn't work!");
+
+        
 
 
         Ok(AudioPlayer {

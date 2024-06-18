@@ -360,7 +360,9 @@ impl ChunkSystem {
     }
 
     pub fn collision_predicate(&self, vec: vec::IVec3) -> bool {
-        let isntwater = self.blockat(vec.clone()) != 2;
+        let isntwater = (self.blockat(vec.clone()) & Blocks::block_id_bits()) != 2;
+        
+
         return isntwater && self.blockat(vec.clone()) != 0 || self.justcollisionmap.contains_key(&vec);
     }
     
@@ -1174,7 +1176,7 @@ impl ChunkSystem {
                             if Blocks::is_transparent(block) || Blocks::is_semi_transparent(block) {
                                 for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
                                     let neighspot = spot + *neigh;
-                                    let neigh_block = self.blockatmemo(neighspot, &mut memo);
+                                    let neigh_block = self.blockatmemo(neighspot, &mut memo) & Blocks::block_id_bits();
                                     let cubeside = CubeSide::from_primitive(indie);
                                     let neigh_semi_trans = Blocks::is_semi_transparent(neigh_block);
                                     let water_bordering_transparent = block == 2 && neigh_block != 2 && Blocks::is_transparent(neigh_block);
@@ -1256,7 +1258,7 @@ impl ChunkSystem {
 
                                 for (indie, neigh) in Cube::get_neighbors().iter().enumerate() {
                                     let neighspot = spot + *neigh;
-                                    let neigh_block = self.blockatmemo(neighspot, &mut memo);
+                                    let neigh_block = self.blockatmemo(neighspot, &mut memo) & Blocks::block_id_bits();
 
                                     let cubeside = CubeSide::from_primitive(indie);
                                     let neighbor_transparent = Blocks::is_transparent(neigh_block) || Blocks::is_semi_transparent(neigh_block);

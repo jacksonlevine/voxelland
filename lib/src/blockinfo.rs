@@ -68,8 +68,8 @@ impl Blocks {
         return TRANSPARENTS.contains(&id);
     }
     pub fn is_semi_transparent(id: u32) -> bool {
-        static SEMI_TRANSPARENTS: [u32; 2] = [
-            7, 11,
+        static SEMI_TRANSPARENTS: [u32; 3] = [
+            7, 11, 19
         ];
         return SEMI_TRANSPARENTS.contains(&id);
     }

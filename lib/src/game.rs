@@ -43,6 +43,7 @@ use crate::raycast::*;
 use crate::selectcube::SelectCube;
 use crate::server_types::{Message, MessageType};
 use crate::shader::Shader;
+use crate::specialblocks::door::{self, DoorInfo};
 use crate::texture::Texture;
 use crate::textureface::TextureFace;
 use crate::vec::{self, IVec2, IVec3};
@@ -1366,7 +1367,7 @@ impl Game {
                             BREAK_TIME = 0.0;
                             LAST_BLOCK_POS = hit;
                         }
-                        self.chunksys.read().unwrap().blockat(hit)
+                        self.chunksys.read().unwrap().blockat(hit) & Blocks::block_id_bits()
                     }
                     None => {
                         0
@@ -2420,12 +2421,194 @@ impl Game {
                     let place_point = block_hit + hit_normal;
                     println!("Placing {} at {} {} {}", id, place_point.x, place_point.y, place_point.z);
 
-                    if self.vars.in_multiplayer {
-                        let message = Message::new(MessageType::BlockSet, Vec3::new(place_point.x as f32, place_point.y as f32, place_point.z as f32), 0.0, id);
-                        self.netconn.send(&message);
-                    } else {
-                        self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, id, false, true);
+                    if id == 19 { //Door shit
+
+                        let neighbor_axes = vec![
+                            IVec3::new(1,0,0),
+                            IVec3::new(0,0,1),
+                            IVec3::new(1,0,0),
+                            IVec3::new(0,0,1)
+                        ];
+
+                        let place_above = place_point + IVec3::new(0,1,0);
+                        let place_below = place_point + IVec3::new(0,-1,0);
+
+                        let csysread = self.chunksys.read().unwrap();
+
+                        let condition1 = csysread.blockat(place_above) == 0;
+                        let condition2 = csysread.blockat(place_below) != 0;
+
+                        drop(csysread);
+
+                        if condition1 && condition2 {
+
+                        let mut bottom_id = id;
+                        let mut top_id = id;
+
+                        top_id |= door::DOORTOP_BITS;
+
+
+                        let diffx = cl.position.x - place_point.x as f32;
+                        let diffz = cl.position.z - place_point.z as f32;
+
+
+                        let mut direction = 0;
+
+                        if diffx.abs() > diffz.abs() {
+                            direction = if diffx > 0.0 { 1 } else { 3 };
+                        } else {
+                            direction = if diffz > 0.0 { 2 } else { 0 };
+                        }
+
+                        DoorInfo::set_direction_bits(&mut bottom_id, direction);
+                        DoorInfo::set_direction_bits(&mut top_id, direction);
+
+                        let mut left: IVec3 = IVec3::new(0,0,0);
+                        let mut right: IVec3 = IVec3::new(0,0,0);
+
+                        if direction == 0 || direction == 1 {
+                            left = place_point - neighbor_axes[direction as usize];
+                            right = place_point + neighbor_axes[direction as usize];
+                        } else {
+                            left = place_point + neighbor_axes[direction as usize];
+                            right = place_point - neighbor_axes[direction as usize];
+                        }
+
+                        let csysread = self.chunksys.read().unwrap();
+
+                        let mut blockbitsright = csysread.blockat(right);
+                        let mut blockbitsleft = csysread.blockat(left);
+
+                        drop(csysread);
+
+                        if (blockbitsright & Blocks::block_id_bits()) == 19 {
+
+                            let neighdir = DoorInfo::get_direction_bits(blockbitsright);
+                            if neighdir == direction && DoorInfo::get_door_top_bit(blockbitsright) == 0 {
+
+                                let csysread = self.chunksys.read().unwrap();
+
+                                let rightup = right + IVec3::new(0,1,0);
+                                let mut neightopbits = csysread.blockat(rightup);
+
+                                DoorInfo::set_opposite_door_bits(&mut top_id, 1);
+                                DoorInfo::set_opposite_door_bits(&mut bottom_id, 1);
+
+                                DoorInfo::set_opposite_door_bits(&mut blockbitsright, 0);
+                                DoorInfo::set_opposite_door_bits(&mut neightopbits, 0);
+
+                                let chunktoreb = ChunkSystem::spot_to_chunk_pos(&right);
+
+                                if self.vars.in_multiplayer {
+                                    let message = Message::new(
+                                        MessageType::BlockSet, 
+                                        Vec3::new(
+                                            right.x as f32, 
+                                            right.y as f32, 
+                                            right.z as f32), 
+                                        0.0, 
+                                        blockbitsright);
+                                    self.netconn.send(&message);
+
+                                    let message = Message::new(
+                                        MessageType::BlockSet, 
+                                        Vec3::new(
+                                            rightup.x as f32, 
+                                            rightup.y as f32, 
+                                            rightup.z as f32), 
+                                        0.0, 
+                                        neightopbits);
+                                    self.netconn.send(&message);
+                                } else {
+                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(right, blockbitsright, false, true);
+                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(rightup, neightopbits, false, true);
+                                }
+
+                            }
+                        }
+
+                        if (blockbitsleft & Blocks::block_id_bits()) == 19 {
+                            let neighdir = DoorInfo::get_direction_bits(blockbitsleft);
+                            if neighdir == direction && DoorInfo::get_door_top_bit(blockbitsleft) == 0 {
+                                let leftup = left + IVec3::new(0,1,0);
+
+                                let csysread = self.chunksys.read().unwrap();
+
+
+                                let mut neightopbits = csysread.blockat(leftup);
+
+                                DoorInfo::set_opposite_door_bits(&mut top_id, 1);
+                                DoorInfo::set_opposite_door_bits(&mut bottom_id, 1);
+
+                                DoorInfo::set_opposite_door_bits(&mut blockbitsleft, 0);
+                                DoorInfo::set_opposite_door_bits(&mut neightopbits, 0);
+
+                                let chunktoreb = ChunkSystem::spot_to_chunk_pos(&left);
+
+                                if self.vars.in_multiplayer {
+                                    let message = Message::new(
+                                        MessageType::BlockSet, 
+                                        Vec3::new(
+                                            left.x as f32, 
+                                            left.y as f32, 
+                                            left.z as f32), 
+                                        0.0, 
+                                        blockbitsleft);
+                                    self.netconn.send(&message);
+
+                                    let message = Message::new(
+                                        MessageType::BlockSet, 
+                                        Vec3::new(
+                                            leftup.x as f32, 
+                                            leftup.y as f32, 
+                                            leftup.z as f32), 
+                                        0.0, 
+                                        neightopbits);
+                                    self.netconn.send(&message);
+                                } else {
+                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(left, blockbitsleft, false, true);
+                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(leftup, neightopbits, false, true);
+                                }
+
+                            }
+                        }
+
+                        if self.vars.in_multiplayer {
+                            let message = Message::new(
+                                MessageType::BlockSet, 
+                                Vec3::new(
+                                    place_point.x as f32, 
+                                    place_point.y as f32, 
+                                    place_point.z as f32), 
+                                0.0, 
+                                bottom_id);
+                            self.netconn.send(&message);
+                            let message = Message::new(
+                                MessageType::BlockSet, 
+                                Vec3::new(
+                                    place_above.x as f32, 
+                                    place_above.y as f32, 
+                                    place_above.z as f32), 
+                                0.0, 
+                                top_id);
+                            self.netconn.send(&message);
+                        } else {
+                            self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, bottom_id, false, true);
+                            self.chunksys.read().unwrap().set_block_and_queue_rerender(place_above, top_id, false, true);
+                        }
+
                     }
+
+                    } else {
+                        if self.vars.in_multiplayer {
+                            let message = Message::new(MessageType::BlockSet, Vec3::new(place_point.x as f32, place_point.y as f32, place_point.z as f32), 0.0, id);
+                            self.netconn.send(&message);
+                        } else {
+                            self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, id, false, true);
+                        }
+                    }
+
+                    
                     
                 }
 

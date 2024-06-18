@@ -314,16 +314,23 @@ impl NetworkConnector {
                                     let mut file = File::create("mp/seed").unwrap(); 
 
                                     
-                                    let recv_s: String = bincode::deserialize(&buff).unwrap();
+                                    match bincode::deserialize::<String>(&buff) {
+                                        Ok(recv_s) => {
+                                            file.write_all(recv_s.as_bytes()).unwrap();
+
+
+
+                                            commqueue.push(comm.clone());
+                                            
+                                            NetworkConnector::sendtolocked(&reqpt, &mut stream_lock);
+                                        }
+                                        Err(e) => {
+                                            NetworkConnector::sendtolocked(&reqseed, &mut stream_lock);
+                                        }
+                                    };
                                     //println!("{}", recv_s);
 
-                                    file.write_all(recv_s.as_bytes()).unwrap();
-
-
-
-                                    commqueue.push(comm.clone());
                                     
-                                    NetworkConnector::sendtolocked(&reqpt, &mut stream_lock);
                                 },
                                 MessageType::RequestTakeoff => {
                                     commqueue.push(comm.clone());
@@ -407,7 +414,7 @@ impl NetworkConnector {
                                 
                                     stream_lock.set_nonblocking(false).unwrap();
                                     let mut buff = vec![0 as u8; comm.info as usize];
-                                    stream_lock.set_read_timeout(Some(Duration::from_millis(50)));
+                                    stream_lock.set_read_timeout(Some(Duration::from_millis(100)));
                                     match stream_lock.read_exact(&mut buff) {
                                         Ok(_) => {
                                             match bincode::deserialize::<MobUpdateBatch>(&buff) {
@@ -425,7 +432,7 @@ impl NetworkConnector {
                                                     
                                                 }
                                                 Err(e) => {
-                                                    
+                                                    //We just missed it and thats ok
                                                 }
                                             };
 

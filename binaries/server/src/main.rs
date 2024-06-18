@@ -651,8 +651,8 @@ fn main() {
                     stream.lock().unwrap().set_nonblocking(true);
                     println!("About to lock clients");
                     let mut gotlock = false;
-                    let mut retries = 0;
-                    while !gotlock && retries < 5 {
+
+                    while !gotlock {
                         match clients.try_lock() {
                             Ok(mut e) => {
                                 
@@ -666,14 +666,8 @@ fn main() {
                                 gotlock = true;
                             }
                             Err(e) => {
-                                println!("Couldnt lock clients, trying again in 2 sec...");
-                                retries += 1;
                             }
                         };
-                    }
-
-                    if !gotlock {
-                        panic!("Couldn't lock clients.");
                     }
                     
                     

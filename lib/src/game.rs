@@ -162,6 +162,7 @@ pub enum VisionType {
 pub struct Game {
     pub chunksys: Arc<RwLock<ChunkSystem>>,
     pub shader0: Shader,
+    pub oldshader: Shader,
     pub skyshader: Shader,
     pub modelshader: Shader,
     pub camera: Arc<Mutex<Camera>>,
@@ -238,6 +239,7 @@ enum FaderNames {
 impl Game {
     pub fn new(window: &Arc<RwLock<PWindow>>, connectonstart: bool, headless: bool, addressentered: &Arc<AtomicBool>, address: &Arc<Mutex<Option<String>>>) -> JoinHandle<Game> {
 
+        let oldshader = Shader::new("assets/oldvert.glsl", "assets/oldfrag.glsl");
         let shader0 = Shader::new("assets/vert.glsl", "assets/frag.glsl");
         let skyshader = Shader::new("assets/skyvert.glsl", "assets/skyfrag.glsl");
         let faders: RwLock<Vec<Fader>> = RwLock::new(Vec::new());
@@ -385,7 +387,7 @@ impl Game {
                 (5, 99),
                 (8, 99),
                 (10, 99),
-                (0, 0)
+                (19, 99)
             ]
         }));
 
@@ -422,6 +424,7 @@ impl Game {
         let mut g = Game {
             chunksys: chunksys.clone(),
             shader0,
+            oldshader,
             skyshader,
             modelshader: Shader::new("assets/mvert.glsl", "assets/mfrag.glsl"),
             camera: cam.clone(),
@@ -1435,6 +1438,7 @@ impl Game {
 
                 cmemlock.memories[ready.geo_index].length = ready.newlength;
                 cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
+                cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
                 cmemlock.memories[ready.geo_index].pos = ready.newpos;
                 cmemlock.memories[ready.geo_index].used = true;
 
@@ -1454,6 +1458,8 @@ impl Game {
                 let v8 = cmemlock.memories[ready.geo_index].vbo8;
                 let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
                 let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
+                let vv = cmemlock.memories[ready.geo_index].vvbo;
+                let uvv = cmemlock.memories[ready.geo_index].uvvbo;
 
                 WorldGeometry::bind_geometry(v32, v8, true, &self.shader0, bankarc.solids());
                 WorldGeometry::bind_geometry(
@@ -1463,6 +1469,8 @@ impl Game {
                     &self.shader0,
                     bankarc.transparents(),
                 );
+
+                WorldGeometry::bind_old_geometry(vv, uvv, &bankarc.vdata.lock().unwrap(), &bankarc.uvdata.lock().unwrap(), &self.oldshader);
             }
             None => {}
         }
@@ -1482,6 +1490,7 @@ impl Game {
 
                 cmemlock.memories[ready.geo_index].length = ready.newlength;
                 cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
+                cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
                 cmemlock.memories[ready.geo_index].pos = ready.newpos;
                 cmemlock.memories[ready.geo_index].used = true;
 
@@ -1502,6 +1511,9 @@ impl Game {
                 let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
                 let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
 
+                let vv = cmemlock.memories[ready.geo_index].vvbo;
+                let uvv = cmemlock.memories[ready.geo_index].uvvbo;
+
                 WorldGeometry::bind_geometry(v32, v8, true, &self.shader0, bankarc.solids());
                 WorldGeometry::bind_geometry(
                     tv32,
@@ -1510,6 +1522,9 @@ impl Game {
                     &self.shader0,
                     bankarc.transparents(),
                 );
+
+                WorldGeometry::bind_old_geometry(vv, uvv, &bankarc.vdata.lock().unwrap(), &bankarc.uvdata.lock().unwrap(), &self.oldshader);
+
                 let mut userstuff = true;
                 while userstuff {
                     match ugqarc.pop() {
@@ -1524,6 +1539,7 @@ impl Game {
                 
                                 cmemlock.memories[ready.geo_index].length = ready.newlength;
                                 cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
+                                cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
                                 cmemlock.memories[ready.geo_index].pos = ready.newpos;
                                 cmemlock.memories[ready.geo_index].used = true;
                 
@@ -1543,6 +1559,8 @@ impl Game {
                                 let v8 = cmemlock.memories[ready.geo_index].vbo8;
                                 let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
                                 let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
+                                let vv = cmemlock.memories[ready.geo_index].vvbo;
+                                let uvv = cmemlock.memories[ready.geo_index].uvvbo;
                 
                                 WorldGeometry::bind_geometry(v32, v8, true, &self.shader0, bankarc.solids());
                                 WorldGeometry::bind_geometry(
@@ -1553,7 +1571,7 @@ impl Game {
                                     bankarc.transparents(),
                                 );
                             
-                            
+                                WorldGeometry::bind_old_geometry(vv, uvv, &bankarc.vdata.lock().unwrap(), &bankarc.uvdata.lock().unwrap(), &self.oldshader);
                         
                         }
                         None => { userstuff = false; }
@@ -1702,6 +1720,11 @@ impl Game {
                 let dd2: Mutex<Vec<u8>> = Mutex::new(Vec::new());
                 let dd: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>) = (&dd1, &dd2);
 
+                unsafe {
+                    gl::BindVertexArray(self.shader0.vao);
+                    gl::UseProgram(self.shader0.shader_id);
+                }
+
                 WorldGeometry::bind_geometry(
                     cfl.tvbo32,
                     cfl.tvbo8,
@@ -1724,11 +1747,147 @@ impl Game {
                     }
                     // println!("Chunk rending!");
                 }
+                //We drew the transparents, then...
+
+                unsafe {
+                    gl::Enable(gl::CULL_FACE);
+                }
+
+                unsafe {
+                    gl::BindVertexArray(self.oldshader.vao);
+                    gl::UseProgram(self.oldshader.shader_id);
+                }
+
+
+        static mut MVP_LOC: i32 = -1;
+        static mut CAM_POS_LOC: i32 = 0;
+        static mut AMBIENT_BRIGHT_MULT_LOC: i32 = 0;
+        static mut VIEW_DISTANCE_LOC: i32 = 0;
+        static mut UNDERWATER_LOC: i32 = 0;
+        static mut CAM_DIR_LOC: i32 = 0;
+        static mut SUNSET_LOC: i32 = 0;
+        static mut SUNRISE_LOC: i32 = 0;
+        unsafe {
+            if MVP_LOC == -1 {
+
+                MVP_LOC =
+                    gl::GetUniformLocation(self.oldshader.shader_id, b"mvp\0".as_ptr() as *const i8);
+                //println!("MVP LOC: {}", MVP_LOC);
+                CAM_POS_LOC = gl::GetUniformLocation(
+                    self.oldshader.shader_id,
+                    b"camPos\0".as_ptr() as *const i8,
+                );
+                AMBIENT_BRIGHT_MULT_LOC = gl::GetUniformLocation(
+                    self.oldshader.shader_id,
+                    b"ambientBrightMult\0".as_ptr() as *const i8,
+                );
+                VIEW_DISTANCE_LOC = gl::GetUniformLocation(
+                    self.oldshader.shader_id,
+                    b"viewDistance\0".as_ptr() as *const i8,
+                );
+                UNDERWATER_LOC = gl::GetUniformLocation(
+                    self.oldshader.shader_id,
+                    b"underWater\0".as_ptr() as *const i8,
+                );
+                CAM_DIR_LOC = gl::GetUniformLocation(
+                    self.oldshader.shader_id,
+                    b"camDir\0".as_ptr() as *const i8,
+                );
+                SUNSET_LOC = gl::GetUniformLocation(
+                    self.oldshader.shader_id,
+                    b"sunset\0".as_ptr() as *const i8,
+                );
+                SUNRISE_LOC = gl::GetUniformLocation(
+                    self.oldshader.shader_id,
+                    b"sunrise\0".as_ptr() as *const i8,
+                );
+            }
+            let cam_lock = self.camera.lock().unwrap();
+
+            gl::UniformMatrix4fv(MVP_LOC, 1, gl::FALSE, cam_lock.mvp.to_cols_array().as_ptr());
+            gl::Uniform3f(
+                CAM_POS_LOC,
+                cam_lock.position.x,
+                cam_lock.position.y,
+                cam_lock.position.z,
+            );
+            gl::Uniform1f(AMBIENT_BRIGHT_MULT_LOC, self.ambient_bright_mult);
+            gl::Uniform1f(VIEW_DISTANCE_LOC, 8.0);
+            gl::Uniform1f(UNDERWATER_LOC, 0.0);
+            gl::Uniform3f(
+                CAM_DIR_LOC,
+                cam_lock.direction.x,
+                cam_lock.direction.y,
+                cam_lock.direction.z,
+            );
+            gl::Uniform1f(SUNSET_LOC, self.sunset_factor);
+            gl::Uniform1f(SUNRISE_LOC, self.sunrise_factor);
+            gl::Uniform1i(
+                gl::GetUniformLocation(
+                    self.oldshader.shader_id,
+                    b"ourTexture\0".as_ptr() as *const i8,
+                ),
+                0,
+            );
+            // let fc = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
+            // gl::Uniform4f(
+            //     FOGCOL_LOC,
+            //     fc.0, 
+            //     fc.1,
+            //     fc.2,
+            //     fc.3
+            // );
+
+            drop(cam_lock);
+        }
+
+        WorldGeometry::bind_old_geometry_no_upload(cfl.vvbo, cfl.uvvbo, &self.oldshader);
+
+
+        unsafe {
+
+            gl::DrawArrays(gl::TRIANGLES, 0, cfl.vlength as i32 / 5);
+            let error = gl::GetError();
+            if error != gl::NO_ERROR {
+                println!("OpenGL Error after drawing arrays: {}", error);
+            }
+            // println!("Chunk rending!");
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             }
         }
-        unsafe {
-            gl::Enable(gl::CULL_FACE);
-        }
+        
+
 
     }
 

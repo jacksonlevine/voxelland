@@ -169,16 +169,18 @@ pub struct ReadyMesh {
     pub geo_index: usize,
     pub newpos: vec::IVec2, 
     pub newlength: i32,
-    pub newtlength: i32
+    pub newtlength: i32,
+    pub newvlength: i32
 }
 
 impl ReadyMesh {
-    pub fn new(index: usize, newpos: &vec::IVec2, newlength: i32, newtlength: i32) -> ReadyMesh {
+    pub fn new(index: usize, newpos: &vec::IVec2, newlength: i32, newtlength: i32, newvlength: i32) -> ReadyMesh {
         ReadyMesh {
             geo_index: index,
             newpos: *newpos,
             newlength,
-            newtlength
+            newtlength,
+            newvlength
         }
     }
 }
@@ -1123,7 +1125,7 @@ impl ChunkSystem {
                     // }
                     if block != 0 {
  
-                        if block == 11 {
+                        if block == 19 {
                             let direction = DoorInfo::get_direction_bits(flags);
                             let open = DoorInfo::get_door_open_bit(flags);
                             let opposite = DoorInfo::get_opposite_door_bits(flags);
@@ -1346,7 +1348,7 @@ impl ChunkSystem {
             }
         }
 
-        let rm = ReadyMesh::new(index, &chunklock.pos, data32.len() as i32, tdata32.len() as i32);
+        let rm = ReadyMesh::new(index, &chunklock.pos, data32.len() as i32, tdata32.len() as i32, vdata.len() as i32);
         let ugqarc = self.finished_user_geo_queue.clone();
         let gqarc = self.finished_geo_queue.clone();
 

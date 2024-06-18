@@ -353,6 +353,30 @@ fn handle_client(
                     queued_sql.push((currseed, spot, block));
                     //csys.write_new_udm_entry(spot, block);
                 },
+                MessageType::MultiBlockSet => {
+                    println!("Recvd multi block set");
+
+                    let spot = IVec3::new(message.x as i32, message.y as i32, message.z as i32);
+                    let spot2 = message.otherpos;
+
+
+                    let block = message.info;
+                    let block2 = message.info2;
+                
+                    let mut csys = csys.write().unwrap();
+                    let currseed = *(csys.currentseed.read().unwrap());
+
+
+                    csys.set_block(spot, block, true);
+                    csys.set_block(spot2, block2, true);
+
+                    //TODO: MAKE THIS JUST WRITE A NEW LINE TO THE FILE INSTEAD OF REWRITING THE WHOLE THING
+                    //(IT WILL "COMPRESS" WHEN THE SERVER RELOADS)
+                    //csys.save_current_world_to_file(format!("world/{}", currseed));
+                    queued_sql.push((currseed, spot, block));
+                    queued_sql.push((currseed, spot2, block2));
+                    //csys.write_new_udm_entry(spot, block);
+                },
                 MessageType::RequestTakeoff => {
                     println!("Recvd req takeoff");
                     let mut rng = StdRng::from_entropy();

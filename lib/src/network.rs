@@ -202,6 +202,7 @@ impl NetworkConnector {
                                 MessageType::RequestSeed => {
                                     
                                 },
+                                
                                 MessageType::PlayerUpdate => {
 
                                     
@@ -239,6 +240,16 @@ impl NetworkConnector {
                                     
                                 },
                                 MessageType::BlockSet => {
+                                    // if recv_m.info == 0 {
+                                    //     csys.read().unwrap().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
+                                    //     recv_m.info, true, true);
+                                    // } else {
+                                    //     csys.read().unwrap().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
+                                    //     recv_m.info, false, true);
+                                    // }
+                                    hpcommqueue.push(comm.clone());
+                                },
+                                MessageType::MultiBlockSet => {
                                     // if recv_m.info == 0 {
                                     //     csys.read().unwrap().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
                                     //     recv_m.info, true, true);

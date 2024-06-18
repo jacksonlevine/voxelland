@@ -873,6 +873,16 @@ impl Game {
                                         comm.info, false, true);
                                     }
                             }
+                            MessageType::MultiBlockSet => {
+
+
+                                        self.chunksys.read().unwrap().set_block(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
+                                        comm.info, true);
+
+                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(comm.otherpos, 
+                                        comm.info2, true, true);
+
+                            }
                             _ => {
 
                             }
@@ -2500,25 +2510,21 @@ impl Game {
                                 let chunktoreb = ChunkSystem::spot_to_chunk_pos(&right);
 
                                 if self.vars.in_multiplayer {
-                                    let message = Message::new(
-                                        MessageType::BlockSet, 
+                                    let mut message = Message::new(
+                                        MessageType::MultiBlockSet, 
                                         Vec3::new(
                                             right.x as f32, 
                                             right.y as f32, 
                                             right.z as f32), 
                                         0.0, 
                                         blockbitsright);
+
+                                        message.info2 = neightopbits;
+                                        message.otherpos = rightup;
+
+
                                     self.netconn.send(&message);
 
-                                    let message = Message::new(
-                                        MessageType::BlockSet, 
-                                        Vec3::new(
-                                            rightup.x as f32, 
-                                            rightup.y as f32, 
-                                            rightup.z as f32), 
-                                        0.0, 
-                                        neightopbits);
-                                    self.netconn.send(&message);
                                 } else {
                                     self.chunksys.read().unwrap().set_block_and_queue_rerender(right, blockbitsright, false, true);
                                     self.chunksys.read().unwrap().set_block_and_queue_rerender(rightup, neightopbits, false, true);
@@ -2546,25 +2552,21 @@ impl Game {
                                 let chunktoreb = ChunkSystem::spot_to_chunk_pos(&left);
 
                                 if self.vars.in_multiplayer {
-                                    let message = Message::new(
-                                        MessageType::BlockSet, 
+                                    let mut message = Message::new(
+                                        MessageType::MultiBlockSet, 
                                         Vec3::new(
                                             left.x as f32, 
                                             left.y as f32, 
                                             left.z as f32), 
                                         0.0, 
                                         blockbitsleft);
+
+
+                                        message.info2 = neightopbits;
+                                        message.otherpos = leftup;
+
                                     self.netconn.send(&message);
 
-                                    let message = Message::new(
-                                        MessageType::BlockSet, 
-                                        Vec3::new(
-                                            leftup.x as f32, 
-                                            leftup.y as f32, 
-                                            leftup.z as f32), 
-                                        0.0, 
-                                        neightopbits);
-                                    self.netconn.send(&message);
                                 } else {
                                     self.chunksys.read().unwrap().set_block_and_queue_rerender(left, blockbitsleft, false, true);
                                     self.chunksys.read().unwrap().set_block_and_queue_rerender(leftup, neightopbits, false, true);
@@ -2574,24 +2576,20 @@ impl Game {
                         }
 
                         if self.vars.in_multiplayer {
-                            let message = Message::new(
-                                MessageType::BlockSet, 
+                            let mut message = Message::new(
+                                MessageType::MultiBlockSet, 
                                 Vec3::new(
                                     place_point.x as f32, 
                                     place_point.y as f32, 
                                     place_point.z as f32), 
                                 0.0, 
                                 bottom_id);
+
+                                message.info2 = top_id;
+                                message.otherpos = place_above;
+
                             self.netconn.send(&message);
-                            let message = Message::new(
-                                MessageType::BlockSet, 
-                                Vec3::new(
-                                    place_above.x as f32, 
-                                    place_above.y as f32, 
-                                    place_above.z as f32), 
-                                0.0, 
-                                top_id);
-                            self.netconn.send(&message);
+
                         } else {
                             self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, bottom_id, false, true);
                             self.chunksys.read().unwrap().set_block_and_queue_rerender(place_above, top_id, false, true);

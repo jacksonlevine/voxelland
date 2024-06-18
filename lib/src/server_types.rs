@@ -58,7 +58,8 @@ pub enum MessageType {
     ShutUpMobMsgs,
     MobUpdateBatch,
     TimeUpdate,
-    RequestMyID
+    RequestMyID,
+    MultiBlockSet
 }
 
 impl Display for MessageType {
@@ -118,6 +119,9 @@ impl Display for MessageType {
             MessageType::RequestMyID => {
                 write!(f, "Requestmyid")
             },
+            MessageType::MultiBlockSet => {
+                write!(f, "MultiBlockSet")
+            },
         }
     } 
 }
@@ -132,7 +136,8 @@ pub struct Message {
     pub info: u32,
     pub info2: u32,
     pub infof: f32,
-    pub goose: (u64, u64)
+    pub goose: (u64, u64),
+    pub otherpos: vec::IVec3
 }
 
 #[derive(Serialize, Deserialize)]
@@ -201,7 +206,8 @@ impl Message {
             info,
             info2: 0,
             infof: 1.0,
-            goose: Uuid::new_v4().as_u64_pair()
+            goose: Uuid::new_v4().as_u64_pair(),
+            otherpos: vec::IVec3::new(0,0,0)
         }
     }
 

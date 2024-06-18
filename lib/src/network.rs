@@ -264,6 +264,7 @@ impl NetworkConnector {
 
 
                                         Ok(_) => {
+                                            println!("Got the expected bytes for udm");
                                             let mut file = File::create("db").unwrap();
                                             file.write_all(&buff).unwrap();
 
@@ -289,6 +290,7 @@ impl NetworkConnector {
                                             // }
 
                                             // csys.write().unwrap().save_current_world_to_file(String::from("mp"));
+
                                             NetworkConnector::sendtolocked(&reqseed, &mut stream_lock);
                                         }
                                         Err(e) => {
@@ -305,6 +307,8 @@ impl NetworkConnector {
                                             // fs::create_dir_all("mp").unwrap();
                                             // let mut file = File::create("mp/udm").unwrap(); 
                                             // file.write_all(recv_s.as_bytes()).unwrap();
+
+                                            shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
                                 },
                                 MessageType::Seed => {
                                     //println!("Receiving Seed:");

@@ -312,7 +312,7 @@ impl NetworkConnector {
 
                                     }
 
-                                    
+                                    stream_lock.set_nonblocking(true).unwrap();
 
                                     //println!("{}", recv_s);
         
@@ -325,6 +325,10 @@ impl NetworkConnector {
                                 MessageType::Seed => {
                                     //println!("Receiving Seed:");
                                     let mut buff = vec![0 as u8; comm.info as usize];
+
+                                    stream_lock.set_nonblocking(false).unwrap();
+
+
                                     stream_lock.read_exact(&mut buff).unwrap();
                                     fs::create_dir_all("mp").unwrap();
                                     let mut file = File::create("mp/seed").unwrap(); 
@@ -344,6 +348,8 @@ impl NetworkConnector {
                                             NetworkConnector::sendtolocked(&reqseed, &mut stream_lock);
                                         }
                                     };
+
+                                    stream_lock.set_nonblocking(true).unwrap();
                                     //println!("{}", recv_s);
 
                                     
@@ -357,6 +363,9 @@ impl NetworkConnector {
                                 MessageType::Pt => {
                                     //println!("Receiving Pt:");
                                     let mut buff = vec![0 as u8; comm.info as usize];
+
+                                    stream_lock.set_nonblocking(false).unwrap();
+
                                     stream_lock.read_exact(&mut buff).unwrap();
                                     fs::create_dir_all("mp").unwrap();
                                     let mut file = File::create("mp/pt").unwrap(); 

@@ -1161,7 +1161,7 @@ impl ChunkSystem {
                     if block != 0 {
  
                         if block == 19 {
-                            let direction = DoorInfo::get_direction_bits(flags);
+                            let direction = Blocks::get_direction_bits(flags);
                             let open = DoorInfo::get_door_open_bit(flags);
                             let opposite = DoorInfo::get_opposite_door_bits(flags);
 

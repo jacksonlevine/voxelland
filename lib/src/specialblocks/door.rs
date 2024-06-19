@@ -20,21 +20,14 @@ pub const DOOROPEN_BITS: u32 = 0b0000_0000_0000_0100_0000_0000_0000_0000;
 pub const DOORTOP_BITS: u32 = 0b0000_0000_0000_1000_0000_0000_0000_0000;
 
 pub const OPPOSITEDOOR_BITS: u32 = 0b0000_0000_0001_0000_0000_0000_0000_0000;
-pub const BLOCK_DIRECTION_BITS: u32 = 0b0000_0000_0000_0011_0000_0000_0000_0000;
+
 
 
 
 
 impl DoorInfo {
 
-    pub fn get_direction_bits(input: u32) -> u32 {
-        return (input & BLOCK_DIRECTION_BITS) >> 16;
-    }
 
-    pub fn set_direction_bits(input: &mut u32, direction: u32) {
-        let bits = direction << 16;
-        *input |= bits;
-    }
 
     pub fn door_model_from_index(index: usize) -> &'static Vec<f32> {
         static models: Lazy<Vec<Vec<f32>>> = Lazy::new(|| {

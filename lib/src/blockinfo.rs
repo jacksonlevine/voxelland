@@ -1,5 +1,6 @@
 use crate::cube::CubeSide;
 
+pub const BLOCK_DIRECTION_BITS: u32 = 0b0000_0000_0000_0011_0000_0000_0000_0000;
 pub struct Blocks {}
 
 static TEXS: [[(u8, u8); 3]; 20] = [
@@ -11,7 +12,7 @@ static TEXS: [[(u8, u8); 3]; 20] = [
             [(4, 0), (4, 0), (4, 0)],  // 4 dirt
             [(5, 0), (5, 0), (5, 0)],  // 5 cobble
             [(6, 0), (6, 1), (6, 1)],  // 6 log
-            [(7, 0), (7, 0), (7, 0)],  // 7 leaves
+            [(7, 0), (7, 0), (7, 0)],  // 7 leaves                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
             [(8, 0), (8, 0), (8, 0)],    // 08 glass
             [(9, 0), (9, 0), (9, 0)],    // 09 smooth stone
             [(10, 0), (10, 0), (10, 0)], // 10 planks wood
@@ -82,6 +83,17 @@ impl Blocks {
     pub fn block_id_bits() -> u32 {
         0b0000_0000_0000_0000_1111_1111_1111_1111
     }
+
+    pub fn get_direction_bits(input: u32) -> u32 {
+        return (input & BLOCK_DIRECTION_BITS) >> 16;
+    }
+
+    pub fn set_direction_bits(input: &mut u32, direction: u32) {
+        let bits = direction << 16;
+        *input |= bits;
+    }
+
+
 
     pub fn block_flag_bits() -> u32 {
         0b1111_1111_1111_1111_0000_0000_0000_0000

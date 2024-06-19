@@ -2619,8 +2619,8 @@ impl Game {
                                 direction = if diffz > 0.0 { 2 } else { 0 };
                             }
 
-                            DoorInfo::set_direction_bits(&mut bottom_id, direction);
-                            DoorInfo::set_direction_bits(&mut top_id, direction);
+                            Blocks::set_direction_bits(&mut bottom_id, direction);
+                            Blocks::set_direction_bits(&mut top_id, direction);
 
                             let mut left: IVec3 = IVec3::new(0,0,0);
                             let mut right: IVec3 = IVec3::new(0,0,0);
@@ -2642,7 +2642,7 @@ impl Game {
 
                             if (blockbitsright & Blocks::block_id_bits()) == 19 {
 
-                                let neighdir = DoorInfo::get_direction_bits(blockbitsright);
+                                let neighdir = Blocks::get_direction_bits(blockbitsright);
                                 if neighdir == direction && DoorInfo::get_door_top_bit(blockbitsright) == 0 {
 
                                     let csysread = self.chunksys.read().unwrap();
@@ -2683,7 +2683,7 @@ impl Game {
                             }
 
                             if (blockbitsleft & Blocks::block_id_bits()) == 19 {
-                                let neighdir = DoorInfo::get_direction_bits(blockbitsleft);
+                                let neighdir = Blocks::get_direction_bits(blockbitsleft);
                                 if neighdir == direction && DoorInfo::get_door_top_bit(blockbitsleft) == 0 {
                                     let leftup = left + IVec3::new(0,1,0);
 

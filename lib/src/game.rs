@@ -151,7 +151,8 @@ pub struct GameVariables {
     pub on_new_world: bool,
     pub in_multiplayer: bool,
     pub menu_open: bool,
-    pub main_menu: bool
+    pub main_menu: bool,
+    pub in_climbable: bool
 }
 
 pub enum VisionType {
@@ -312,9 +313,14 @@ impl Game {
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             let csys_arc = Arc::clone(&chunksys);
             Box::new(move |v: vec::IVec3| {
+
                 let csys = csys_arc.read().unwrap();
-                let isntopendoor = DoorInfo::get_door_open_bit(csys.blockat(v.clone())) != 1;
-                return isntopendoor && csys_arc.read().unwrap().collision_predicate(v);
+                let bitshere = csys.blockat(v.clone());
+
+                
+                let isntopendoor = DoorInfo::get_door_open_bit(bitshere) != 1;
+                let isntladder = (bitshere & Blocks::block_id_bits()) != 20;
+                return isntopendoor && isntladder && csys_arc.read().unwrap().collision_predicate(v);
             })
         };
         let mut hud = Hud::new(&window.clone(), tex.id);
@@ -399,7 +405,7 @@ impl Game {
             dirty: true,
             inv: [
                 (18, 99),
-                (5, 99),
+                (20, 99),
                 (8, 99),
                 (10, 99),
                 (19, 99)
@@ -464,7 +470,8 @@ impl Game {
                 on_new_world: true,
                 in_multiplayer: connectonstart, //For now,
                 menu_open: false,
-                main_menu: false
+                main_menu: false,
+                in_climbable: false
             },
             controls: ControlsState::new(),
             faders: Arc::new(faders),
@@ -1230,14 +1237,24 @@ impl Game {
         let feetpos = camlock.position - Vec3::new(0.0, 1.0, 0.0);
 
         let feetposi = vec::IVec3::new(feetpos.x.floor() as i32, feetpos.y.floor() as i32, feetpos.z.floor() as i32);
+        let headposi = vec::IVec3::new(camlock.position.x.floor() as i32, camlock.position.y.floor() as i32, camlock.position.z.floor() as i32);
         let feetposi2 = vec::IVec3::new(feetpos.x.floor() as i32, (feetpos.y-0.25).floor() as i32, feetpos.z.floor() as i32);
 
-        let blockfeetin = self.chunksys.read().unwrap().blockat(feetposi);
-        let blockfeetinlower = self.chunksys.read().unwrap().blockat(feetposi2);
+        let blockfeetin = self.chunksys.read().unwrap().blockat(feetposi) & Blocks::block_id_bits();
+        let blockfeetinlower = self.chunksys.read().unwrap().blockat(feetposi2) & Blocks::block_id_bits();
         
+        let blockheadin = self.chunksys.read().unwrap().blockat(headposi) & Blocks::block_id_bits();
 
         let feetinwater = blockfeetin == 2;
         let feetinwaterlower = blockfeetinlower == 2;
+
+        if Blocks::is_climbable(blockfeetin) || Blocks::is_climbable(blockheadin) {
+            self.vars.in_climbable = true;
+        }
+
+        if !Blocks::is_climbable(blockfeetinlower) && !Blocks::is_climbable(blockheadin) {
+            self.vars.in_climbable = false;
+        }
 
         if feetinwater {
             self.inwater = true;
@@ -1255,7 +1272,7 @@ impl Game {
         }
 
         const GRAV: f32 = 9.8;
-        if self.inwater {
+        if self.inwater || self.vars.in_climbable {
             self.time_falling_scalar = 1.0;
             if !self.grounded {
                 camlock.velocity += Vec3::new(0.0, -2.0*self.delta_time, 0.0);
@@ -2745,6 +2762,38 @@ impl Game {
                             }
 
                         }
+
+                        } else if id == 20 { //ladder shit
+
+                            let mut ladder_id = id;
+
+                            let diffx = cl.position.x - place_point.x as f32;
+                            let diffz = cl.position.z - place_point.z as f32;
+
+                            let mut direction = 0;
+
+                            if diffx.abs() > diffz.abs() {
+                                direction = if diffx > 0.0 { 1 } else { 3 };
+                            } else {
+                                direction = if diffz > 0.0 { 2 } else { 0 };
+                            }
+
+                            Blocks::set_direction_bits(&mut ladder_id, direction);
+
+                            if self.vars.in_multiplayer {
+                                let message = Message::new(
+                                    MessageType::BlockSet, 
+                                    Vec3::new(
+                                        place_point.x as f32, 
+                                        place_point.y as f32, 
+                                        place_point.z as f32), 
+                                    0.0, 
+                                    ladder_id);
+
+                                self.netconn.send(&message);
+                            } else {
+                                self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, ladder_id, false, true);
+                            }
 
                         } else {
                             if self.vars.in_multiplayer {

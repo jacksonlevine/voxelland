@@ -35,6 +35,7 @@ use crate::packedvertex::PackedVertex;
 use crate::planetinfo::Planets;
 use crate::shader::Shader;
 use crate::specialblocks::door::DoorInfo;
+use crate::specialblocks::ladder::LadderInfo;
 use crate::textureface::TextureFace;
 use crate::vec::IVec3;
 use crate::vec::{self, IVec2};
@@ -1060,7 +1061,6 @@ impl ChunkSystem {
 
     pub fn rebuild_index(&self, index: usize, user_power: bool, light: bool) {
 
-        
         //println!("Rebuilding!");
         let chunkarc = self.chunks[index].clone();
         let mut chunklock = chunkarc.lock().unwrap();
@@ -1201,6 +1201,36 @@ impl ChunkSystem {
                             } else {
                                 uvdata.extend_from_slice(&doorbottomuvs);
                             }
+
+                            
+                        } else if block == 20 {
+                            let direction = Blocks::get_direction_bits(flags);
+
+                            let mut modelindex: i32 = direction as i32;
+
+
+
+                            let mut blocklightval = 0.0;
+
+                            let lmlock = self.lightmap.lock().unwrap();
+                            if lmlock.contains_key(&spot) {
+                                blocklightval = lmlock.get(&spot).unwrap().sum() as f32;
+                            }
+                            drop(lmlock);
+
+                            for vert in LadderInfo::ladder_model_from_index(modelindex as usize).chunks(5) {
+                                vdata.extend_from_slice(&[
+                                    vert[0] + spot.x as f32,
+                                    vert[1] + spot.y as f32,
+                                    vert[2] + spot.z as f32,
+                                    vert[3] + blocklightval,
+                                    vert[4]
+                                ])
+                            }
+
+                            
+                            uvdata.extend_from_slice(&LadderInfo::get_ladder_uvs());
+                            
 
                             
                         } else {

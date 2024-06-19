@@ -3,7 +3,7 @@ use crate::cube::CubeSide;
 pub const BLOCK_DIRECTION_BITS: u32 = 0b0000_0000_0000_0011_0000_0000_0000_0000;
 pub struct Blocks {}
 
-static TEXS: [[(u8, u8); 3]; 20] = [
+static TEXS: [[(u8, u8); 3]; 21] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],  // 0
             [(1, 0), (1, 0), (1, 0)],  // 1 sand
@@ -25,9 +25,10 @@ static TEXS: [[(u8, u8); 3]; 20] = [
             [(0, 4), (0, 4), (0, 4)], // 17 red crystal
             [(12, 1), (12, 1), (12, 1)], // 18 light
             [(12, 0), (12, 0), (12, 0)], // 19 door
+            [(0, 1), (0, 1), (0, 1)], // 20 ladder
         ];
 
-static BREAKTIMES: [f32; 20] = [
+static BREAKTIMES: [f32; 21] = [
     0.1,
     0.5,
     0.7,
@@ -47,7 +48,8 @@ static BREAKTIMES: [f32; 20] = [
     1.2,
     0.5,
     1.0,
-    1.0
+    1.0,
+    0.6
 ];
 
 impl Blocks {
@@ -68,9 +70,15 @@ impl Blocks {
         ];
         return TRANSPARENTS.contains(&id);
     }
+    pub fn is_climbable(id: u32) -> bool {
+        static CLIMBABLES: [u32; 1] = [
+            20
+        ];
+        return CLIMBABLES.contains(&id);
+    }
     pub fn is_semi_transparent(id: u32) -> bool {
-        static SEMI_TRANSPARENTS: [u32; 3] = [
-            7, 11, 19
+        static SEMI_TRANSPARENTS: [u32; 4] = [
+            7, 11, 19, 20
         ];
         return SEMI_TRANSPARENTS.contains(&id);
     }

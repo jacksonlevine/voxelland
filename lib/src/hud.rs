@@ -8,6 +8,13 @@ use glfw::PWindow;
 use crate::shader::Shader;
 use crate::textureface::TextureFace;
 use crate::vec::{self, IVec3};
+use crate::windowandkey;
+
+pub enum HighlightedSlot {
+    ChestSlot(i32),
+    InvSlot(i32),
+    None
+}
 
 #[derive(Clone)]
 pub struct HudElement {
@@ -23,6 +30,24 @@ impl HudElement {
             size,
             uvs
         }
+    }
+
+    pub fn overlaps(&self, x: f64, y: f64) -> bool {
+        unsafe {
+            let xnorm = x / windowandkey::WINDOWWIDTH as f64;
+            let ynorm = y / windowandkey::WINDOWHEIGHT as f64;
+
+            let ndcx = 2.0 * xnorm - 1.0;
+            let ndcy = 1.0 - 2.0 * ynorm;
+
+            if ndcx >= self.normalized_pos.x as f64 && ndcx <= self.normalized_pos.x as f64 + self.size.x as f64 {
+                if ndcy <= self.normalized_pos.y as f64 && ndcy >= self.normalized_pos.y as f64 - self.size.y as f64 {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
     }
 }
 
@@ -43,7 +68,8 @@ pub struct Hud {
     pub current_chest: vec::IVec3,
     pub chest_open: bool,
     pub chestvao: GLuint,
-    pub chestdirty: bool
+    pub chestdirty: bool,
+    pub highlightedslot: HighlightedSlot
 }
 
 impl Hud {
@@ -73,7 +99,8 @@ impl Hud {
             current_chest: IVec3::new(0,0,0),
             chest_open: false,
             chestvao,
-            chestdirty: false
+            chestdirty: false,
+            highlightedslot: HighlightedSlot::None
         }
     }
     pub fn update(&mut self) { 

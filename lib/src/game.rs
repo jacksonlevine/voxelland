@@ -2983,6 +2983,9 @@ impl Game {
         if updateinv {
             self.update_inventory();
             self.hud.chest_open = true;
+
+            self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Normal);
+            self.set_mouse_focused(false);
         }
 
         
@@ -3071,7 +3074,7 @@ impl Game {
         match key {
             Key::Escape => {
                 if action == Action::Press {
-                    if !self.vars.menu_open {
+                    if !self.vars.menu_open && !self.hud.chest_open {
 
                         self.currentbuttons = vec![
                             ("Quit Game", "quittomainmenu")
@@ -3084,6 +3087,8 @@ impl Game {
 
                     if self.hud.chest_open {
                         self.hud.chest_open = false;
+                        self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+                        self.set_mouse_focused(true);
                     }
                 }
                 

@@ -5,6 +5,11 @@ use once_cell::sync::Lazy;
 use std::{path::Path, ptr::addr_of_mut, sync::{atomic::AtomicBool, Arc, Mutex, RwLock}, time::{Duration, Instant}};
 use imgui::*;
 use imgui_opengl_renderer::Renderer;
+
+pub static mut WINDOWWIDTH: i32 = 0;
+pub static mut WINDOWHEIGHT: i32 = 0;
+
+
 pub struct WindowAndKeyContext {
     pub width: u32,
     pub height: u32,
@@ -60,6 +65,11 @@ fn toggle_fullscreen(window_ptr: *mut glfw::ffi::GLFWwindow) {
 
 impl WindowAndKeyContext {
     pub fn new(windowname: &'static str, width: u32, height: u32) -> Self {
+
+        unsafe {
+            WINDOWHEIGHT = height as i32;
+            WINDOWWIDTH = width as i32;
+        }
         
         let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
         let (mut window, events) = glfw
@@ -265,6 +275,8 @@ impl WindowAndKeyContext {
                                 self.height = hei as u32;
                                 unsafe {
                                     gl::Viewport(0, 0, wid, hei);
+                                    WINDOWHEIGHT = hei;
+                                    WINDOWWIDTH = wid
                                 }
                             }
                             glfw::WindowEvent::CursorPos(xpos, ypos) => {

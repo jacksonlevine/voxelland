@@ -756,7 +756,7 @@ impl Game {
 
     pub fn update_inventory(&mut self) {
         for i in 20..40 {
-            let realslotind = i - 5;
+            let realslotind = i - 20;
             let slot = self.chunksys.read().unwrap().chest_registry.entry(self.hud.current_chest).or_insert(
                 ChestInventory { 
                     dirty: true, 

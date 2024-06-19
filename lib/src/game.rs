@@ -230,7 +230,7 @@ pub struct Game {
     pub loadedworld: AtomicBool,
     pub addressentered: Arc<AtomicBool>,
     pub address: Arc<Mutex<Option<String>>>,
-    pub player_model_entities: Arc<DashMap<Uuid, ModelEntity>>,
+    pub player_model_entities: Arc<DashMap<Uuid, ModelEntity>>
 }
 
 enum FaderNames {
@@ -325,27 +325,34 @@ impl Game {
         };
         let mut hud = Hud::new(&window.clone(), tex.id);
 
-        
+        fn add_inventory_rows(elements: &mut Vec<HudElement>, yoffset: f32, rows: i32) {
+              
         let tf = TextureFace::new(0, 14);
+
+        let rh: f32 = 0.2;
         //IMPORTANT: Push these first, the inv row slots
-        for i in 0..5 {
-            let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + i as f32 * 0.10, -0.9), Vec2::new(0.15, 0.15), [
-                tf.blx, tf.bly,
-                tf.brx, tf.bry,
-                tf.trx, tf.tr_y,
-
-                tf.trx, tf.tr_y,
-                tf.tlx, tf.tly,
-                tf.blx, tf.bly
-            ]);
-
-            hud.elements.push(invrowel);
+        for y in 0..rows {
+            for i in 0..5 {
+                let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + i as f32 * 0.10, yoffset - y as f32 * rh), Vec2::new(0.15, 0.15), [
+                    tf.blx, tf.bly,
+                    tf.brx, tf.bry,
+                    tf.trx, tf.tr_y,
+    
+                    tf.trx, tf.tr_y,
+                    tf.tlx, tf.tly,
+                    tf.blx, tf.bly
+                ]);
+    
+                elements.push(invrowel);
+            }
         }
+        
 
         let tf = TextureFace::new(0, 0);
         //The item textures on top of them
+        for y in 0..rows {
         for i in 0..5 {
-            let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + i as f32 * 0.10, -0.9), Vec2::new(0.10, 0.10), [
+            let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + i as f32 * 0.10, yoffset - y as f32 * rh), Vec2::new(0.10, 0.10), [
                 tf.blx, tf.bly,
                 tf.brx, tf.bry,
                 tf.trx, tf.tr_y,
@@ -355,14 +362,16 @@ impl Game {
                 tf.blx, tf.bly
             ]);
 
-            hud.elements.push(invrowel);
+            elements.push(invrowel);
         }
+    }
 
 
         let tf = TextureFace::new(0, 0);
         //The number textures on top of them
+        for y in 0..rows {
         for i in 0..5 {
-            let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + 0.01 + i as f32 * 0.10, -0.93), Vec2::new(0.05, 0.05), [
+            let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + 0.01 + i as f32 * 0.10, yoffset  - y as f32 * rh - 0.03), Vec2::new(0.05, 0.05), [
                 tf.blx, tf.bly,
                 tf.brx, tf.bry,
                 tf.trx, tf.tr_y,
@@ -371,9 +380,9 @@ impl Game {
                 tf.tlx, tf.tly,
                 tf.blx, tf.bly
             ]);
-            hud.elements.push(invrowel);
+            elements.push(invrowel);
 
-            let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + 0.02 + i as f32 * 0.10, -0.93), Vec2::new(0.05, 0.05), [
+            let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + 0.02 + i as f32 * 0.10, yoffset  - y as f32 * rh - 0.03), Vec2::new(0.05, 0.05), [
                 tf.blx, tf.bly,
                 tf.brx, tf.bry,
                 tf.trx, tf.tr_y,
@@ -383,11 +392,18 @@ impl Game {
                 tf.blx, tf.bly
             ]);
 
-            hud.elements.push(invrowel);
+            elements.push(invrowel);
+        }
+    }
         }
 
+        add_inventory_rows(&mut hud.elements, -0.9, 1);
 
 
+        add_inventory_rows(&mut hud.chestelements, 0.4, 4);
+
+
+        //Crosshair
         let tf = TextureFace::new(0, 13);
 
         hud.elements.push(HudElement::new(Vec2::new(0.0, 0.0), Vec2::new(0.08, 0.08), [
@@ -739,6 +755,100 @@ impl Game {
     }
 
     pub fn update_inventory(&mut self) {
+        for i in 20..40 {
+            let realslotind = i - 5;
+            let slot = self.chunksys.read().unwrap().chest_registry.entry(self.hud.current_chest).or_insert(
+                ChestInventory { 
+                    dirty: true, 
+                    inv: [(5,20), (0,0), (0,0), (0,0), (0,0),
+                        (0,0), (0,0), (0,0), (0,0), (0,0),
+                        (0,0), (0,0), (0,0), (0,0), (0,0),
+                        (0,0), (0,0), (0,0), (0,0), (0,0)] 
+                }
+            ).inv[realslotind];
+            let idinslot = slot.0;
+            let texcoords = Blocks::get_tex_coords(idinslot, crate::cube::CubeSide::LEFT);
+            let tf = TextureFace::new(texcoords.0 as i8, texcoords.1 as i8);
+            let bf = TextureFace::new(0,0);
+            self.hud.elements[i as usize].uvs = [
+                tf.blx, tf.bly,
+                tf.brx, tf.bry,
+                tf.trx, tf.tr_y,
+
+                tf.trx, tf.tr_y,
+                tf.tlx, tf.tly,
+                tf.blx, tf.bly
+            ];
+
+            if slot.1 > 0 {
+                let count = slot.1.to_string();
+                if count.len() == 2 {
+                    let g1 = GlyphFace::new(count.as_bytes()[0]);
+                    let g2 = GlyphFace::new(count.as_bytes()[1]);
+
+                    self.hud.elements[40 + realslotind * 2].uvs = [
+                        g1.blx, g1.bly,
+                        g1.brx, g1.bry,
+                        g1.trx, g1.tr_y,
+
+                        g1.trx, g1.tr_y,
+                        g1.tlx, g1.tly,
+                        g1.blx, g1.bly
+                    ];
+                    self.hud.elements[40 + realslotind * 2 + 1].uvs = [
+                        g2.blx, g2.bly,
+                        g2.brx, g2.bry,
+                        g2.trx, g2.tr_y,
+
+                        g2.trx, g2.tr_y,
+                        g2.tlx, g2.tly,
+                        g2.blx, g2.bly
+                    ];
+                }
+
+                if count.len() == 1 {
+                    let g2 = GlyphFace::new(count.as_bytes()[0]);
+                    self.hud.elements[40 + realslotind * 2].uvs = [
+                        bf.blx, bf.bly,
+                        bf.brx, bf.bry,
+                        bf.trx, bf.tr_y,
+
+                        bf.trx, bf.tr_y,
+                        bf.tlx, bf.tly,
+                        bf.blx, bf.bly
+                    ];
+                    self.hud.elements[40 + realslotind * 2 + 1].uvs = [
+                        g2.blx, g2.bly,
+                        g2.brx, g2.bry,
+                        g2.trx, g2.tr_y,
+
+                        g2.trx, g2.tr_y,
+                        g2.tlx, g2.tly,
+                        g2.blx, g2.bly
+                    ];
+                }
+            } else {
+                self.hud.elements[40 + realslotind * 2].uvs = [
+                        bf.blx, bf.bly,
+                        bf.brx, bf.bry,
+                        bf.trx, bf.tr_y,
+
+                        bf.trx, bf.tr_y,
+                        bf.tlx, bf.tly,
+                        bf.blx, bf.bly
+                    ];
+                self.hud.elements[40 + realslotind * 2 + 1].uvs = [
+                    bf.blx, bf.bly,
+                    bf.brx, bf.bry,
+                    bf.trx, bf.tr_y,
+
+                    bf.trx, bf.tr_y,
+                    bf.tlx, bf.tly,
+                    bf.blx, bf.bly
+                ];
+            }
+        }
+        
         for i in 5..10 {
             let realslotind = i - 5;
             let slot = self.inventory.read().unwrap().inv[realslotind];
@@ -824,6 +934,7 @@ impl Game {
                 ];
             }
         }
+        
         self.hud.dirty = true;
     }
 
@@ -2531,6 +2642,8 @@ impl Game {
         let slot_selected = self.hud.bumped_slot;
         let slot = self.inventory.read().unwrap().inv[slot_selected];
 
+        let mut updateinv = false;
+
         if true {
 
             let cl = self.camera.lock().unwrap();
@@ -2571,9 +2684,15 @@ impl Game {
                             self.chunksys.write().unwrap().set_block(otherhalf, otherhalfbits, true);
                             self.chunksys.write().unwrap().set_block_and_queue_rerender(block_hit, blockbitshere, true, true);
                         }
-                    } else if blockidhere == 21 { //ITS A CHEST
+                    } else if blockidhere == 21 { //RIGHT CLICKED A CHEST
+                        
+                        let csys = self.chunksys.write().unwrap();
+
+                        self.hud.current_chest = block_hit;
+                        updateinv = true;
                         
 
+                        
 
                     } else if slot.0 != 0 && slot.1 > 0 {
                          
@@ -2861,7 +2980,10 @@ impl Game {
 
         }
 
-        
+        if updateinv {
+            self.update_inventory();
+            self.hud.chest_open = true;
+        }
 
         
 
@@ -2958,6 +3080,10 @@ impl Game {
     
                     } else {
                         self.vars.menu_open = false;
+                    }
+
+                    if self.hud.chest_open {
+                        self.hud.chest_open = false;
                     }
                 }
                 

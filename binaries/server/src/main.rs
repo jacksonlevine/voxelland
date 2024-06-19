@@ -114,21 +114,10 @@ fn handle_client(
                     shutupmobmsgs.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
                 MessageType::RequestUdm => {
-                    //let writelock = wl.lock().unwrap();
-
-
-                    // let conn = Connection::open("db").unwrap();
-
-                    
-
-
-
-                    // let csys = csys.read().unwrap();
-
-                    // let seed = csys.currentseed.read().unwrap();
-                    // let table_name = format!("userdatamap_{}", seed);
 
                     println!("Recvd req world");
+
+                     // Read the entire database file into a byte buffer
 
                     let buffer = {
                         // Open the SQLite database file
@@ -140,14 +129,6 @@ fn handle_client(
                         buffer
                     };
 
-                    
-
-                    
-
-                    // Read the entire database file into a byte buffer
-                    
-
-                    
 
 
                     // Prepare the message
@@ -170,52 +151,45 @@ fn handle_client(
 
                     
 
+                }
+                MessageType::ReqChestReg => {
 
-                                            // let mut stmt = conn.prepare(&format!(
-                                            //     "SELECT x, y, z, value FROM {}",
-                                            //     table_name
-                                            // )).unwrap();
-                                            // let userdatamap_iter = stmt.query_map([], |row| {
-                                            //     Ok(Entry {
-                                            //         key: IVec3::new(row.get(0)?, row.get(1)?, row.get(2)?),
-                                            //         value: row.get(3)?,
-                                            //     })
-                                            // }).unwrap();
-                                    
-                                            // let mut entries: Vec<Entry> = Vec::new();
-                                            // for entry in userdatamap_iter {
-                                            //     entries.push(entry.unwrap());
-                                            // }
-                                    
-                                            // let serialized_udm = bincode::serialize(&entries).unwrap();
+                    println!("Recvd req chest reg");
 
-                                            // let size = bincode::serialized_size(&entries).unwrap(); 
+                     // Read the entire database file into a byte buffer
+
+                    let buffer = {
+                        // Open the SQLite database file
+                        let mut file = File::open("chestdb").unwrap();
+                        println!("Opened the db file");
+                        let mut buffer = Vec::new();
+                        file.read_to_end(&mut buffer).unwrap();
+                        println!("Read the file to end");
+                        buffer
+                    };
 
 
-                                            // let udmmsg = Message::new(
-                                            //     MessageType::Udm,
-                                            //     Vec3::ZERO,
-                                            //     0.0,
-                                            //     size as u32,
-                                            // );
 
-                                            // mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
-                                            // mystream.write_all(&serialized_udm).unwrap();
+                    // Prepare the message
+                    let chestmsg = Message::new(
+                        MessageType::ChestReg,
+                        Vec3::ZERO,
+                        0.0,
+                        buffer.len() as u32,
+                    );
 
-                    // let currseed = *(csys.currentseed.read().unwrap());
-                    // println!("Recvd req world");
-                    // let world = fs::read_to_string(format!("world/{}/udm", currseed))
-                    //     .unwrap();
+                    {
+                        let mut mystream = stream.lock().unwrap();
+                        // Serialize and send the message header
+                        mystream.write_all(&bincode::serialize(&chestmsg).unwrap()).unwrap();
+                        println!("Wrote the chest header");
+                        // Send the raw binary data of the database file
+                        mystream.write_all(&buffer).unwrap();
+                        println!("Wrote the chest file buffer");
+                    }
 
-                    // let udmmsg = Message::new(
-                    //     MessageType::Udm,
-                    //     Vec3::ZERO,
-                    //     0.0,
-                    //     bincode::serialized_size(&world).unwrap() as u32,
-                    // );
+                    
 
-                    // mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
-                    // mystream.write_all(&bincode::serialize(&world).unwrap()).unwrap();
                 }
                 MessageType::RequestSeed => {
                     //let writelock = wl.lock().unwrap();

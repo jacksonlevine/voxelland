@@ -161,6 +161,7 @@ impl NetworkConnector {
             let requdm = Message::new(MessageType::RequestUdm, Vec3::ZERO, 0.0, 0);
             let reqseed = Message::new(MessageType::RequestSeed, Vec3::ZERO, 0.0, 0);
             let reqpt = Message::new(MessageType::RequestPt, Vec3::ZERO, 0.0, 0);
+            let reqchest = Message::new(MessageType::RequestUdm, Vec3::ZERO, 0.0, 0);
             
             NetworkConnector::sendto(&requdm, &stream);
 
@@ -190,6 +191,50 @@ impl NetworkConnector {
                             };
 
                             match comm.message_type {
+                                MessageType::ChestReg => {
+                                    
+                                    println!("Receiving ChestReg:");
+                                    shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
+                                    
+                                    stream_lock.set_nonblocking(false).unwrap();
+                                    
+
+
+
+                                    let mut buff = vec![0 as u8; comm.info as usize];
+
+                                    stream_lock.set_read_timeout(Some(Duration::from_secs(2)));
+
+                                    match stream_lock.read_exact(&mut buff) {
+
+
+                                        Ok(_) => {
+                                            println!("Got the expected bytes for chestreg");
+                                            let mut file = File::create("chestdb").unwrap();
+                                            file.write_all(&buff).unwrap();
+
+
+                                            csys.write().unwrap().load_chests_from_file();
+                                            recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
+
+                                            //NetworkConnector::sendtolocked(&reqseed, &mut stream_lock);
+                                        }
+                                        Err(e) => {
+                                            println!("Error receiving chestreg, trying again...");
+                                            NetworkConnector::sendtolocked(&reqchest, &mut stream_lock);
+                                        }
+
+                                    }
+
+                                    stream_lock.set_nonblocking(true).unwrap();
+
+                                    
+                                    shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
+
+                                }
+                                MessageType::ReqChestReg => {
+
+                                }
                                 MessageType::RequestMyID => {
 
                                 }
@@ -280,29 +325,6 @@ impl NetworkConnector {
                                             let mut file = File::create("db").unwrap();
                                             file.write_all(&buff).unwrap();
 
-                                            // Now open the SQLite database file
-                                            //let conn = Connection::open("db").unwrap();
-
-                                            // // Perform operations on the SQLite database as needed
-                                            // let mut stmt = conn.prepare("SELECT x, y, z, value FROM userdatamap").unwrap();
-                                            // let userdatamap_iter = stmt.query_map([], |row| {
-                                            //     Ok(Entry {
-                                            //         key: IVec3::new(row.get(0)?, row.get(1)?, row.get(2)?),
-                                            //         value: row.get(3)?,
-                                            //     })
-                                            // }).unwrap();
-
-                                            // let mut entries: Vec<Entry> = Vec::new();
-                                            // for entry in userdatamap_iter {
-                                            //     entries.push(entry.unwrap());
-                                            // }
-
-                                            // for entry in entries {
-                                            //     csys.write().unwrap().set_block(entry.key, entry.value, true);
-                                            // }
-
-                                            // csys.write().unwrap().save_current_world_to_file(String::from("mp"));
-
                                             NetworkConnector::sendtolocked(&reqseed, &mut stream_lock);
                                         }
                                         Err(e) => {
@@ -313,13 +335,6 @@ impl NetworkConnector {
                                     }
 
                                     stream_lock.set_nonblocking(true).unwrap();
-
-                                    //println!("{}", recv_s);
-        
-                                            // fs::create_dir_all("mp").unwrap();
-                                            // let mut file = File::create("mp/udm").unwrap(); 
-                                            // file.write_all(recv_s.as_bytes()).unwrap();
-
                                 },
                                 MessageType::Seed => {
                                     //println!("Receiving Seed:");
@@ -379,13 +394,15 @@ impl NetworkConnector {
 
 
                                     csys.write().unwrap().load_world_from_file(String::from("mp"));
-                                    recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
+
+                                    thread::sleep(Duration::from_millis(200));
+                                    NetworkConnector::sendtolocked(&reqchest, &mut stream_lock);
+                                    
                  
                                     //println!("{}", recv_s);
 
                                     
-                                    stream_lock.set_nonblocking(true).unwrap();
-                                    shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
+                                    
                                 },
                                 MessageType::YourId => {
                                     // //println!("Receiving Your ID:");

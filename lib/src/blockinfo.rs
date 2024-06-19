@@ -91,8 +91,36 @@ impl Blocks {
             3 => {
                 "grassstepseries"
             }
+            1 => {
+                "sandstepseries"
+            }
+            2 => {
+                "waterstepseries"
+            }
             _ => {
                 "stonestepseries"
+            }
+        }
+    }
+    pub fn get_place_series(id: u32) -> &'static str {
+        match id {
+            3 => {
+                "grassstepseries"
+            }
+            7 => {
+                "plantplaceseries"
+            }
+            8 => {
+                "glassplaceseries"
+            }
+            18 => {
+                "glassplaceseries"
+            }
+            19 => {
+                "doorseries"
+            }
+            _ => {
+                "stoneplaceseries"
             }
         }
     }

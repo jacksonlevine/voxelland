@@ -25,6 +25,8 @@ use std::sync::{Arc, Mutex};
 
 use noise::{NoiseFn, Perlin};
 
+use crate::audio;
+use crate::audio::AudioPlayer;
 use crate::chunkregistry::ChunkMemory;
 use crate::chunkregistry::ChunkRegistry;
 use crate::cube::Cube;
@@ -206,7 +208,8 @@ pub struct ChunkSystem {
     pub currentseed: RwLock<u32>,
     pub headless: bool,
     pub hashadinitiallightpass: Arc<Mutex<HashMap<vec::IVec2, bool>>>,
-    pub lightmap: Arc<Mutex<HashMap<vec::IVec3, LightSegment>>>
+    pub lightmap: Arc<Mutex<HashMap<vec::IVec3, LightSegment>>>,
+    pub audiop: Option<Arc<RwLock<AudioPlayer>>>
 }
 
 impl ChunkSystem {
@@ -435,7 +438,10 @@ impl ChunkSystem {
         println!("After making new chunk stuff");
     }
     
-    pub fn new(radius: u8, seed: u32, noisetype: usize, headless: bool) -> ChunkSystem {
+    pub fn new(radius: u8, seed: u32, noisetype: usize, headless: bool, audiop: Option<Arc<RwLock<AudioPlayer>>>) -> ChunkSystem {
+        
+
+        
         let mut cs = ChunkSystem {
             chunks: Vec::new(),
             geobank: Vec::new(),
@@ -459,7 +465,8 @@ impl ChunkSystem {
             currentseed: RwLock::new(0),
             headless,
             hashadinitiallightpass: Arc::new(Mutex::new(HashMap::new())),
-            lightmap: Arc::new(Mutex::new(HashMap::new()))
+            lightmap: Arc::new(Mutex::new(HashMap::new())),
+            audiop
         };
 
 
@@ -705,7 +712,33 @@ impl ChunkSystem {
                 self.nonuserdatamap.insert(spot, block);
             }
         }
+        if !self.headless {
+            if block == 0 {
+                let wastherebits = self.blockat(spot) & Blocks::block_id_bits();
+                self.audiop.as_ref().unwrap().write().unwrap().play_next_in_series(
+                    Blocks::get_place_series(wastherebits), &Vec3::new(spot.x as f32, spot.y as f32, spot.z as f32), &Vec3::ZERO, 0.5);
+            } else {
+                self.audiop.as_ref().unwrap().write().unwrap().play_next_in_series(
+                    Blocks::get_place_series(block & Blocks::block_id_bits()), &Vec3::new(spot.x as f32, spot.y as f32, spot.z as f32), &Vec3::ZERO, 0.5);
+            }
+            
+
+            
+        }
         
+    }
+
+    pub fn set_block_no_sound(&self, spot: vec::IVec3, block: u32, user_power: bool) {
+        match user_power {
+            true => {
+                //println!("Has user power, set block to {block}");
+                self.userdatamap.insert(spot, block);
+            }
+            false => {
+                //println!("Non user power");
+                self.nonuserdatamap.insert(spot, block);
+            }
+        }
     }
     pub fn move_and_rebuild(&self, index: usize, cpos: vec::IVec2) {
         //println!("MBeing asked to move and rebuild to {} {}", cpos.x, cpos.y);
@@ -1399,7 +1432,7 @@ impl ChunkSystem {
 
                 let c_pos = ChunkSystem::spot_to_chunk_pos(&(*spot + rearr_point));
                 implicated_chunks.insert(c_pos);
-                self.set_block(
+                self.set_block_no_sound(
                     IVec3::new(spot.x + rearr_point.x, spot.y + rearr_point.y, spot.z + rearr_point.z),
                     (v.color_index.0).clamp(0, Blocks::get_texs_length() as u8) as u32,
                     false

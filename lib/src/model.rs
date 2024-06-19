@@ -362,7 +362,7 @@ impl Game {
                     if *side == Side::FLOOR {
                         if !self.headless {
                             if !model.was_grounded && model.model_index == 2 {
-                                self.audiop.play("assets/sfx/slam.mp3", &makebelievepos, &model.velocity);
+                                self.audiop.write().unwrap().play("assets/sfx/slam.mp3", &makebelievepos, &model.velocity, 1.0);
                             }
                         }
                         

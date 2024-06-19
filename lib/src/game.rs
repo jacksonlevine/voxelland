@@ -201,7 +201,7 @@ pub struct Game {
     pub guisys: GuiSystem,
     pub hud: Hud,
     pub drops: Drops,
-    pub audiop: AudioPlayer,
+    pub audiop: Arc<RwLock<AudioPlayer>>,
     pub inventory: Arc<RwLock<Inventory>>,
     pub animations: Vec<Vec<Animation>>,
     pub skins: Vec<Skin>,
@@ -264,7 +264,19 @@ impl Game {
         let tex = Texture::new("assets/world.png").unwrap();
         tex.add_to_unit(0);
 
-        let mut csys = ChunkSystem::new(10, 0, 0, headless);
+        let audiop = Arc::new(RwLock::new(AudioPlayer::new().unwrap()));
+
+
+        let audiopoption = match headless {
+            true => {
+                None
+            }
+            false => {
+                Some(audiop.clone())
+            }
+        };
+
+        let mut csys = ChunkSystem::new(10, 0, 0, headless, audiopoption);
         let voxel_models = vec![
             JVoxModel::new("assets/voxelmodels/bush.vox"),
             JVoxModel::new("assets/voxelmodels/tree1.vox"),
@@ -485,7 +497,7 @@ impl Game {
             guisys: GuiSystem::new(&window.clone(), &tex),
             hud,
             drops: Drops::new(tex.id, &cam, &chunksys, &inv),
-            audiop: AudioPlayer::new().unwrap(),
+            audiop,
             inventory: inv,
             animations: Vec::new(),
             skins: Vec::new(),
@@ -548,9 +560,10 @@ impl Game {
                 //g.vars.ship_going_up = false;
     
                 g.wait_for_new_address();
+                
+                let mut audiop = g.audiop.write().unwrap();
     
-    
-                g.audiop.preload_series("grassstepseries", vec![
+                audiop.preload_series("grassstepseries", vec![
                     "assets/sfx/grassstep1.mp3",
                     "assets/sfx/grassstep2.mp3",
                     "assets/sfx/grassstep3.mp3",
@@ -558,12 +571,54 @@ impl Game {
                     "assets/sfx/grassstep5.mp3",
                     "assets/sfx/grassstep6.mp3",
                 ]);
+
+                audiop.preload_series("sandstepseries", vec![
+                    "assets/sfx/sandstep1.mp3",
+                    "assets/sfx/sandstep2.mp3",
+                    "assets/sfx/sandstep3.mp3",
+                    "assets/sfx/sandstep4.mp3",
+                    "assets/sfx/sandstep5.mp3"
+                ]);
+
+                audiop.preload_series("doorseries", vec![
+                    "assets/sfx/door.mp3",
+                    "assets/sfx/door1.mp3",
+                    "assets/sfx/door2.mp3",
+                ]);
+
+                audiop.preload_series("waterstepseries", vec![
+                    "assets/sfx/water1.mp3",
+                    "assets/sfx/water2.mp3",
+                    "assets/sfx/water3.mp3",
+                    "assets/sfx/water4.mp3",
+                    "assets/sfx/water5.mp3"
+                ]);
     
-                g.audiop.preload_series("stonestepseries", vec![
+                audiop.preload_series("stonestepseries", vec![
                     "assets/sfx/stonestep1.mp3",
-                "assets/sfx/stonestep2.mp3",
-                "assets/sfx/stonestep3.mp3",
+                    "assets/sfx/stonestep2.mp3",
+                    "assets/sfx/stonestep3.mp3",
                     "assets/sfx/stonestep4.mp3"
+                ]);
+
+                audiop.preload_series("stoneplaceseries", vec![
+                    "assets/sfx/stoneplace1.mp3",
+                    "assets/sfx/stoneplace2.mp3",
+                    "assets/sfx/stoneplace3.mp3",
+                ]);
+
+
+                audiop.preload_series("plantplaceseries", vec![
+                    "assets/sfx/plantplace1.mp3",
+                    "assets/sfx/plantplace2.mp3",
+                    "assets/sfx/plantplace3.mp3"
+                ]);
+
+                audiop.preload_series("glassplaceseries", vec![
+                    "assets/sfx/glassplace1.mp3",
+                    "assets/sfx/glassplace2.mp3",
+                    "assets/sfx/glassplace3.mp3",
+                    "assets/sfx/glassplace4.mp3"
                 ]);
     
                 // g.initialize_being_in_world();
@@ -797,11 +852,10 @@ impl Game {
         unsafe {
             let diff = campos.distance(LAST_CAM_POS); 
 
-            if self.grounded && diff > 0.01 {
-                let camfootpos = campos - Vec3::new(0.0, 2.0, 0.0);
-                let blockat = self.chunksys.read().unwrap().blockat(IVec3::new(camfootpos.x.floor() as i32, camfootpos.y.floor() as i32, camfootpos.z.floor() as i32));
+            if diff > self.delta_time * 2.0 {
+               
                 if TIMER > 0.4 {
-                    self.audiop.play_next_in_series(&Blocks::get_walk_series(blockat), &camfootpos, &Vec3::new(0.0, 0.0, 0.0));
+                    self.do_step_sound_now(campos);
                     TIMER = 0.0;
                 } else {
                     TIMER += self.delta_time;
@@ -813,9 +867,20 @@ impl Game {
         
     }
 
+    pub fn do_step_sound_now(&mut self, position: Vec3) {
+        let campos = position;
+        let camfootpos = campos - Vec3::new(0.0, 2.0, 0.0);
+        let blockat = self.chunksys.read().unwrap().blockat(IVec3::new(camfootpos.x.floor() as i32, camfootpos.y.floor() as i32, camfootpos.z.floor() as i32));
+        let blockat = blockat & Blocks::block_id_bits();
+        if blockat != 0 {
+            self.audiop.write().unwrap().play_next_in_series(&Blocks::get_walk_series(blockat), &camfootpos, &Vec3::new(0.0, 0.0, 0.0), 0.5);
+        }
+        
+    }
+
     pub fn takeoff_ship(&mut self) {
         if !self.vars.ship_taken_off {
-            self.audiop.play("assets/sfx/shiptakeoff.mp3", &self.ship_pos, &Vec3::ZERO);
+            self.audiop.write().unwrap().play("assets/sfx/shiptakeoff.mp3", &self.ship_pos, &Vec3::ZERO, 1.0);
             self.vars.ship_going_up = true;
             self.vars.ship_going_down = false;
             self.vars.ship_taken_off = true;
@@ -878,7 +943,7 @@ impl Game {
                             MessageType::MultiBlockSet => {
 
 
-                                        self.chunksys.read().unwrap().set_block(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
+                                        self.chunksys.read().unwrap().set_block_no_sound(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
                                         comm.info, true);
 
                                         self.chunksys.read().unwrap().set_block_and_queue_rerender(comm.otherpos, 
@@ -1052,7 +1117,7 @@ impl Game {
             
 
 
-            self.audiop.update();
+            self.audiop.write().unwrap().update();
 
 
             let camlock = self.camera.lock().unwrap();
@@ -1061,7 +1126,7 @@ impl Game {
             let vel = camlock.velocity;
             let up = camlock.up;
             drop(camlock);
-            self.audiop.set_listener_attributes(libfmod::Vector { x: pos.x, y: pos.y, z: pos.z }, libfmod::Vector { x: vel.x, y: vel.y, z: vel.z }, libfmod::Vector { x: forward.x, y: forward.y, z: forward.z }, libfmod::Vector { x: up.x, y: up.y, z: up.z });
+            self.audiop.write().unwrap().set_listener_attributes(libfmod::Vector { x: pos.x, y: pos.y, z: pos.z }, libfmod::Vector { x: vel.x, y: vel.y, z: vel.z }, libfmod::Vector { x: forward.x, y: forward.y, z: forward.z }, libfmod::Vector { x: up.x, y: up.y, z: up.z });
             self.do_step_sounds();
             if self.inventory.read().unwrap().dirty {
                 self.update_inventory();
@@ -1138,7 +1203,12 @@ impl Game {
     }
 
     pub fn update_movement_and_physics(&mut self) { 
-        let mut camlock = self.camera.lock().unwrap();
+
+        let camarc = self.camera.clone();
+        let mut camlock = camarc.lock().unwrap();
+
+
+        static mut wasngrounded: bool = false;
 
         match *self.my_uuid.read().unwrap() {
             Some(uuid) => {
@@ -1180,6 +1250,7 @@ impl Game {
 
         if !self.coll_cage.solid.contains(&Side::FLOOR) {
             self.grounded = false;
+            unsafe{ wasngrounded = true; }
         } else {
         }
 
@@ -1243,6 +1314,9 @@ impl Game {
             .set_center(proposed + Vec3::new(0.0, -0.5  , 0.0), 0.2, 0.85);
         self.coll_cage.update_colliding(&self.user_bound_box);
         let mut corr_made: Vec<Vec3> = Vec::new();
+
+        let mut stepsoundqueued = false;
+
         if self.coll_cage.colliding.len() > 0 {
             for side in &self.coll_cage.colliding {
                 if !corr_made.contains(&self.coll_cage.normals[*side as usize]) {
@@ -1252,6 +1326,11 @@ impl Game {
                 }
                 if *side == Side::FLOOR {
                     self.grounded = true;
+                    unsafe
+                    {if wasngrounded {
+                        stepsoundqueued = true;
+                        wasngrounded = false; 
+                    }}
                 }
                 if *side == Side::ROOF {
                     self.jumping_up = false;
@@ -1259,6 +1338,7 @@ impl Game {
                 }
             }
         }
+
         
         camlock.position = Vec3::new(proposed.x, proposed.y, proposed.z);
 
@@ -1268,7 +1348,12 @@ impl Game {
 
         camlock.recalculate();
 
-        
+        let pos = camlock.position.clone();
+        drop(camlock);
+
+        if stepsoundqueued {
+            self.do_step_sound_now(pos);
+        }
 
     }
 
@@ -2885,7 +2970,7 @@ impl Game {
                     self.current_vision = Some(VisionType::Model(rng.gen_range(2..self.gltf_models.len())));
                     self.visions_timer = 0.0;
                     self.faders.write().unwrap()[FaderNames::VisionsFader as usize].up();
-                    self.audiop.play_in_head("assets/sfx/dreambell.mp3");
+                    self.audiop.write().unwrap().play_in_head("assets/sfx/dreambell.mp3");
                 }
                 
 

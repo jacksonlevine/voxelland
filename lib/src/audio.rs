@@ -141,6 +141,7 @@ impl AudioPlayer {
     }
     pub fn update(&mut self) {
         self.system.update();
+        self.cleanup_channels();
     }
 
     pub fn preload(
@@ -171,16 +172,18 @@ impl AudioPlayer {
         series_name: &'static str,
         pos: &Vec3,
         vel: &Vec3,
+        vol: f32
     ) -> Result<(), libfmod::Error> {
         let index = *self.series_indexes.get(series_name).unwrap_or(&0);
         let file_path = self.series.get(series_name).unwrap()[index];
 
-        self.play(file_path, pos, vel);
+        self.play(file_path, pos, vel, vol);
         let next_index = (index + 1) % self.series.get(series_name).unwrap().len();
         self.series_indexes.insert(series_name, next_index);
 
         Ok(())
     }
+
 
     pub fn play_in_head(&mut self, id: &'static str) {
         if let Some(sound) = self.sounds.get(id) {
@@ -204,13 +207,14 @@ impl AudioPlayer {
         }
     }
 
-    pub fn play(&mut self, id: &'static str, pos: &Vec3, vel: &Vec3) {
+    pub fn play(&mut self, id: &'static str, pos: &Vec3, vel: &Vec3, vol: f32) {
         if let Some(sound) = self.sounds.get(id) {
             let channel = self.system.play_sound(*sound, Some(self.spatial_group), false).unwrap();
             channel.set_3d_attributes(
                 Some(Vector::new(pos.x, pos.y, pos.z)),
                 Some(Vector::new(vel.x, vel.y, vel.z)),
             );
+            channel.set_volume(vol);
             channel.set_3d_min_max_distance(10.0, 100.0);
             self.channels
                 .entry(id)
@@ -229,6 +233,24 @@ impl AudioPlayer {
                     .entry(id)
                     .or_insert_with(Vec::new)
                     .push(channel);
+            }
+        }
+    }
+
+    pub fn cleanup_channels(&mut self) {
+        for (name, channels) in &mut self.channels {
+            // Collect the indices of channels that are not playing
+            let mut chanstoremove = Vec::new();
+            for (index, channel) in channels.iter().enumerate() {
+                if !channel.is_playing().unwrap_or(true) {
+                    chanstoremove.push(index);
+                    println!("Cleaned up channel {index}");
+                }
+            }
+    
+            // Remove channels that are not playing, in reverse order
+            for index in chanstoremove.iter().rev() {
+                channels.remove(*index);
             }
         }
     }

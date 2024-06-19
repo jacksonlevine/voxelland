@@ -770,7 +770,7 @@ impl Game {
             let texcoords = Blocks::get_tex_coords(idinslot, crate::cube::CubeSide::LEFT);
             let tf = TextureFace::new(texcoords.0 as i8, texcoords.1 as i8);
             let bf = TextureFace::new(0,0);
-            self.hud.elements[i as usize].uvs = [
+            self.hud.chestelements[i as usize].uvs = [
                 tf.blx, tf.bly,
                 tf.brx, tf.bry,
                 tf.trx, tf.tr_y,
@@ -786,7 +786,7 @@ impl Game {
                     let g1 = GlyphFace::new(count.as_bytes()[0]);
                     let g2 = GlyphFace::new(count.as_bytes()[1]);
 
-                    self.hud.elements[40 + realslotind * 2].uvs = [
+                    self.hud.chestelements[40 + realslotind * 2].uvs = [
                         g1.blx, g1.bly,
                         g1.brx, g1.bry,
                         g1.trx, g1.tr_y,
@@ -795,7 +795,7 @@ impl Game {
                         g1.tlx, g1.tly,
                         g1.blx, g1.bly
                     ];
-                    self.hud.elements[40 + realslotind * 2 + 1].uvs = [
+                    self.hud.chestelements[40 + realslotind * 2 + 1].uvs = [
                         g2.blx, g2.bly,
                         g2.brx, g2.bry,
                         g2.trx, g2.tr_y,
@@ -808,7 +808,7 @@ impl Game {
 
                 if count.len() == 1 {
                     let g2 = GlyphFace::new(count.as_bytes()[0]);
-                    self.hud.elements[40 + realslotind * 2].uvs = [
+                    self.hud.chestelements[40 + realslotind * 2].uvs = [
                         bf.blx, bf.bly,
                         bf.brx, bf.bry,
                         bf.trx, bf.tr_y,
@@ -817,7 +817,7 @@ impl Game {
                         bf.tlx, bf.tly,
                         bf.blx, bf.bly
                     ];
-                    self.hud.elements[40 + realslotind * 2 + 1].uvs = [
+                    self.hud.chestelements[40 + realslotind * 2 + 1].uvs = [
                         g2.blx, g2.bly,
                         g2.brx, g2.bry,
                         g2.trx, g2.tr_y,
@@ -828,7 +828,7 @@ impl Game {
                     ];
                 }
             } else {
-                self.hud.elements[40 + realslotind * 2].uvs = [
+                self.hud.chestelements[40 + realslotind * 2].uvs = [
                         bf.blx, bf.bly,
                         bf.brx, bf.bry,
                         bf.trx, bf.tr_y,
@@ -837,7 +837,7 @@ impl Game {
                         bf.tlx, bf.tly,
                         bf.blx, bf.bly
                     ];
-                self.hud.elements[40 + realslotind * 2 + 1].uvs = [
+                self.hud.chestelements[40 + realslotind * 2 + 1].uvs = [
                     bf.blx, bf.bly,
                     bf.brx, bf.bry,
                     bf.trx, bf.tr_y,

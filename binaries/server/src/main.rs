@@ -159,11 +159,19 @@ fn handle_client(
                      // Read the entire database file into a byte buffer
 
                     let buffer = {
-                        // Open the SQLite database file
-                        let mut file = File::open("chestdb").unwrap();
-                        println!("Opened the db file");
                         let mut buffer = Vec::new();
-                        file.read_to_end(&mut buffer).unwrap();
+                        // Open the SQLite database file
+                        match File::open("chestdb") {
+                            Ok(mut file) => {
+                                println!("Opened the db file");
+                        
+                                file.read_to_end(&mut buffer).unwrap();
+                            }
+                            Err(e) => {
+
+                            }
+                        };
+                        
                         println!("Read the file to end");
                         buffer
                     };
@@ -184,8 +192,11 @@ fn handle_client(
                         mystream.write_all(&bincode::serialize(&chestmsg).unwrap()).unwrap();
                         println!("Wrote the chest header");
                         // Send the raw binary data of the database file
-                        mystream.write_all(&buffer).unwrap();
-                        println!("Wrote the chest file buffer");
+                        if buffer.len() > 0 {
+                            mystream.write_all(&buffer).unwrap();
+                            println!("Wrote the chest file buffer");
+                        }
+                        
                     }
 
                     

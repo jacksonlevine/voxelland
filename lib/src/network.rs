@@ -194,42 +194,48 @@ impl NetworkConnector {
                                 MessageType::ChestReg => {
                                     
                                     println!("Receiving ChestReg:");
-                                    shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
+
+                                    if comm.info > 0 {
+                                        shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
                                     
-                                    stream_lock.set_nonblocking(false).unwrap();
-                                    
+                                        stream_lock.set_nonblocking(false).unwrap();
+                                        
 
 
 
-                                    let mut buff = vec![0 as u8; comm.info as usize];
+                                        let mut buff = vec![0 as u8; comm.info as usize];
 
-                                    stream_lock.set_read_timeout(Some(Duration::from_secs(2)));
+                                        stream_lock.set_read_timeout(Some(Duration::from_secs(2)));
 
-                                    match stream_lock.read_exact(&mut buff) {
-
-
-                                        Ok(_) => {
-                                            println!("Got the expected bytes for chestreg");
-                                            let mut file = File::create("chestdb").unwrap();
-                                            file.write_all(&buff).unwrap();
+                                        match stream_lock.read_exact(&mut buff) {
 
 
-                                            csys.write().unwrap().load_chests_from_file();
-                                            recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
+                                            Ok(_) => {
+                                                println!("Got the expected bytes for chestreg");
+                                                let mut file = File::create("chestdb").unwrap();
+                                                file.write_all(&buff).unwrap();
 
-                                            //NetworkConnector::sendtolocked(&reqseed, &mut stream_lock);
+
+                                                csys.write().unwrap().load_chests_from_file();
+                                                recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
+
+                                                //NetworkConnector::sendtolocked(&reqseed, &mut stream_lock);
+                                            }
+                                            Err(e) => {
+                                                println!("Error receiving chestreg, trying again...");
+                                                NetworkConnector::sendtolocked(&reqchest, &mut stream_lock);
+                                            }
+
                                         }
-                                        Err(e) => {
-                                            println!("Error receiving chestreg, trying again...");
-                                            NetworkConnector::sendtolocked(&reqchest, &mut stream_lock);
-                                        }
 
+                                        stream_lock.set_nonblocking(true).unwrap();
+
+                                        
+                                        shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
+                                    } else {
+                                        recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
                                     }
-
-                                    stream_lock.set_nonblocking(true).unwrap();
-
                                     
-                                    shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
 
                                 }
                                 MessageType::ReqChestReg => {

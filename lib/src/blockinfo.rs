@@ -3,7 +3,7 @@ use crate::cube::CubeSide;
 pub const BLOCK_DIRECTION_BITS: u32 = 0b0000_0000_0000_0011_0000_0000_0000_0000;
 pub struct Blocks {}
 
-static TEXS: [[(u8, u8); 3]; 21] = [
+static TEXS: [[(u8, u8); 3]; 22] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],  // 0
             [(1, 0), (1, 0), (1, 0)],  // 1 sand
@@ -26,9 +26,10 @@ static TEXS: [[(u8, u8); 3]; 21] = [
             [(12, 1), (12, 1), (12, 1)], // 18 light
             [(12, 0), (12, 0), (12, 0)], // 19 door
             [(0, 1), (0, 1), (0, 1)], // 20 ladder
+            [(15, 0), (15, 0), (15, 0)], // 21 chest
         ];
 
-static BREAKTIMES: [f32; 21] = [
+static BREAKTIMES: [f32; 22] = [
     0.1,
     0.5,
     0.7,
@@ -49,7 +50,8 @@ static BREAKTIMES: [f32; 21] = [
     0.5,
     1.0,
     1.0,
-    0.6
+    0.6,
+    1.5
 ];
 
 impl Blocks {

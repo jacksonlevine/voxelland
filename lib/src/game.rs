@@ -277,7 +277,7 @@ impl Game {
             }
         };
 
-        let mut csys = ChunkSystem::new(10, 0, 0, headless, audiopoption);
+        let mut csys = ChunkSystem::new(14, 0, 0, headless, audiopoption);
         let voxel_models = vec![
             JVoxModel::new("assets/voxelmodels/bush.vox"),
             JVoxModel::new("assets/voxelmodels/tree1.vox"),
@@ -406,7 +406,7 @@ impl Game {
             inv: [
                 (18, 99),
                 (20, 99),
-                (8, 99),
+                (21, 99),
                 (10, 99),
                 (19, 99)
             ]
@@ -2793,6 +2793,38 @@ impl Game {
                                 self.netconn.send(&message);
                             } else {
                                 self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, ladder_id, false, true);
+                            }
+
+                        } else if id == 21 { //Chest shit
+
+                            let mut chest_id = id;
+
+                            let diffx = cl.position.x - place_point.x as f32;
+                            let diffz = cl.position.z - place_point.z as f32;
+
+                            let mut direction = 0;
+
+                            if diffx.abs() > diffz.abs() {
+                                direction = if diffx > 0.0 { 1 } else { 3 };
+                            } else {
+                                direction = if diffz > 0.0 { 2 } else { 0 };
+                            }
+
+                            Blocks::set_direction_bits(&mut chest_id, direction);
+
+                            if self.vars.in_multiplayer {
+                                let message = Message::new(
+                                    MessageType::BlockSet, 
+                                    Vec3::new(
+                                        place_point.x as f32, 
+                                        place_point.y as f32, 
+                                        place_point.z as f32), 
+                                    0.0, 
+                                    chest_id);
+
+                                self.netconn.send(&message);
+                            } else {
+                                self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, chest_id, false, true);
                             }
 
                         } else {

@@ -277,7 +277,7 @@ impl Game {
             }
         };
 
-        let mut csys = ChunkSystem::new(14, 0, 0, headless, audiopoption);
+        let mut csys = ChunkSystem::new(10, 0, 0, headless, audiopoption);
         let voxel_models = vec![
             JVoxModel::new("assets/voxelmodels/bush.vox"),
             JVoxModel::new("assets/voxelmodels/tree1.vox"),
@@ -2571,6 +2571,10 @@ impl Game {
                             self.chunksys.write().unwrap().set_block(otherhalf, otherhalfbits, true);
                             self.chunksys.write().unwrap().set_block_and_queue_rerender(block_hit, blockbitshere, true, true);
                         }
+                    } else if blockidhere == 21 { //ITS A CHEST
+                        
+
+
                     } else if slot.0 != 0 && slot.1 > 0 {
                          
                         let id = slot.0;
@@ -2836,7 +2840,14 @@ impl Game {
                             }
                         }
 
-                    
+                        if slot.1 == 1 {
+                            let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                            mutslot.1 = 0;
+                            mutslot.0 = 0;
+                        } else {
+                            let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                            mutslot.1 -= 1;
+                        }
                     }
 
                     
@@ -2846,16 +2857,11 @@ impl Game {
                 None => {}
             }
 
+            
+
         }
 
-        if slot.1 == 1 {
-            let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
-            mutslot.1 = 0;
-            mutslot.0 = 0;
-        } else {
-            let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
-            mutslot.1 -= 1;
-        }
+        
 
         
 

@@ -151,17 +151,17 @@ impl NetworkConnector {
             let mut buffer = vec![0; PACKET_SIZE];
             let csys = csys.clone();
 
-            let sumsg = Message::new(MessageType::ShutUpMobMsgs, Vec3::ZERO, 0.0, 0);
+            //let sumsg = Message::new(MessageType::ShutUpMobMsgs, Vec3::ZERO, 0.0, 0);
             let shouldsend = shouldsend2.clone();
 
-            NetworkConnector::sendto(&sumsg, &stream);
+            //NetworkConnector::sendto(&sumsg, &stream);
             
             shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
             
             let requdm = Message::new(MessageType::RequestUdm, Vec3::ZERO, 0.0, 0);
             let reqseed = Message::new(MessageType::RequestSeed, Vec3::ZERO, 0.0, 0);
             let reqpt = Message::new(MessageType::RequestPt, Vec3::ZERO, 0.0, 0);
-            let reqchest = Message::new(MessageType::RequestUdm, Vec3::ZERO, 0.0, 0);
+            let reqchest = Message::new(MessageType::ReqChestReg, Vec3::ZERO, 0.0, 0);
             
             NetworkConnector::sendto(&requdm, &stream);
 

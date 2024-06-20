@@ -61,7 +61,8 @@ pub enum MessageType {
     RequestMyID,
     MultiBlockSet,
     ChestReg,
-    ReqChestReg
+    ReqChestReg,
+    ChestInvUpdate
 }
 
 impl Display for MessageType {
@@ -130,6 +131,9 @@ impl Display for MessageType {
             MessageType::ReqChestReg => {
                 write!(f, "ReqChestReg")
             },
+            MessageType::ChestInvUpdate => {
+                write!(f, "ChestInvUpdate")
+            }
         }
     } 
 }

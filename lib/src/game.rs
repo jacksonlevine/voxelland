@@ -3268,7 +3268,8 @@ impl Game {
 
                     if a == Action::Press {
                         let mut updateinv = false;
-                        {let csys = self.chunksys.write().unwrap();
+                        {
+                            let csys = self.chunksys.write().unwrap();
                         unsafe {
                             match MOUSED_SLOT {
                                 SlotIndexType::ChestSlot(e) => {
@@ -3278,13 +3279,38 @@ impl Game {
 
 
                                             let buff = slot.clone();
+                                            if self.vars.in_multiplayer {
 
-                                            slot.0 = self.mouse_slot.0;
+
+
+
+
+                                                        /*OTHERPOS: CURRENT CHEST */
+                                                        /*INFO: DEST SLOT INDEX */
+                                                        /*INFO2: SLOT INDEX TYPE */
+                                                        /*ROT: ID */
+                                                        /*INFOF: COUNT */
+                                                        /*X, Y:   SLOT MOVED TO MOUSE OF <GOOSE> PLAYER */
+
+                                                        let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::new(buff.0 as f32, buff.1 as f32, 0.0), self.mouse_slot.0 as f32, e as u32);
+                                                        msg.otherpos = self.hud.current_chest;
+                                                        msg.info2 = /*0 = CHEST, 1 = INV, 2 = NONE */0;
+                                                        msg.infof = self.mouse_slot.1 as f32;
+
+                                                        self.netconn.send(&msg);
+
+
+
+
+
+                                            }
+                                            else
+                                            {slot.0 = self.mouse_slot.0;
                                             slot.1 = self.mouse_slot.1;
 
                                             self.mouse_slot.0 = buff.0;
                                             self.mouse_slot.1 = buff.1;
-                                            updateinv = true;
+                                            updateinv = true;}
                                             
                                         },
                                         None => {
@@ -3297,19 +3323,40 @@ impl Game {
 
                                     let buff = slot.clone();
 
-                                    slot.0 = self.mouse_slot.0;
-                                    slot.1 = self.mouse_slot.1;
+                                    if self.vars.in_multiplayer {
 
-                                    self.mouse_slot.0 = buff.0;
-                                    self.mouse_slot.1 = buff.1;
-                                    updateinv = true;
+
+                                                /*OTHERPOS: CURRENT CHEST */
+                                                /*INFO: DEST SLOT INDEX */
+                                                /*INFO2: SLOT INDEX TYPE */
+                                                /*ROT: ID */
+                                                /*INFOF: COUNT */
+                                                /*X, Y:   SLOT MOVED TO MOUSE OF <GOOSE> PLAYER */
+                                                let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::new(buff.0 as f32, buff.1 as f32, 0.0), self.mouse_slot.0 as f32, e as u32);
+                                                msg.otherpos = self.hud.current_chest;
+                                                msg.info2 = /*0 = CHEST, 1 = INV, 2 = NONE */ 1;
+                                                msg.infof = self.mouse_slot.1 as f32;
+                                                self.netconn.send(&msg);
+
+
+                                    }
+                                    else
+                                    {
+                                        slot.0 = self.mouse_slot.0;
+                                        slot.1 = self.mouse_slot.1;
+
+                                        self.mouse_slot.0 = buff.0;
+                                        self.mouse_slot.1 = buff.1;
+                                        updateinv = true;
+                                    }
 
                                 },
                                 SlotIndexType::None => {
 
                                 },
                             }
-                        }}
+                        }
+                    }
                         if updateinv {
                             self.update_inventory();
                         }

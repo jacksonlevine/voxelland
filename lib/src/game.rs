@@ -10,7 +10,7 @@ use std::time::Duration;
 use dashmap::DashMap;
 use gl::types::{GLenum, GLuint};
 use glam::{Mat4, Vec2, Vec3, Vec4};
-use glfw::ffi::glfwGetTime;
+use glfw::ffi::{glfwGetCursorPos, glfwGetTime, GLFWwindow};
 use glfw::{Action, Key, MouseButton, PWindow};
 use gltf::Gltf;
 use lockfree::queue::Queue;
@@ -35,7 +35,7 @@ use crate::drops::Drops;
 use crate::fader::Fader;
 use crate::glyphface::GlyphFace;
 use crate::guisystem::GuiSystem;
-use crate::hud::{Hud, HudElement};
+use crate::hud::{Hud, HudElement, SlotIndexType};
 use crate::modelentity::ModelEntity;
 use crate::network::NetworkConnector;
 use crate::planetinfo::Planets;
@@ -58,7 +58,7 @@ use std::sync::RwLock;
 
 
 
-
+pub static mut MOUSED_SLOT: SlotIndexType = SlotIndexType::None;
 
 
 
@@ -230,7 +230,9 @@ pub struct Game {
     pub loadedworld: AtomicBool,
     pub addressentered: Arc<AtomicBool>,
     pub address: Arc<Mutex<Option<String>>>,
-    pub player_model_entities: Arc<DashMap<Uuid, ModelEntity>>
+    pub player_model_entities: Arc<DashMap<Uuid, ModelEntity>>,
+
+    pub mouse_slot: (u32, u32)
 }
 
 enum FaderNames {
@@ -325,7 +327,7 @@ impl Game {
         };
         let mut hud = Hud::new(&window.clone(), tex.id);
 
-        fn add_inventory_rows(elements: &mut Vec<HudElement>, yoffset: f32, rows: i32) {
+        fn add_inventory_rows(elements: &mut Vec<HudElement>, yoffset: f32, rows: i32, start_slot: SlotIndexType) {
               
         let tf = TextureFace::new(0, 14);
 
@@ -333,6 +335,17 @@ impl Game {
         //IMPORTANT: Push these first, the inv row slots
         for y in 0..rows {
             for i in 0..5 {
+                let newslot = match start_slot {
+                    SlotIndexType::ChestSlot(ind) => {
+                        SlotIndexType::ChestSlot(ind + i + (y*5))
+                    },
+                    SlotIndexType::InvSlot(ind) => {
+                        SlotIndexType::InvSlot(ind + i + (y*5))
+                    },
+                    SlotIndexType::None => {
+                        SlotIndexType::None
+                    },
+                };
                 let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + i as f32 * 0.10, yoffset - y as f32 * rh), Vec2::new(0.15, 0.15), [
                     tf.blx, tf.bly,
                     tf.brx, tf.bry,
@@ -341,7 +354,7 @@ impl Game {
                     tf.trx, tf.tr_y,
                     tf.tlx, tf.tly,
                     tf.blx, tf.bly
-                ]);
+                ], newslot);
     
                 elements.push(invrowel);
             }
@@ -352,6 +365,17 @@ impl Game {
         //The item textures on top of them
         for y in 0..rows {
         for i in 0..5 {
+            let newslot = match start_slot {
+                SlotIndexType::ChestSlot(ind) => {
+                    SlotIndexType::ChestSlot(ind + i + (y*5))
+                },
+                SlotIndexType::InvSlot(ind) => {
+                    SlotIndexType::InvSlot(ind + i + (y*5))
+                },
+                SlotIndexType::None => {
+                    SlotIndexType::None
+                },
+            };
             let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + i as f32 * 0.10, yoffset - y as f32 * rh), Vec2::new(0.10, 0.10), [
                 tf.blx, tf.bly,
                 tf.brx, tf.bry,
@@ -360,7 +384,7 @@ impl Game {
                 tf.trx, tf.tr_y,
                 tf.tlx, tf.tly,
                 tf.blx, tf.bly
-            ]);
+            ], newslot);
 
             elements.push(invrowel);
         }
@@ -371,6 +395,17 @@ impl Game {
         //The number textures on top of them
         for y in 0..rows {
         for i in 0..5 {
+            let newslot = match start_slot {
+                SlotIndexType::ChestSlot(ind) => {
+                    SlotIndexType::ChestSlot(ind + i + (y*5))
+                },
+                SlotIndexType::InvSlot(ind) => {
+                    SlotIndexType::InvSlot(ind + i + (y*5))
+                },
+                SlotIndexType::None => {
+                    SlotIndexType::None
+                },
+            };
             let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + 0.01 + i as f32 * 0.10, yoffset  - y as f32 * rh - 0.03), Vec2::new(0.05, 0.05), [
                 tf.blx, tf.bly,
                 tf.brx, tf.bry,
@@ -379,7 +414,7 @@ impl Game {
                 tf.trx, tf.tr_y,
                 tf.tlx, tf.tly,
                 tf.blx, tf.bly
-            ]);
+            ], newslot.clone());
             elements.push(invrowel);
 
             let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + 0.02 + i as f32 * 0.10, yoffset  - y as f32 * rh - 0.03), Vec2::new(0.05, 0.05), [
@@ -390,21 +425,22 @@ impl Game {
                 tf.trx, tf.tr_y,
                 tf.tlx, tf.tly,
                 tf.blx, tf.bly
-            ]);
+            ], newslot);
 
             elements.push(invrowel);
         }
     }
         }
 
-        add_inventory_rows(&mut hud.elements, -0.9, 1);
+        add_inventory_rows(&mut hud.elements, -0.9, 1, SlotIndexType::InvSlot(0));
 
 
-        add_inventory_rows(&mut hud.chestelements, 0.4, 4);
+        add_inventory_rows(&mut hud.chestelements, 0.4, 4, SlotIndexType::ChestSlot(0));
 
 
         //Crosshair
         let tf = TextureFace::new(0, 13);
+        
 
         hud.elements.push(HudElement::new(Vec2::new(0.0, 0.0), Vec2::new(0.08, 0.08), [
                 tf.blx, tf.bly,
@@ -414,7 +450,97 @@ impl Game {
                 tf.trx, tf.tr_y,
                 tf.tlx, tf.tly,
                 tf.blx, tf.bly
-            ]));     
+            ], SlotIndexType::None));     
+
+
+
+
+
+
+
+
+            //HELD MOUSE ITEM SLOT
+
+
+
+
+            
+    
+            let tf = TextureFace::new(0, 0);
+            //The item texture of it
+
+
+                let invrowel = HudElement::new(Vec2::new(0.0, 0.0), Vec2::new(0.10, 0.10), [
+                    tf.blx, tf.bly,
+                    tf.brx, tf.bry,
+                    tf.trx, tf.tr_y,
+    
+                    tf.trx, tf.tr_y,
+                    tf.tlx, tf.tly,
+                    tf.blx, tf.bly
+                ], SlotIndexType::InvSlot(221));
+    
+                hud.chestelements.push(invrowel);
+
+    
+            let tf = TextureFace::new(0, 0);
+            //The number textures on top of it
+
+
+                let invrowel = HudElement::new(Vec2::new(0.0  + 0.01, 0.0), Vec2::new(0.05, 0.05), [
+                    tf.blx, tf.bly,
+                    tf.brx, tf.bry,
+                    tf.trx, tf.tr_y,
+    
+                    tf.trx, tf.tr_y,
+                    tf.tlx, tf.tly,
+                    tf.blx, tf.bly
+                ], SlotIndexType::InvSlot(221));
+                hud.chestelements.push(invrowel);
+    
+                let invrowel = HudElement::new(Vec2::new(0.0  + 0.02, 0.0), Vec2::new(0.05, 0.05), [
+                    tf.blx, tf.bly,
+                    tf.brx, tf.bry,
+                    tf.trx, tf.tr_y,
+    
+                    tf.trx, tf.tr_y,
+                    tf.tlx, tf.tly,
+                    tf.blx, tf.bly
+                ], SlotIndexType::InvSlot(221));
+    
+                hud.chestelements.push(invrowel);
+   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         
 
         let inv = Arc::new(RwLock::new(Inventory{
@@ -550,7 +676,8 @@ impl Game {
             loadedworld: AtomicBool::new(false),
             addressentered: addressentered.clone(),
             address: address.clone(),
-            player_model_entities: pme
+            player_model_entities: pme,
+            mouse_slot: (0,0)
         };
         if !headless {
             g.load_model("assets/models/car/scene.gltf");
@@ -934,6 +1061,102 @@ impl Game {
                 ];
             }
         }
+
+
+
+
+
+        let slot = self.mouse_slot;
+        let idinslot = slot.0;
+        let texcoords = Blocks::get_tex_coords(idinslot, crate::cube::CubeSide::LEFT);
+        let tf = TextureFace::new(texcoords.0 as i8, texcoords.1 as i8);
+        let bf = TextureFace::new(0,0);
+        self.hud.chestelements[80].uvs = [
+            tf.blx, tf.bly,
+            tf.brx, tf.bry,
+            tf.trx, tf.tr_y,
+
+            tf.trx, tf.tr_y,
+            tf.tlx, tf.tly,
+            tf.blx, tf.bly
+        ];
+
+        if slot.1 > 0 {
+            let count = slot.1.to_string();
+            if count.len() == 2 {
+                let g1 = GlyphFace::new(count.as_bytes()[0]);
+                let g2 = GlyphFace::new(count.as_bytes()[1]);
+
+                self.hud.chestelements[81].uvs = [
+                    g1.blx, g1.bly,
+                    g1.brx, g1.bry,
+                    g1.trx, g1.tr_y,
+
+                    g1.trx, g1.tr_y,
+                    g1.tlx, g1.tly,
+                    g1.blx, g1.bly
+                ];
+                self.hud.chestelements[82].uvs = [
+                    g2.blx, g2.bly,
+                    g2.brx, g2.bry,
+                    g2.trx, g2.tr_y,
+
+                    g2.trx, g2.tr_y,
+                    g2.tlx, g2.tly,
+                    g2.blx, g2.bly
+                ];
+            }
+
+            if count.len() == 1 {
+                let g2 = GlyphFace::new(count.as_bytes()[0]);
+                self.hud.chestelements[81].uvs = [
+                    bf.blx, bf.bly,
+                    bf.brx, bf.bry,
+                    bf.trx, bf.tr_y,
+
+                    bf.trx, bf.tr_y,
+                    bf.tlx, bf.tly,
+                    bf.blx, bf.bly
+                ];
+                self.hud.chestelements[82].uvs = [
+                    g2.blx, g2.bly,
+                    g2.brx, g2.bry,
+                    g2.trx, g2.tr_y,
+
+                    g2.trx, g2.tr_y,
+                    g2.tlx, g2.tly,
+                    g2.blx, g2.bly
+                ];
+            }
+        } else {
+            self.hud.chestelements[81].uvs = [
+                    bf.blx, bf.bly,
+                    bf.brx, bf.bry,
+                    bf.trx, bf.tr_y,
+
+                    bf.trx, bf.tr_y,
+                    bf.tlx, bf.tly,
+                    bf.blx, bf.bly
+                ];
+            self.hud.chestelements[82].uvs = [
+                bf.blx, bf.bly,
+                bf.brx, bf.bry,
+                bf.trx, bf.tr_y,
+
+                bf.trx, bf.tr_y,
+                bf.tlx, bf.tly,
+                bf.blx, bf.bly
+            ];
+        }
+
+
+
+
+
+
+
+
+
         
         self.hud.dirty = true;
     }
@@ -1044,6 +1267,51 @@ impl Game {
         drop(fadersread);
 
         if !self.headless {
+
+            let (x,y) = self.window.read().unwrap().get_cursor_pos();
+
+            self.hud.mousetrans = HudElement::xytondc(x, y);
+            if self.hud.chest_open {
+                let mut isoverlappingany = false;
+                for i in 0..5 {
+                    let hudel = &self.hud.elements[i];
+                    
+                    if hudel.overlaps(x, y) {
+                        unsafe {
+                            MOUSED_SLOT = SlotIndexType::InvSlot(i as i32);
+                            isoverlappingany = true;
+                        }
+                    }
+                }
+
+                for i in 0..20 {
+                    let hudel = &self.hud.chestelements[i];
+                    
+                    if hudel.overlaps(x, y) {
+                        unsafe {
+                            MOUSED_SLOT = SlotIndexType::ChestSlot(i as i32);
+                            isoverlappingany = true;
+                        }
+                    }
+                }
+                if !isoverlappingany {
+                    unsafe 
+                    {MOUSED_SLOT = SlotIndexType::None;}
+                }
+                // unsafe {
+                //     match MOUSED_SLOT {
+                //         SlotIndexType::ChestSlot(e) => {
+                //             println!("Moused chest slot {}", HudElement::ass_slot_to_shader_float(&MOUSED_SLOT));
+                //         },
+                //         SlotIndexType::InvSlot(e) => {
+                //             println!("Moused inv slot {}", HudElement::ass_slot_to_shader_float(&MOUSED_SLOT));
+                //         },
+                //         SlotIndexType::None => {
+                //             println!("Moused no invslot");
+                //         },
+                //     }
+                // }
+            }
             let mut morestuff = true;
             while morestuff {
                 match self.hp_server_command_queue.pop() {
@@ -2992,22 +3260,96 @@ impl Game {
 
     }
     pub fn mouse_button(&mut self, mb: MouseButton, a: Action) {
-        match mb {
-            glfw::MouseButtonLeft => {
-                self.vars.mouse_clicked = a == Action::Press;
-                // if self.vars.mouse_clicked {
-                //     self.cast_break_ray();
-                // }
+        if self.hud.chest_open {
+
+            match mb {
+                glfw::MouseButtonLeft => {
+                    //self.vars.mouse_clicked = a == Action::Press;
+
+                    if a == Action::Press {
+                        let mut updateinv = false;
+                        {let csys = self.chunksys.write().unwrap();
+                        unsafe {
+                            match MOUSED_SLOT {
+                                SlotIndexType::ChestSlot(e) => {
+                                    match csys.chest_registry.get_mut(&self.hud.current_chest) {
+                                        Some(mut ch) =>  {
+                                            let slot = &mut ch.value_mut().inv[e as usize];
+
+
+                                            let buff = slot.clone();
+
+                                            slot.0 = self.mouse_slot.0;
+                                            slot.1 = self.mouse_slot.1;
+
+                                            self.mouse_slot.0 = buff.0;
+                                            self.mouse_slot.1 = buff.1;
+                                            updateinv = true;
+                                            
+                                        },
+                                        None => {
+
+                                        },
+                                    }
+                                },
+                                SlotIndexType::InvSlot(e) => {
+                                    let slot = &mut self.inventory.write().unwrap().inv[e as usize];
+
+                                    let buff = slot.clone();
+
+                                    slot.0 = self.mouse_slot.0;
+                                    slot.1 = self.mouse_slot.1;
+
+                                    self.mouse_slot.0 = buff.0;
+                                    self.mouse_slot.1 = buff.1;
+                                    updateinv = true;
+
+                                },
+                                SlotIndexType::None => {
+
+                                },
+                            }
+                        }}
+                        if updateinv {
+                            self.update_inventory();
+                        }
+                    }
+                    // if self.vars.mouse_clicked {
+                    //     self.cast_break_ray();
+                    // }
+                }
+                glfw::MouseButtonRight => {
+                    //self.vars.right_mouse_clicked = a == Action::Press;
+                    // if !self.vars.ship_taken_off {
+                    //     if self.vars.right_mouse_clicked {
+                    //         self.cast_place_ray();
+                    //     }
+                    // }
+                }
+                _ => {}
             }
-            glfw::MouseButtonRight => {
-                self.vars.right_mouse_clicked = a == Action::Press;
-                if !self.vars.ship_taken_off {
-                    if self.vars.right_mouse_clicked {
-                        self.cast_place_ray();
+
+        } else {
+
+            
+            match mb {
+                glfw::MouseButtonLeft => {
+                    self.vars.mouse_clicked = a == Action::Press;
+                    // if self.vars.mouse_clicked {
+                    //     self.cast_break_ray();
+                    // }
+                }
+                glfw::MouseButtonRight => {
+                    self.vars.right_mouse_clicked = a == Action::Press;
+                    if !self.vars.ship_taken_off {
+                        if self.vars.right_mouse_clicked {
+                            self.cast_place_ray();
+                        }
                     }
                 }
+                _ => {}
             }
-            _ => {}
+
         }
     }
 

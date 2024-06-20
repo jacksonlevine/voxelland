@@ -8,9 +8,10 @@ use glfw::PWindow;
 use crate::shader::Shader;
 use crate::textureface::TextureFace;
 use crate::vec::{self, IVec3};
-use crate::windowandkey;
+use crate::{game, windowandkey};
 
-pub enum HighlightedSlot {
+#[derive(Clone)]
+pub enum SlotIndexType {
     ChestSlot(i32),
     InvSlot(i32),
     None
@@ -20,15 +21,19 @@ pub enum HighlightedSlot {
 pub struct HudElement {
     pub normalized_pos: Vec2,
     pub size: Vec2,
-    pub uvs: [f32; 12]
+    pub uvs: [f32; 12],
+    pub ass_slot: SlotIndexType,
+    pub translation: Vec2
 }
 
 impl HudElement {
-    pub fn new(pos: Vec2, size: Vec2, uvs: [f32; 12]) -> HudElement {
+    pub fn new(pos: Vec2, size: Vec2, uvs: [f32; 12], ass_slot: SlotIndexType) -> HudElement {
         HudElement {
             normalized_pos: pos,
             size,
-            uvs
+            uvs,
+            ass_slot,
+            translation: Vec2::ZERO
         }
     }
 
@@ -40,14 +45,55 @@ impl HudElement {
             let ndcx = 2.0 * xnorm - 1.0;
             let ndcy = 1.0 - 2.0 * ynorm;
 
-            if ndcx >= self.normalized_pos.x as f64 && ndcx <= self.normalized_pos.x as f64 + self.size.x as f64 {
-                if ndcy <= self.normalized_pos.y as f64 && ndcy >= self.normalized_pos.y as f64 - self.size.y as f64 {
+            if ndcx >= self.normalized_pos.x as f64 - (self.size.x as f64 / 2.0) && ndcx <= self.normalized_pos.x as f64 + (self.size.x as f64 / 2.0)  {
+                if ndcy <= self.normalized_pos.y as f64 + (self.size.y as f64 / 2.0) && ndcy >= self.normalized_pos.y as f64 - (self.size.y as f64 / 2.0) {
                     return true;
                 }
             }
             return false;
         }
         
+    }
+
+    pub fn xytondc(x: f64, y: f64) -> Vec2 {
+        unsafe {
+            let xnorm = x / windowandkey::WINDOWWIDTH as f64;
+            let ynorm = y / windowandkey::WINDOWHEIGHT as f64;
+
+            let ndcx = 2.0 * xnorm - 1.0;
+            let ndcy = 1.0 - 2.0 * ynorm;
+
+            return Vec2::new(ndcx as f32, ndcy as f32);
+        }
+        
+    }
+
+    pub fn element_ass_slot_to_shader_float(&self) -> f32 {
+        return match self.ass_slot {
+            SlotIndexType::ChestSlot(n) => {
+                n + 60
+            },
+            SlotIndexType::InvSlot(n) => {
+                n + 1
+            },
+            SlotIndexType::None => {
+                0
+            },
+        } as f32
+    }
+
+    pub fn ass_slot_to_shader_float(slot: &SlotIndexType) -> f32 {
+        return match slot {
+            SlotIndexType::ChestSlot(n) => {
+                n + 60
+            },
+            SlotIndexType::InvSlot(n) => {
+                n + 1
+            },
+            SlotIndexType::None => {
+                0
+            },
+        } as f32
     }
 }
 
@@ -69,7 +115,8 @@ pub struct Hud {
     pub chest_open: bool,
     pub chestvao: GLuint,
     pub chestdirty: bool,
-    pub highlightedslot: HighlightedSlot
+    pub highlightedslot: SlotIndexType,
+    pub mousetrans: Vec2
 }
 
 impl Hud {
@@ -100,7 +147,8 @@ impl Hud {
             chest_open: false,
             chestvao,
             chestdirty: false,
-            highlightedslot: HighlightedSlot::None
+            highlightedslot: SlotIndexType::None,
+            mousetrans: Vec2::ZERO
         }
     }
     pub fn update(&mut self) { 
@@ -125,14 +173,17 @@ impl Hud {
                     let tr = realpos + (realsize*0.5);
                     let tl: Vec2 = realpos + (realsize*0.5) - Vec2::new(realsize.x, 0.0);
 
-                    allgeo.extend_from_slice(&[
-                        bl.x, bl.y, element.uvs[0], element.uvs[1], -1.0,
-                        br.x, br.y, element.uvs[2], element.uvs[3], -1.0,
-                        tr.x, tr.y, element.uvs[4], element.uvs[5], -1.0,
+                    let element_id = element.element_ass_slot_to_shader_float();
+                    //println!("Putting e id {}", element_id);
 
-                        tr.x, tr.y, element.uvs[6], element.uvs[7], -1.0,
-                        tl.x, tl.y, element.uvs[8], element.uvs[9], -1.0,
-                        bl.x, bl.y, element.uvs[10], element.uvs[11], -1.0,
+                    allgeo.extend_from_slice(&[
+                        bl.x, bl.y, element.uvs[0], element.uvs[1], element_id,
+                        br.x, br.y, element.uvs[2], element.uvs[3], element_id,
+                        tr.x, tr.y, element.uvs[4], element.uvs[5], element_id,
+
+                        tr.x, tr.y, element.uvs[6], element.uvs[7], element_id,
+                        tl.x, tl.y, element.uvs[8], element.uvs[9], element_id,
+                        bl.x, bl.y, element.uvs[10], element.uvs[11], element_id,
                     ]);
                 }
                 
@@ -187,11 +238,24 @@ impl Hud {
 
             let tex_loc = gl::GetAttribLocation(self.shader.shader_id, b"ourTexture\0".as_ptr() as *const i8);
             gl::Uniform1i(tex_loc, 0);
+
+            let moused_slot_loc = gl::GetUniformLocation(self.shader.shader_id, b"mousedSlot\0".as_ptr() as *const i8);
+            gl::Uniform1f(moused_slot_loc, HudElement::ass_slot_to_shader_float(&game::MOUSED_SLOT));
+
+            let trans_loc = gl::GetUniformLocation(self.shader.shader_id, b"translation\0".as_ptr() as *const i8);
+            gl::Uniform2f(trans_loc, self.mousetrans.x, self.mousetrans.y);
+
+
             gl::DrawArrays(gl::TRIANGLES, 0, self.count);
             if self.chest_open {
                 gl::BindVertexArray(self.chestvao);
+                gl::UseProgram(self.shader.shader_id);
                 let tex_loc = gl::GetAttribLocation(self.shader.shader_id, b"ourTexture\0".as_ptr() as *const i8);
                 gl::Uniform1i(tex_loc, 0);
+                
+                let moused_slot_loc = gl::GetUniformLocation(self.shader.shader_id, b"mousedSlot\0".as_ptr() as *const i8);
+
+                gl::Uniform1f(moused_slot_loc, HudElement::ass_slot_to_shader_float(&game::MOUSED_SLOT));
                 gl::DrawArrays(gl::TRIANGLES, 0, self.chestcount);
             }
             

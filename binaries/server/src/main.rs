@@ -3,6 +3,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rusqlite::{params, Connection};
 use serde::{Serialize, Deserialize};
+use voxelland::hud::SlotIndexType;
 use std::collections::HashMap;
 use std::fs::{self, File};
 
@@ -229,6 +230,25 @@ fn handle_client(
                     }
                     
 
+                }
+                MessageType::ChestInvUpdate => {
+                    let currchest = message.otherpos;
+
+                    let destslot = message.info;
+
+                    let slotindextype = match message.info2 {
+                        0 => {
+                            SlotIndexType::ChestSlot(destslot as i32)
+                        }
+                        1 => {
+                            SlotIndexType::InvSlot(destslot as i32)
+                        }
+                        _ => {
+                            SlotIndexType::None
+                        }
+                    };
+
+                    
                 }
                 MessageType::PlayerUpdate => {
                     knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));

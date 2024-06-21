@@ -3305,12 +3305,14 @@ impl Game {
 
                                             }
                                             else
-                                            {slot.0 = self.mouse_slot.0;
-                                            slot.1 = self.mouse_slot.1;
+                                            {
+                                                slot.0 = self.mouse_slot.0;
+                                                slot.1 = self.mouse_slot.1;
 
-                                            self.mouse_slot.0 = buff.0;
-                                            self.mouse_slot.1 = buff.1;
-                                            updateinv = true;}
+                                                self.mouse_slot.0 = buff.0;
+                                                self.mouse_slot.1 = buff.1;
+                                                updateinv = true;
+                                            }
                                             
                                         },
                                         None => {

@@ -26,6 +26,11 @@ static mut PACKET_SIZE: usize = 0;
 
 type Nsme = (u32, Vec3, f32, usize, f32);
 
+pub enum QueuedSqlType {
+    UserDataMap(u32, IVec3, u32),
+    ChestInventoryUpdate(IVec3, [(u32, u32); 20], u32)
+}
+
 pub struct Client {
     stream: Arc<Mutex<TcpStream>>,
     inv: Inventory,
@@ -42,7 +47,7 @@ fn handle_client(
     nsmes: &Arc<Mutex<Vec<Nsme>>>,
     wl: &Arc<Mutex<u8>>,
     tod: &Arc<Mutex<f32>>,
-    queued_sql: &Arc<Queue<(u32, IVec3, u32)>>,
+    queued_sql: &Arc<Queue<QueuedSqlType>>,
     chest_reg: &Arc<DashMap<vec::IVec3, ChestInventory>>
 ) {
     let mut buffer;
@@ -240,6 +245,9 @@ fn handle_client(
 
                 }
                 MessageType::ChestInvUpdate => {
+                    let csys = csys.read().unwrap();
+                    let seed = csys.currentseed.read().unwrap().clone();
+                    drop(csys);
 
                     println!("Received chest inv update");
                     let currchest = message.otherpos;
@@ -275,9 +283,10 @@ fn handle_client(
                             slot.1 = message.infof as u32;
 
                             message.x = wasthere.0 as f32; message.y = wasthere.1 as f32;
-                            let csys = csys.write().unwrap();
 
-                            csys.save_one_chest_to_file(currchest);
+                            queued_sql.push(QueuedSqlType::ChestInventoryUpdate(currchest, chestinv.inv, seed))
+
+                            
                         }
                         SlotIndexType::InvSlot(e) => {
                             let mut clientlock = clients.lock().unwrap();
@@ -415,7 +424,7 @@ fn handle_client(
                     //TODO: MAKE THIS JUST WRITE A NEW LINE TO THE FILE INSTEAD OF REWRITING THE WHOLE THING
                     //(IT WILL "COMPRESS" WHEN THE SERVER RELOADS)
                     //csys.save_current_world_to_file(format!("world/{}", currseed));
-                    queued_sql.push((currseed, spot, block));
+                    queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot, block));
                     //csys.write_new_udm_entry(spot, block);
                 },
                 MessageType::MultiBlockSet => {
@@ -438,8 +447,8 @@ fn handle_client(
                     //TODO: MAKE THIS JUST WRITE A NEW LINE TO THE FILE INSTEAD OF REWRITING THE WHOLE THING
                     //(IT WILL "COMPRESS" WHEN THE SERVER RELOADS)
                     //csys.save_current_world_to_file(format!("world/{}", currseed));
-                    queued_sql.push((currseed, spot, block));
-                    queued_sql.push((currseed, spot2, block2));
+                    queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot, block));
+                    queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot2, block2));
                     //csys.write_new_udm_entry(spot, block);
                 },
                 MessageType::RequestTakeoff => {
@@ -668,52 +677,100 @@ fn main() {
     let writelock: Arc<Mutex<u8>> = Arc::new(Mutex::new(0u8));
 
 
-    let queued_sql: Arc<Queue<(u32, IVec3, u32)>> = Arc::new(Queue::new());
+    let queued_sql: Arc<Queue<QueuedSqlType>> = Arc::new(Queue::new());
 
 
     let qs = queued_sql.clone();
     let qs2 = qs.clone();
 
-    fn handlesql(sql: &(u32, IVec3, u32)) {
+    fn handlesql(sql: &QueuedSqlType) {
+
+        
         let mut retry = true;
-                        let mut retries = 0;
+        let mut retries = 0;
 
-                        while retry {
-                            match {
+        while retry {
+            match {
 
-                                let seed = sql.0;
-                                let spot = sql.1;
-                                let block = sql.2;
-                                
-                                let table_name = format!("userdatamap_{}", seed);
-        
-        
-                                let conn = Connection::open("db").unwrap();
-        
-                                // Insert userdatamap entries
-                                let mut stmt = conn.prepare(&format!(
-                                    "INSERT OR REPLACE INTO {} (x, y, z, value) VALUES (?, ?, ?, ?)",
-                                    table_name
-                                )).unwrap();
-        
-                                stmt.execute(params![spot.x, spot.y, spot.z, block])
-                                
-                            } {
-                                Ok(_) => {
-                                    retry = false;
-                                }
-                                Err(e) => {
-                                    println!("Sqlite failure, retrying..");
-                                    retry = true;
-                                    retries += 1;
-                                    thread::sleep(Duration::from_millis(100));
-                                }
-                            }
-                            if retries > 30 {
-                                panic!("Retried an operation more than 30 times. Aborting.");
-                                
-                            }
-                        }
+                match sql {
+                    QueuedSqlType::UserDataMap(seed, spot, block) => {
+
+                        let table_name = format!("userdatamap_{}", seed);
+
+
+                        let conn = Connection::open("db").unwrap();
+
+                        // Insert userdatamap entries
+                        let mut stmt = conn.prepare(&format!(
+                            "INSERT OR REPLACE INTO {} (x, y, z, value) VALUES (?, ?, ?, ?)",
+                            table_name
+                        )).unwrap();
+
+                        stmt.execute(params![spot.x, spot.y, spot.z, block])
+                    },
+                    QueuedSqlType::ChestInventoryUpdate(key, inv, seed) => {
+
+                        let table_name = format!("chest_registry_{}", seed);
+                
+                        let conn = Connection::open("chestdb").unwrap();
+
+                        // Ensure the table exists
+                        conn.execute(
+                            &format!(
+                                "CREATE TABLE IF NOT EXISTS {} (
+                                    x INTEGER,
+                                    y INTEGER,
+                                    z INTEGER,
+                                    dirty BOOLEAN,
+                                    inventory BLOB,
+                                    PRIMARY KEY (x, y, z)
+                                )",
+                                table_name
+                            ),
+                            (),
+                        )
+                        .unwrap();
+                    
+                        let inv_bin = bincode::serialize(&inv).unwrap();
+                            
+                            // Update the specific entry in the database
+                            let mut stmt = conn.prepare(&format!(
+                                "INSERT OR REPLACE INTO {} (x, y, z, dirty, inventory) VALUES (?, ?, ?, ?, ?)",
+                                table_name
+                            )).unwrap();
+                    
+                            stmt.execute(params![
+                                key.x,
+                                key.y,
+                                key.z,
+                                false,
+                                inv_bin
+                            ])
+
+                        
+
+
+                    },
+                }
+
+                
+                
+            } {
+                Ok(_) => {
+                    retry = false;
+                }
+                Err(e) => {
+                    println!("Sqlite failure, retrying..");
+                    retry = true;
+                    retries += 1;
+                    thread::sleep(Duration::from_millis(100));
+                }
+            }
+            if retries > 30 {
+                panic!("Retried an operation more than 30 times. Aborting.");
+                
+            }
+        }
     }
 
 

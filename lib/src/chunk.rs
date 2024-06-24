@@ -288,7 +288,8 @@ impl ChunkSystem {
         &self,
         key: IVec3
     ) {
-        let table_name = "chest_registry"; // Assuming table name is fixed for this example
+        let seed = self.currentseed.read().unwrap();
+        let table_name = format!("chest_registry_{}", seed);
 
         match  Connection::open("chestdb") {
             Ok(conn) => {

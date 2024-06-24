@@ -492,6 +492,7 @@ fn handle_client(
                     thread::sleep(Duration::from_millis(100));
                     
                     {
+                        println!("Telling someone their id is: {client_id}");
                         let mut mystream = stream.lock().unwrap();
                         //ID header then ID as u64 pair
                         let mut idmsg = Message::new(
@@ -501,6 +502,7 @@ fn handle_client(
                             bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32,
                         );
                         idmsg.goose = client_id.as_u64_pair();
+                        println!("Which decodes to {}", Uuid::from_u64_pair(idmsg.goose.0, idmsg.goose.1));
                         mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
                     }
                     

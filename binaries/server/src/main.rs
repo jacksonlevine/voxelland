@@ -191,12 +191,13 @@ fn handle_client(
                     );
 
                     {
-                        let mut mystream = stream.lock().unwrap();
-                        // Serialize and send the message header
-                        mystream.write_all(&bincode::serialize(&chestmsg).unwrap()).unwrap();
-                        println!("Wrote the chest header");
-                        // Send the raw binary data of the database file
                         if buffer.len() > 0 {
+                            let mut mystream = stream.lock().unwrap();
+                            // Serialize and send the message header
+                            mystream.write_all(&bincode::serialize(&chestmsg).unwrap()).unwrap();
+                            println!("Wrote the chest header");
+                            // Send the raw binary data of the database file
+                            
                             mystream.write_all(&buffer).unwrap();
                             println!("Wrote the chest file buffer");
                         }
@@ -270,6 +271,9 @@ fn handle_client(
                             slot.1 = message.infof as u32;
 
                             message.x = wasthere.0 as f32; message.y = wasthere.1 as f32;
+                            let csys = csys.write().unwrap();
+
+                            csys.save_one_chest_to_file(currchest);
                         }
                         SlotIndexType::InvSlot(e) => {
                             let mut clientlock = clients.lock().unwrap();

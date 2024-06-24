@@ -283,6 +283,63 @@ impl ChunkSystem {
 
     }
 
+
+    pub fn save_one_chest_to_file(
+        &self,
+        key: IVec3
+    ) {
+        let table_name = "chest_registry"; // Assuming table name is fixed for this example
+
+        match  Connection::open("chestdb") {
+            Ok(conn) => {
+                // Ensure the table exists
+                conn.execute(
+                    &format!(
+                        "CREATE TABLE IF NOT EXISTS {} (
+                            x INTEGER,
+                            y INTEGER,
+                            z INTEGER,
+                            dirty BOOLEAN,
+                            inventory BLOB,
+                            PRIMARY KEY (x, y, z)
+                        )",
+                        table_name
+                    ),
+                    (),
+                )
+                .unwrap();
+            
+                // Get the chest inventory for the given key
+                if let Some(chest_inventory) = self.chest_registry.get(&key) {
+                    let inv_bin = bincode::serialize(&chest_inventory.inv).unwrap();
+                    
+                    // Update the specific entry in the database
+                    let mut stmt = conn.prepare(&format!(
+                        "INSERT OR REPLACE INTO {} (x, y, z, dirty, inventory) VALUES (?, ?, ?, ?, ?)",
+                        table_name
+                    )).unwrap();
+            
+                    stmt.execute(params![
+                        key.x,
+                        key.y,
+                        key.z,
+                        chest_inventory.dirty,
+                        inv_bin
+                    ])
+                    .unwrap();
+                } else {
+                    eprintln!("No chest inventory found for key {:?}", key);
+                }
+            }
+            Err(e) => {
+
+            }
+        };
+        
+    }
+
+
+
     pub fn save_current_chests_to_file(&self) {
         let seed = self.currentseed.read().unwrap();
         let table_name = format!("chest_registry_{}", seed);

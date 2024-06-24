@@ -3358,14 +3358,43 @@ impl Game {
                             }
                         }
 
-                        if slot.1 == 1 {
-                            let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
-                            mutslot.1 = 0;
-                            mutslot.0 = 0;
+                        if self.vars.in_multiplayer {
+                            if slot.1 == 1 {
+                                let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                                mutslot.1 = 0;
+                                mutslot.0 = 0;
+
+
+                                   let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, 0.0, slot_selected as u32);
+                                    msg.infof = 0.0;
+                                    msg.info2 = 1;
+
+                                    self.netconn.send(&msg);
+                     
+                                
+                            } else {
+                                let slot = &self.inventory.read().unwrap().inv[slot_selected];
+                          
+
+                                let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, slot.0 as f32, slot_selected as u32);
+                                    msg.infof = slot.1 as f32 - 1.0;
+                                    msg.info2 = 1;
+
+                                    self.netconn.send(&msg);
+
+                            }
                         } else {
-                            let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
-                            mutslot.1 -= 1;
+                            if slot.1 == 1 {
+                                let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                                mutslot.1 = 0;
+                                mutslot.0 = 0;
+                            } else {
+                                let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                                mutslot.1 -= 1;
+                            }
                         }
+
+                        
                     }
 
                     

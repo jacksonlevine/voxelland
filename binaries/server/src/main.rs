@@ -191,11 +191,15 @@ fn handle_client(
                     );
 
                     {
-                        if buffer.len() > 0 {
-                            let mut mystream = stream.lock().unwrap();
+
+                        let mut mystream = stream.lock().unwrap();
                             // Serialize and send the message header
-                            mystream.write_all(&bincode::serialize(&chestmsg).unwrap()).unwrap();
-                            println!("Wrote the chest header");
+                        mystream.write_all(&bincode::serialize(&chestmsg).unwrap()).unwrap();
+                        println!("Wrote the chest header");
+
+
+                        if buffer.len() > 0 {
+                            
                             // Send the raw binary data of the database file
                             
                             mystream.write_all(&buffer).unwrap();

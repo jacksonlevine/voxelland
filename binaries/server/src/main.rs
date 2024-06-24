@@ -480,26 +480,21 @@ fn handle_client(
                     thread::sleep(Duration::from_millis(100));
                     {
                         let mut mystream = stream.lock().unwrap();
-                        mystream.set_nonblocking(false);
+
                         println!("Got pt stream lock");
 
                         let ptmsg: Message = Message::new(MessageType::Pt, Vec3::ZERO, 0.0, currpt as u32);
 
-                        let mut didsend = false;
-                        while !didsend {
-                            match mystream.write_all(&bincode::serialize(&ptmsg).unwrap()) {
-                                Ok(_) => {
-                                    didsend = true;
-                                },
-                                Err(_) => {
-    
-                                },
-                            };
-                        }
+                        match mystream.write_all(&bincode::serialize(&ptmsg).unwrap()) {
+                            Ok(_) => {
+
+                            },
+                            Err(e) => {
+                                println!("Couldnt send PT: {e}");
+                            },
+                        };
                         
-                        
-                        mystream.flush();
-                        mystream.set_nonblocking(true);
+                        //mystream.flush();
                     }
                     
 

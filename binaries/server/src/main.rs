@@ -17,7 +17,7 @@ use std::time::Duration;
 use uuid::Uuid;
 use glam::Vec3;
 use voxelland::chunk::ChunkSystem;
-use voxelland::game::Game;
+use voxelland::game::{self, Game};
 use voxelland::vec::{self, IVec3};
 use voxelland::server_types::{self, *};
 use dashmap::DashMap;
@@ -763,7 +763,7 @@ fn main() {
                                         stream: Arc::clone(&stream),
                                         errorstrikes: 0,
                                         inv: inventory::Inventory{
-                                            dirty: false, inv: [(0,0), (0,0), (0,0), (0,0), (0,0)]
+                                            dirty: false, inv: game::STARTINGITEMS
                                         } 
                                     },
                                 );

@@ -55,7 +55,13 @@ use std::sync::RwLock;
 
 
 
-
+pub static STARTINGITEMS: [(u32, u32); 5] = [
+    (18, 99),
+    (20, 99),
+    (21, 99),
+    (10, 99),
+    (19, 99)
+];
 
 
 pub static mut MOUSED_SLOT: SlotIndexType = SlotIndexType::None;
@@ -546,13 +552,7 @@ impl Game {
 
         let inv = Arc::new(RwLock::new(Inventory{
             dirty: true,
-            inv: [
-                (18, 99),
-                (20, 99),
-                (21, 99),
-                (10, 99),
-                (19, 99)
-            ]
+            inv: STARTINGITEMS
         }));
 
 
@@ -891,7 +891,7 @@ impl Game {
             let slot = self.chunksys.read().unwrap().chest_registry.entry(self.hud.current_chest).or_insert(
                 ChestInventory { 
                     dirty: true, 
-                    inv: [(5,20), (0,0), (0,0), (0,0), (0,0),
+                    inv: [(0, 0), (0,0), (0,0), (0,0), (0,0),
                         (0,0), (0,0), (0,0), (0,0), (0,0),
                         (0,0), (0,0), (0,0), (0,0), (0,0),
                         (0,0), (0,0), (0,0), (0,0), (0,0)] 
@@ -1175,8 +1175,8 @@ impl Game {
         
             // First, try to find an item with the given `id`
             if let Some((index, item)) = inventory.inv.iter().enumerate().find(|(index, item)| item.0 == id) {
-                let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, item.0 as f32 + 1.0, index as u32);
-                msg.infof = item.1 as f32;
+                let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, id as f32, index as u32);
+                msg.infof = item.1 as f32 + 1.0;
                 msg.info2 = 1;
 
                 n.push(msg);
@@ -1188,8 +1188,8 @@ impl Game {
             // If not found, try to find an empty slot to add the new item
             if let Some((index, item)) = inventory.inv.iter().enumerate().find(|(index, item)| item.0 == 0) {
                 
-                let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, 1.0, index as u32);
-                msg.infof = item.1 as f32;
+                let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, id as f32, index as u32);
+                msg.infof = 1.0;
                 msg.info2 = 1;
 
                 n.push(msg);

@@ -181,8 +181,17 @@ impl NetworkConnector {
 
                     match stream_lock.read(&mut buffer) {
                         Ok(size) if size > 0 => {
-                            let comm: Message = match bincode::deserialize(&buffer[..size]) {
+                            let comm: Message = match bincode::deserialize::<Message>(&buffer[..size]) {
                                 Ok(msg) => {
+
+                                    match msg.message_type {
+                                        MessageType::ChestInvUpdate => {
+                                            println!("CIU incoming goose {}", Uuid::from_u64_pair(msg.goose.0, msg.goose.1));
+                                        }
+                                        _ => {
+
+                                        }
+                                    }
                                     msg
                                 }
                                 Err(e) => {

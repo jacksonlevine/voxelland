@@ -551,7 +551,7 @@ fn handle_client(
                         }
                         _ => {
                             let mut mystream = stream.lock().unwrap();
-                            let _ = mystream.write_all(&buffer[..numbytes2]);
+                            let _ = mystream.write_all(&newmessageserial[..numbytes2]);
                         }
                     }
                     //let _ = mystream.write_all(&newmessageserial);

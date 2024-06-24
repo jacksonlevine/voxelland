@@ -493,6 +493,7 @@ impl NetworkConnector {
                                     commqueue.push(comm.clone());
                                 }
                                 MessageType::ChestInvUpdate => {
+                                    println!("Receiving CIU from goose {}", Uuid::from_u64_pair(comm.goose.0, comm.goose.1));
                                     hpcommqueue.push(comm.clone());
                                 },
                             }

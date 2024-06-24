@@ -235,6 +235,8 @@ fn handle_client(
 
                 }
                 MessageType::ChestInvUpdate => {
+
+                    println!("Received chest inv update");
                     let currchest = message.otherpos;
 
                     let destslot = message.info;
@@ -513,6 +515,9 @@ fn handle_client(
             match message.message_type {
                 MessageType::BlockSet => {
                     println!("REDISTRIB  A BLOCKSET  RIGHT NOW");
+                }
+                MessageType::ChestInvUpdate => {
+                    println!("Redistribbing a chest inv update with goose {}", Uuid::from_u64_pair(message.goose.0, message.goose.1))
                 }
                 _ => {
                     

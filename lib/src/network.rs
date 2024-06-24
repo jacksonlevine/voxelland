@@ -420,6 +420,7 @@ impl NetworkConnector {
                                     let uuid = Uuid::from_u64_pair(recv_s.0, recv_s.1);
                                     //println!("{}", uuid);
 
+                                    println!("My uuid, I am being told, is {uuid}");
 
                                     gknowncams.insert(
                                         uuid.clone(), Vec3::ZERO

@@ -4,6 +4,7 @@ use rand::{Rng, SeedableRng};
 use rusqlite::{params, Connection};
 use serde::{Serialize, Deserialize};
 use voxelland::hud::SlotIndexType;
+use voxelland::inventory::{self, ChestInventory, Inventory};
 use std::collections::HashMap;
 use std::fs::{self, File};
 
@@ -17,7 +18,7 @@ use uuid::Uuid;
 use glam::Vec3;
 use voxelland::chunk::ChunkSystem;
 use voxelland::game::Game;
-use voxelland::vec::IVec3;
+use voxelland::vec::{self, IVec3};
 use voxelland::server_types::{self, *};
 use dashmap::DashMap;
 
@@ -27,6 +28,7 @@ type Nsme = (u32, Vec3, f32, usize, f32);
 
 pub struct Client {
     stream: Arc<Mutex<TcpStream>>,
+    inv: Inventory,
     errorstrikes: i8,
 }
 
@@ -40,7 +42,8 @@ fn handle_client(
     nsmes: &Arc<Mutex<Vec<Nsme>>>,
     wl: &Arc<Mutex<u8>>,
     tod: &Arc<Mutex<f32>>,
-    queued_sql: &Arc<Queue<(u32, IVec3, u32)>>
+    queued_sql: &Arc<Queue<(u32, IVec3, u32)>>,
+    chest_reg: &Arc<DashMap<vec::IVec3, ChestInventory>>
 ) {
     let mut buffer;
     unsafe {
@@ -248,8 +251,52 @@ fn handle_client(
                         }
                     };
 
+                    match slotindextype {
+                        SlotIndexType::ChestSlot(e) => {
+                            let mut chestinv = chest_reg.entry(currchest).or_insert(ChestInventory {
+                                dirty: false, inv: [(0,0), (0,0), (0,0), (0,0), (0,0),
+                                (0,0), (0,0), (0,0), (0,0), (0,0), 
+                                (0,0), (0,0), (0,0), (0,0), (0,0), 
+                                (0,0), (0,0), (0,0), (0,0), (0,0) ]
+                            });
+
+                            let slot = &mut chestinv.inv[e as usize];
+
+                            let wasthere = slot.clone();
+
+                            slot.0 = message.rot as u32;
+                            slot.1 = message.infof as u32;
+
+                            message.x = wasthere.0 as f32; message.y = wasthere.1 as f32;
+                        }
+                        SlotIndexType::InvSlot(e) => {
+                            let mut clientlock = clients.lock().unwrap();
+                            match clientlock.get_mut(&client_id) {
+                                Some(cli) => {
+                                    let mut playerinv = &mut cli.inv;
+                                    let slot = &mut playerinv.inv[e as usize];
+
+                                    let wasthere = slot.clone();
+
+                                    slot.0 = message.rot as u32;
+                                    slot.1 = message.infof as u32;
+
+                                    message.x = wasthere.0 as f32; message.y = wasthere.1 as f32;
+                                },
+                                None => {
+                                    
+                                },
+                            }
+                            
+                        }
+                        SlotIndexType::None => {
+
+                        }
+                    }
+
                     
                 }
+                
                 MessageType::PlayerUpdate => {
                     knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
                     //println!("Recvd player update");
@@ -555,7 +602,7 @@ fn main() {
 
     let mut csys = gamewrite.chunksys.write().unwrap();
 
-
+    let chestreg = csys.chest_registry.clone();
 
     csys.load_world_from_file(format!("world/{}", initialseed));
 
@@ -695,6 +742,9 @@ fn main() {
                                     Client {
                                         stream: Arc::clone(&stream),
                                         errorstrikes: 0,
+                                        inv: inventory::Inventory{
+                                            dirty: false, inv: [(0,0), (0,0), (0,0), (0,0), (0,0)]
+                                        } 
                                     },
                                 );
                                 gotlock = true;
@@ -721,9 +771,10 @@ fn main() {
                     let todclone = todclone.clone();
 
                     let queued_sql = qs2.clone();
+                    let chestreg = chestreg.clone();
                     println!("About to spawn thread");
                     thread::spawn(move || {
-                        handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone, &su_clone, &nsme_clone, &wl_clone, &todclone, &queued_sql);
+                        handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone, &su_clone, &nsme_clone, &wl_clone, &todclone, &queued_sql, &chestreg);
                     });
                     println!("Spawned thread");
                     

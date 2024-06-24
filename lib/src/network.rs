@@ -493,7 +493,7 @@ impl NetworkConnector {
                                     commqueue.push(comm.clone());
                                 }
                                 MessageType::ChestInvUpdate => {
-                                    
+                                    hpcommqueue.push(comm.clone());
                                 },
                             }
 

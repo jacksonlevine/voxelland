@@ -3,9 +3,10 @@ use std::{ops::Bound, sync::*};
 use gl::types::{GLuint, GLvoid};
 use glam::{Mat4, Vec3};
 use glfw::ffi::glfwGetTime;
+use lockfree::queue::Queue;
 use vox_format::chunk::Chunk;
 
-use crate::{camera::Camera, chunk::ChunkSystem, collisioncage::{BoundBox, CollCage, Side}, game::Game, shader::Shader, vec};
+use crate::{camera::Camera, chunk::ChunkSystem, collisioncage::{BoundBox, CollCage, Side}, game::Game, server_types::Message, shader::Shader, vec};
 
 use crate::inventory::Inventory;
 
@@ -54,12 +55,15 @@ pub struct Drops {
     pub texture: GLuint,
     pub cam: Arc<Mutex<Camera>>,
     pub csys: Arc<RwLock<ChunkSystem>>,
-    pub inv: Arc<RwLock<Inventory>>
+    pub inv: Arc<RwLock<Inventory>>,
+
+    pub in_multiplayer: bool,
+    pub needtosend: Arc<Queue<Message>>
 }
 
 impl Drops {
 
-    pub fn new(texture: GLuint, cam: &Arc<Mutex<Camera>>, csys: &Arc<RwLock<ChunkSystem>>, inv: &Arc<RwLock<Inventory>>) -> Drops {
+    pub fn new(texture: GLuint, cam: &Arc<Mutex<Camera>>, csys: &Arc<RwLock<ChunkSystem>>, inv: &Arc<RwLock<Inventory>>, in_m: bool, needtosend: &Arc<Queue<Message>>) -> Drops {
 
         let shader = Shader::new("assets/dropvert.glsl", "assets/dropfrag.glsl");
         let mut vbo: GLuint = 0;
@@ -138,7 +142,9 @@ impl Drops {
             texture,
             cam: cam.clone(),
             csys: csys.clone(),
-            inv: inv.clone()
+            inv: inv.clone(),
+            in_multiplayer: in_m,
+            needtosend: needtosend.clone()
         }
     }
 
@@ -217,7 +223,7 @@ impl Drops {
             }
 
             if (drop.position).distance(campos) < 1.0 {
-                match Game::add_to_inventory(&self.inv, drop.block_id, 1) {
+                match Game::add_to_inventory(&self.inv, drop.block_id, 1, self.in_multiplayer, &self.needtosend) {
                     Ok(t) => {
                         to_remove_indices.push(index);
                     },

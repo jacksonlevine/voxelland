@@ -213,7 +213,7 @@ pub struct ChunkSystem {
     pub hashadinitiallightpass: Arc<Mutex<HashMap<vec::IVec2, bool>>>,
     pub lightmap: Arc<Mutex<HashMap<vec::IVec3, LightSegment>>>,
     pub audiop: Option<Arc<RwLock<AudioPlayer>>>,
-    pub chest_registry: DashMap<vec::IVec3, ChestInventory>
+    pub chest_registry: Arc<DashMap<vec::IVec3, ChestInventory>>
 }
 
 impl ChunkSystem {
@@ -536,7 +536,7 @@ impl ChunkSystem {
             hashadinitiallightpass: Arc::new(Mutex::new(HashMap::new())),
             lightmap: Arc::new(Mutex::new(HashMap::new())),
             audiop,
-            chest_registry: DashMap::new()
+            chest_registry: Arc::new(DashMap::new())
         };
 
 

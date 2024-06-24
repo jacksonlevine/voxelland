@@ -13,7 +13,7 @@ use glam::{Mat4, Vec2, Vec3, Vec4};
 use glfw::ffi::{glfwGetCursorPos, glfwGetTime, GLFWwindow};
 use glfw::{Action, Key, MouseButton, PWindow};
 use gltf::Gltf;
-use lockfree::queue::Queue;
+use lockfree::queue::{self, Queue};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use uuid::Uuid;
@@ -232,7 +232,8 @@ pub struct Game {
     pub address: Arc<Mutex<Option<String>>>,
     pub player_model_entities: Arc<DashMap<Uuid, ModelEntity>>,
 
-    pub mouse_slot: (u32, u32)
+    pub mouse_slot: (u32, u32),
+    pub needtosend: Arc<Queue<Message>>
 }
 
 enum FaderNames {
@@ -584,6 +585,8 @@ impl Game {
 
         let pme = Arc::new(DashMap::new());
 
+        let needtosend = Arc::new(Queue::new());
+
         let mut g = Game {
             chunksys: chunksys.clone(),
             shader0,
@@ -645,7 +648,7 @@ impl Game {
             window: window.clone(),
             guisys: GuiSystem::new(&window.clone(), &tex),
             hud,
-            drops: Drops::new(tex.id, &cam, &chunksys, &inv),
+            drops: Drops::new(tex.id, &cam, &chunksys, &inv, connectonstart, &needtosend.clone()),
             audiop,
             inventory: inv,
             animations: Vec::new(),
@@ -677,7 +680,8 @@ impl Game {
             addressentered: addressentered.clone(),
             address: address.clone(),
             player_model_entities: pme,
-            mouse_slot: (0,0)
+            mouse_slot: (0,0),
+            needtosend
         };
         if !headless {
             g.load_model("assets/models/car/scene.gltf");
@@ -1161,26 +1165,64 @@ impl Game {
         self.hud.dirty = true;
     }
 
-    pub fn add_to_inventory(inv: &Arc<RwLock<Inventory>>, id: u32, count: u32) -> Result<bool, bool> {
-        let mut inventory = inv.write().unwrap();
+    pub fn add_to_inventory(inv: &Arc<RwLock<Inventory>>, id: u32, count: u32, in_m: bool, needtosend: &Arc<Queue<Message>>) -> Result<bool, bool> {
+
+        if in_m {
+
+            let n = needtosend.clone();
+
+            let inventory = inv.read().unwrap();
         
-        // First, try to find an item with the given `id`
-        if let Some(item) = inventory.inv.iter_mut().find(|item| item.0 == id) {
-            item.1 += count;
-            inventory.dirty = true;
-            return Ok(true);
-        }
+            // First, try to find an item with the given `id`
+            if let Some((index, item)) = inventory.inv.iter().enumerate().find(|(index, item)| item.0 == id) {
+                let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, item.0 as f32 + 1.0, index as u32);
+                msg.infof = item.1 as f32;
+                msg.info2 = 1;
 
-        // If not found, try to find an empty slot to add the new item
-        if let Some(item) = inventory.inv.iter_mut().find(|item| item.0 == 0) {
-            item.0 = id;
-            item.1 = count;
-            inventory.dirty = true;
-            return Ok(true);
-        }
+                n.push(msg);
+                // item.1 += count;
+                // inventory.dirty = true;
+                return Ok(true);
+            }
 
-        // If no empty slot, return an error
-        Err(false)
+            // If not found, try to find an empty slot to add the new item
+            if let Some((index, item)) = inventory.inv.iter().enumerate().find(|(index, item)| item.0 == 0) {
+                
+                let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, 1.0, index as u32);
+                msg.infof = item.1 as f32;
+                msg.info2 = 1;
+
+                n.push(msg);
+                // item.0 = id;
+                // item.1 = count;
+                // inventory.dirty = true;
+                return Ok(true);
+            }
+
+
+            Err(false)
+        } else {
+            let mut inventory = inv.write().unwrap();
+        
+            // First, try to find an item with the given `id`
+            if let Some(item) = inventory.inv.iter_mut().find(|item| item.0 == id) {
+                item.1 += count;
+                inventory.dirty = true;
+                return Ok(true);
+            }
+
+            // If not found, try to find an empty slot to add the new item
+            if let Some(item) = inventory.inv.iter_mut().find(|item| item.0 == 0) {
+                item.0 = id;
+                item.1 = count;
+                inventory.dirty = true;
+                return Ok(true);
+            }
+
+            // If no empty slot, return an error
+            Err(false)
+        }
+        
     }
 
 
@@ -1312,6 +1354,14 @@ impl Game {
                 //     }
                 // }
             }
+            match self.needtosend.pop() {
+                Some(comm) => {
+                    self.netconn.send(&comm);
+                }
+                None => {
+
+                }
+            }
             let mut morestuff = true;
             while morestuff {
                 match self.hp_server_command_queue.pop() {
@@ -1336,6 +1386,87 @@ impl Game {
                                         comm.info2, true, true);
 
                             }
+                            MessageType::ChestInvUpdate => {
+                                let currchest = comm.otherpos;
+            
+                                let destslot = comm.info;
+            
+                                let slotindextype = match comm.info2 {
+                                    0 => {
+                                        SlotIndexType::ChestSlot(destslot as i32)
+                                    }
+                                    1 => {
+                                        SlotIndexType::InvSlot(destslot as i32)
+                                    }
+                                    _ => {
+                                        SlotIndexType::None
+                                    }
+                                };
+
+                                let uuid = Uuid::from_u64_pair(comm.goose.0, comm.goose.1);
+
+                                let mut updateinv = false;
+
+                                if uuid == self.my_uuid.read().unwrap().unwrap() && comm.z == 1.0 {
+                                    self.mouse_slot.0 = comm.x as u32;
+                                    self.mouse_slot.1 = comm.y as u32;
+                                    updateinv = true;
+                                }
+            
+                                match slotindextype {
+                                    SlotIndexType::ChestSlot(e) => {
+                                        let csys = self.chunksys.write().unwrap();
+                                        let mut chestinv = csys.chest_registry.entry(currchest).or_insert(ChestInventory {
+                                            dirty: false, inv: [(0,0), (0,0), (0,0), (0,0), (0,0),
+                                            (0,0), (0,0), (0,0), (0,0), (0,0), 
+                                            (0,0), (0,0), (0,0), (0,0), (0,0), 
+                                            (0,0), (0,0), (0,0), (0,0), (0,0) ]
+                                        });
+            
+                                        let slot = &mut chestinv.inv[e as usize];
+            
+                                       // let wasthere = slot.clone();
+            
+                                        slot.0 = comm.rot as u32;
+                                        slot.1 = comm.infof as u32;
+                                        updateinv = true;
+                                        //comm.x = wasthere.0 as f32; comm.y = wasthere.1 as f32;
+                                    }
+                                    SlotIndexType::InvSlot(e) => {
+
+                                        
+                                        if uuid == self.my_uuid.read().unwrap().unwrap() {
+                                            let mut playerinv = &mut self.inventory.write().unwrap();
+                                            let slot = &mut playerinv.inv[e as usize];
+        
+                                           // let wasthere = slot.clone();
+        
+                                            slot.0 = comm.rot as u32;
+                                            slot.1 = comm.infof as u32;
+
+                                            updateinv = true;
+
+        
+                                        }
+                                        
+                                        
+                                        //comm.x = wasthere.0 as f32; comm.y = wasthere.1 as f32;
+
+                                        
+                                    }
+                                    SlotIndexType::None => {
+            
+                                    }
+                                }
+
+
+                                if updateinv {
+                                    self.update_inventory();
+                                }
+            
+                                
+                            }
+                            
                             _ => {
 
                             }
@@ -3291,8 +3422,8 @@ impl Game {
                                                         /*ROT: ID */
                                                         /*INFOF: COUNT */
                                                         /*X, Y:   SLOT MOVED TO MOUSE OF <GOOSE> PLAYER */
-
-                                                        let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::new(buff.0 as f32, buff.1 as f32, 0.0), self.mouse_slot.0 as f32, e as u32);
+                                                        /*Z: IF MOUSE_SLOT IS REPLACED */
+                                                        let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::new(buff.0 as f32, buff.1 as f32, 1.0), self.mouse_slot.0 as f32, e as u32);
                                                         msg.otherpos = self.hud.current_chest;
                                                         msg.info2 = /*0 = CHEST, 1 = INV, 2 = NONE */0;
                                                         msg.infof = self.mouse_slot.1 as f32;
@@ -3334,7 +3465,8 @@ impl Game {
                                                 /*ROT: ID */
                                                 /*INFOF: COUNT */
                                                 /*X, Y:   SLOT MOVED TO MOUSE OF <GOOSE> PLAYER */
-                                                let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::new(buff.0 as f32, buff.1 as f32, 0.0), self.mouse_slot.0 as f32, e as u32);
+                                                /*Z: IF MOUSE_SLOT IS REPLACED */
+                                                let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::new(buff.0 as f32, buff.1 as f32, 1.0), self.mouse_slot.0 as f32, e as u32);
                                                 msg.otherpos = self.hud.current_chest;
                                                 msg.info2 = /*0 = CHEST, 1 = INV, 2 = NONE */ 1;
                                                 msg.infof = self.mouse_slot.1 as f32;

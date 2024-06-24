@@ -21,6 +21,9 @@ use voxelland::game::{self, Game};
 use voxelland::vec::{self, IVec3};
 use voxelland::server_types::{self, *};
 use dashmap::DashMap;
+use crossbeam::queue::SegQueue;
+
+
 
 static mut PACKET_SIZE: usize = 0;
 
@@ -28,7 +31,8 @@ type Nsme = (u32, Vec3, f32, usize, f32);
 
 pub enum QueuedSqlType {
     UserDataMap(u32, IVec3, u32),
-    ChestInventoryUpdate(IVec3, [(u32, u32); 20], u32)
+    ChestInventoryUpdate(IVec3, [(u32, u32); 20], u32),
+    None
 }
 
 pub struct Client {
@@ -47,7 +51,7 @@ fn handle_client(
     nsmes: &Arc<Mutex<Vec<Nsme>>>,
     wl: &Arc<Mutex<u8>>,
     tod: &Arc<Mutex<f32>>,
-    queued_sql: &Arc<Queue<QueuedSqlType>>,
+    queued_sql: &Arc<SegQueue<QueuedSqlType>>,
     chest_reg: &Arc<DashMap<vec::IVec3, ChestInventory>>
 ) {
     let mut buffer;
@@ -284,7 +288,7 @@ fn handle_client(
 
                             message.x = wasthere.0 as f32; message.y = wasthere.1 as f32;
 
-                            queued_sql.push(QueuedSqlType::ChestInventoryUpdate(currchest, chestinv.inv, seed))
+                            queued_sql.push(QueuedSqlType::ChestInventoryUpdate(currchest, chestinv.inv.clone(), seed))
 
                             
                         }
@@ -677,7 +681,7 @@ fn main() {
     let writelock: Arc<Mutex<u8>> = Arc::new(Mutex::new(0u8));
 
 
-    let queued_sql: Arc<Queue<QueuedSqlType>> = Arc::new(Queue::new());
+    let queued_sql: Arc<SegQueue<QueuedSqlType>> = Arc::new(SegQueue::new());
 
 
     let qs = queued_sql.clone();
@@ -685,7 +689,7 @@ fn main() {
 
     fn handlesql(sql: &QueuedSqlType) {
 
-        
+        println!("Calling handlesql");
         let mut retry = true;
         let mut retries = 0;
 
@@ -750,6 +754,9 @@ fn main() {
                         
 
 
+                    },
+                    QueuedSqlType::None => {
+                        Ok(0)
                     },
                 }
 

@@ -37,6 +37,7 @@ no_deadlocks = "1.3.2"
 once_cell = "1.19.0"
 imgui = "0.9.0"
 imgui-opengl-renderer = "0.12.1"
+crossbeam = "0.8.4"
 
 [dependencies.rusqlite]
 version = "0.31.0"

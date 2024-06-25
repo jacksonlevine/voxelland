@@ -1443,20 +1443,29 @@ impl Game {
                                     }
                                     SlotIndexType::InvSlot(e) => {
 
-                                        
-                                        if uuid == self.my_uuid.read().unwrap().unwrap() {
-                                            let mut playerinv = &mut self.inventory.write().unwrap();
-                                            let slot = &mut playerinv.inv[e as usize];
-        
-                                           // let wasthere = slot.clone();
-        
-                                            slot.0 = comm.rot as u32;
-                                            slot.1 = comm.infof as u32;
 
-                                            updateinv = true;
-
+                                        match *self.my_uuid.read().unwrap() {
+                                            Some(ud) => {
+                                                if uuid == ud {
+                                                    let mut playerinv = &mut self.inventory.write().unwrap();
+                                                    let slot = &mut playerinv.inv[e as usize];
+                
+                                                   // let wasthere = slot.clone();
+                
+                                                    slot.0 = comm.rot as u32;
+                                                    slot.1 = comm.infof as u32;
         
+                                                    updateinv = true;
+        
+                
+                                                }
+                                            }
+                                            None => {
+
+                                            }
                                         }
+                                        
+                                        
                                         
                                         
                                         //comm.x = wasthere.0 as f32; comm.y = wasthere.1 as f32;

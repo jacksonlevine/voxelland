@@ -1527,6 +1527,9 @@ impl Game {
             }
             //let mut morestuff = true;
             //while morestuff {
+
+
+            for v in 0..5{
                 match self.server_command_queue.pop() {
                     Some(comm) => {
                         match comm.message_type {
@@ -1620,6 +1623,10 @@ impl Game {
                         //morestuff = false;
                     }
                 }
+            }
+
+
+
             //}
         
             

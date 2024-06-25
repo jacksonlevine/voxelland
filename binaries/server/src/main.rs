@@ -201,14 +201,14 @@ fn handle_client(
 
                     {
 
-                        let mut mystream = stream.lock().unwrap();
+                       { let mut mystream = stream.lock().unwrap();
                             // Serialize and send the message header
-                        mystream.write_all(&bincode::serialize(&chestmsg).unwrap()).unwrap();
+                        mystream.write_all(&bincode::serialize(&chestmsg).unwrap()).unwrap();}
                         println!("Wrote the chest header");
 
 
                         if buffer.len() > 0 {
-                            
+                            let mut mystream = stream.lock().unwrap();
                             // Send the raw binary data of the database file
                             
                             mystream.write_all(&buffer).unwrap();
@@ -230,6 +230,8 @@ fn handle_client(
                     let currseed = *(csys.currentseed.read().unwrap());
                     println!("Got currseed lock");
 
+                    drop(csys);
+                    
                     let seedmsg = Message::new(
                         MessageType::Seed,
                         Vec3::ZERO,
@@ -476,7 +478,7 @@ fn handle_client(
                 MessageType::RequestMyID => {
                     {
                         println!("Telling someone their id is: {client_id}");
-                        let mut mystream = stream.lock().unwrap();
+                        
                         //ID header then ID as u64 pair
                         let mut idmsg = Message::new(
                             MessageType::YourId,
@@ -486,8 +488,10 @@ fn handle_client(
                         );
                         idmsg.goose = client_id.as_u64_pair();
                         println!("Which decodes to {}", Uuid::from_u64_pair(idmsg.goose.0, idmsg.goose.1));
-                        mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
-                        
+                        {    
+                            let mut mystream = stream.lock().unwrap();
+                            mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
+                        }    
                     }
                 }
                 MessageType::RequestPt => {
@@ -500,21 +504,23 @@ fn handle_client(
 
                     thread::sleep(Duration::from_millis(100));
                     {
-                        let mut mystream = stream.lock().unwrap();
-
+                        
                         println!("Got pt stream lock");
 
                         let ptmsg: Message = Message::new(MessageType::Pt, Vec3::ZERO, 0.0, currpt as u32);
 
-                        match mystream.write_all(&bincode::serialize(&ptmsg).unwrap()) {
-                            Ok(_) => {
+                        {
+                            let mut mystream = stream.lock().unwrap();
 
-                            },
-                            Err(e) => {
-                                println!("Couldnt send PT: {e}");
-                            },
-                        };
-                        
+                            match mystream.write_all(&bincode::serialize(&ptmsg).unwrap()) {
+                                Ok(_) => {
+
+                                },
+                                Err(e) => {
+                                    println!("Couldnt send PT: {e}");
+                                },
+                            };
+                        }    
                         //mystream.flush();
                     }
                     
@@ -524,7 +530,7 @@ fn handle_client(
                     
                     {
                         println!("Telling someone their id is: {client_id}");
-                        let mut mystream = stream.lock().unwrap();
+                        
                         //ID header then ID as u64 pair
                         let mut idmsg = Message::new(
                             MessageType::YourId,
@@ -534,7 +540,10 @@ fn handle_client(
                         );
                         idmsg.goose = client_id.as_u64_pair();
                         println!("Which decodes to {}", Uuid::from_u64_pair(idmsg.goose.0, idmsg.goose.1));
-                        mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
+                        {    
+                            let mut mystream = stream.lock().unwrap();
+                            mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
+                        }
                     }
                     
 

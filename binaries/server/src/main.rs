@@ -253,14 +253,28 @@ fn handle_client(
 
                     {
                         let mut mystream = stream.lock().unwrap();
-                        mystream.write_all(&bincode::serialize(&mobmsg).unwrap());
+                        match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
+                            Ok(_) => {
+                                println!("Sent mob header");
+                            },
+                            Err(e) => {
+                                println!("Mob err {e}");
+                            },
+                        };
                     }
 
                     thread::sleep(Duration::from_millis(10));
 
                     {
                         let mut mystream = stream.lock().unwrap();
-                        mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap());
+                        match mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap()) {
+                            Ok(_) => {
+                                println!("Sent mob payload");
+                            },
+                            Err(e) => {
+                                println!("Mob err {e}");
+                            },
+                        };
                     }
 
                     thread::sleep(Duration::from_millis(10));

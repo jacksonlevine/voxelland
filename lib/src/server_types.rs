@@ -39,7 +39,7 @@ impl Display for MobUpdateBatch {
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum MessageType {
     None,
     RequestUdm,

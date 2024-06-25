@@ -1407,11 +1407,20 @@ impl Game {
 
                                 let mut updateinv = false;
 
-                                if uuid == self.my_uuid.read().unwrap().unwrap() && comm.z == 1.0 {
-                                    self.mouse_slot.0 = comm.x as u32;
-                                    self.mouse_slot.1 = comm.y as u32;
-                                    updateinv = true;
+                                match *self.my_uuid.read().unwrap() {
+                                    Some(ud) => {
+                                        if uuid == ud && comm.z == 1.0 {
+                                            self.mouse_slot.0 = comm.x as u32;
+                                            self.mouse_slot.1 = comm.y as u32;
+                                            updateinv = true;
+                                        }
+                                    },
+                                    None => {
+
+                                    },
                                 }
+
+                                
             
                                 match slotindextype {
                                     SlotIndexType::ChestSlot(e) => {

@@ -152,13 +152,13 @@ fn handle_client(
                 {
                     {
                         let mut mystream = stream.lock().unwrap();
-                        mystream.write_all(&bincode::serialize(&chestmsg).unwrap()).unwrap();
+                        mystream.write_all(&bincode::serialize(&chestmsg).unwrap());
                     }
                     println!("Wrote the chest header");
 
                     if buffer.len() > 0 {
                         let mut mystream = stream.lock().unwrap();
-                        mystream.write_all(&buffer).unwrap();
+                        mystream.write_all(&buffer);
                         println!("Wrote the chest file buffer");
                     }
                 }
@@ -234,7 +234,7 @@ fn handle_client(
 
                 {
                     let mut mystream = stream.lock().unwrap();
-                    mystream.write_all(&bincode::serialize(&timeupdate).unwrap()).unwrap();
+                    mystream.write_all(&bincode::serialize(&timeupdate).unwrap());
                 }
 
                 let nlock = nsmes.lock().unwrap();
@@ -253,14 +253,14 @@ fn handle_client(
 
                     {
                         let mut mystream = stream.lock().unwrap();
-                        mystream.write_all(&bincode::serialize(&mobmsg).unwrap()).unwrap();
+                        mystream.write_all(&bincode::serialize(&mobmsg).unwrap());
                     }
 
                     thread::sleep(Duration::from_millis(10));
 
                     {
                         let mut mystream = stream.lock().unwrap();
-                        mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap()).unwrap();
+                        mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap());
                     }
 
                     thread::sleep(Duration::from_millis(10));
@@ -324,7 +324,7 @@ fn handle_client(
                 {
                     let ptmsg = Message::new(MessageType::Pt, Vec3::ZERO, 0.0, currpt as u32);
                     let mut mystream = stream.lock().unwrap();
-                    mystream.write_all(&bincode::serialize(&ptmsg).unwrap()).unwrap();
+                    mystream.write_all(&bincode::serialize(&ptmsg).unwrap());
                 }
 
                 thread::sleep(Duration::from_millis(100));
@@ -335,7 +335,7 @@ fn handle_client(
                     idmsg.goose = client_id.as_u64_pair();
 
                     let mut mystream = stream.lock().unwrap();
-                    mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
+                    mystream.write_all(&bincode::serialize(&idmsg).unwrap());
                 }
 
                 thread::sleep(Duration::from_millis(100));

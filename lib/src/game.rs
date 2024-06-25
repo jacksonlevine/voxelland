@@ -67,7 +67,19 @@ pub static STARTINGITEMS: [(u32, u32); 5] = [
 pub static mut MOUSED_SLOT: SlotIndexType = SlotIndexType::None;
 
 
+pub static mut SONGS: [&'static str; 7] = [
+    "assets/music/Farfromhome.mp3",
+    "assets/music/ifol.mp3",
+    "assets/music/NoFuture.mp3",
+    "assets/music/Respite.mp3",
+    "assets/music/SereneFacade.mp3",
+    "assets/music/Unease.mp3",
+    "assets/music/UnknownDanger.mp3",
+];
 
+pub static mut SONGTIMER: f32 = 299.0;
+pub static mut SONGINTERVAL: f32 = 150.0;
+pub static mut SONGINDEX: usize = 0;
 
 
 
@@ -716,6 +728,13 @@ impl Game {
                 g.wait_for_new_address();
                 
                 let mut audiop = g.audiop.write().unwrap();
+                unsafe {
+                    for string in SONGS {
+                        audiop.preload(string, string);
+                    }
+                }
+                
+                
     
                 audiop.preload_series("grassstepseries", vec![
                     "assets/sfx/grassstep1.mp3",
@@ -1289,6 +1308,17 @@ impl Game {
         
         let current_time = unsafe { glfwGetTime() as f32 };
         self.delta_time = (current_time - self.prev_time).min(0.05);
+
+        unsafe {
+            if SONGTIMER < SONGINTERVAL {
+                SONGTIMER += self.delta_time;
+            } else {
+                SONGTIMER = 0.0;
+                self.audiop.write().unwrap().play_in_head(SONGS[SONGINDEX]);
+                SONGINDEX = (SONGINDEX + 1) % SONGS.len();
+                
+            }
+        }
 
         self.prev_time = current_time;
         let mut todlock = self.timeofday.lock().unwrap();

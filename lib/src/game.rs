@@ -1557,7 +1557,7 @@ impl Game {
                                 let scale = comm.infof;
 
                                 let nsme = self.non_static_model_entities.clone();
-                                //println!("NSME Length: {}", nsme.len());
+                                println!("Mob update. NSME Length: {}", nsme.len());
                                 match nsme.get_mut(&id) {
                                     Some(mut me) => {
                                         let modent = me.value_mut();
@@ -1573,7 +1573,7 @@ impl Game {
                                         
                                     }
                                     None => {
-                                        //println!("Received an update for a mob {} that doesn't exist. Creating it...", id);
+                                        println!("Received an update for a mob {} that doesn't exist. Creating it...", id);
                                         self.insert_static_model_entity(id, modind as usize, newpos, scale, Vec3::new(0.0,rot,0.0), 5.0);
                                     }
                                 };

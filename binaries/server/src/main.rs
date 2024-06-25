@@ -380,17 +380,24 @@ fn handle_client(
                         let mobmsg = Message::new(MessageType::MobUpdateBatch, Vec3::ZERO, 0.0, bincode::serialized_size(&mobmsgbatch).unwrap() as u32);
 
                         {
-                            let mut mystream = stream.lock().unwrap();
-
-                            match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
-                                Ok(_) => {
-    
-                                }
+                            match stream.try_lock() {
+                                Ok(mut mystream) =>  {
+                                    match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
+                                        Ok(_) => {
+            
+                                        }
+                                        Err(e) => {
+                                            println!("Error sending mob update header {}", e)
+                                        }
+                                    }
+        
+                                },
                                 Err(e) => {
-                                    println!("Error sending mob update header {}", e)
-                                }
-                            }
 
+                                },
+                            };
+
+                            
                         }
                         
                         //drop(writelock);
@@ -398,15 +405,25 @@ fn handle_client(
                         //let writelock = wl.lock().unwrap();
 
                         {
-                            let mut mystream = stream.lock().unwrap();
-                            match mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap()) {
-                                Ok(_) => {
-                                    
-                                }
+
+
+                            match stream.try_lock() {
+                                Ok(mut mystream) =>  {
+                                    match mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap()) {
+                                        Ok(_) => {
+                                            
+                                        }
+                                        Err(e) => {
+                                            println!("Error sending mob update payload {}", e)
+                                        }
+                                    }
+        
+                                },
                                 Err(e) => {
-                                    println!("Error sending mob update payload {}", e)
-                                }
-                            }
+
+                                },
+                            };
+                            
                         }
                         
                         //drop(writelock);

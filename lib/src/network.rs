@@ -142,7 +142,7 @@ impl NetworkConnector {
 
                     NetworkConnector::sendto(&message, &stream);
                 }
-                thread::sleep(Duration::from_millis(250));
+                thread::sleep(Duration::from_millis(1500));
             }
         }));
 
@@ -458,7 +458,7 @@ impl NetworkConnector {
                                 },
                                 MessageType::MobUpdateBatch =>  {
                                     //println!("Receiving a Mob Batch:");
-                                
+                                    shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
                                     stream_lock.set_nonblocking(false).unwrap();
                                     let mut buff = vec![0 as u8; comm.info as usize];
                                     stream_lock.set_read_timeout(Some(Duration::from_millis(100)));
@@ -474,7 +474,6 @@ impl NetworkConnector {
                                                             let msg = recv_s.msgs[i as usize].clone();
                                                             commqueue.push(msg);
                                                         }
-                                                        
                                                     }
                                                     
                                                 }
@@ -488,7 +487,7 @@ impl NetworkConnector {
                                             //println!("{}", recv_s);
                                         },
                                         Err(e) => {
-                                            //println!("Sorry champ! Missed that one!, {}", e);
+                                            println!("Sorry champ! Missed that one!, {}", e);
                                         },
                                     }
                                     
@@ -496,7 +495,7 @@ impl NetworkConnector {
                                     stream_lock.set_nonblocking(true).unwrap();
 
                                     
-
+                                    shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
                                     
                                 },
                                 MessageType::TimeUpdate => {

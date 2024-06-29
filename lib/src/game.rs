@@ -702,6 +702,7 @@ impl Game {
                 g.load_model("assets/models/monster1/scene.gltf");
                 g.load_model("assets/models/monster2/scene.gltf");
                 g.load_model("assets/models/cow/scene.glb");
+                g.load_model("assets/models/mountain/scene.glb");
 
                 println!("gltf model count: {}", g.gltf_models.len());
     
@@ -891,6 +892,10 @@ impl Game {
         //self.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0), &self.chunksys, &self.camera));
         // self.static_model_entities.push(ModelEntity::new(4, ship_float_pos, 1.5, Vec3::new(0.0, 0.0, 0.0), &self.chunksys, &self.camera));
         self.camera.lock().unwrap().position = ship_float_pos  + Vec3::new(5.0, 2.0, 0.0);
+
+
+        self.static_model_entities.push(ModelEntity::new(5, Vec3::new(0.0, 100.0, 20.0), 10.0, Vec3::new(0.0, 0.0, 0.0), &self.chunksys, &self.camera));
+        self.update_model_collisions(0);
 
         self.currentbuttons = vec![
             ("Loading...", "loading")
@@ -1474,7 +1479,16 @@ impl Game {
                                     SlotIndexType::InvSlot(e) => {
 
 
-                                        match *self.my_uuid.read().unwrap() {
+                                        let ud = match *self.my_uuid.read().unwrap() {
+                                            Some(ud) => {
+                                                Some(ud.clone())
+                                            }
+                                            None => {
+                                                None
+                                            }
+                                        };
+                                        
+                                        match ud {
                                             Some(ud) => {
                                                 if uuid == ud {
                                                     let mut playerinv = &mut self.inventory.write().unwrap();
@@ -1486,16 +1500,10 @@ impl Game {
                                                     slot.1 = comm.infof as u32;
         
                                                     updateinv = true;
-        
-                
                                                 }
-                                            }
-                                            None => {
-
-                                            }
+                                            },
+                                            None => todo!(),
                                         }
-                                        
-                                        
                                         
                                         
                                         //comm.x = wasthere.0 as f32; comm.y = wasthere.1 as f32;

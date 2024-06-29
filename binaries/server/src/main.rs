@@ -226,26 +226,29 @@ fn handle_client(
                 }
             }
             MessageType::PlayerUpdate => {
-                knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
+                let mobmsgs = {
+                    knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
 
-                let mut timeupdate = Message::new(MessageType::TimeUpdate, Vec3::ZERO, 0.0, 0);
-                let t = *tod.lock().unwrap();
-                timeupdate.infof = t;
+                    let mut timeupdate = Message::new(MessageType::TimeUpdate, Vec3::ZERO, 0.0, 0);
+                    let t = *tod.lock().unwrap();
+                    timeupdate.infof = t;
 
-                {
-                    let mut mystream = stream.lock().unwrap();
-                    mystream.write_all(&bincode::serialize(&timeupdate).unwrap());
-                }
+                    {
+                        let mut mystream = stream.lock().unwrap();
+                        mystream.write_all(&bincode::serialize(&timeupdate).unwrap());
+                    }
 
-                let nlock = nsmes.lock().unwrap();
-                let mobmsgs: Vec<Message> = nlock.iter().map(|nsme| {
-                    let mut mobmsg = Message::new(MessageType::MobUpdate, nsme.1, nsme.2, nsme.0);
-                    mobmsg.info2 = nsme.3 as u32;
-                    mobmsg.infof = nsme.4;
-                    mobmsg
-                }).collect();
+                    let nlock = nsmes.lock().unwrap();
+                    let mobmsgs: Vec<Message> = nlock.iter().map(|nsme| {
+                        let mut mobmsg = Message::new(MessageType::MobUpdate, nsme.1, nsme.2, nsme.0);
+                        mobmsg.info2 = nsme.3 as u32;
+                        mobmsg.infof = nsme.4;
+                        mobmsg
+                    }).collect();
 
-                drop(nlock);
+                    drop(nlock);
+                    mobmsgs
+                };
 
                 for chunk in mobmsgs.chunks(server_types::MOB_BATCH_SIZE) {
                     let mobmsgbatch = MobUpdateBatch::new(chunk.len(), chunk);

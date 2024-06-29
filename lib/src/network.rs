@@ -457,11 +457,11 @@ impl NetworkConnector {
                                     
                                 },
                                 MessageType::MobUpdateBatch =>  {
-                                    //println!("Receiving a Mob Batch:");
-                                    shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
-                                    stream_lock.set_nonblocking(false).unwrap();
+                                    println!("Receiving a Mob Batch:");
+                                    //shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
+                                    //stream_lock.set_nonblocking(false).unwrap();
                                     let mut buff = vec![0 as u8; comm.info as usize];
-                                    stream_lock.set_read_timeout(Some(Duration::from_millis(100)));
+                                    //stream_lock.set_read_timeout(Some(Duration::from_millis(2000)));
                                     match stream_lock.read_exact(&mut buff) {
                                         Ok(_) => {
                                             match bincode::deserialize::<MobUpdateBatch>(&buff) {
@@ -492,10 +492,10 @@ impl NetworkConnector {
                                     }
                                     
 
-                                    stream_lock.set_nonblocking(true).unwrap();
+                                    //stream_lock.set_nonblocking(true).unwrap();
 
                                     
-                                    shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
+                                    //shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
                                     
                                 },
                                 MessageType::TimeUpdate => {

@@ -142,7 +142,7 @@ impl NetworkConnector {
 
                     NetworkConnector::sendto(&message, &stream);
                 }
-                thread::sleep(Duration::from_millis(1500));
+                thread::sleep(Duration::from_millis(250));
             }
         }));
 
@@ -456,48 +456,50 @@ impl NetworkConnector {
                                 MessageType::ShutUpMobMsgs =>  {
                                     
                                 },
-                                MessageType::MobUpdateBatch =>  {
+                                MessageType::MobUpdateBatch => {
                                     println!("Receiving a Mob Batch:");
-                                    //shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
-                                    //stream_lock.set_nonblocking(false).unwrap();
-                                    let mut buff = vec![0 as u8; comm.info as usize];
-                                    //stream_lock.set_read_timeout(Some(Duration::from_millis(2000)));
-                                    match stream_lock.read_exact(&mut buff) {
-                                        Ok(_) => {
-                                            match bincode::deserialize::<MobUpdateBatch>(&buff) {
-                                                Ok(recv_s) => {
-
-                                                    if recv_s.count > server_types::MOB_BATCH_SIZE as u8 {
-                                                        println!("Ignoring invalid packe with count > {} of {}", server_types::MOB_BATCH_SIZE, recv_s.count);
-                                                    } else {
-                                                        for i in 0..recv_s.count.min(8) {
-                                                            let msg = recv_s.msgs[i as usize].clone();
-                                                            commqueue.push(msg);
-                                                        }
-                                                    }
-                                                    
-                                                }
-                                                Err(e) => {
-                                                    //We just missed it and thats ok
-                                                }
-                                            };
-
-                                            
-
-                                            //println!("{}", recv_s);
-                                        },
-                                        Err(e) => {
-                                            println!("Sorry champ! Missed that one!, {}", e);
-                                        },
+                                    let mut payload_buffer = vec![0u8; comm.info as usize];
+                                    let mut total_read = 0;
+        
+                                    while total_read < comm.info as usize {
+                                        match stream_lock.read(&mut payload_buffer[total_read..]) {
+                                            Ok(n) if n > 0 => total_read += n,
+                                            Ok(_) => {
+                                                // Connection closed
+                                                println!("Connection closed by server");
+                                                break;
+                                            }
+                                            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                                                // Sleep for a short period and retry
+                                                thread::sleep(Duration::from_millis(10));
+                                            }
+                                            Err(e) => {
+                                                println!("Error receiving MobUpdateBatch: {}", e);
+                                                break;
+                                            }
+                                        }
                                     }
-                                    
-
-                                    //stream_lock.set_nonblocking(true).unwrap();
-
-                                    
-                                    //shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
-                                    
-                                },
+        
+                                    if total_read == comm.info as usize {
+                                        match bincode::deserialize::<MobUpdateBatch>(&payload_buffer) {
+                                            Ok(recv_s) => {
+                                                if recv_s.count > server_types::MOB_BATCH_SIZE as u8 {
+                                                    println!("Ignoring invalid packet with count > {} of {}", server_types::MOB_BATCH_SIZE, recv_s.count);
+                                                } else {
+                                                    for i in 0..recv_s.count.min(8) {
+                                                        let msg = recv_s.msgs[i as usize].clone();
+                                                        commqueue.push(msg);
+                                                    }
+                                                }
+                                            }
+                                            Err(e) => {
+                                                println!("Failed to deserialize MobUpdateBatch: {}", e);
+                                            }
+                                        }
+                                    } else {
+                                        println!("Failed to read the full MobUpdateBatch payload");
+                                    }
+                                }
                                 MessageType::TimeUpdate => {
                                     commqueue.push(comm.clone());
                                 }

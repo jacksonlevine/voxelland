@@ -894,8 +894,8 @@ impl Game {
         self.camera.lock().unwrap().position = ship_float_pos  + Vec3::new(5.0, 2.0, 0.0);
 
 
-        self.static_model_entities.push(ModelEntity::new(5, Vec3::new(0.0, 100.0, 20.0), 10.0, Vec3::new(0.0, 0.0, 0.0), &self.chunksys, &self.camera));
-        self.update_model_collisions(0);
+        self.static_model_entities.push(ModelEntity::new(5, Vec3::new(0.0, 25.0, 200.0), 140.0, Vec3::new(0.0, 0.0, 0.0), &self.chunksys, &self.camera));
+        //self.update_model_collisions(0);
 
         self.currentbuttons = vec![
             ("Loading...", "loading")

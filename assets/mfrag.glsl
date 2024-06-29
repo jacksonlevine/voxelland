@@ -34,7 +34,7 @@ void main() {
 
 
 
-    float distance = (distance(pos, camPos)/(viewDistance*5.0f))/5.0f;
+    float distance = (distance(pos, camPos)/(viewDistance*5.0f))/20.0f;
     FragColor = mix(FragColor, fogColor, min(1, max(distance, 0)));
 
 

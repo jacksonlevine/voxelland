@@ -1314,16 +1314,19 @@ impl Game {
         let current_time = unsafe { glfwGetTime() as f32 };
         self.delta_time = (current_time - self.prev_time).min(0.05);
 
-        unsafe {
-            if SONGTIMER < SONGINTERVAL {
-                SONGTIMER += self.delta_time;
-            } else {
-                SONGTIMER = 0.0;
-                self.audiop.write().unwrap().play_in_head(SONGS[SONGINDEX]);
-                SONGINDEX = (SONGINDEX + 1) % SONGS.len();
-                
+        if !self.headless {
+            unsafe {
+                if SONGTIMER < SONGINTERVAL {
+                    SONGTIMER += self.delta_time;
+                } else {
+                    SONGTIMER = 0.0;
+                    self.audiop.write().unwrap().play_in_head(SONGS[SONGINDEX]);
+                    SONGINDEX = (SONGINDEX + 1) % SONGS.len();
+                    
+                }
             }
         }
+            
 
         self.prev_time = current_time;
         let mut todlock = self.timeofday.lock().unwrap();

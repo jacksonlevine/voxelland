@@ -457,7 +457,7 @@ impl NetworkConnector {
                                     
                                 },
                                 MessageType::MobUpdateBatch => {
-                                    println!("Receiving a Mob Batch:");
+                                    //println!("Receiving a Mob Batch:");
                                     let mut payload_buffer = vec![0u8; comm.info as usize];
                                     let mut total_read = 0;
         
@@ -504,7 +504,7 @@ impl NetworkConnector {
                                     commqueue.push(comm.clone());
                                 }
                                 MessageType::ChestInvUpdate => {
-                                    println!("Receiving CIU from goose {}", Uuid::from_u64_pair(comm.goose.0, comm.goose.1));
+                                    //println!("Receiving CIU from goose {}", Uuid::from_u64_pair(comm.goose.0, comm.goose.1));
                                     hpcommqueue.push(comm.clone());
                                 },
                             }

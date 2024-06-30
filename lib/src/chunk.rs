@@ -1711,6 +1711,26 @@ impl ChunkSystem {
         a * (1.0 - t) + b * t
     }
 
+    pub fn biome_noise(&self, spot: vec::IVec2) -> f64 {
+
+        let xzdivisor1 = 100.35 * 4.0;
+
+        let mut y = 20;
+
+        let noise1 = f64::max(
+            0.0,
+            self.perlin.get([
+                spot.x as f64 / xzdivisor1,
+                y as f64,
+                spot.y as f64 / xzdivisor1,
+            ])
+        );
+
+        noise1
+        
+    }
+
+
     pub fn noise_func(&self, spot: vec::IVec3) -> f64 {
 
         let xzdivisor1 = 25.35 * 4.0;
@@ -1882,23 +1902,51 @@ impl ChunkSystem {
             }
             _ => {
                 static WL: f32 = 40.0;
+
+                let biomenum = self.biome_noise(IVec2{x: spot.x, y: spot.z});
+
+                let mut underdirt;
+                let mut undersurface;
+                let mut surface;
+                let mut liquid;
+                let mut beach;
+
+                match biomenum {
+                    ..=0.0 => {
+                        underdirt = 5u32;
+                        undersurface = 3u32;
+                        surface = 4u32;
+                        liquid = 2u32;
+                        beach = 1u32;
+                    }
+                    _ => {
+                        underdirt = 1u32;
+                        undersurface = 1u32;
+                        surface = 1u32;
+                        liquid = 0u32;
+                        beach = 1u32;
+                    }
+                }
+
+
+
                 if self.noise_func(spot) > 10.0 {
                     if self.noise_func(spot + vec::IVec3 { x: 0, y: 10, z: 0 }) > 10.0 {
-                        return 5;
+                        return underdirt;
                     }
                     if spot.y > (WL + 2.0) as i32
                         || self.noise_func(spot + vec::IVec3 { x: 0, y: 5, z: 0 }) > 10.0
                     {
                         if self.noise_func(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {
-                            return 3;
+                            return undersurface;
                         }
-                        return 4;
+                        return surface;
                     } else {
-                        return 1;
+                        return beach;
                     }
                 } else {
                     if spot.y < WL as i32 {
-                        return 2;
+                        return liquid;
                     } else {
                         return 0;
                     }

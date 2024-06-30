@@ -350,7 +350,8 @@ impl Game {
                 
                 let isntopendoor = DoorInfo::get_door_open_bit(bitshere) != 1;
                 let isntladder = (bitshere & Blocks::block_id_bits()) != 20;
-                return isntopendoor && isntladder && csys_arc.read().unwrap().collision_predicate(v);
+                let isntbamboo = (bitshere & Blocks::block_id_bits()) != 22;
+                return isntopendoor && isntladder && isntbamboo && csys_arc.read().unwrap().collision_predicate(v);
             })
         };
         let mut hud = Hud::new(&window.clone(), tex.id);

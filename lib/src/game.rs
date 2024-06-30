@@ -186,6 +186,7 @@ pub struct Game {
     pub skyshader: Shader,
     pub modelshader: Shader,
     pub cloudshader: Shader,
+    pub starshader: Shader,
     pub camera: Arc<Mutex<Camera>>,
     pub run_chunk_thread: Arc<AtomicBool>,
     pub chunk_thread: Option<thread::JoinHandle<()>>,
@@ -616,6 +617,7 @@ impl Game {
             skyshader,
             modelshader: Shader::new("assets/mvert.glsl", "assets/mfrag.glsl"),
             cloudshader: Shader::new("assets/cloudsvert.glsl", "assets/cloudsfrag.glsl"),
+            starshader: Shader::new("assets/starsvert.glsl", "assets/starsfrag.glsl"),
             camera: cam.clone(),
             run_chunk_thread: Arc::new(AtomicBool::new(true)),
             chunk_thread: None,
@@ -990,12 +992,12 @@ impl Game {
     
             gl::Uniform1f(
                 gl::GetUniformLocation(self.cloudshader.shader_id, b"opacity\0".as_ptr() as *const i8),
-                glfwGetTime() as f32
+                1.0
             );
 
             gl::Uniform1f(
                 gl::GetUniformLocation(self.cloudshader.shader_id, b"time\0".as_ptr() as *const i8),
-                1.0
+                glfwGetTime() as f32
             );
     
             gl::Uniform1f(
@@ -1036,6 +1038,129 @@ impl Game {
     
             gl::Uniform1f(
                 gl::GetUniformLocation(self.cloudshader.shader_id, b"sunrise\0".as_ptr() as *const i8),
+                self.sunrise_factor
+            );
+    
+            // Draw the clouds
+            gl::DrawArrays(gl::TRIANGLES, 0, 6);
+        }
+    }
+
+    pub fn draw_stars(&self) {
+        static mut HASUPLOADED: bool = false;
+        static mut VBO: GLuint = 0;
+    
+        let vdata: [f32; 30] = [
+            -200.0, 200.0, -200.0,    0.0, 1.0, 
+            -200.0, 200.0, 200.0,     0.0, 0.0, 
+            200.0, 200.0, 200.0,      1.0, 0.0, 
+    
+            200.0, 200.0, 200.0,      1.0, 0.0, 
+            200.0, 200.0, -200.0,     1.0, 1.0, 
+            -200.0, 200.0, -200.0,    0.0, 1.0
+        ];
+    
+        unsafe {
+            gl::BindVertexArray(self.starshader.vao);
+            gl::UseProgram(self.starshader.shader_id);
+    
+            if !HASUPLOADED {
+                gl::CreateBuffers(1, &mut VBO);
+                gl::NamedBufferData(
+                    VBO,
+                    (vdata.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
+                    vdata.as_ptr() as *const GLvoid,
+                    gl::STATIC_DRAW,
+                );
+    
+                // Bind vertex buffer to the vertex array object
+                gl::VertexArrayVertexBuffer(self.starshader.vao, 0, VBO, 0, (5 * std::mem::size_of::<f32>()) as GLsizei);
+    
+                // Position attribute
+                let pos_attrib = gl::GetAttribLocation(self.starshader.shader_id, b"aPos\0".as_ptr() as *const i8);
+                gl::EnableVertexArrayAttrib(self.starshader.vao, pos_attrib as GLuint);
+                gl::VertexArrayAttribFormat(
+                    self.starshader.vao,
+                    pos_attrib as GLuint,
+                    3,
+                    gl::FLOAT,
+                    gl::FALSE,
+                    0,
+                );
+                gl::VertexArrayAttribBinding(self.starshader.vao, pos_attrib as GLuint, 0);
+    
+                // UV attribute
+                let uv_attrib = gl::GetAttribLocation(self.starshader.shader_id, b"uv\0".as_ptr() as *const i8);
+                gl::EnableVertexArrayAttrib(self.starshader.vao, uv_attrib as GLuint);
+                gl::VertexArrayAttribFormat(
+                    self.starshader.vao,
+                    uv_attrib as GLuint,
+                    2,
+                    gl::FLOAT,
+                    gl::FALSE,
+                    (3 * std::mem::size_of::<f32>()) as GLuint,
+                );
+                gl::VertexArrayAttribBinding(self.starshader.vao, uv_attrib as GLuint, 0);
+    
+                HASUPLOADED = true;
+            }
+    
+            // Set uniforms
+            let cam_lock = self.camera.lock().unwrap();
+            
+            gl::UniformMatrix4fv(
+                gl::GetUniformLocation(self.starshader.shader_id, b"mvp\0".as_ptr() as *const i8),
+                1, gl::FALSE, cam_lock.mvp.to_cols_array().as_ptr()
+            );
+    
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.starshader.shader_id, b"opacity\0".as_ptr() as *const i8),
+                1.0
+            );
+
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.starshader.shader_id, b"time\0".as_ptr() as *const i8),
+                glfwGetTime() as f32
+            );
+    
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.starshader.shader_id, b"scale\0".as_ptr() as *const i8),
+                1.0
+            );
+    
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.starshader.shader_id, b"ambientBrightMult\0".as_ptr() as *const i8),
+                self.ambient_bright_mult
+            );
+    
+            gl::Uniform3f(
+                gl::GetUniformLocation(self.starshader.shader_id, b"camDir\0".as_ptr() as *const i8),
+                cam_lock.direction.x, cam_lock.direction.y, cam_lock.direction.z
+            );
+
+            gl::Uniform3f(
+                gl::GetUniformLocation(self.starshader.shader_id, b"camPos\0".as_ptr() as *const i8),
+                cam_lock.position.x, cam_lock.position.y, cam_lock.position.z
+            );
+    
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.starshader.shader_id, b"viewDistance\0".as_ptr() as *const i8),
+                8.0
+            );
+    
+            let fogcol = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
+            gl::Uniform4f(
+                gl::GetUniformLocation(self.starshader.shader_id, b"fogCol\0".as_ptr() as *const i8),
+                fogcol.0, fogcol.1, fogcol.2, fogcol.3
+            );
+    
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.starshader.shader_id, b"sunset\0".as_ptr() as *const i8),
+                self.sunset_factor
+            );
+    
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.starshader.shader_id, b"sunrise\0".as_ptr() as *const i8),
                 self.sunrise_factor
             );
     
@@ -2543,6 +2668,7 @@ impl Game {
             gl::Disable(gl::CULL_FACE);
         }
         self.draw_models();
+        self.draw_stars();
         self.draw_clouds();
         
         for (index, cfl) in cmem.memories.iter().enumerate() {

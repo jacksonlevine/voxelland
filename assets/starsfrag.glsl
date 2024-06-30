@@ -27,7 +27,7 @@ float rand(vec2 c){
 
 float noise(vec2 p, float freq ){
     float PI = 3.14159265358979323846;
-	float unit = 0.05;
+	float unit = 0.02;
 	vec2 ij = floor(p/unit);
 	vec2 xy = mod(p,unit)/unit;
 	//xy = 3.*xy*xy-2.*xy*xy*xy;
@@ -84,6 +84,7 @@ void main() {
 
     FragColor = vec4(FragColor.xyz, FragColor.w*opacity);
 
-    float pn = pNoise(TexCoord + (vec2(0.0005, 0.0005) * time), 10) * 25.0;
-    FragColor = vec4(ambientBrightMult, ambientBrightMult, ambientBrightMult, pn * 0.3);
+    float pn = pNoise(TexCoord * 10.0 + (vec2(0.0005, 0.0005) * time), 10);
+    float starIntensity = step(0.85, pn) * pn * 25.0; // Use a threshold to create sparsity
+    FragColor = vec4(1.0, 1.0, 1.0, mix(min(starIntensity * 0.3, 1.0), 0.0, ambientBrightMult));
 }

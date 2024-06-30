@@ -44,4 +44,8 @@ void main() {
     FragColor = mix(FragColor, fogColor, min(1, max(distance, 0)));
 
     FragColor = vec4(FragColor.xyz, FragColor.w*opacity);
+
+    if(FragColor.a < 0.5) {
+        discard;
+    }
 }

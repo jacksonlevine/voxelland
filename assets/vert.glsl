@@ -25,6 +25,8 @@ void main()
     float ambientBright = float((u32 >> 8) & 0x0000000F); // Next 4 bits for al
     float blockBright = float((u32 >> 4) & 0x0000000F);   // Next 4 bits for bl
 
+    blockBright = blockBright / 1.25;
+
     //Texture stuff
     float onePixel = 0.00183823529411764705882352941176f;     //  1/544      Padding
     float textureWidth = 0.02941176470588235294117647058824f; // 16/544      16 pixel texture width

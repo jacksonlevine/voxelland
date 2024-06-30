@@ -384,14 +384,13 @@ impl Game {
     pub fn draw_models(&self) {
 
 
-        
 
         unsafe {
 
 
             
 
-
+            //gl::DepthMask(gl::FALSE);
             gl::Disable(gl::CULL_FACE);
             gl::UseProgram(self.modelshader.shader_id);
             let mvp_loc = gl::GetUniformLocation(self.modelshader.shader_id, b"mvp\0".as_ptr() as *const i8);
@@ -656,8 +655,12 @@ impl Game {
                         
 
             gl::Enable(gl::CULL_FACE);
+            //gl::DepthMask(gl::TRUE);
         }
         
+        unsafe {
+
+        }
     }
     pub fn load_model(&mut self, path: &'static str) {
         let (document, buffers, images) = gltf::import(path).expect("Failed to load model");

@@ -83,6 +83,11 @@ impl Camera {
         }
         self.recalculate();
 
+        let slipperiness: f32 = 0.70;
+
+        self.velocity.x *= slipperiness.powf(*delta * speed_mult);
+        self.velocity.z *= slipperiness.powf(*delta * speed_mult);
+
         if self.velocity.length() > 0.0 {
             let amt_to_subtract = self.velocity * *delta * speed_mult;
 

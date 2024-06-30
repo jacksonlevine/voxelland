@@ -710,15 +710,25 @@ fn main() {
                     
                     gamewrite.create_non_static_model_entity(4, Vec3::new(-100.0, 100.0, -450.0), 30.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
                     
-                    for i in 0..6 {
+                    for i in 0..10 {
                         if rng.gen_range(0..=3) <= 1 {
-                            gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-20.0..20.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1);
-                            gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-20.0..20.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1);
-                            gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-20.0..20.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1);
-                            gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-20.0..20.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1);
+                            gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1);
+                            gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1);
+                            gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1);
+                            gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1);
                             
-                            gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-20.0..20.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
-                            gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-20.0..20.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
+                            gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 0.2, Vec3::new(0.0, 0.0, 0.0), 1.5);
+                            gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 0.2, Vec3::new(0.0, 0.0, 0.0), 1.5);
+                            gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 0.2, Vec3::new(0.0, 0.0, 0.0), 1.5);
+                            gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 0.2, Vec3::new(0.0, 0.0, 0.0), 1.5);
+                            gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 0.2, Vec3::new(0.0, 0.0, 0.0), 1.5);
+                            gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 0.2, Vec3::new(0.0, 0.0, 0.0), 1.5);
+                            gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 0.2, Vec3::new(0.0, 0.0, 0.0), 1.5);
+                            gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 0.2, Vec3::new(0.0, 0.0, 0.0), 1.5);
+
+                            
+                            gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
+                            gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
                         }
                     }
                     

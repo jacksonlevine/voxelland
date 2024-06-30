@@ -274,7 +274,7 @@ impl Game {
             .write()
             .unwrap()
             .extend(vec![
-                Fader::new(103.0, 100.0, 30.0, false), //FOV fader for moving
+                Fader::new(100.0, 97.0, 30.0, false), //FOV fader for moving
                 Fader::new(1.0, 0.0, 5.0, false)    //"Visions" fader for overlay
                 ]);
 
@@ -716,6 +716,8 @@ impl Game {
                 g.load_model("assets/models/monster2/scene.gltf");
                 g.load_model("assets/models/cow/scene.glb");
                 g.load_model("assets/models/mountain/scene.gltf");
+
+                g.load_model("assets/models/cricket/scene.gltf");
 
                 println!("gltf model count: {}", g.gltf_models.len());
     
@@ -2169,7 +2171,7 @@ impl Game {
 
         
 
-        let mut proposed = camlock.respond_to_controls(&self.controls, &self.delta_time, 5.0);
+        let mut proposed = camlock.respond_to_controls(&self.controls, &self.delta_time, 5.5);
         self.user_bound_box
             .set_center(proposed + Vec3::new(0.0, -0.5  , 0.0), 0.2, 0.85);
         self.coll_cage.update_colliding(&self.user_bound_box);

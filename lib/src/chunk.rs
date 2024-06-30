@@ -1169,7 +1169,7 @@ impl ChunkSystem {
         }
 
         for source in lightsources {
-            self.propagate_light_origin(source, source, 8, &mut implicated);
+            self.propagate_light_origin(source, source, 10, &mut implicated);
         }
 
         //println!("Implicated number: {}", implicated.len());

@@ -1042,7 +1042,9 @@ impl Game {
             );
     
             // Draw the clouds
+            gl::Disable(gl::CULL_FACE);
             gl::DrawArrays(gl::TRIANGLES, 0, 6);
+            gl::Enable(gl::CULL_FACE);
         }
     }
 
@@ -1164,8 +1166,10 @@ impl Game {
                 self.sunrise_factor
             );
     
-            // Draw the clouds
+            // Draw the stars
+            gl::Disable(gl::CULL_FACE);
             gl::DrawArrays(gl::TRIANGLES, 0, 6);
+            gl::Enable(gl::CULL_FACE);
         }
     }
     

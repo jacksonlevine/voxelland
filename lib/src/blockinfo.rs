@@ -3,7 +3,7 @@ use crate::cube::CubeSide;
 pub const BLOCK_DIRECTION_BITS: u32 = 0b0000_0000_0000_0011_0000_0000_0000_0000;
 pub struct Blocks {}
 
-static TEXS: [[(u8, u8); 3]; 22] = [
+static TEXS: [[(u8, u8); 3]; 23] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],  // 0
             [(1, 0), (1, 0), (1, 0)],  // 1 sand
@@ -27,9 +27,10 @@ static TEXS: [[(u8, u8); 3]; 22] = [
             [(12, 0), (12, 0), (12, 0)], // 19 door
             [(0, 1), (0, 1), (0, 1)], // 20 ladder
             [(15, 0), (15, 0), (15, 0)], // 21 chest
+            [(13, 1), (14, 1), (14, 1)], // 22 bamboo
         ];
 
-static BREAKTIMES: [f32; 22] = [
+static BREAKTIMES: [f32; 23] = [
     0.1,
     0.5,
     0.7,
@@ -51,7 +52,8 @@ static BREAKTIMES: [f32; 22] = [
     1.0,
     1.0,
     0.6,
-    1.5
+    1.5,
+    1.0
 ];
 
 impl Blocks {
@@ -73,14 +75,14 @@ impl Blocks {
         return TRANSPARENTS.contains(&id);
     }
     pub fn is_climbable(id: u32) -> bool {
-        static CLIMBABLES: [u32; 1] = [
-            20
+        static CLIMBABLES: [u32; 2] = [
+            20, 22
         ];
         return CLIMBABLES.contains(&id);
     }
     pub fn is_semi_transparent(id: u32) -> bool {
-        static SEMI_TRANSPARENTS: [u32; 5] = [
-            7, 11, 19, 20, 21
+        static SEMI_TRANSPARENTS: [u32; 6] = [
+            7, 11, 19, 20, 21, 22
         ];
         return SEMI_TRANSPARENTS.contains(&id);
     }
@@ -116,6 +118,9 @@ impl Blocks {
             1 => {
                 "sandstepseries"
             }
+            22 => {
+                "grassstepseries"
+            }
             2 => {
                 "waterstepseries"
             }
@@ -134,6 +139,9 @@ impl Blocks {
             }
             8 => {
                 "glassplaceseries"
+            }
+            22 => {
+                "plantplaceseries"
             }
             18 => {
                 "glassplaceseries"

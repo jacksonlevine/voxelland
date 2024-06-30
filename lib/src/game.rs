@@ -8,7 +8,7 @@ use std::ops::DerefMut;
 use std::slice::Chunks;
 use std::time::Duration;
 use dashmap::DashMap;
-use gl::types::{GLenum, GLuint};
+use gl::types::{GLenum, GLsizei, GLsizeiptr, GLuint, GLvoid};
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use glfw::ffi::{glfwGetCursorPos, glfwGetTime, GLFWwindow};
 use glfw::{Action, Key, MouseButton, PWindow};
@@ -185,6 +185,7 @@ pub struct Game {
     pub oldshader: Shader,
     pub skyshader: Shader,
     pub modelshader: Shader,
+    pub cloudshader: Shader,
     pub camera: Arc<Mutex<Camera>>,
     pub run_chunk_thread: Arc<AtomicBool>,
     pub chunk_thread: Option<thread::JoinHandle<()>>,
@@ -272,7 +273,7 @@ impl Game {
             .write()
             .unwrap()
             .extend(vec![
-                Fader::new(83.0, 80.0, 30.0, false), //FOV fader for moving
+                Fader::new(103.0, 100.0, 30.0, false), //FOV fader for moving
                 Fader::new(1.0, 0.0, 5.0, false)    //"Visions" fader for overlay
                 ]);
 
@@ -305,10 +306,18 @@ impl Game {
             JVoxModel::new("assets/voxelmodels/tree2.vox"),
             JVoxModel::new("assets/voxelmodels/rock1.vox"),
             JVoxModel::new("assets/voxelmodels/rock2.vox"),
+            JVoxModel::new("assets/voxelmodels/tree3.vox"),
+            JVoxModel::new("assets/voxelmodels/tree4.vox"),
+            JVoxModel::new("assets/voxelmodels/tree5.vox"),
+            JVoxModel::new("assets/voxelmodels/bamboo1.vox"),
+            JVoxModel::new("assets/voxelmodels/bamboo2.vox"), //0-9
+
+
+
 
             JVoxModel::new("assets/voxelmodels/ptree.vox"),
             JVoxModel::new("assets/voxelmodels/redrock.vox"),
-            JVoxModel::new("assets/voxelmodels/crystal1.vox"),
+            JVoxModel::new("assets/voxelmodels/crystal1.vox"), //10-12
         ];
 
         
@@ -605,6 +614,7 @@ impl Game {
             oldshader,
             skyshader,
             modelshader: Shader::new("assets/mvert.glsl", "assets/mfrag.glsl"),
+            cloudshader: Shader::new("assets/cloudsvert.glsl", "assets/cloudsfrag.glsl"),
             camera: cam.clone(),
             run_chunk_thread: Arc::new(AtomicBool::new(true)),
             chunk_thread: None,
@@ -702,7 +712,7 @@ impl Game {
                 g.load_model("assets/models/monster1/scene.gltf");
                 g.load_model("assets/models/monster2/scene.gltf");
                 g.load_model("assets/models/cow/scene.glb");
-                g.load_model("assets/models/mountain/scene.glb");
+                g.load_model("assets/models/mountain/scene.gltf");
 
                 println!("gltf model count: {}", g.gltf_models.len());
     
@@ -909,6 +919,130 @@ impl Game {
         
     }
 
+
+    pub fn draw_clouds(&self) {
+        static mut HASUPLOADED: bool = false;
+        static mut VBO: GLuint = 0;
+    
+        let vdata: [f32; 30] = [
+            -100.0, 100.0, -100.0,    0.0, 1.0, 
+            -100.0, 100.0, 100.0,     0.0, 0.0, 
+            100.0, 100.0, 100.0,      1.0, 0.0, 
+    
+            100.0, 100.0, 100.0,      1.0, 0.0, 
+            100.0, 100.0, -100.0,     1.0, 1.0, 
+            -100.0, 100.0, -100.0,    0.0, 1.0
+        ];
+    
+        unsafe {
+            gl::BindVertexArray(self.cloudshader.vao);
+            gl::UseProgram(self.cloudshader.shader_id);
+    
+            if !HASUPLOADED {
+                gl::CreateBuffers(1, &mut VBO);
+                gl::NamedBufferData(
+                    VBO,
+                    (vdata.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
+                    vdata.as_ptr() as *const GLvoid,
+                    gl::STATIC_DRAW,
+                );
+    
+                // Bind vertex buffer to the vertex array object
+                gl::VertexArrayVertexBuffer(self.cloudshader.vao, 0, VBO, 0, (5 * std::mem::size_of::<f32>()) as GLsizei);
+    
+                // Position attribute
+                let pos_attrib = gl::GetAttribLocation(self.cloudshader.shader_id, b"aPos\0".as_ptr() as *const i8);
+                gl::EnableVertexArrayAttrib(self.cloudshader.vao, pos_attrib as GLuint);
+                gl::VertexArrayAttribFormat(
+                    self.cloudshader.vao,
+                    pos_attrib as GLuint,
+                    3,
+                    gl::FLOAT,
+                    gl::FALSE,
+                    0,
+                );
+                gl::VertexArrayAttribBinding(self.cloudshader.vao, pos_attrib as GLuint, 0);
+    
+                // UV attribute
+                let uv_attrib = gl::GetAttribLocation(self.cloudshader.shader_id, b"uv\0".as_ptr() as *const i8);
+                gl::EnableVertexArrayAttrib(self.cloudshader.vao, uv_attrib as GLuint);
+                gl::VertexArrayAttribFormat(
+                    self.cloudshader.vao,
+                    uv_attrib as GLuint,
+                    2,
+                    gl::FLOAT,
+                    gl::FALSE,
+                    (3 * std::mem::size_of::<f32>()) as GLuint,
+                );
+                gl::VertexArrayAttribBinding(self.cloudshader.vao, uv_attrib as GLuint, 0);
+    
+                HASUPLOADED = true;
+            }
+    
+            // Set uniforms
+            let cam_lock = self.camera.lock().unwrap();
+            
+            gl::UniformMatrix4fv(
+                gl::GetUniformLocation(self.cloudshader.shader_id, b"mvp\0".as_ptr() as *const i8),
+                1, gl::FALSE, cam_lock.mvp.to_cols_array().as_ptr()
+            );
+    
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.cloudshader.shader_id, b"opacity\0".as_ptr() as *const i8),
+                glfwGetTime() as f32
+            );
+
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.cloudshader.shader_id, b"time\0".as_ptr() as *const i8),
+                1.0
+            );
+    
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.cloudshader.shader_id, b"scale\0".as_ptr() as *const i8),
+                1.0
+            );
+    
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.cloudshader.shader_id, b"ambientBrightMult\0".as_ptr() as *const i8),
+                self.ambient_bright_mult
+            );
+    
+            gl::Uniform3f(
+                gl::GetUniformLocation(self.cloudshader.shader_id, b"camDir\0".as_ptr() as *const i8),
+                cam_lock.direction.x, cam_lock.direction.y, cam_lock.direction.z
+            );
+
+            gl::Uniform3f(
+                gl::GetUniformLocation(self.cloudshader.shader_id, b"camPos\0".as_ptr() as *const i8),
+                cam_lock.position.x, cam_lock.position.y, cam_lock.position.z
+            );
+    
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.cloudshader.shader_id, b"viewDistance\0".as_ptr() as *const i8),
+                8.0
+            );
+    
+            let fogcol = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
+            gl::Uniform4f(
+                gl::GetUniformLocation(self.cloudshader.shader_id, b"fogCol\0".as_ptr() as *const i8),
+                fogcol.0, fogcol.1, fogcol.2, fogcol.3
+            );
+    
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.cloudshader.shader_id, b"sunset\0".as_ptr() as *const i8),
+                self.sunset_factor
+            );
+    
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.cloudshader.shader_id, b"sunrise\0".as_ptr() as *const i8),
+                self.sunrise_factor
+            );
+    
+            // Draw the clouds
+            gl::DrawArrays(gl::TRIANGLES, 0, 6);
+        }
+    }
+    
     pub fn update_inventory(&mut self) {
         for i in 20..40 {
             let realslotind = i - 20;
@@ -1660,7 +1794,10 @@ impl Game {
                 }
             }
             self.draw();
-            self.draw_models();
+            
+            
+        
+            
             if !self.vars.ship_taken_off {
                 self.draw_select_cube();
             }
@@ -2107,7 +2244,7 @@ impl Game {
                 self.draw_sky(self.vars.sky_color, self.vars.sky_bottom, self.ambient_bright_mult, campitch);
             }
         }
-        
+
 
         //Chunks
         unsafe {
@@ -2404,6 +2541,8 @@ impl Game {
         unsafe {
             gl::Disable(gl::CULL_FACE);
         }
+        self.draw_models();
+        self.draw_clouds();
         
         for (index, cfl) in cmem.memories.iter().enumerate() {
             if cfl.used {

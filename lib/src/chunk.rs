@@ -1713,16 +1713,16 @@ impl ChunkSystem {
 
     pub fn biome_noise(&self, spot: vec::IVec2) -> f64 {
 
-        let xzdivisor1 = 100.35 * 4.0;
+        const XZDIVISOR1: f64 = 100.35 * 4.0;
 
         let mut y = 20;
 
         let noise1 = f64::max(
             0.0,
             self.perlin.get([
-                spot.x as f64 / xzdivisor1,
+                spot.x as f64 / XZDIVISOR1,
                 y as f64,
-                spot.y as f64 / xzdivisor1,
+                spot.y as f64 / XZDIVISOR1,
             ])
         );
 
@@ -1905,28 +1905,21 @@ impl ChunkSystem {
 
                 let biomenum = self.biome_noise(IVec2{x: spot.x, y: spot.z});
 
-                let mut underdirt;
-                let mut undersurface;
-                let mut surface;
-                let mut liquid;
-                let mut beach;
+                let mut underdirt = 5;
+                let mut undersurface = 3;
+                let mut surface = 4;
+                let mut liquid = 2;
+                let mut beach = 1;
 
-                match biomenum {
-                    ..=0.0 => {
-                        underdirt = 5u32;
-                        undersurface = 3u32;
-                        surface = 4u32;
-                        liquid = 2u32;
-                        beach = 1u32;
-                    }
-                    _ => {
-                        underdirt = 1u32;
-                        undersurface = 1u32;
-                        surface = 1u32;
-                        liquid = 0u32;
-                        beach = 1u32;
-                    }
-                }
+                // if biomenum > 0.0 {
+                //     underdirt = 1;
+                //     undersurface = 1;
+                //     surface = 1;
+                //     liquid = 2;
+                //     beach = 1;
+                // }
+                        
+
 
 
 

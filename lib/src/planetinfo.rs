@@ -8,10 +8,10 @@ impl Planets {
         //inclusive range of what voxel model indexes go in each dimension
         return match dim_id {
             0 => {
-                (0, 4)
+                (0, 9)
             }
             1 => {
-                (5, 7)
+                (10, 12)
             }
             _ => {
                 (0, 0)

@@ -27,7 +27,7 @@ use crossbeam::queue::SegQueue;
 
 static mut PACKET_SIZE: usize = 0;
 
-type Nsme = (u32, Vec3, f32, usize, f32);
+type Nsme = (u32, Vec3, f32, usize, f32, bool);
 
 pub enum QueuedSqlType {
     UserDataMap(u32, IVec3, u32),
@@ -243,6 +243,7 @@ fn handle_client(
                         let mut mobmsg = Message::new(MessageType::MobUpdate, nsme.1, nsme.2, nsme.0);
                         mobmsg.info2 = nsme.3 as u32;
                         mobmsg.infof = nsme.4;
+                        mobmsg.bo = nsme.5;
                         mobmsg
                     }).collect();
 
@@ -442,7 +443,7 @@ fn main() {
 
     let nsme = &gamewrite.non_static_model_entities.clone();
 
-    let mut nsme_bare = nsme.iter().map(|e| (e.id, e.position, e.rot.y, e.model_index, e.scale)).collect::<Vec<_>>();
+    let mut nsme_bare = nsme.iter().map(|e| (e.id, e.position, e.rot.y, e.model_index, e.scale, e.sounding)).collect::<Vec<_>>();
 
     let mut mobspawnqueued = Arc::new(AtomicBool::new(true));
 
@@ -674,7 +675,7 @@ fn main() {
         let mut nblock = nsme_bare_arc.lock().unwrap();
         
         
-        *nblock = nsme.iter().map(|e| (*e.key(), e.position, e.rot.y, e.model_index, e.scale)).collect::<Vec<_>>();
+        *nblock = nsme.iter().map(|e| (*e.key(), e.position, e.rot.y, e.model_index, e.scale, e.sounding)).collect::<Vec<_>>();
 
         drop(nblock);
 

@@ -52,7 +52,7 @@ pub fn euler_to_direction(euler_angles: Vec3) -> Vec3 {
 }
 
 
-use crate::{camera::Camera, chunk::ChunkSystem, collisioncage::{BoundBox, CollCage}, game::{Animation, ControlsState, Node}, raycast::{self, raycast_voxel}, vec};
+use crate::{blockinfo::Blocks, camera::Camera, chunk::ChunkSystem, collisioncage::{BoundBox, CollCage}, game::{Animation, ControlsState, Node, AMBIENTBRIGHTNESS}, planetinfo::Planets, raycast::{self, raycast_voxel}, vec::{self, IVec3}};
 
 static mut CURRENT_ID: u32 = 0;
 
@@ -89,11 +89,14 @@ pub struct ModelEntity {
     pub nodes: Vec<Node>,
     pub time_stamp: f64,
     pub hostile: bool,
-    pub lastrot: Vec3
+    pub lastrot: Vec3,
+    pub sounding: bool,
+    pub sound: Option<&'static str>
 }
 
 impl ModelEntity {
-    
+
+
     pub fn new_with_jump_height(model_index: usize, pos: Vec3, scale: f32, rot: Vec3, csys: &Arc<RwLock<ChunkSystem>>, cam: &Arc<Mutex<Camera>>, jump_height: f32) -> ModelEntity {
         let mut modent = ModelEntity::new(model_index, pos, scale, rot, csys, cam);
         modent.allowable_jump_height = jump_height;
@@ -145,7 +148,9 @@ impl ModelEntity {
                 nodes: Vec::new(),
                 time_stamp: 0.0,
                 hostile: false,
-                lastrot: Vec3::ZERO
+                lastrot: Vec3::ZERO,
+                sounding: false,
+                sound: Planets::get_mob_sound(model_index)
             }
         }
         
@@ -197,7 +202,9 @@ impl ModelEntity {
                 nodes: Vec::new(),
                 time_stamp: 0.0,
                 hostile: false,
-                lastrot: Vec3::ZERO
+                lastrot: Vec3::ZERO,
+                sounding: false,
+                sound: None
             }
      
         
@@ -249,6 +256,78 @@ impl ModelEntity {
         }
     }
 
+    pub fn cricket_behavior(&mut self, delta: &f32) {
+
+
+        
+
+        let rand = self.rng.gen_range(0..6);
+
+
+        let night = unsafe {
+            AMBIENTBRIGHTNESS <= 0.5
+        };
+
+
+
+        if night {
+            self.sounding = true;
+        } else {
+            self.sounding = false;
+        }
+
+            let blockbitshere = self.csys.read().unwrap().blockat(IVec3::new(self.position.x.floor() as i32, self.position.y.floor() as i32, self.position.z.floor() as i32));
+            let block = blockbitshere & Blocks::block_id_bits();
+    
+
+            if block == 23u32 {
+                self.controls.clear();
+                //We're where we wanna be, in some tall grass
+            } else {
+                self.controls.up = true;
+                self.controls.forward = true;
+
+                if rand > 3 {
+                    self.controls.lookingleft = true;
+                } else {
+                    self.controls.lookingright = true;
+                }
+
+
+                let res = raycast_voxel(self.position, self.direction, &self.csys, 10.0);
+                match res {
+                    Some(res) => {
+
+                        let blockbitshere = self.csys.read().unwrap().blockat(res.1);
+                        let block = blockbitshere & Blocks::block_id_bits();
+
+                        if block == 23u32 {
+                            self.controls.clear();
+                            self.controls.up = true;
+                            self.controls.forward = true;
+                        } else {
+                            if rand > 3 {
+                                self.controls.lookingleft = true;
+                            } else {
+                                self.controls.lookingright = true;
+                            }
+                        }
+                        
+                    }
+                    None => {
+                        self.controls.up = true;
+                        self.controls.forward = true;
+                    }
+                }
+
+
+
+            }
+
+
+
+    }
+
     pub fn behavior_loop(&mut self, delta: &f32, knowncams: &Arc<DashMap<Uuid, Vec3>>) {
         
         if self.behavior_timer < 1.0 {
@@ -257,7 +336,15 @@ impl ModelEntity {
             match self.target {
                 AggroTarget::NoAggro => {
                     self.speedfactor = 1.0;
-                    self.random_behavior(delta);
+                    match self.model_index {
+                        6 => {
+                            self.cricket_behavior(delta);
+                        }
+                        _ => {
+                            self.random_behavior(delta);
+                        }
+                    }
+                    
                 }
                 AggroTarget::ModelEntityID(id) => {
                     //let modent = 

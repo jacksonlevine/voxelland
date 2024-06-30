@@ -1,3 +1,5 @@
+use crate::model;
+
 
 
 pub struct Planets {}
@@ -35,6 +37,19 @@ impl Planets {
             }
             _ => {
                 (0.7, 0.8, 1.0, 1.0)
+            }
+        }
+    }
+
+
+
+    pub fn get_mob_sound(modelindex: usize) -> Option<&'static str> {
+        match modelindex {
+            6 => {
+                Some("assets/sfx/cricket1.mp3")
+            }
+            _ => {
+                None
             }
         }
     }

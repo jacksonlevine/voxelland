@@ -82,6 +82,9 @@ pub static mut SONGINTERVAL: f32 = 150.0;
 pub static mut SONGINDEX: usize = 0;
 
 
+pub static mut AMBIENTBRIGHTNESS: f32 = 0.0;
+
+
 
 
 #[derive(Clone)]
@@ -809,6 +812,8 @@ impl Game {
                     "assets/sfx/glassplace3.mp3",
                     "assets/sfx/glassplace4.mp3"
                 ]);
+
+                audiop.preload("assets/sfx/cricket1.mp3", "assets/sfx/cricket1.mp3");
     
                 // g.initialize_being_in_world();
     
@@ -1592,6 +1597,10 @@ impl Game {
                 }
             }
         }
+
+        unsafe {
+            AMBIENTBRIGHTNESS = self.ambient_bright_mult;
+        }
             
 
         self.prev_time = current_time;
@@ -1832,6 +1841,7 @@ impl Game {
                                 let modind = comm.info2;
                                 let rot = comm.rot;
                                 let scale = comm.infof;
+                                let sounding  = comm.bo;
 
                                 let nsme = self.non_static_model_entities.clone();
                                 //println!("Mob update. NSME Length: {}", nsme.len());
@@ -1843,6 +1853,7 @@ impl Game {
                                         (*modent).scale = scale;
                                         (*modent).lastrot = (*modent).rot.clone();
                                         (*modent).rot = Vec3::new(0.0, rot, 0.0);
+                                        (*modent).sounding = sounding;
                                         unsafe {
                                             (*modent).time_stamp = glfwGetTime();
                                         }
@@ -1861,6 +1872,7 @@ impl Game {
                                 let modind = comm.info2;
                                 let rot = comm.rot;
                                 let scale = 0.3;
+                                let sounding  = comm.bo;
 
                                 let pme: Arc<DashMap<Uuid, ModelEntity>> = self.player_model_entities.clone();
 
@@ -1875,6 +1887,7 @@ impl Game {
                                         (*modent).scale = scale;
                                         (*modent).lastrot = (*modent).rot.clone();
                                         (*modent).rot = Vec3::new(0.0, rot, 0.0);
+                                        (*modent).sounding = sounding;
                                         unsafe {
                                             (*modent).time_stamp = glfwGetTime();
                                         }

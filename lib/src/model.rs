@@ -312,6 +312,25 @@ impl Game {
             model.behavior_loop(&self.delta_time, &self.known_cameras);
 
             let makebelievepos = model.position + Vec3::new(0.0, self.planet_y_offset, 0.0);
+
+            if model.sounding && !self.headless {
+
+                println!("Sounding cricket at {}", model.position);
+
+                    match model.sound {
+                        Some(str) => {
+                            self.audiop.write().unwrap().play(str, &makebelievepos, &model.velocity, 1.0);
+                        }   
+                        None => {
+
+                        }
+                    }
+
+                
+
+
+                model.sounding = false;
+            }
             
             // if (makebelievepos).distance(self.camera.lock().unwrap().position) < 30.0 {
             //     model.target = AggroTarget::ThisCamera;

@@ -188,7 +188,7 @@ impl AudioPlayer {
         if let Some(sound) = self.sounds.get(id) {
             let channel = self.system.play_sound(*sound, Some(self.head_group), false).unwrap();
             channel.set_mode(libfmod::Mode::FMOD_2D).unwrap();  // Ensure the sound is 2D
-            channel.set_volume(1.0).unwrap();  // Ensure the volume is set
+            channel.set_volume(0.2).unwrap();  // Ensure the volume is set
             self.channels
                 .entry(id)
                 .or_insert_with(Vec::new)
@@ -198,7 +198,7 @@ impl AudioPlayer {
             if let Some(sound) = self.sounds.get(id) {
                 let channel = self.system.play_sound(*sound, Some(self.head_group), false).unwrap();
                 channel.set_mode(libfmod::Mode::FMOD_2D).unwrap();  // Ensure the sound is 2D
-                channel.set_volume(1.0).unwrap();  // Ensure the volume is set
+                channel.set_volume(0.2).unwrap();  // Ensure the volume is set
                 self.channels
                     .entry(id)
                     .or_insert_with(Vec::new)

@@ -2972,7 +2972,7 @@ impl Game {
         let shader = self.shader0.clone();
 
         let threadhandle = thread::spawn(move|| {
-            ChunkSystem::initial_rebuild_on_main_thread(&csys, &shader, &campos)
+            //ChunkSystem::initial_rebuild_on_main_thread(&csys, &shader, &campos)
         });
 
         threadhandle
@@ -2999,6 +2999,8 @@ impl Game {
     }
 
     pub fn chunk_thread_inner_function(cam_arc: &Arc<Mutex<Camera>>, csys_arc: &Arc<RwLock<ChunkSystem>>, last_user_c_pos: &mut vec::IVec2) {
+        //println!("Starting over the CTIF");
+        let mut rng = StdRng::from_entropy();
 
         let mut lightstuff = true;
         while lightstuff {
@@ -3008,6 +3010,7 @@ impl Game {
             match csys_arc.light_rebuild_requests.pop() {
                 Some(index) => {
                     csys_arc.rebuild_index(index, true, true);
+                    //println!("Popping stuff LIGHT {}", rng.gen_range(0..255));
                 }
                 None => {
                     lightstuff = false;
@@ -3023,11 +3026,13 @@ impl Game {
 
             match csys_arc.user_rebuild_requests.pop() {
                 Some(index) => {
+                    //println!("Popping stuff USER {}", rng.gen_range(0..255));
                     csys_arc.rebuild_index(index, true, false);
 
 
                     match csys_arc.light_rebuild_requests.pop() {
                         Some(index) => {
+                            //println!("Popping stuff LIGHT {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, true);
                         }
                         None => {
@@ -3046,8 +3051,10 @@ impl Game {
             match csys_arc.gen_rebuild_requests.pop() {
                 Some(index) => {
                     csys_arc.rebuild_index(index, true, false);
+                   // println!("Popping stuff GEN {}", rng.gen_range(0..255));
                     match csys_arc.user_rebuild_requests.pop() {
                         Some(index) => {
+                           // println!("Popping stuff USER {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, false);
                             
                         }
@@ -3055,6 +3062,7 @@ impl Game {
                     }
                     match csys_arc.light_rebuild_requests.pop() {
                         Some(index) => {
+                           // println!("Popping stuff LIGHT {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, true);
                         }
                         None => {
@@ -3073,10 +3081,12 @@ impl Game {
             let csys_arc = csys_arc.read().unwrap();
             match csys_arc.background_rebuild_requests.pop() {
                 Some(index) => {
+                   // println!("Popping stuff BACKGROUND {}", rng.gen_range(0..255));
                     csys_arc.rebuild_index(index, false, false);
                     
                     match csys_arc.user_rebuild_requests.pop() {
                         Some(index) => {
+                           // println!("Popping stuff USER {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, false);
                             let mut userstuff = true;
                             
@@ -3086,6 +3096,7 @@ impl Game {
 
                     match csys_arc.light_rebuild_requests.pop() {
                         Some(index) => {
+                           // println!("Popping stuff LIGHT {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, true);
                         }
                         None => {
@@ -3094,6 +3105,7 @@ impl Game {
 
                     match csys_arc.gen_rebuild_requests.pop() {
                         Some(index) => {
+                           // println!("Popping stuff GEN {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, false);
                             let mut genstuff = true;
                             while genstuff {

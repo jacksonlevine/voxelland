@@ -1733,8 +1733,8 @@ impl ChunkSystem {
 
     pub fn noise_func(&self, spot: vec::IVec3) -> f64 {
 
-        let xzdivisor1 = 25.35 * 4.0;
-        let xzdivisor2 = 55.35 * 4.0;
+        let xzdivisor1 = 900.35 * 4.0;
+        let xzdivisor2 = 1300.35 * 4.0;
 
         let mut y = spot.y - 20;
 

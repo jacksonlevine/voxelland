@@ -184,20 +184,20 @@ impl AudioPlayer {
         Ok(())
     }
 
-
     pub fn play_in_head(&mut self, id: &'static str) {
         if let Some(sound) = self.sounds.get(id) {
             let channel = self.system.play_sound(*sound, Some(self.head_group), false).unwrap();
+            channel.set_mode(libfmod::Mode::FMOD_2D).unwrap();  // Ensure the sound is 2D
             channel.set_volume(1.0).unwrap();  // Ensure the volume is set
             self.channels
                 .entry(id)
                 .or_insert_with(Vec::new)
                 .push(channel);
         } else {
-            self.preload(id, id);
+            self.preload(id, id).unwrap();
             if let Some(sound) = self.sounds.get(id) {
                 let channel = self.system.play_sound(*sound, Some(self.head_group), false).unwrap();
-
+                channel.set_mode(libfmod::Mode::FMOD_2D).unwrap();  // Ensure the sound is 2D
                 channel.set_volume(1.0).unwrap();  // Ensure the volume is set
                 self.channels
                     .entry(id)
@@ -210,25 +210,28 @@ impl AudioPlayer {
     pub fn play(&mut self, id: &'static str, pos: &Vec3, vel: &Vec3, vol: f32) {
         if let Some(sound) = self.sounds.get(id) {
             let channel = self.system.play_sound(*sound, Some(self.spatial_group), false).unwrap();
+            channel.set_mode(libfmod::Mode::FMOD_3D).unwrap();  // Ensure the sound is 3D
             channel.set_3d_attributes(
                 Some(Vector::new(pos.x, pos.y, pos.z)),
                 Some(Vector::new(vel.x, vel.y, vel.z)),
-            );
-            channel.set_volume(vol);
-            channel.set_3d_min_max_distance(10.0, 100.0);
+            ).unwrap();
+            channel.set_volume(vol).unwrap();
+            channel.set_3d_min_max_distance(1.0, 30.0).unwrap();  // Set min and max distances
             self.channels
                 .entry(id)
                 .or_insert_with(Vec::new)
                 .push(channel);
         } else {
-            self.preload(id, id);
+            self.preload(id, id).unwrap();
             if let Some(sound) = self.sounds.get(id) {
                 let channel = self.system.play_sound(*sound, Some(self.spatial_group), false).unwrap();
+                channel.set_mode(libfmod::Mode::FMOD_3D).unwrap();  // Ensure the sound is 3D
                 channel.set_3d_attributes(
                     Some(Vector::new(pos.x, pos.y, pos.z)),
                     Some(Vector::new(vel.x, vel.y, vel.z)),
-                );
-                channel.set_3d_min_max_distance(10.0, 100.0);
+                ).unwrap();
+                channel.set_volume(vol).unwrap();
+                channel.set_3d_min_max_distance(1.0, 30.0).unwrap();  // Set min and max distances
                 self.channels
                     .entry(id)
                     .or_insert_with(Vec::new)

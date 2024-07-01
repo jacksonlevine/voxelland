@@ -204,7 +204,7 @@ impl ModelEntity {
                 hostile: false,
                 lastrot: Vec3::ZERO,
                 sounding: false,
-                sound: None
+                sound: Planets::get_mob_sound(model_index)
             }
      
         
@@ -263,7 +263,13 @@ impl ModelEntity {
 
         let rand = self.rng.gen_range(0..6);
 
+        match rand {
+            1 => {
+                self.controls.clear();
+            }
+            _ => {
 
+                
         let night = unsafe {
             AMBIENTBRIGHTNESS <= 0.5
         };
@@ -276,8 +282,10 @@ impl ModelEntity {
             self.sounding = false;
         }
 
-            let blockbitshere = self.csys.read().unwrap().blockat(IVec3::new(self.position.x.floor() as i32, self.position.y.floor() as i32, self.position.z.floor() as i32));
+            let block = {let blockbitshere = self.csys.read().unwrap().blockat(IVec3::new(self.position.x.floor() as i32, self.position.y.floor() as i32, self.position.z.floor() as i32));
             let block = blockbitshere & Blocks::block_id_bits();
+            block
+            };
     
 
             if block == 23u32 {
@@ -297,10 +305,12 @@ impl ModelEntity {
                 let res = raycast_voxel(self.position, self.direction, &self.csys, 10.0);
                 match res {
                     Some(res) => {
-
+                        let block = 
+{
                         let blockbitshere = self.csys.read().unwrap().blockat(res.1);
                         let block = blockbitshere & Blocks::block_id_bits();
-
+                        block
+};
                         if block == 23u32 {
                             self.controls.clear();
                             self.controls.up = true;
@@ -323,6 +333,13 @@ impl ModelEntity {
 
 
             }
+
+
+
+
+            }
+        }
+
 
 
 

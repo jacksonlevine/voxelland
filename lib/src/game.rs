@@ -1842,6 +1842,10 @@ impl Game {
                                 let rot = comm.rot;
                                 let scale = comm.infof;
                                 let sounding  = comm.bo;
+                                // if sounding {
+                                //     println!("We got a sounding message");
+                                // }
+                                
 
                                 let nsme = self.non_static_model_entities.clone();
                                 //println!("Mob update. NSME Length: {}", nsme.len());
@@ -1872,7 +1876,7 @@ impl Game {
                                 let modind = comm.info2;
                                 let rot = comm.rot;
                                 let scale = 0.3;
-                                let sounding  = comm.bo;
+                                //let sounding  = comm.bo;
 
                                 let pme: Arc<DashMap<Uuid, ModelEntity>> = self.player_model_entities.clone();
 
@@ -1887,7 +1891,7 @@ impl Game {
                                         (*modent).scale = scale;
                                         (*modent).lastrot = (*modent).rot.clone();
                                         (*modent).rot = Vec3::new(0.0, rot, 0.0);
-                                        (*modent).sounding = sounding;
+                                        //(*modent).sounding = sounding;
                                         unsafe {
                                             (*modent).time_stamp = glfwGetTime();
                                         }
@@ -2052,6 +2056,9 @@ impl Game {
             } else {
                 if !self.vars.in_multiplayer {
                     self.update_non_static_model_entities();  
+                } else {
+                    //YOu are in multiplayer
+                    self.update_server_received_modents();
                 }
                 if overlayfade <= 0.1 {
                     self.update_movement_and_physics();

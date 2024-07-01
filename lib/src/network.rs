@@ -64,7 +64,7 @@ impl NetworkConnector {
     }
 
     pub fn send(&self, message: &Message) {
-        println!("Sending a {}", message.message_type);
+        //println!("Sending a {}", message.message_type);
 
         if let Some(stream) = &self.stream {
             let serialized_message = bincode::serialize(message).unwrap();
@@ -74,14 +74,14 @@ impl NetworkConnector {
     }
 
     pub fn sendto(message: &Message, stream: &Arc<Mutex<TcpStream>>) {
-        println!("Sending a {}", message.message_type);
+       // println!("Sending a {}", message.message_type);
         let serialized_message = bincode::serialize(message).unwrap();
         let mut stream_lock = stream.lock().unwrap();
         stream_lock.write_all(&serialized_message).unwrap();
     }
 
     pub fn sendtolocked(message: &Message, stream: &mut TcpStream) {
-        println!("Sending a {}", message.message_type);
+       // println!("Sending a {}", message.message_type);
         let serialized_message = bincode::serialize(message).unwrap();
         stream.write_all(&serialized_message).unwrap();
     }

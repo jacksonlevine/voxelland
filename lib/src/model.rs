@@ -7,6 +7,7 @@ use gl::types::{GLsizeiptr, GLuint, GLvoid};
 use glam::{Mat4, Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
 use gltf::{accessor::{DataType, Dimensions}, image::Source, mesh::util::ReadIndices, Semantic};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use uuid::Uuid;
 use crate::{monsters::Monsters, planetinfo::Planets};
 use gltf::{animation::Interpolation, animation::util::ReadOutputs};
@@ -252,6 +253,34 @@ impl Game {
         modent.coll_cage = CollCage::new(solid_pred);
 
         self.player_model_entities.insert(id, modent);
+    }
+
+    pub fn update_server_received_modents(&mut self) {
+        let mut rng: StdRng = StdRng::from_entropy();
+
+        for mut model in self.non_static_model_entities.iter_mut() {
+            let model: &mut ModelEntity = model.value_mut();
+
+            if model.sounding {
+                if model.soundtimer < 1.0 {
+                    model.soundtimer += self.delta_time + rng.gen_range(0.0..0.5);
+                } else {
+                    model.soundtimer = 0.0;
+                    match model.sound {
+                        Some(str) => {
+
+                            //println!("Playing at {}, while player pos is {}", model.position, self.camera.lock().unwrap().position);
+
+                            self.audiop.write().unwrap().play(str, &model.position, &model.velocity, 0.2);
+                        }   
+                        None => {
+
+                        }
+                    }
+                    model.sounding = false;
+                }
+            }
+        }
     }
 
     pub fn update_non_static_model_entities(&mut self) {

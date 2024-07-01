@@ -205,45 +205,65 @@ impl NetworkConnector {
                                     println!("Receiving ChestReg:");
 
                                     if comm.info > 0 {
-                                        shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
-                                    
-                                        stream_lock.set_nonblocking(false).unwrap();
-                                        
 
 
 
-                                        let mut buff = vec![0 as u8; comm.info as usize];
-
-                                        stream_lock.set_read_timeout(Some(Duration::from_secs(2)));
-
-                                        match stream_lock.read_exact(&mut buff) {
 
 
-                                            Ok(_) => {
-                                                println!("Got the expected bytes for chestreg");
-                                                let mut file = File::create("chestdb").unwrap();
-                                                file.write_all(&buff).unwrap();
 
-
-                                                csys.write().unwrap().load_chests_from_file();
-                                                recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
-
-                                                //NetworkConnector::sendtolocked(&reqseed, &mut stream_lock);
+                                        let mut payload_buffer = vec![0u8; comm.info as usize];
+                                        let mut total_read = 0;
+            
+                                        while total_read < comm.info as usize {
+                                            match stream_lock.read(&mut payload_buffer[total_read..]) {
+                                                Ok(n) if n > 0 => total_read += n,
+                                                Ok(_) => {
+                                                    // Connection closed
+                                                    println!("Connection closed by server during chestreg");
+                                                    break;
+                                                }
+                                                Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                                                    // Sleep for a short period and retry
+                                                    thread::sleep(Duration::from_millis(10));
+                                                }
+                                                Err(e) => {
+                                                    println!("Error receiving chestreg: {}", e);
+                                                    break;
+                                                }
                                             }
-                                            Err(e) => {
-                                                println!("Error receiving chestreg, trying again...");
-                                                NetworkConnector::sendtolocked(&reqchest, &mut stream_lock);
-                                            }
+                                        }
+            
+                                        if total_read == comm.info as usize {
 
+                                            println!("Got the expected bytes for chestreg");
+                                            let mut file = File::create("chestdb").unwrap();
+                                            file.write_all(&payload_buffer).unwrap();
+
+
+                                            csys.write().unwrap().load_chests_from_file();
+                                            recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
+                                            shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
+                                            
+                                        } else {
+
+
+                                            println!("Error receiving chestreg, trying again...");
+                                            NetworkConnector::sendtolocked(&reqchest, &mut stream_lock);
                                         }
 
-                                        stream_lock.set_nonblocking(true).unwrap();
 
+
+
+
+
+                                       
                                         
-                                        shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
                                     } else {
                                         recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
+                                        shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
                                     }
+
+                                    
                                     
 
                                 }

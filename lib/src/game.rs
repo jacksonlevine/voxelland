@@ -314,14 +314,23 @@ impl Game {
             JVoxModel::new("assets/voxelmodels/tree4.vox"),
             JVoxModel::new("assets/voxelmodels/tree5.vox"),
             JVoxModel::new("assets/voxelmodels/bamboo1.vox"),
-            JVoxModel::new("assets/voxelmodels/bamboo2.vox"), //0-9
+            JVoxModel::new("assets/voxelmodels/bamboo2.vox"), 
+
+            JVoxModel::new("assets/voxelmodels/tallgrass1.vox"),
+            JVoxModel::new("assets/voxelmodels/tallgrass2.vox"), 
+            JVoxModel::new("assets/voxelmodels/tallgrass3.vox"),
+            
+            
+            
+            
+            //0-12
 
 
 
 
             JVoxModel::new("assets/voxelmodels/ptree.vox"),
             JVoxModel::new("assets/voxelmodels/redrock.vox"),
-            JVoxModel::new("assets/voxelmodels/crystal1.vox"), //10-12
+            JVoxModel::new("assets/voxelmodels/crystal1.vox"), //13 - 15
         ];
 
         
@@ -355,7 +364,8 @@ impl Game {
                 let isntopendoor = DoorInfo::get_door_open_bit(bitshere) != 1;
                 let isntladder = (bitshere & Blocks::block_id_bits()) != 20;
                 let isntbamboo = (bitshere & Blocks::block_id_bits()) != 22;
-                return isntopendoor && isntladder && isntbamboo && csys_arc.read().unwrap().collision_predicate(v);
+                let isnttallgrass = (bitshere & Blocks::block_id_bits()) != 23;
+                return isntopendoor && isntladder && isntbamboo && isnttallgrass && csys_arc.read().unwrap().collision_predicate(v);
             })
         };
         let mut hud = Hud::new(&window.clone(), tex.id);
@@ -2827,13 +2837,15 @@ impl Game {
         WorldGeometry::bind_old_geometry_no_upload(cfl.vvbo, cfl.uvvbo, &self.oldshader);
 
 
-        unsafe {
 
+        unsafe {
+            gl::Disable(gl::CULL_FACE);
             gl::DrawArrays(gl::TRIANGLES, 0, cfl.vlength as i32 / 5);
             let error = gl::GetError();
             if error != gl::NO_ERROR {
                 println!("OpenGL Error after drawing arrays: {}", error);
             }
+            gl::Enable(gl::CULL_FACE);
             // println!("Chunk rending!");
         }
 

@@ -38,6 +38,7 @@ use crate::shader::Shader;
 use crate::specialblocks::chest::ChestInfo;
 use crate::specialblocks::door::DoorInfo;
 use crate::specialblocks::ladder::LadderInfo;
+use crate::specialblocks::tallgrass::TallGrassInfo;
 use crate::textureface::TextureFace;
 use crate::vec::IVec3;
 use crate::vec::{self, IVec2};
@@ -213,7 +214,8 @@ pub struct ChunkSystem {
     pub hashadinitiallightpass: Arc<Mutex<HashMap<vec::IVec2, bool>>>,
     pub lightmap: Arc<Mutex<HashMap<vec::IVec3, LightSegment>>>,
     pub audiop: Option<Arc<RwLock<AudioPlayer>>>,
-    pub chest_registry: Arc<DashMap<vec::IVec3, ChestInventory>>
+    pub chest_registry: Arc<DashMap<vec::IVec3, ChestInventory>>,
+    pub generated_chunks: Arc<DashMap<vec::IVec2, bool>>
 }
 
 impl ChunkSystem {
@@ -491,9 +493,9 @@ impl ChunkSystem {
 
     pub fn collision_predicate(&self, vec: vec::IVec3) -> bool {
         let isntwater = (self.blockat(vec.clone()) & Blocks::block_id_bits()) != 2;
-        
+        let isnttallgrass = (self.blockat(vec.clone()) & Blocks::block_id_bits()) != 23;
 
-        return isntwater && self.blockat(vec.clone()) != 0 || self.justcollisionmap.contains_key(&vec);
+        return isntwater && isnttallgrass && self.blockat(vec.clone()) != 0 || self.justcollisionmap.contains_key(&vec);
     }
     
 
@@ -594,7 +596,8 @@ impl ChunkSystem {
             hashadinitiallightpass: Arc::new(Mutex::new(HashMap::new())),
             lightmap: Arc::new(Mutex::new(HashMap::new())),
             audiop,
-            chest_registry: Arc::new(DashMap::new())
+            chest_registry: Arc::new(DashMap::new()),
+            generated_chunks: Arc::new(DashMap::new())
         };
 
 
@@ -1390,6 +1393,35 @@ impl ChunkSystem {
                             
 
                             
+                        } else if block == 23 {
+
+                            let mut modelindex: i32 = 0;
+
+
+
+                            let mut blocklightval = 0.0;
+
+                            let lmlock = self.lightmap.lock().unwrap();
+                            if lmlock.contains_key(&spot) {
+                                blocklightval = lmlock.get(&spot).unwrap().sum() as f32;
+                            }
+                            drop(lmlock);
+
+                            for vert in TallGrassInfo::tallgrass_model_from_index(modelindex as usize).chunks(5) {
+                                vdata.extend_from_slice(&[
+                                    vert[0] + spot.x as f32,
+                                    vert[1] + spot.y as f32,
+                                    vert[2] + spot.z as f32,
+                                    vert[3] + blocklightval,
+                                    vert[4]
+                                ])
+                            }
+
+                            
+                            uvdata.extend_from_slice(&TallGrassInfo::get_tallgrass_uvs());
+                            
+
+                            
                         } else {
 
 
@@ -1867,6 +1899,14 @@ impl ChunkSystem {
     }
 
     pub fn blockat(&self, spot: vec::IVec3) -> u32 {
+
+        // if self.headless {
+        //     if self.generated_chunks.contains_key(&ChunkSystem::spot_to_chunk_pos(&spot)) {
+
+        //     } else {
+        //         self.generate_chunk(&ChunkSystem::spot_to_chunk_pos(&spot))
+        //     }
+        // }
 
         match self.userdatamap.get(&spot) {
             Some(id) => {

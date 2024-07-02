@@ -1166,7 +1166,7 @@ impl ChunkSystem {
 
         let mut implicated: HashSet<vec::IVec2> = HashSet::new();
 
-        let mut lightsources: HashSet<vec::IVec3> = HashSet::new();
+        let mut lightsources: HashSet<(vec::IVec3, u32)> = HashSet::new();
 
         let mut existingsources: HashSet<vec::IVec3> = HashSet::new();
 
@@ -1188,9 +1188,10 @@ impl ChunkSystem {
 
                                     existingsources.insert(ray.origin);
                                     
+                                    let id = self.blockat(originweremoving);
 
-                                    if Blocks::is_light(self.blockat(originweremoving)) {
-                                        lightsources.insert(originweremoving);
+                                    if Blocks::is_light(id) {
+                                        lightsources.insert((originweremoving, id));
                                     }
                                 }
                             }
@@ -1199,9 +1200,9 @@ impl ChunkSystem {
 
                         }
                     }
-
-                    if Blocks::is_light(self.blockat(blockcoord)) {
-                        lightsources.insert(blockcoord);
+                    let id = self.blockat(blockcoord);
+                    if Blocks::is_light(id) {
+                        lightsources.insert((blockcoord, id));
                     }
                 }
             }
@@ -1211,8 +1212,8 @@ impl ChunkSystem {
             self.depropagate_light_origin(source, &mut implicated);
         }
 
-        for source in lightsources {
-            self.propagate_light_origin(source, source, LightColor::new(7, 0, 10), &mut implicated);
+        for (source, id) in lightsources {
+            self.propagate_light_origin(source, source, Blocks::get_light_color(id), &mut implicated);
         }
 
         //println!("Implicated number: {}", implicated.len());
@@ -1265,7 +1266,7 @@ impl ChunkSystem {
         let mut uvdata = geobankarc.uvdata.lock().unwrap();
 
         let mut data8rgb = geobankarc.data8rgb.lock().unwrap();
-        let mut tdata8rgb = geobankarc.data8rgb.lock().unwrap();
+        let mut tdata8rgb = geobankarc.tdata8rgb.lock().unwrap();
 
         let mut tops: HashMap<vec::IVec2, i32> = HashMap::new();
 

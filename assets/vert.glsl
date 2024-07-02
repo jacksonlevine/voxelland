@@ -63,11 +63,11 @@ void main()
     float distance = pow(distance(position, camPos)/(5), 2)/5.0f;
     gl_Position = mvp * (vec4(position , 1.0) );
 
-    float bright = min(16.0f, blockBright + ambBright);
+    float bright = min(16.0f,ambBright);
 
     
 
-    vertexColor = color;
+    vertexColor = vec3(min((bright/16.0f) + color.r, 1.0), min((bright/16.0f) + color.g, 1.0), min((bright/16.0f) + color.b, 1.0) );
     //vertexColor = vec3(lx / 10.0, ly / 10.0, 1.0);  // Assuming maximum values for normalization
     TexCoord = uv;
     pos = position;

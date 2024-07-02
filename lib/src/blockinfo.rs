@@ -1,9 +1,9 @@
-use crate::cube::CubeSide;
+use crate::{chunk::LightColor, cube::CubeSide};
 
 pub const BLOCK_DIRECTION_BITS: u32 = 0b0000_0000_0000_0011_0000_0000_0000_0000;
 pub struct Blocks {}
 
-static TEXS: [[(u8, u8); 3]; 24] = [
+static TEXS: [[(u8, u8); 3]; 27] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],  // 0
             [(1, 0), (1, 0), (1, 0)],  // 1 sand
@@ -23,15 +23,21 @@ static TEXS: [[(u8, u8); 3]; 24] = [
             [(8, 2), (8, 2), (8, 2)], // 15 bedrock
             [(0, 3), (0, 3), (0, 3)], // 16 red crystal unattainable
             [(0, 4), (0, 4), (0, 4)], // 17 red crystal
+
             [(12, 1), (12, 1), (12, 1)], // 18 light
+
             [(12, 0), (12, 0), (12, 0)], // 19 door
             [(0, 1), (0, 1), (0, 1)], // 20 ladder
             [(15, 0), (15, 0), (15, 0)], // 21 chest
             [(13, 1), (14, 1), (14, 1)], // 22 bamboo
             [(1, 3), (1, 3), (1, 3)], // 23 tallgrass
+
+            [(12, 1), (12, 1), (12, 1)], // 24 blue light
+            [(12, 1), (12, 1), (12, 1)], // 25 purple light
+            [(12, 1), (12, 1), (12, 1)], // 26 yellow light
         ];
 
-static BREAKTIMES: [f32; 24] = [
+static BREAKTIMES: [f32; 27] = [
     0.1,
     0.5,
     0.7,
@@ -55,10 +61,38 @@ static BREAKTIMES: [f32; 24] = [
     0.6,
     1.5,
     1.0,
-    0.2
+    0.2,
+
+    1.0,
+    1.0,
+    1.0,
 ];
 
 impl Blocks {
+    pub fn get_light_color(id: u32) -> LightColor {
+        static white: LightColor = LightColor{x: 15, y: 15, z:15};
+        static blue: LightColor = LightColor{x: 0, y:0, z:15};
+        static purple: LightColor = LightColor{x: 7, y:0, z:10};
+        static yellow: LightColor = LightColor{x: 15, y:15, z:0};
+
+        match id {
+            18 => {
+                white
+            }
+            24 => {
+                blue
+            }
+            25 => {
+                purple
+            }
+            26 => {
+                yellow
+            }
+            _ => {
+                white
+            }
+        }
+    }
     pub fn get_break_time(id: u32) -> f32 {
         return BREAKTIMES[id as usize];
     }
@@ -89,8 +123,8 @@ impl Blocks {
         return SEMI_TRANSPARENTS.contains(&id);
     }
     pub fn is_light(id: u32) -> bool {
-        static LIGHTS: [u32; 1] = [
-            18
+        static LIGHTS: [u32; 4] = [
+            18, 24, 25, 26
         ];
         return LIGHTS.contains(&id);
     }

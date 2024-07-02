@@ -216,6 +216,7 @@ impl WorldGeometry {
         shader: &Shader,
         data: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>, &Mutex<Vec<u16>>),
     ) {
+        //println!("BInding geomery"); //Ah yes praise the lord when this is commented out it means nothing is wrong 
         unsafe {
             if upload {
                 let datalock = data.0.lock().unwrap();
@@ -283,21 +284,9 @@ impl WorldGeometry {
                     );
                 }
 
-                let data2lock = data.2.lock().unwrap();
-                gl::NamedBufferData(
-                    vbo8rgb,
-                    (data2lock.len() * std::mem::size_of::<u16>()) as gl::types::GLsizeiptr,
-                    data2lock.as_ptr() as *const gl::types::GLvoid,
-                    gl::STATIC_DRAW,
-                );
+                drop(data1lock);
 
-                let error = gl::GetError();
-                if error != gl::NO_ERROR {
-                    println!(
-                        "OpenGL Error after named buffering of vbo8rgb with upload true: {}",
-                        error
-                    );
-                }
+
             }
             gl::VertexArrayVertexBuffer(
                 shader.vao,
@@ -347,6 +336,24 @@ impl WorldGeometry {
                 println!("OpenGL Error after associating vbo8 with vao: {}", error);
             }
             if upload {
+
+                let data2lock = data.2.lock().unwrap();
+                gl::NamedBufferData(
+                    vbo8rgb,
+                    (data2lock.len() * std::mem::size_of::<u16>()) as gl::types::GLsizeiptr,
+                    data2lock.as_ptr() as *const gl::types::GLvoid,
+                    gl::STATIC_DRAW,
+                );
+
+                let error = gl::GetError();
+                if error != gl::NO_ERROR {
+                    println!(
+                        "OpenGL Error after named buffering of vbo8rgb with upload true: {}",
+                        error
+                    );
+                }
+
+
                 let u8rgb_attrib =
                     gl::GetAttribLocation(shader.shader_id, b"rgb\0".as_ptr() as *const i8)
                         as gl::types::GLuint;

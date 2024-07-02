@@ -57,9 +57,9 @@ use std::sync::RwLock;
 
 pub static STARTINGITEMS: [(u32, u32); 5] = [
     (18, 99),
-    (20, 99),
-    (21, 99),
-    (10, 99),
+    (24, 99),
+    (25, 99),
+    (26, 99),
     (19, 99)
 ];
 
@@ -3178,7 +3178,7 @@ impl Game {
                 vec3.z.floor() as i32,
             ));
 
-            if user_c_pos != *last_user_c_pos && time_since_last_check >= 1.0 {
+            if /*user_c_pos != *last_user_c_pos &&*/ time_since_last_check >= 1.0 {
                 *last_user_c_pos = user_c_pos;
 
                 time_since_last_check = 0.0;

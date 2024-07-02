@@ -51,8 +51,10 @@ use std::str::FromStr;
 use std::io::Write;
 
 
+pub type LightColor = glam::U16Vec3;
+
 pub struct LightRay {
-    pub value: u8,
+    pub value: LightColor,
     pub origin: vec::IVec3,
     pub directions: Vec<CubeSide>
 }
@@ -62,12 +64,12 @@ pub struct LightSegment {
 }
 
 impl LightSegment {
-    pub fn sum(&self) -> u8 {
-        let mut res = 0u8;
+    pub fn sum(&self) -> LightColor {
+        let mut res = LightColor::ZERO;
         for ray in &self.rays {
             res += ray.value;
         }
-        return res.min(15);
+        return res.min(LightColor::new(15, 15, 15));
     }
 }
 
@@ -81,7 +83,7 @@ impl LightSegment {
 pub struct ChunkGeo {
     pub data32: Mutex<Vec<u32>>,
     pub data8: Mutex<Vec<u8>>,
-    pub data8rgb: Mutex<Vec<u8>>,
+    pub data8rgb: Mutex<Vec<u16>>,
 
     pub pos: Mutex<vec::IVec2>,
 
@@ -92,7 +94,7 @@ pub struct ChunkGeo {
 
     pub tdata32: Mutex<Vec<u32>>,
     pub tdata8: Mutex<Vec<u8>>,
-    pub tdata8rgb: Mutex<Vec<u8>>,
+    pub tdata8rgb: Mutex<Vec<u16>>,
 
     pub tvbo32: gl::types::GLuint,
     pub tvbo8: gl::types::GLuint,
@@ -177,11 +179,11 @@ impl ChunkGeo {
         self.data8rgb.lock().unwrap().clear();
         self.tdata8rgb.lock().unwrap().clear();
     }
-    pub fn solids(&self) -> (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>, &Mutex<Vec<u8>>) {
+    pub fn solids(&self) -> (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>, &Mutex<Vec<u16>>) {
         return (&self.data32, &self.data8, &self.data8rgb);
     }
-    pub fn transparents(&self) -> (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>, &Mutex<Vec<u8>>) {
-        return (&self.tdata32, &self.tdata8, &self.data8rgb);
+    pub fn transparents(&self) -> (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>, &Mutex<Vec<u16>>) {
+        return (&self.tdata32, &self.tdata8, &self.tdata8rgb);
     }
 }
 
@@ -997,10 +999,10 @@ impl ChunkSystem {
         }
         //println!("Got to end of depropagating light origin");
     }
-    pub fn propagate_light_origin(&self, spot: vec::IVec3, origin: vec::IVec3, value: u8, imp: &mut HashSet<vec::IVec2>) {
+    pub fn propagate_light_origin(&self, spot: vec::IVec3, origin: vec::IVec3, value: LightColor, imp: &mut HashSet<vec::IVec2>) {
 
         //println!("Starting propagating light origin");
-        let mut stack: Vec<(u8, vec::IVec3)> = Vec::new();
+        let mut stack: Vec<(LightColor, vec::IVec3)> = Vec::new();
         let mut visited: HashSet<vec::IVec3> = HashSet::new();
 
         stack.push((value, spot));
@@ -1059,8 +1061,14 @@ impl ChunkSystem {
 
                 let my_ray_here = match inner_light_seg.rays.iter_mut().find(|r| r.origin == origin) {
                     Some(k) => {
-                        if k.value < n.0 {
-                            k.value = n.0;
+                        if k.value.x < n.0.x {
+                            k.value.x = n.0.x;
+                        }
+                        if k.value.y < n.0.y {
+                            k.value.y = n.0.y;
+                        }
+                        if k.value.z < n.0.z {
+                            k.value.z = n.0.z;
                         }
                         k
                     }
@@ -1076,7 +1084,7 @@ impl ChunkSystem {
                 
 
 
-                if n.0 > 1 {
+                if n.0.x > 1 || n.0.y > 1 || n.0.z > 1 {
                     let neighbs = Cube::get_neighbors();
                     for (index, neigh) in neighbs.iter().enumerate() {
 
@@ -1090,7 +1098,7 @@ impl ChunkSystem {
                         let mut existing_new_light_seg;
 
                         
-                        let mut existing_next_value = 0u8;
+                        let mut existing_next_value = LightColor::ZERO;
 
                         match lmlock.get(&next) {
                             Some(k2) => {
@@ -1108,10 +1116,16 @@ impl ChunkSystem {
                             }
                         }
 
-                        let reducedvalue = (n.0 as i32 - 1).max(0) as u8;
+                        let reducedvalue = LightColor::new(
+                            (n.0.x as i32 - 1).max(0) as u16,
+                            (n.0.y as i32 - 1).max(0) as u16,
+                            (n.0.z as i32 - 1).max(0) as u16
+                        );
 
 
-                        if !visited.contains(&next) || existing_next_value < reducedvalue {
+
+
+                        if !visited.contains(&next) || existing_next_value.x < reducedvalue.x || existing_next_value.y < reducedvalue.y || existing_next_value.z < reducedvalue.z {
 
                             //println!("Pushing next onto stack: {:?}", next);
                             
@@ -1198,7 +1212,7 @@ impl ChunkSystem {
         }
 
         for source in lightsources {
-            self.propagate_light_origin(source, source, 10, &mut implicated);
+            self.propagate_light_origin(source, source, LightColor::new(7, 0, 10), &mut implicated);
         }
 
         //println!("Implicated number: {}", implicated.len());
@@ -1341,7 +1355,7 @@ impl ChunkSystem {
 
                             let lmlock = self.lightmap.lock().unwrap();
                             if lmlock.contains_key(&spot) {
-                                blocklightval = lmlock.get(&spot).unwrap().sum() as f32;
+                                blocklightval = lmlock.get(&spot).unwrap().sum().x as f32;  //TEMPORARILY USE JUST THE RED VALUE FOR THIS
                             }
                             drop(lmlock);
 
@@ -1373,7 +1387,7 @@ impl ChunkSystem {
 
                             let lmlock = self.lightmap.lock().unwrap();
                             if lmlock.contains_key(&spot) {
-                                blocklightval = lmlock.get(&spot).unwrap().sum() as f32;
+                                blocklightval = lmlock.get(&spot).unwrap().sum().x as f32;  //TEMPORARILY USE JUST THE RED VALUE FOR THIS
                             }
                             drop(lmlock);
 
@@ -1403,7 +1417,7 @@ impl ChunkSystem {
 
                             let lmlock = self.lightmap.lock().unwrap();
                             if lmlock.contains_key(&spot) {
-                                blocklightval = lmlock.get(&spot).unwrap().sum() as f32;
+                                blocklightval = lmlock.get(&spot).unwrap().sum().x as f32;  //TEMPORARILY USE JUST THE RED VALUE FOR THIS
                             }
                             drop(lmlock);
 
@@ -1432,7 +1446,7 @@ impl ChunkSystem {
 
                             let lmlock = self.lightmap.lock().unwrap();
                             if lmlock.contains_key(&spot) {
-                                blocklightval = lmlock.get(&spot).unwrap().sum() as f32;
+                                blocklightval = lmlock.get(&spot).unwrap().sum().x as f32;  //TEMPORARILY USE JUST THE RED VALUE FOR THIS
                             }
                             drop(lmlock);
 
@@ -1469,7 +1483,7 @@ impl ChunkSystem {
                                             k.sum()
                                         }
                                         None => {
-                                            0
+                                            LightColor::ZERO
                                         }
                                     };
 
@@ -1489,6 +1503,7 @@ impl ChunkSystem {
                                         let side = Cube::get_side(cubeside);
                                         let mut packed32: [u32; 6] = [0, 0, 0, 0, 0, 0];
                                         let mut packed8: [u8; 6] = [0, 0, 0, 0, 0, 0];
+                                        let mut packed8rgb: [u16; 6] = [0, 0, 0, 0, 0, 0];
         
                                         let texcoord = Blocks::get_tex_coords(block, cubeside);
                                         for (ind, v) in side.chunks(4).enumerate() {
@@ -1521,16 +1536,21 @@ impl ChunkSystem {
                                                 k as u8 + v[2],
                                                 ind as u8,
                                                 clamped_light,
-                                                blocklighthere,
+                                                0u8,  //TEMPORARY UNUSED
                                                 texcoord.0,
                                                 texcoord.1,
                                             );
+
+                                            let packedcolor = PackedVertex::pack_rgb(blocklighthere.x, blocklighthere.y, blocklighthere.z);
+
                                             packed32[ind] = pack.0;
                                             packed8[ind] = pack.1;
+                                            packed8rgb[ind] = packedcolor;
                                         }
         
                                         tdata32.extend_from_slice(packed32.as_slice());
                                         tdata8.extend_from_slice(packed8.as_slice());
+                                        tdata8rgb.extend_from_slice(packed8rgb.as_slice());
                                     } else {
                                         tops.insert(vec::IVec2{x: i + neigh.x, y: k + neigh.z}, j + neigh.y);
                                     }
@@ -1558,7 +1578,7 @@ impl ChunkSystem {
                                             k.sum()
                                         }
                                         None => {
-                                            0
+                                            LightColor::ZERO
                                         }
                                     };
                                     // if blocklighthere != 0 {
@@ -1573,6 +1593,7 @@ impl ChunkSystem {
                                         let side = Cube::get_side(cubeside);
                                         let mut packed32: [u32; 6] = [0, 0, 0, 0, 0, 0];
                                         let mut packed8: [u8; 6] = [0, 0, 0, 0, 0, 0];
+                                        let mut packed8rgb: [u16; 6] = [0, 0, 0, 0, 0, 0];
         
                                         let texcoord = Blocks::get_tex_coords(block, cubeside);
                                         for (ind, v) in side.chunks(4).enumerate() {
@@ -1601,16 +1622,20 @@ impl ChunkSystem {
                                                 k as u8 + v[2],
                                                 ind as u8,
                                                 clamped_light,
-                                                blocklighthere,
+                                                0u8,  //TEMPORARY UNUSED
                                                 texcoord.0,
                                                 texcoord.1,
                                             );
+                                            let packedcolor = PackedVertex::pack_rgb(blocklighthere.x, blocklighthere.y, blocklighthere.z);
+
                                             packed32[ind] = pack.0;
                                             packed8[ind] = pack.1;
+                                            packed8rgb[ind] = packedcolor;
                                         }
         
                                         data32.extend_from_slice(packed32.as_slice());
                                         data8.extend_from_slice(packed8.as_slice());
+                                        data8rgb.extend_from_slice(packed8rgb.as_slice());
 
                                         if Blocks::is_semi_transparent(neigh_block) {
                                             tops.insert(vec::IVec2{x: i + neigh.x, y: k + neigh.z}, j + neigh.y);

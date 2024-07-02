@@ -1,19 +1,27 @@
 #version 450 core
 layout (location = 0) in uint u32;
 layout (location = 1) in uint eightbit;
+layout (location = 2) in uint rgb;
 out vec3 vertexColor;
 out vec2 TexCoord;
 out vec3 pos;
+
 uniform vec2 chunkpos;
 uniform mat4 mvp;
 uniform vec3 camPos;
 uniform float ambientBrightMult;
 uniform float viewDistance;
 uniform float planet_y;
+
 void main()
 {
 
-    
+    // Decode the RGB value from the 16-bit attribute
+    uint r = (rgb & 0xF00) >> 8;
+    uint g = (rgb & 0x0F0) >> 4;
+    uint b = (rgb & 0x00F);
+
+    vec3 color = vec3(float(r) / 15.0, float(g) / 15.0, float(b) / 15.0);
 
     float lx = float((u32 >> 28) & 0x0000000F);       // Top 4 bits for x
     float ly = float((u32 >> 20) & 0x000000FF);      // Next 8 bits for y
@@ -59,7 +67,7 @@ void main()
 
     
 
-    vertexColor = vec3(bright/16.0f, bright/16.0f, bright/16.0f);
+    vertexColor = color;
     //vertexColor = vec3(lx / 10.0, ly / 10.0, 1.0);  // Assuming maximum values for normalization
     TexCoord = uv;
     pos = position;

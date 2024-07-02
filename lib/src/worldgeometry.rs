@@ -214,7 +214,7 @@ impl WorldGeometry {
         vbo8rgb: GLuint,
         upload: bool,
         shader: &Shader,
-        data: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>, &Mutex<Vec<u8>>),
+        data: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>, &Mutex<Vec<u16>>),
     ) {
         unsafe {
             if upload {
@@ -286,7 +286,7 @@ impl WorldGeometry {
                 let data2lock = data.2.lock().unwrap();
                 gl::NamedBufferData(
                     vbo8rgb,
-                    (data2lock.len() * std::mem::size_of::<u8>()) as gl::types::GLsizeiptr,
+                    (data2lock.len() * std::mem::size_of::<u16>()) as gl::types::GLsizeiptr,
                     data2lock.as_ptr() as *const gl::types::GLvoid,
                     gl::STATIC_DRAW,
                 );
@@ -337,34 +337,34 @@ impl WorldGeometry {
 
             gl::VertexArrayVertexBuffer(
                 shader.vao,
-                1,
+                2,
                 vbo8rgb,
                 0,
-                std::mem::size_of::<u8>() as i32,
+                std::mem::size_of::<u16>() as i32,
             );
             let error = gl::GetError();
             if error != gl::NO_ERROR {
                 println!("OpenGL Error after associating vbo8 with vao: {}", error);
             }
             if upload {
-                let u8_attrib =
-                    gl::GetAttribLocation(shader.shader_id, b"eightbitrgb\0".as_ptr() as *const i8)
+                let u8rgb_attrib =
+                    gl::GetAttribLocation(shader.shader_id, b"rgb\0".as_ptr() as *const i8)
                         as gl::types::GLuint;
                 //println!("U8 attrib location: {}", u8_attrib);
-                gl::EnableVertexArrayAttrib(shader.vao, u8_attrib);
+                gl::EnableVertexArrayAttrib(shader.vao, u8rgb_attrib);
 
                 let error = gl::GetError();
                 if error != gl::NO_ERROR {
                     println!("OpenGL Error after u8 array attrib: {}", error);
                 }
 
-                gl::VertexArrayAttribIFormat(shader.vao, u8_attrib, 1, gl::UNSIGNED_BYTE, 0);
+                gl::VertexArrayAttribIFormat(shader.vao, u8rgb_attrib, 1, gl::UNSIGNED_SHORT, 0);
                 let error = gl::GetError();
                 if error != gl::NO_ERROR {
                     println!("OpenGL Error after u8 array attrib format: {}", error);
                 }
 
-                gl::VertexArrayAttribBinding(shader.vao, u8_attrib, 1);
+                gl::VertexArrayAttribBinding(shader.vao, u8rgb_attrib, 2);
                 let error = gl::GetError();
                 if error != gl::NO_ERROR {
                     println!("OpenGL Error after u8 array attrib binding: {}", error);

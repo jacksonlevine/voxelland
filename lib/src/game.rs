@@ -2686,8 +2686,8 @@ impl Game {
             if cfl.used {
                 let dd1: Mutex<Vec<u32>> = Mutex::new(Vec::new());
                 let dd2: Mutex<Vec<u8>> = Mutex::new(Vec::new());
-                let dd3: Mutex<Vec<u8>> = Mutex::new(Vec::new());
-                let dd: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>, &Mutex<Vec<u8>>) = (&dd1, &dd2, &dd3);
+                let dd3: Mutex<Vec<u16>> = Mutex::new(Vec::new());
+                let dd: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>, &Mutex<Vec<u16>>) = (&dd1, &dd2, &dd3);
 
                 WorldGeometry::bind_geometry(
                     cfl.vbo32,
@@ -2725,8 +2725,8 @@ impl Game {
             if cfl.used {
                 let dd1: Mutex<Vec<u32>> = Mutex::new(Vec::new());
                 let dd2: Mutex<Vec<u8>> = Mutex::new(Vec::new());
-                let dd3: Mutex<Vec<u8>> = Mutex::new(Vec::new());
-                let dd: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>, &Mutex<Vec<u8>>) = (&dd1, &dd2, &dd3);
+                let dd3: Mutex<Vec<u16>> = Mutex::new(Vec::new());
+                let dd: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>, &Mutex<Vec<u16>>) = (&dd1, &dd2, &dd3);
 
                 unsafe {
                     gl::BindVertexArray(self.shader0.vao);

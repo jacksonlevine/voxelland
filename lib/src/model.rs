@@ -606,7 +606,7 @@ impl Game {
 
                                     match lmlock.get(&samplingcoord) {
                                         Some(t) => {
-                                            blocklighthere = t.sum() as f32;
+                                            blocklighthere = t.sum().x as f32; //TEMPORARY USING RED
                                         }
                                         None => {
 

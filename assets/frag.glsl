@@ -2,6 +2,7 @@
 in vec3 vertexColor;
 in vec2 TexCoord;
 in vec3 pos;
+
 out vec4 FragColor;
 uniform sampler2D ourTexture;
 uniform vec3 camPos;
@@ -57,4 +58,5 @@ void main()
 
     FragColor = mix(FragColor, fogColor, min(1, max(distance, 0)));
     FragColor = FragColor - vec4(space/spacedist, space/spacedist, space/spacedist, 0.0);
+    FragColor = vec4(1.0, 0.0, 0.0, 1.0);
 }

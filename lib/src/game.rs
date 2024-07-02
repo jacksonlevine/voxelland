@@ -2451,10 +2451,14 @@ impl Game {
                 let vv = cmemlock.memories[ready.geo_index].vvbo;
                 let uvv = cmemlock.memories[ready.geo_index].uvvbo;
 
-                WorldGeometry::bind_geometry(v32, v8, true, &self.shader0, bankarc.solids());
+                let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
+                let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
+
+                WorldGeometry::bind_geometry(v32, v8, vbo8rgb, true, &self.shader0, bankarc.solids());
                 WorldGeometry::bind_geometry(
                     tv32,
                     tv8,
+                    tvbo8rgb,
                     true,
                     &self.shader0,
                     bankarc.transparents(),
@@ -2504,10 +2508,14 @@ impl Game {
                 let vv = cmemlock.memories[ready.geo_index].vvbo;
                 let uvv = cmemlock.memories[ready.geo_index].uvvbo;
 
-                WorldGeometry::bind_geometry(v32, v8, true, &self.shader0, bankarc.solids());
+                let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
+                let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
+
+                WorldGeometry::bind_geometry(v32, v8, vbo8rgb, true, &self.shader0, bankarc.solids());
                 WorldGeometry::bind_geometry(
                     tv32,
                     tv8,
+                    tvbo8rgb,
                     true,
                     &self.shader0,
                     bankarc.transparents(),
@@ -2551,11 +2559,15 @@ impl Game {
                                 let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
                                 let vv = cmemlock.memories[ready.geo_index].vvbo;
                                 let uvv = cmemlock.memories[ready.geo_index].uvvbo;
+
+                                let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
+                                let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
                 
-                                WorldGeometry::bind_geometry(v32, v8, true, &self.shader0, bankarc.solids());
+                                WorldGeometry::bind_geometry(v32, v8, vbo8rgb, true, &self.shader0, bankarc.solids());
                                 WorldGeometry::bind_geometry(
                                     tv32,
                                     tv8,
+                                    tvbo8rgb,
                                     true,
                                     &self.shader0,
                                     bankarc.transparents(),
@@ -2674,11 +2686,13 @@ impl Game {
             if cfl.used {
                 let dd1: Mutex<Vec<u32>> = Mutex::new(Vec::new());
                 let dd2: Mutex<Vec<u8>> = Mutex::new(Vec::new());
-                let dd: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>) = (&dd1, &dd2);
+                let dd3: Mutex<Vec<u8>> = Mutex::new(Vec::new());
+                let dd: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>, &Mutex<Vec<u8>>) = (&dd1, &dd2, &dd3);
 
                 WorldGeometry::bind_geometry(
                     cfl.vbo32,
                     cfl.vbo8,
+                    cfl.vbo8rgb,
                     false,
                     &self.shader0,
                     dd,
@@ -2711,7 +2725,8 @@ impl Game {
             if cfl.used {
                 let dd1: Mutex<Vec<u32>> = Mutex::new(Vec::new());
                 let dd2: Mutex<Vec<u8>> = Mutex::new(Vec::new());
-                let dd: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>) = (&dd1, &dd2);
+                let dd3: Mutex<Vec<u8>> = Mutex::new(Vec::new());
+                let dd: (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>, &Mutex<Vec<u8>>) = (&dd1, &dd2, &dd3);
 
                 unsafe {
                     gl::BindVertexArray(self.shader0.vao);
@@ -2721,6 +2736,7 @@ impl Game {
                 WorldGeometry::bind_geometry(
                     cfl.tvbo32,
                     cfl.tvbo8,
+                    cfl.tvbo8rgb,
                     false,
                     &self.shader0,
                     dd,

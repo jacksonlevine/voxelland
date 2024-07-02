@@ -81,16 +81,28 @@ impl LightSegment {
 pub struct ChunkGeo {
     pub data32: Mutex<Vec<u32>>,
     pub data8: Mutex<Vec<u8>>,
+    pub data8rgb: Mutex<Vec<u8>>,
+
     pub pos: Mutex<vec::IVec2>,
+
     pub vbo32: gl::types::GLuint,
     pub vbo8: gl::types::GLuint,
+    pub vbo8rgb: GLuint,
+
+
     pub tdata32: Mutex<Vec<u32>>,
     pub tdata8: Mutex<Vec<u8>>,
+    pub tdata8rgb: Mutex<Vec<u8>>,
+
     pub tvbo32: gl::types::GLuint,
     pub tvbo8: gl::types::GLuint,
+    pub tvbo8rgb: GLuint,
+
 
     pub vvbo: GLuint,
     pub uvvbo: GLuint,
+
+
     pub vdata: Mutex<Vec<f32>>,
     pub uvdata: Mutex<Vec<f32>>
 }
@@ -100,6 +112,9 @@ impl ChunkGeo {
         let mut vbo8: gl::types::GLuint = 0;
         let mut tvbo32: gl::types::GLuint = 0;
         let mut tvbo8: gl::types::GLuint = 0;
+        let mut vbo8rgb: GLuint = 0;
+        let mut tvbo8rgb: GLuint = 0;
+
 
         let mut vvbo: gl::types::GLuint = 0;
         let mut uvvbo: gl::types::GLuint = 0;
@@ -112,6 +127,10 @@ impl ChunkGeo {
 
             gl::CreateBuffers(1, &mut vvbo);
             gl::CreateBuffers(1, &mut uvvbo);
+
+            gl::CreateBuffers(1, &mut vbo8rgb);
+            gl::CreateBuffers(1, &mut tvbo8rgb);
+
             let error = gl::GetError();
             if error != gl::NO_ERROR {
                 println!(
@@ -124,16 +143,20 @@ impl ChunkGeo {
         ChunkGeo {
             data32: Mutex::new(Vec::new()),
             data8: Mutex::new(Vec::new()),
+            data8rgb: Mutex::new(Vec::new()),
             pos: Mutex::new(IVec2 {
                 x: 999999,
                 y: 999999,
             }),
             vbo32,
             vbo8,
+            vbo8rgb,
             tdata32: Mutex::new(Vec::new()),
             tdata8: Mutex::new(Vec::new()),
+            tdata8rgb: Mutex::new(Vec::new()),
             tvbo32,
             tvbo8,
+            tvbo8rgb,
 
             vvbo,
             uvvbo,
@@ -150,12 +173,15 @@ impl ChunkGeo {
 
         self.vdata.lock().unwrap().clear();
         self.uvdata.lock().unwrap().clear();
+
+        self.data8rgb.lock().unwrap().clear();
+        self.tdata8rgb.lock().unwrap().clear();
     }
-    pub fn solids(&self) -> (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>) {
-        return (&self.data32, &self.data8);
+    pub fn solids(&self) -> (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>, &Mutex<Vec<u8>>) {
+        return (&self.data32, &self.data8, &self.data8rgb);
     }
-    pub fn transparents(&self) -> (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>) {
-        return (&self.tdata32, &self.tdata8);
+    pub fn transparents(&self) -> (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>, &Mutex<Vec<u8>>) {
+        return (&self.tdata32, &self.tdata8, &self.data8rgb);
     }
 }
 
@@ -1224,6 +1250,9 @@ impl ChunkSystem {
         let mut vdata = geobankarc.vdata.lock().unwrap();
         let mut uvdata = geobankarc.uvdata.lock().unwrap();
 
+        let mut data8rgb = geobankarc.data8rgb.lock().unwrap();
+        let mut tdata8rgb = geobankarc.data8rgb.lock().unwrap();
+
         let mut tops: HashMap<vec::IVec2, i32> = HashMap::new();
 
         for i in 0..CW {
@@ -1951,13 +1980,13 @@ impl ChunkSystem {
                 let mut liquid = 2;
                 let mut beach = 1;
 
-                // if biomenum > 0.0 {
-                //     underdirt = 1;
-                //     undersurface = 1;
-                //     surface = 1;
-                //     liquid = 2;
-                //     beach = 1;
-                // }
+                if biomenum > 0.0 {
+                    underdirt = 1;
+                    undersurface = 1;
+                    surface = 1;
+                    liquid = 2;
+                    beach = 1;
+                }
                         
 
 

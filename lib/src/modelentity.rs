@@ -103,6 +103,11 @@ impl ModelEntity {
         modent
     }
 
+    pub fn generate_chunk_on_server_if_not_generated(&mut self) {
+        let csys = self.csys.write();
+    }
+
+
     pub fn new(model_index: usize, pos: Vec3, scale: f32, rot: Vec3, csys: &Arc<RwLock<ChunkSystem>>, cam: &Arc<Mutex<Camera>>) -> ModelEntity {
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {

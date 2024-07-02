@@ -16,6 +16,9 @@ pub struct ChunkMemory {
     pub vvbo: GLuint,
     pub uvvbo: GLuint,
 
+    pub vbo8rgb: GLuint,
+    pub tvbo8rgb: GLuint,
+
     pub length: i32,
     pub tlength: i32,
     pub vlength: i32,
@@ -33,6 +36,10 @@ impl ChunkMemory {
             tvbo32: geo.tvbo32,
             vvbo: geo.vvbo,
             uvvbo: geo.uvvbo,
+
+            vbo8rgb: geo.vbo8rgb,
+            tvbo8rgb: geo.tvbo8rgb,
+
             length: 0,
             tlength: 0,
             vlength: 0,

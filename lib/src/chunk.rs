@@ -1760,12 +1760,19 @@ impl ChunkSystem {
                     //if index == spot {
                         if self.natural_blockat(coord) == dim_floor {
 
-                            let item: u32 = rng.gen_range(dim_range.0 as u32..dim_range.1 as u32 * 3);
-                            if item <= dim_range.1 as u32 && item >= dim_range.0 as u32 {
+                            let featnoise = self.feature_noise(IVec2{x:coord.x, y: coord.z})*10.0;
+                            if featnoise > 0.0 {
+                                let item: u32 = (featnoise as u32 - dim_range.0 as u32) as u32;
+                                let item2: u32 = rng.gen_range(dim_range.0 as u32..dim_range.1 as u32 * 2);
 
-                                self.stamp_here(&coord, &self.voxel_models.as_ref().unwrap()[item as usize], Some(&mut implicated));
-                                
+                                if item <= dim_range.1 as u32 && item >= dim_range.0 as u32  &&  item2 >= 3 as u32 {
+
+                                    
+                                    self.stamp_here(&coord, &self.voxel_models.as_ref().unwrap()[item as usize], Some(&mut implicated));
+                                    
+                                }
                             }
+                            
 
                                 
                             should_break = true;
@@ -1808,6 +1815,25 @@ impl ChunkSystem {
             0.0,
             self.perlin.get([
                 spot.x as f64 / XZDIVISOR1,
+                y as f64,
+                spot.y as f64 / XZDIVISOR1,
+            ])
+        );
+
+        noise1
+        
+    }
+
+    pub fn feature_noise(&self, spot: vec::IVec2) -> f64 {
+
+        const XZDIVISOR1: f64 = 45.35 * 4.0;
+
+        let mut y = 20;
+
+        let noise1 = f64::max(
+            0.0,
+            self.perlin.get([
+                (spot.x as f64 + 200.0) / XZDIVISOR1,
                 y as f64,
                 spot.y as f64 / XZDIVISOR1,
             ])

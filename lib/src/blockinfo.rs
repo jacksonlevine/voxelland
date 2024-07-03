@@ -3,7 +3,7 @@ use crate::{chunk::LightColor, cube::CubeSide};
 pub const BLOCK_DIRECTION_BITS: u32 = 0b0000_0000_0000_0011_0000_0000_0000_0000;
 pub struct Blocks {}
 
-static TEXS: [[(u8, u8); 3]; 27] = [
+static TEXS: [[(u8, u8); 3]; 31] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],  // 0
             [(1, 0), (1, 0), (1, 0)],  // 1 sand
@@ -35,9 +35,14 @@ static TEXS: [[(u8, u8); 3]; 27] = [
             [(12, 1), (12, 1), (12, 1)], // 24 blue light
             [(12, 1), (12, 1), (12, 1)], // 25 purple light
             [(12, 1), (12, 1), (12, 1)], // 26 yellow light
+
+            [(12, 1), (12, 1), (12, 1)], // 27 red light
+            [(12, 1), (12, 1), (12, 1)], // 28 green light
+            [(12, 1), (12, 1), (12, 1)], // 29 orange light
+            [(12, 1), (12, 1), (12, 1)], // 30 teal light
         ];
 
-static BREAKTIMES: [f32; 27] = [
+static BREAKTIMES: [f32; 31] = [
     0.1,
     0.5,
     0.7,
@@ -66,6 +71,10 @@ static BREAKTIMES: [f32; 27] = [
     1.0,
     1.0,
     1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0
 ];
 
 impl Blocks {
@@ -74,6 +83,11 @@ impl Blocks {
         static blue: LightColor = LightColor{x: 0, y:0, z:15};
         static purple: LightColor = LightColor{x: 7, y:0, z:10};
         static yellow: LightColor = LightColor{x: 15, y:15, z:0};
+
+        static red: LightColor = LightColor{x: 15, y:0, z:0};
+        static green: LightColor = LightColor{x: 0, y:15, z:0};
+        static orange: LightColor = LightColor{x: 15, y:7, z:0};
+        static teal: LightColor = LightColor{x: 2, y:15, z:12};
 
         match id {
             18 => {
@@ -87,6 +101,19 @@ impl Blocks {
             }
             26 => {
                 yellow
+            }
+
+            27 => {
+                red
+            }
+            28 => {
+                green
+            }
+            29 => {
+                orange
+            }
+            30 => {
+                teal
             }
             _ => {
                 white
@@ -123,8 +150,8 @@ impl Blocks {
         return SEMI_TRANSPARENTS.contains(&id);
     }
     pub fn is_light(id: u32) -> bool {
-        static LIGHTS: [u32; 4] = [
-            18, 24, 25, 26
+        static LIGHTS: [u32; 8] = [
+            18, 24, 25, 26, 27, 28, 29, 30
         ];
         return LIGHTS.contains(&id);
     }

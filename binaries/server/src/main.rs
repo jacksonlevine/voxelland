@@ -407,7 +407,7 @@ fn main() {
 
     gl::load_with(|s| window.get_proc_address(s) as *const _);
 
-    let initialseed: u32 = 0;
+    let initialseed: u32 = 127327;
 
     let mut gameh = Game::new(&Arc::new(RwLock::new(window)), false, true, &Arc::new(AtomicBool::new(false)), &Arc::new(Mutex::new(None)));
 

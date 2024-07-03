@@ -247,7 +247,7 @@ impl AudioPlayer {
             for (index, channel) in channels.iter().enumerate() {
                 if !channel.is_playing().unwrap_or(true) {
                     chanstoremove.push(index);
-                    println!("Cleaned up channel {index}");
+                    //println!("Cleaned up channel {index}");
                 }
             }
     

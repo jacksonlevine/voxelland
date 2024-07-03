@@ -1760,7 +1760,7 @@ impl ChunkSystem {
                     //if index == spot {
                         if self.natural_blockat(coord) == dim_floor {
 
-                            let featnoise = self.feature_noise(IVec2{x:coord.x, y: coord.z})*10.0;
+                            let featnoise = self.feature_noise(IVec2{x:coord.x, y: coord.z})*20.0;
                             if featnoise > 0.0 {
                                 let item: u32 = (featnoise as u32 - dim_range.0 as u32) as u32;
                                 let item2: u32 = rng.gen_range(dim_range.0 as u32..dim_range.1 as u32 * 2);
@@ -1846,8 +1846,8 @@ impl ChunkSystem {
 
     pub fn noise_func(&self, spot: vec::IVec3) -> f64 {
 
-        let xzdivisor1 = 900.35 * 4.0;
-        let xzdivisor2 = 1300.35 * 4.0;
+        let xzdivisor1 = 600.35 * 4.0;
+        let xzdivisor2 = 1000.35 * 4.0;
 
         let mut y = spot.y - 20;
 
@@ -1855,7 +1855,7 @@ impl ChunkSystem {
             0.0,
             20.0 + self.perlin.get([
                 spot.x as f64 / xzdivisor1,
-                y as f64 / 20.35,
+                y as f64 / 200.35,
                 spot.z as f64 / xzdivisor1,
             ]) * 5.0
                 - f64::max(
@@ -1873,15 +1873,15 @@ impl ChunkSystem {
         let noise2 = f64::max(
             0.0,
             50.0 + self.perlin.get([
-                spot.x as f64 / xzdivisor2,
-                y as f64 / 25.35,
-                spot.z as f64 / xzdivisor2,
+                spot.x as f64 / 100.35,
+                y as f64 / 50.35,
+                spot.z as f64 / 100.35,
             ]) * 10.0
                 + self.perlin.get([
-                    spot.x as f64 / xzdivisor1,
-                    y as f64 / 65.35,
-                    spot.z as f64 / xzdivisor1,
-                ]) * 20.0
+                    spot.x as f64 / 300.35,
+                    y as f64 / 100.35,
+                    spot.z as f64 / 300.35,
+                ]) * 10.0
                 - f64::max(y as f64 / 3.0, 0.0),
         );
 
@@ -1895,7 +1895,7 @@ impl ChunkSystem {
 
         // Mixing noise1 and noise2 based on p, assuming `mix` is a function that blends the two values
         // Rust doesn't have a direct `mix` function, but you can create one or use a linear interpolation
-        ChunkSystem::mix(noise1, noise2, p * 0.5)
+        ChunkSystem::mix(noise1, noise2, p)
         
     }
 

@@ -150,7 +150,8 @@ pub struct Message {
     pub infof: f32,
     pub goose: (u64, u64),
     pub otherpos: vec::IVec3,
-    pub bo: bool
+    pub bo: bool,
+    pub hostile: bool
 }
 
 #[derive(Serialize, Deserialize)]
@@ -221,7 +222,8 @@ impl Message {
             infof: 1.0,
             goose: Uuid::new_v4().as_u64_pair(),
             otherpos: vec::IVec3::new(0,0,0),
-            bo: false
+            bo: false,
+            hostile: false
         }
     }
 

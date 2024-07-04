@@ -1,6 +1,7 @@
 
 use std::sync::*;
 
+use atomic::AtomicI8;
 use gl::types::{GLsizei, GLuint, GLvoid};
 use glam::Vec2;
 use glfw::PWindow;
@@ -8,6 +9,7 @@ use glfw::PWindow;
 use crate::shader::Shader;
 use crate::textureface::TextureFace;
 use crate::vec::{self, IVec3};
+use crate::windowandkey::{WINDOWHEIGHT, WINDOWWIDTH};
 use crate::{game, windowandkey};
 
 #[derive(Clone)]
@@ -101,6 +103,8 @@ impl HudElement {
 pub struct Hud {
     pub vbo: GLuint,
     pub chestvbo: GLuint,
+
+    pub healthvbo: GLuint,
     pub shader: Shader,
     pub window: Arc<RwLock<PWindow>>,
     pub dirty: bool,
@@ -114,27 +118,34 @@ pub struct Hud {
     pub current_chest: vec::IVec3,
     pub chest_open: bool,
     pub chestvao: GLuint,
+    pub healthvao: GLuint,
     pub chestdirty: bool,
     pub highlightedslot: SlotIndexType,
-    pub mousetrans: Vec2
+    pub mousetrans: Vec2,
+    pub health: Arc<AtomicI8>
 }
 
 impl Hud {
-    pub fn new(window: &Arc<RwLock<PWindow>>, texture: GLuint) -> Hud {
+    pub fn new(window: &Arc<RwLock<PWindow>>, texture: GLuint, health: Arc<AtomicI8>) -> Hud {
         let mut vbo: GLuint = 0;
         let mut chestvbo: GLuint = 0;
+        let mut healthvbo: GLuint = 0;
         let shader = Shader::new("assets/menuvert.glsl", "assets/menufrag.glsl");
         let mut chestvao: GLuint = 0;
+        let mut healthvao: GLuint = 0;
         unsafe {
             gl::BindVertexArray(shader.vao);
             gl::CreateVertexArrays(1, &mut chestvao);
+            gl::CreateVertexArrays(1, &mut healthvao);
             gl::CreateBuffers(1, &mut vbo);
             gl::CreateBuffers(1, &mut chestvbo);
+            gl::CreateBuffers(1, &mut healthvbo);
             gl::BindTextureUnit(0, texture);
         }
         Hud {
             vbo,
             chestvbo,
+            healthvbo,
             shader,
             window: window.clone(),
             dirty: true,
@@ -146,12 +157,14 @@ impl Hud {
             current_chest: IVec3::new(0,0,0),
             chest_open: false,
             chestvao,
+            healthvao,
             chestdirty: false,
             highlightedslot: SlotIndexType::None,
-            mousetrans: Vec2::ZERO
+            mousetrans: Vec2::ZERO,
+            health: health.clone()
         }
     }
-    pub fn update(&mut self) { 
+    pub fn update(&mut self) {
         if self.dirty {
 
             fn bindthisgeo(vbo: GLuint, elements: &Vec<HudElement>, vao: GLuint, bumped_slot: i32, winsize: (i32, i32)) -> i32 {
@@ -164,9 +177,11 @@ impl Hud {
 
                     let mut realpos = element.normalized_pos;
                     if bumped_slot != -1 
-                    {if bumped_slot as usize == index || bumped_slot as usize + 5 == index {
-                        realpos += Vec2::new(0.0, 0.05);
-                    } }
+                    {
+                        if bumped_slot as usize == index || bumped_slot as usize + 5 == index {
+                            realpos += Vec2::new(0.0, 0.05);
+                        }
+                    }
 
                     let bl = realpos - (realsize*0.5);
                     let br = realpos - (realsize*0.5) + Vec2::new(realsize.x, 0.0);
@@ -228,6 +243,100 @@ impl Hud {
         self.current_chest = newspot;
         self.chestdirty = true;
     }
+
+    pub fn draw_health(&self) {
+
+        static mut LASTHEALTH: i8 = -99;
+
+        let redface   = TextureFace::new(0, 5);
+        let blackface = TextureFace::new(0, 6);
+
+        
+
+        unsafe {
+
+            let height = (20.0 / WINDOWHEIGHT as f32) as f32;
+            let width = (200.0 / WINDOWWIDTH as f32) as f32;
+
+            let ythickness = (5.0 / WINDOWHEIGHT as f32) as f32;
+            let xthickness = (5.0 / WINDOWWIDTH as f32) as f32;
+
+            
+
+            gl::BindVertexArray(self.healthvao);
+
+            gl::UseProgram(self.shader.shader_id);
+            
+            let tex_loc = gl::GetAttribLocation(self.shader.shader_id, b"ourTexture\0".as_ptr() as *const i8);
+            gl::Uniform1i(tex_loc, 0);
+
+            let moused_slot_loc = gl::GetUniformLocation(self.shader.shader_id, b"mousedSlot\0".as_ptr() as *const i8);
+            gl::Uniform1f(moused_slot_loc, HudElement::ass_slot_to_shader_float(&game::MOUSED_SLOT));
+
+            let trans_loc = gl::GetUniformLocation(self.shader.shader_id, b"translation\0".as_ptr() as *const i8);
+            gl::Uniform2f(trans_loc, self.mousetrans.x, self.mousetrans.y);
+
+
+            let h = self.health.load(atomic::Ordering::Relaxed);
+
+            let redwidth = (h as f32 * 10.0) / WINDOWWIDTH as f32;
+
+
+            if h != LASTHEALTH {
+
+                let startx = -0.25;
+                let starty = -0.5;
+
+                let allgeo: [f32; 60] /*60 / 5 = 12*/ = [
+                    startx - xthickness ,                                  starty - ythickness,                                      blackface.blx, blackface.bly, -1.0,  
+                    startx - xthickness + width + xthickness + xthickness, starty - ythickness,                                      blackface.brx, blackface.bry, -1.0, 
+                    startx - xthickness + width + xthickness + xthickness, starty - ythickness + height  + ythickness + ythickness,  blackface.trx, blackface.tr_y, -1.0, 
+
+                    startx - xthickness + width + xthickness + xthickness, starty - ythickness + height  + ythickness + ythickness,  blackface.trx, blackface.tr_y, -1.0, 
+                    startx - xthickness ,                                  starty - ythickness + height  + ythickness + ythickness,  blackface.tlx, blackface.tly, -1.0, 
+                    startx - xthickness ,                                  starty - ythickness,                                     blackface.blx, blackface.bly, -1.0,
+
+
+                    startx,                      starty,                         redface.blx, redface.bly, -1.0,  
+                    startx + redwidth,             starty,                         redface.brx, redface.bry, -1.0, 
+                    startx + redwidth,             starty + height,                redface.trx, redface.tr_y, -1.0, 
+
+                    startx + redwidth,              starty + height,                redface.trx, redface.tr_y, -1.0, 
+                    startx ,                     starty + height,                redface.tlx, redface.tly, -1.0, 
+                    startx ,                     starty,                         redface.blx, redface.bly, -1.0,
+                ];
+
+                let vao = self.healthvao;
+                let vbo = self.healthvbo;
+
+
+                unsafe {
+                    gl::BindVertexArray(vao);
+                    gl::NamedBufferData(vbo, (allgeo.len() * std::mem::size_of::<f32>()) as isize, allgeo.as_ptr() as *const GLvoid, gl::STATIC_DRAW);
+                    
+                    gl::VertexArrayVertexBuffer(vao, 0, vbo, 0, (5 * std::mem::size_of::<f32>()) as i32);
+                    gl::EnableVertexArrayAttrib(vao, 0);
+                    gl::VertexArrayAttribFormat(vao, 0, 2, gl::FLOAT, gl::FALSE, 0);
+                    gl::VertexArrayAttribBinding(vao, 0, 0);
+
+                    gl::EnableVertexArrayAttrib(vao, 1);
+                    gl::VertexArrayAttribFormat(vao, 1, 2, gl::FLOAT, gl::FALSE, 2 * std::mem::size_of::<f32>() as u32);
+                    gl::VertexArrayAttribBinding(vao, 1, 0);
+
+                    gl::EnableVertexArrayAttrib(vao, 2);
+                    gl::VertexArrayAttribFormat(vao, 2, 1, gl::FLOAT, gl::FALSE, 4 * std::mem::size_of::<f32>() as u32);
+                    gl::VertexArrayAttribBinding(vao, 2, 0);
+
+                }
+
+
+                LASTHEALTH = h;
+            }
+
+            gl::DrawArrays(gl::TRIANGLES, 0, 12);
+        }
+        
+    }
     pub fn draw(&self) {
         unsafe {
 
@@ -235,6 +344,8 @@ impl Hud {
             gl::Disable(gl::DEPTH_TEST);
             gl::BindVertexArray(self.shader.vao);
             gl::UseProgram(self.shader.shader_id);
+
+            
 
             let tex_loc = gl::GetAttribLocation(self.shader.shader_id, b"ourTexture\0".as_ptr() as *const i8);
             gl::Uniform1i(tex_loc, 0);
@@ -247,6 +358,8 @@ impl Hud {
 
 
             gl::DrawArrays(gl::TRIANGLES, 0, self.count);
+
+
             if self.chest_open {
                 gl::BindVertexArray(self.chestvao);
                 gl::UseProgram(self.shader.shader_id);
@@ -258,6 +371,8 @@ impl Hud {
                 gl::Uniform1f(moused_slot_loc, HudElement::ass_slot_to_shader_float(&game::MOUSED_SLOT));
                 gl::DrawArrays(gl::TRIANGLES, 0, self.chestcount);
             }
+
+            self.draw_health();
             
 
             gl::Enable(gl::CULL_FACE);

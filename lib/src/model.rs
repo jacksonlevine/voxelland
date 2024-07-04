@@ -188,8 +188,8 @@ impl Game {
     }
 
 
-    pub fn create_non_static_model_entity(&mut self, model_index: usize, pos: Vec3, scale: f32, rot: Vec3, jump_height: f32) {
-        let mut modent = ModelEntity::new_with_jump_height(model_index, pos, scale, rot, &self.chunksys, &self.camera, jump_height);
+    pub fn create_non_static_model_entity(&mut self, model_index: usize, pos: Vec3, scale: f32, rot: Vec3, jump_height: f32, hostile: bool) {
+        let mut modent = ModelEntity::new_with_jump_height(model_index, pos, scale, rot, &self.chunksys, &self.camera, jump_height, hostile);
         
 
         //let animations = self.animations[model_index].clone();
@@ -210,8 +210,8 @@ impl Game {
         self.non_static_model_entities.insert(modent.id, modent);
     }
 
-    pub fn insert_static_model_entity(&mut self, id: u32, model_index: usize, pos: Vec3, scale: f32, rot: Vec3, jump_height: f32) {
-        let mut modent = ModelEntity::new_with_id(id, model_index, pos, scale, rot, &self.chunksys, &self.camera);
+    pub fn insert_static_model_entity(&mut self, id: u32, model_index: usize, pos: Vec3, scale: f32, rot: Vec3, jump_height: f32, hostile: bool) {
+        let mut modent = ModelEntity::new_with_id(id, model_index, pos, scale, rot, &self.chunksys, &self.camera, hostile);
         modent.allowable_jump_height = jump_height;
 
         let animations = self.animations[model_index].clone();
@@ -234,7 +234,7 @@ impl Game {
     
 
     pub fn insert_player_model_entity(&mut self, id: Uuid, model_index: usize, pos: Vec3, scale: f32, rot: Vec3, jump_height: f32) {
-        let mut modent = ModelEntity::new_with_id(0/*Does not use model entities id system, uses players id system */, model_index, pos, scale, rot, &self.chunksys, &self.camera);
+        let mut modent = ModelEntity::new_with_id(0/*Does not use model entities id system, uses players id system */, model_index, pos, scale, rot, &self.chunksys, &self.camera, false);
         modent.allowable_jump_height = jump_height;
 
         let animations = self.animations[model_index].clone();
@@ -258,6 +258,8 @@ impl Game {
     pub fn update_server_received_modents(&mut self) {
         let mut rng: StdRng = StdRng::from_entropy();
 
+        let mut tookdamage: bool = false;
+
         for mut model in self.non_static_model_entities.iter_mut() {
             let model: &mut ModelEntity = model.value_mut();
 
@@ -280,7 +282,46 @@ impl Game {
                     model.sounding = false;
                 }
             }
+
+            
+
+            if model.hostile {
+                if model.attacktimer < 1.0 {
+                    model.attacktimer += self.delta_time;
+                } else {
+                    let camlock = self.camera.lock().unwrap();
+                    let campos = camlock.position;
+                    drop(camlock);
+
+                    if model.position.distance(campos) < 5.0 {
+                        tookdamage = true;
+                    }
+                    model.attacktimer = 0.0;
+                }
+                
+            }
+
+            
         }
+        if tookdamage {
+            self.take_damage(4);
+        }
+    }
+
+    pub fn take_damage(&mut self, amount: u8) {
+        let h = self.health.load(std::sync::atomic::Ordering::Relaxed);
+        let newamount = (h-amount as i8).max(0);
+        self.health.store(newamount, std::sync::atomic::Ordering::Relaxed);
+        if newamount <= 0 {
+            let mut camlock = self.camera.lock().unwrap();
+            unsafe {
+                camlock.position = SPAWNPOINT;
+            }
+            
+            drop(camlock);
+            self.health.store(20, std::sync::atomic::Ordering::Relaxed);
+        }
+        
     }
 
     pub fn update_non_static_model_entities(&mut self) {
@@ -377,6 +418,7 @@ impl Game {
                     let kc = knowncam.value();
                     if (makebelievepos).distance(*kc) < 30.0 {
                         model.target = AggroTarget::UUID(*knowncam.key());
+
                     }
 
                 }

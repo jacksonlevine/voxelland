@@ -91,14 +91,15 @@ pub struct ModelEntity {
     pub hostile: bool,
     pub lastrot: Vec3,
     pub sounding: bool,
-    pub sound: Option<&'static str>
+    pub sound: Option<&'static str>,
+    pub attacktimer: f32
 }
 
 impl ModelEntity {
 
 
-    pub fn new_with_jump_height(model_index: usize, pos: Vec3, scale: f32, rot: Vec3, csys: &Arc<RwLock<ChunkSystem>>, cam: &Arc<Mutex<Camera>>, jump_height: f32) -> ModelEntity {
-        let mut modent = ModelEntity::new(model_index, pos, scale, rot, csys, cam);
+    pub fn new_with_jump_height(model_index: usize, pos: Vec3, scale: f32, rot: Vec3, csys: &Arc<RwLock<ChunkSystem>>, cam: &Arc<Mutex<Camera>>, jump_height: f32, hostile: bool) -> ModelEntity {
+        let mut modent = ModelEntity::new(model_index, pos, scale, rot, csys, cam, hostile);
         modent.allowable_jump_height = jump_height;
         modent
     }
@@ -108,7 +109,7 @@ impl ModelEntity {
     }
 
 
-    pub fn new(model_index: usize, pos: Vec3, scale: f32, rot: Vec3, csys: &Arc<RwLock<ChunkSystem>>, cam: &Arc<Mutex<Camera>>) -> ModelEntity {
+    pub fn new(model_index: usize, pos: Vec3, scale: f32, rot: Vec3, csys: &Arc<RwLock<ChunkSystem>>, cam: &Arc<Mutex<Camera>>, hostile: bool) -> ModelEntity {
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             //let csys_arc = Arc::clone(&chunksys);
@@ -152,10 +153,11 @@ impl ModelEntity {
                 animations: Vec::new(),
                 nodes: Vec::new(),
                 time_stamp: 0.0,
-                hostile: false,
+                hostile,
                 lastrot: Vec3::ZERO,
                 sounding: false,
-                sound: Planets::get_mob_sound(model_index)
+                sound: Planets::get_mob_sound(model_index),
+                attacktimer: 0.0
             }
         }
         
@@ -163,7 +165,7 @@ impl ModelEntity {
 
 
 
-    pub fn new_with_id(id: u32, model_index: usize, pos: Vec3, scale: f32, rot: Vec3, csys: &Arc<RwLock<ChunkSystem>>, cam: &Arc<Mutex<Camera>>) -> ModelEntity {
+    pub fn new_with_id(id: u32, model_index: usize, pos: Vec3, scale: f32, rot: Vec3, csys: &Arc<RwLock<ChunkSystem>>, cam: &Arc<Mutex<Camera>>, hostile: bool) -> ModelEntity {
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             //let csys_arc = Arc::clone(&chunksys);
@@ -206,10 +208,11 @@ impl ModelEntity {
                 animations: Vec::new(),
                 nodes: Vec::new(),
                 time_stamp: 0.0,
-                hostile: false,
+                hostile,
                 lastrot: Vec3::ZERO,
                 sounding: false,
-                sound: Planets::get_mob_sound(model_index)
+                sound: Planets::get_mob_sound(model_index),
+                attacktimer: 0.0
             }
      
         
@@ -392,10 +395,19 @@ impl ModelEntity {
                         }
                     };
                     let mut diff = campos - self.position;
+                    let distance = campos.distance(self.position);
+
+                    
                     diff.y = 0.0;
                     self.set_direction(diff.normalize());
                     self.controls.up = true;
                     self.controls.forward = true;
+
+
+                    if distance > 30.0 {
+                        self.controls.clear();
+                        self.target = AggroTarget::NoAggro;
+                    }
                 },
             }
             

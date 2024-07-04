@@ -19,7 +19,7 @@ use rand::{Rng, SeedableRng};
 use uuid::Uuid;
 use vox_format::types::Model;
 use walkdir::WalkDir;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI8, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, current, JoinHandle};
 
@@ -62,6 +62,8 @@ pub static STARTINGITEMS: [(u32, u32); 5] = [
     (30, 99),
     (21, 2)
 ];
+
+pub static mut SPAWNPOINT: Vec3 = Vec3::ZERO;
 
 
 pub static mut MOUSED_SLOT: SlotIndexType = SlotIndexType::None;
@@ -256,7 +258,9 @@ pub struct Game {
     pub player_model_entities: Arc<DashMap<Uuid, ModelEntity>>,
 
     pub mouse_slot: (u32, u32),
-    pub needtosend: Arc<Queue<Message>>
+    pub needtosend: Arc<Queue<Message>>,
+
+    pub health: Arc<AtomicI8>
 }
 
 enum FaderNames {
@@ -368,7 +372,15 @@ impl Game {
                 return isntopendoor && isntladder && isntbamboo && isnttallgrass && csys_arc.read().unwrap().collision_predicate(v);
             })
         };
-        let mut hud = Hud::new(&window.clone(), tex.id);
+
+
+        let health = Arc::new(AtomicI8::new(20));
+
+
+
+
+
+        let mut hud = Hud::new(&window.clone(), tex.id, health.clone());
 
         fn add_inventory_rows(elements: &mut Vec<HudElement>, yoffset: f32, rows: i32, start_slot: SlotIndexType) {
               
@@ -719,7 +731,8 @@ impl Game {
             address: address.clone(),
             player_model_entities: pme,
             mouse_slot: (0,0),
-            needtosend
+            needtosend,
+            health
         };
         if !headless {
             g.load_model("assets/models/car/scene.gltf");
@@ -921,7 +934,15 @@ impl Game {
         self.ship_pos = ship_float_pos;
         //self.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0), &self.chunksys, &self.camera));
         // self.static_model_entities.push(ModelEntity::new(4, ship_float_pos, 1.5, Vec3::new(0.0, 0.0, 0.0), &self.chunksys, &self.camera));
-        self.camera.lock().unwrap().position = ship_float_pos  + Vec3::new(5.0, 2.0, 0.0);
+
+        unsafe {
+            SPAWNPOINT = ship_float_pos  + Vec3::new(5.0, 2.0, 0.0);
+            self.camera.lock().unwrap().position = SPAWNPOINT;
+        }
+        
+
+
+  
 
 
         //self.static_model_entities.push(ModelEntity::new(5, Vec3::new(0.0, 25.0, 200.0), 140.0, Vec3::new(0.0, 0.0, 0.0), &self.chunksys, &self.camera));
@@ -1852,6 +1873,7 @@ impl Game {
                                 let rot = comm.rot;
                                 let scale = comm.infof;
                                 let sounding  = comm.bo;
+                                let hostile = comm.hostile;
                                 // if sounding {
                                 //     println!("We got a sounding message");
                                 // }
@@ -1868,6 +1890,7 @@ impl Game {
                                         (*modent).lastrot = (*modent).rot.clone();
                                         (*modent).rot = Vec3::new(0.0, rot, 0.0);
                                         (*modent).sounding = sounding;
+                                        (*modent).hostile = hostile;
                                         unsafe {
                                             (*modent).time_stamp = glfwGetTime();
                                         }
@@ -1876,7 +1899,7 @@ impl Game {
                                     }
                                     None => {
                                         //println!("Received an update for a mob {} that doesn't exist. Creating it...", id);
-                                        self.insert_static_model_entity(id, modind as usize, newpos, scale, Vec3::new(0.0,rot,0.0), 5.0);
+                                        self.insert_static_model_entity(id, modind as usize, newpos, scale, Vec3::new(0.0,rot,0.0), 5.0, hostile);
                                     }
                                 };
                             }
@@ -2972,15 +2995,15 @@ impl Game {
         
         if !self.vars.in_multiplayer {
             if nt == 1 {
-                self.create_non_static_model_entity(0, Vec3::new(-100.0, 100.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+                self.create_non_static_model_entity(0, Vec3::new(-100.0, 100.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0, false);
     
                 for i in 0..4 {
                     if rng.gen_range(0..3) <= 2 {
-                        self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
-                        self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0);
+                        self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0, false);
+                        self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0, false);
                         
-                        self.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
-                        self.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0);
+                        self.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0, false);
+                        self.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0, false);
                     }
                 }
                 

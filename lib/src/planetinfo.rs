@@ -48,8 +48,47 @@ impl Planets {
             6 => {
                 Some("assets/sfx/cricket1.mp3")
             }
+            3 => {
+                Some("assets/sfx/monster2.mp3")
+            }
             _ => {
                 None
+            }
+        }
+    }
+
+    pub fn get_mob_volume(modelindex: usize) -> f32 {
+        match modelindex {
+            6 => {
+                0.02
+            }
+            3 => {
+                0.6
+            }
+            _ => {
+                0.5
+            }
+        }
+    }
+
+    pub fn get_mob_attack_interval(modelindex: usize) -> f32 {
+        match modelindex {
+            3 => {
+                0.2
+            }
+            _ => {
+                1.0
+            }
+        }
+    }
+
+    pub fn get_mob_sound_interval(modelindex: usize) -> f32 {
+        match modelindex {
+            3 => {
+                2.0
+            }
+            _ => {
+                1.0
             }
         }
     }

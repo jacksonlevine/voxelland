@@ -62,7 +62,8 @@ pub enum MessageType {
     MultiBlockSet,
     ChestReg,
     ReqChestReg,
-    ChestInvUpdate
+    ChestInvUpdate,
+    Disconnect
 }
 
 impl Display for MessageType {
@@ -133,6 +134,9 @@ impl Display for MessageType {
             },
             MessageType::ChestInvUpdate => {
                 write!(f, "ChestInvUpdate")
+            },
+            MessageType::Disconnect => {
+                write!(f, "Disconnect")
             }
         }
     } 

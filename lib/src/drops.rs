@@ -20,11 +20,12 @@ pub struct Drop {
     time_falling_scalar: f32,
     velocity: Vec3,
     bound_box: BoundBox,
-    to_be_deleted: bool
+    to_be_deleted: bool,
+    amount: u32
 }
 
 impl Drop {
-    pub fn new(block_id: u32, position: Vec3, csys: &Arc<RwLock<ChunkSystem>>) -> Drop {
+    pub fn new(block_id: u32, position: Vec3, csys: &Arc<RwLock<ChunkSystem>>, amt: u32) -> Drop {
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             let csys_arc = Arc::clone(&csys);
@@ -41,7 +42,8 @@ impl Drop {
             time_falling_scalar: 1.0,
             velocity: Vec3::new(0.0, 0.0, 0.0),
             bound_box: BoundBox::new(position),
-            to_be_deleted: false
+            to_be_deleted: false,
+            amount: amt
         }
     }
 }
@@ -148,8 +150,8 @@ impl Drops {
         }
     }
 
-    pub fn add_drop(&mut self, pos: Vec3, block_id: u32) {
-        let drop = Drop::new(block_id, pos, &self.csys);
+    pub fn add_drop(&mut self, pos: Vec3, block_id: u32, amt: u32) {
+        let drop = Drop::new(block_id, pos, &self.csys, amt);
         self.drops.push(drop);
     }
     pub fn update_and_draw_drops(&mut self, delta_time: &f32, mvp: &Mat4) {
@@ -223,9 +225,10 @@ impl Drops {
             }
 
             if (drop.position).distance(campos) < 1.0 {
-                match Game::add_to_inventory(&self.inv, drop.block_id, 1, self.in_multiplayer, &self.needtosend) {
+                match Game::add_to_inventory(&self.inv, drop.block_id, drop.amount, self.in_multiplayer, &self.needtosend) {
                     Ok(t) => {
                         to_remove_indices.push(index);
+                        println!("Picked up {} {}", drop.block_id, drop.amount);
                     },
                     Err(t) => {
 

@@ -264,7 +264,7 @@ impl Game {
             let model: &mut ModelEntity = model.value_mut();
 
             if model.sounding {
-                if model.soundtimer < 1.0 {
+                if model.soundtimer < model.soundinterval {
                     model.soundtimer += self.delta_time + rng.gen_range(0.0..0.5);
                 } else {
                     model.soundtimer = 0.0;
@@ -273,7 +273,7 @@ impl Game {
 
                             //println!("Playing at {}, while player pos is {}", model.position, self.camera.lock().unwrap().position);
 
-                            self.audiop.write().unwrap().play(str, &model.position, &model.velocity, 0.02);
+                            self.audiop.write().unwrap().play(str, &model.position, &model.velocity, Planets::get_mob_volume(model.model_index));
                         }   
                         None => {
 
@@ -286,7 +286,7 @@ impl Game {
             
 
             if model.hostile {
-                if model.attacktimer < 1.0 {
+                if model.attacktimer < model.attackinterval {
                     model.attacktimer += self.delta_time;
                 } else {
                     let camlock = self.camera.lock().unwrap();
@@ -313,7 +313,22 @@ impl Game {
         let newamount = (h-amount as i8).max(0);
         self.health.store(newamount, std::sync::atomic::Ordering::Relaxed);
         if newamount <= 0 {
+
             let mut camlock = self.camera.lock().unwrap();
+            let campos = camlock.position.clone();
+
+            let mut inv = self.inventory.write().unwrap();
+            for i in 0..5 {
+                let amt = inv.inv[i].1;
+
+                self.drops.add_drop(campos + Vec3::new(0.0, 2.0, 0.0), inv.inv[i].0, amt);
+                
+                
+            }
+            inv.inv = STARTINGITEMS;
+
+
+            
             unsafe {
                 camlock.position = SPAWNPOINT;
             }

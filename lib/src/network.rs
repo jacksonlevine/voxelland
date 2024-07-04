@@ -200,6 +200,9 @@ impl NetworkConnector {
                             };
 
                             match comm.message_type {
+                                MessageType::Disconnect => {
+                                    pme.remove(&Uuid::from_u64_pair(comm.goose.0, comm.goose.1));
+                                }
                                 MessageType::ChestReg => {
                                     
                                     println!("Receiving ChestReg:");

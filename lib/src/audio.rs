@@ -67,6 +67,17 @@ impl AudioPlayer {
         let head_group = system.create_channel_group(Some(String::from("head"))).unwrap();
         let spatial_group = system.create_channel_group(Some(String::from("spatial"))).unwrap();
         
+
+        let reverb_dsp = system.create_dsp_by_type(libfmod::DspType::Sfxreverb).unwrap();
+
+        reverb_dsp.set_parameter_float(libfmod::DspSfxReverb::DecayTime as i32, 1500.0).unwrap(); // Decay time in ms
+        reverb_dsp.set_parameter_float(libfmod::DspSfxReverb::EarlyDelay as i32, 7.0).unwrap(); // Early reflections delay
+        reverb_dsp.set_parameter_float(libfmod::DspSfxReverb::LateDelay as i32, 11.0).unwrap(); // Late reverberation delay
+        reverb_dsp.set_parameter_float(libfmod::DspSfxReverb::WetLevel as i32, -8.0).unwrap(); // Wet level (dB)
+        reverb_dsp.set_parameter_float(libfmod::DspSfxReverb::DryLevel as i32, 0.0).unwrap(); // Dry level (dB)
+
+
+        master_group.add_dsp(0, reverb_dsp).unwrap();
         master_group.add_group(head_group, false).unwrap();
         master_group.add_group(spatial_group, false).unwrap();
         

@@ -92,7 +92,10 @@ pub struct ModelEntity {
     pub lastrot: Vec3,
     pub sounding: bool,
     pub sound: Option<&'static str>,
-    pub attacktimer: f32
+    pub attacktimer: f32,
+    pub soundvolume: f32,
+    pub attackinterval: f32,
+    pub soundinterval: f32
 }
 
 impl ModelEntity {
@@ -157,7 +160,10 @@ impl ModelEntity {
                 lastrot: Vec3::ZERO,
                 sounding: false,
                 sound: Planets::get_mob_sound(model_index),
-                attacktimer: 0.0
+                attacktimer: 0.0,
+                soundvolume: 0.0,
+                attackinterval: Planets::get_mob_attack_interval(model_index),
+                soundinterval: Planets::get_mob_sound_interval(model_index),
             }
         }
         
@@ -212,7 +218,10 @@ impl ModelEntity {
                 lastrot: Vec3::ZERO,
                 sounding: false,
                 sound: Planets::get_mob_sound(model_index),
-                attacktimer: 0.0
+                attacktimer: 0.0,
+                soundvolume: 0.0,
+                attackinterval: Planets::get_mob_attack_interval(model_index),
+                soundinterval: Planets::get_mob_sound_interval(model_index),
             }
      
         
@@ -402,11 +411,13 @@ impl ModelEntity {
                     self.set_direction(diff.normalize());
                     self.controls.up = true;
                     self.controls.forward = true;
+                    self.sounding = true;
 
 
                     if distance > 30.0 {
                         self.controls.clear();
                         self.target = AggroTarget::NoAggro;
+                        self.sounding = false;
                     }
                 },
             }

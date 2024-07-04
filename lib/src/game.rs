@@ -56,11 +56,16 @@ use std::sync::RwLock;
 
 
 pub static STARTINGITEMS: [(u32, u32); 5] = [
-    (27, 99),
-    (28, 99),
-    (29, 99),
-    (30, 99),
-    (21, 2)
+    // (27, 99),
+    // (28, 99),
+    // (29, 99),
+    // (30, 99),
+    // (21, 2)
+    (0, 0),
+    (0, 0),
+    (0, 0),
+    (0, 0),
+    (0, 0)
 ];
 
 pub static mut SPAWNPOINT: Vec3 = Vec3::ZERO;
@@ -874,6 +879,9 @@ impl Game {
         match str {
             "quittomainmenu" => {
                 self.exit();
+                if self.vars.in_multiplayer {
+                    self.netconn.send(&Message::new(MessageType::Disconnect, Vec3::ZERO, 0.0, 0))
+                }
                 self.window.write().unwrap().set_should_close(true);
             }
             "closemenu" => {
@@ -2131,6 +2139,9 @@ impl Game {
             }
         }
 
+        static mut wasinwater: bool = false;
+
+        let vel = camlock.velocity.clone();
 
         let feetpos = camlock.position - Vec3::new(0.0, 1.0, 0.0);
 
@@ -2145,6 +2156,15 @@ impl Game {
 
         let feetinwater = blockfeetin == 2;
         let feetinwaterlower = blockfeetinlower == 2;
+
+        unsafe {
+            if feetinwater != wasinwater {
+                if !wasinwater {
+                    self.audiop.write().unwrap().play("assets/sfx/water1.mp3", &feetpos, &vel, 0.6);
+                }
+                wasinwater = feetinwater;
+            } 
+        }
 
         if Blocks::is_climbable(blockfeetin) || Blocks::is_climbable(blockheadin) {
             self.vars.in_climbable = true;
@@ -3393,7 +3413,7 @@ impl Game {
                     for key in set {
                         self.chunksys.read().unwrap().queue_rerender_with_key(key, true, false);
                     }
-                    self.drops.add_drop(tip, 17);
+                    self.drops.add_drop(tip, 17, 1);
                 } else if blockat == 19 { //Door stuff
                     let top = DoorInfo::get_door_top_bit(blockbits);
                     let mut other_half;
@@ -3422,7 +3442,7 @@ impl Game {
 
                 } else {
                     if blockat != 0 {
-                        self.drops.add_drop(tip, blockat);
+                        self.drops.add_drop(tip, blockat, 1);
                     }
                     
                     //TODO: PROBLEM HERE THAT WILL ALLOW USERS TO KEEP DUPING A BLOCK AS LONG AS THE SERVER DOESNT RESPOND

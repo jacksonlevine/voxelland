@@ -334,6 +334,9 @@ fn handle_client(
                     mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
                 }
             }
+            MessageType::Disconnect => {
+                should_break = true;
+            }
             MessageType::RequestPt => {
                 let currpt = {
                     let csys = csys.read().unwrap();
@@ -380,6 +383,8 @@ fn handle_client(
             }
         }
         if should_break {
+            println!("Removed {}", client_id);
+            knowncams.remove(&client_id);
             let mut locked_clients = clients.lock().unwrap();
             locked_clients.remove(&client_id);
             break;

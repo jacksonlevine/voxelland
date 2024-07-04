@@ -256,7 +256,7 @@ impl Hud {
         unsafe {
 
             let height = (20.0 / WINDOWHEIGHT as f32) as f32;
-            let width = (200.0 / WINDOWWIDTH as f32) as f32;
+            let width = (300.0 / WINDOWWIDTH as f32) as f32;
 
             let ythickness = (5.0 / WINDOWHEIGHT as f32) as f32;
             let xthickness = (5.0 / WINDOWWIDTH as f32) as f32;
@@ -279,13 +279,13 @@ impl Hud {
 
             let h = self.health.load(atomic::Ordering::Relaxed);
 
-            let redwidth = (h as f32 * 10.0) / WINDOWWIDTH as f32;
+            let redwidth = (h as f32 * 15.0) / WINDOWWIDTH as f32;
 
 
             if h != LASTHEALTH {
 
                 let startx = -0.25;
-                let starty = -0.5;
+                let starty = -0.70;
 
                 let allgeo: [f32; 60] /*60 / 5 = 12*/ = [
                     startx - xthickness ,                                  starty - ythickness,                                      blackface.blx, blackface.bly, -1.0,  

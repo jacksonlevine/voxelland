@@ -2,7 +2,7 @@
 in vec3 vertexColor;
 in vec2 TexCoord;
 in vec3 pos;
-in vec2 TexBase;
+
 out vec4 FragColor;
 uniform sampler2D ourTexture;
 uniform vec3 camPos;
@@ -20,14 +20,7 @@ float similarity(vec3 dir1, vec3 dir2) {
 void main()
 {
 
-    // Calculate the horizontal and vertical distances from the corner
-    float dx = abs(TexCoord.x - TexBase.x);
-    float dy = abs(TexCoord.y - TexBase.y);
 
-    // Check if the fragment is within the bounds of the quad
-    if (dx > 0.02941176470588235294117647058824 || dy > 0.02941176470588235294117647058824) {
-        discard; // Discard the fragment if its outside the quad
-    }
 
     vec4 texColor = texture(ourTexture, TexCoord);
     FragColor = texColor * vec4(vertexColor, 1.0);

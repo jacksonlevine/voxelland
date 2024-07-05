@@ -132,6 +132,18 @@ impl Display for MessageType {
             MessageType::ReqChestReg => {
                 write!(f, "ReqChestReg")
             },
+
+
+
+            /*OTHERPOS: CURRENT CHEST */
+            /*INFO: DEST SLOT INDEX */
+            /*INFO2: SLOT INDEX TYPE */
+            /*ROT: ID */
+            /*INFOF: COUNT */
+            /*X, Y:   SLOT MOVED TO MOUSE OF <GOOSE> PLAYER */
+            /*Z: IF MOUSE_SLOT IS REPLACED */
+
+            /*CHEST = 0; INV = 1; NONE = 2 */
             MessageType::ChestInvUpdate => {
                 write!(f, "ChestInvUpdate")
             },
@@ -141,6 +153,41 @@ impl Display for MessageType {
         }
     } 
 }
+
+impl Message {
+
+    pub fn invupdate(slot: usize, newid: u32, newamount: u32) -> Message {
+
+        let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, newid as f32, slot as u32);
+        msg.infof = newamount as f32;
+        msg.info2 = 1;
+        msg
+    }
+
+    
+    pub fn new(t: MessageType, pos: Vec3, rot: f32, info: u32) -> Message {
+        Message {
+            message_type: t,
+            x: pos.x,
+            y: pos.y,
+            z: pos.z,
+            rot,
+            info,
+            info2: 0,
+            infof: 1.0,
+            goose: Uuid::new_v4().as_u64_pair(),
+            otherpos: vec::IVec3::new(0,0,0),
+            bo: false,
+            hostile: false
+        }
+    }
+
+    pub fn get_serialized_size() -> usize {
+        let m = Message::new(MessageType::BlockSet, Vec3::new(0.0,0.0,0.0), 0.0, 0);
+        bincode::serialized_size(&m).unwrap() as usize
+    }
+}
+
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Message {
@@ -213,26 +260,3 @@ impl MobUpdateBatch {
 }
 
 
-impl Message {
-    pub fn new(t: MessageType, pos: Vec3, rot: f32, info: u32) -> Message {
-        Message {
-            message_type: t,
-            x: pos.x,
-            y: pos.y,
-            z: pos.z,
-            rot,
-            info,
-            info2: 0,
-            infof: 1.0,
-            goose: Uuid::new_v4().as_u64_pair(),
-            otherpos: vec::IVec3::new(0,0,0),
-            bo: false,
-            hostile: false
-        }
-    }
-
-    pub fn get_serialized_size() -> usize {
-        let m = Message::new(MessageType::BlockSet, Vec3::new(0.0,0.0,0.0), 0.0, 0);
-        bincode::serialized_size(&m).unwrap() as usize
-    }
-}

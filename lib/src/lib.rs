@@ -34,3 +34,4 @@ pub mod network;
 pub mod inventory;
 pub mod visions;
 pub mod specialblocks;
+pub mod recipes;

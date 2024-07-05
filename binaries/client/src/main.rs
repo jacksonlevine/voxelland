@@ -6,7 +6,7 @@ use std::fs::File;
 
 use voxelland::windowandkey::WindowAndKeyContext;
 
-use voxelland::game::Game;
+use voxelland::game::{Game, DECIDEDSPORMP};
 
 
 
@@ -24,6 +24,17 @@ fn main() {
         .expect("setting default subscriber failed");
 
     let mut wak_context = WindowAndKeyContext::new("Barkaroo", 1280, 720);
+
+    unsafe {
+        while !DECIDEDSPORMP {
+            if !wak_context.window.read().unwrap().should_close() {
+                wak_context.run();
+            } else {
+                return ();
+            }
+        }
+    }
+    
 
     
 

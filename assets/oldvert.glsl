@@ -6,7 +6,7 @@ layout (location = 3) in vec2 uv;
 layout (location = 4) in vec2 uvbase;
 out vec3 vertexColor;
 out vec2 TexCoord;
-out vec2 TexBase;
+
 out vec3 pos;
 uniform mat4 mvp;
 uniform vec3 camPos;
@@ -27,6 +27,6 @@ void main()
 
     vertexColor = vec3(bright/16.0f, bright/16.0f, bright/16.0f);
     TexCoord = uv;
-    TexBase = uvbase;
+    
     pos = position;
 }

@@ -36,6 +36,7 @@ use crate::packedvertex::PackedVertex;
 use crate::planetinfo::Planets;
 use crate::shader::Shader;
 use crate::specialblocks::chest::ChestInfo;
+use crate::specialblocks::crafttable::CraftTableInfo;
 use crate::specialblocks::door::DoorInfo;
 use crate::specialblocks::ladder::LadderInfo;
 use crate::specialblocks::tallgrass::TallGrassInfo;
@@ -1466,7 +1467,40 @@ impl ChunkSystem {
                             
 
                             
-                        } else {
+                        } else 
+                        if block == 31 {
+                            let direction = Blocks::get_direction_bits(flags);
+
+                            let mut modelindex: i32 = direction as i32;
+
+
+
+                            let mut blocklightval = 0.0;
+
+                            let lmlock = self.lightmap.lock().unwrap();
+                            if lmlock.contains_key(&spot) {
+                                blocklightval = lmlock.get(&spot).unwrap().sum().x as f32;  //TEMPORARILY USE JUST THE RED VALUE FOR THIS
+                            }
+                            drop(lmlock);
+
+                            for vert in CraftTableInfo::craft_table_model_from_index(modelindex as usize).chunks(5) {
+                                vdata.extend_from_slice(&[
+                                    vert[0] + spot.x as f32,
+                                    vert[1] + spot.y as f32,
+                                    vert[2] + spot.z as f32,
+                                    vert[3] + blocklightval,
+                                    vert[4]
+                                ])
+                            }
+
+                            
+                            uvdata.extend_from_slice(&CraftTableInfo::get_craft_table_uvs());
+                            
+
+                            
+                        } else 
+                        
+                        {
 
 
                             if Blocks::is_transparent(block) || Blocks::is_semi_transparent(block) {

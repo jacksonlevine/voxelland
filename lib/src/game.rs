@@ -40,6 +40,7 @@ use crate::modelentity::ModelEntity;
 use crate::network::NetworkConnector;
 use crate::planetinfo::Planets;
 use crate::raycast::*;
+use crate::recipes::{Recipe, RECIPES};
 use crate::selectcube::SelectCube;
 use crate::server_types::{Message, MessageType};
 use crate::shader::Shader;
@@ -54,6 +55,20 @@ use std::sync::RwLock;
 
 
 
+pub static mut SINGLEPLAYER: bool = false;
+
+pub static mut DECIDEDSPORMP: bool = false;
+
+pub fn wait_for_decide_singleplayer() {
+    unsafe {
+        while !DECIDEDSPORMP {
+            thread::sleep(Duration::from_millis(250));
+        }
+    }
+}
+
+
+
 
 pub static STARTINGITEMS: [(u32, u32); 5] = [
     // (27, 99),
@@ -61,7 +76,7 @@ pub static STARTINGITEMS: [(u32, u32); 5] = [
     // (29, 99),
     // (30, 99),
     // (21, 2)
-    (0, 0),
+    (31, 1),
     (0, 0),
     (0, 0),
     (0, 0),
@@ -90,6 +105,8 @@ pub static mut SONGINDEX: usize = 0;
 
 
 pub static mut AMBIENTBRIGHTNESS: f32 = 0.0;
+
+pub static mut CURRENT_AVAIL_RECIPES: Vec<Recipe> = Vec::new();
 
 
 
@@ -189,6 +206,8 @@ pub enum VisionType {
 }
 
 
+
+
 pub struct Game {
     pub chunksys: Arc<RwLock<ChunkSystem>>,
     pub shader0: Shader,
@@ -265,7 +284,8 @@ pub struct Game {
     pub mouse_slot: (u32, u32),
     pub needtosend: Arc<Queue<Message>>,
 
-    pub health: Arc<AtomicI8>
+    pub health: Arc<AtomicI8>,
+    pub crafting_open: bool
 }
 
 enum FaderNames {
@@ -275,6 +295,15 @@ enum FaderNames {
 
 impl Game {
     pub fn new(window: &Arc<RwLock<PWindow>>, connectonstart: bool, headless: bool, addressentered: &Arc<AtomicBool>, address: &Arc<Mutex<Option<String>>>) -> JoinHandle<Game> {
+
+        let mut connectonstart = connectonstart;
+        //wait_for_decide_singleplayer();
+
+        unsafe {
+            if SINGLEPLAYER {
+                connectonstart = false;
+            }
+        }
 
         let oldshader = Shader::new("assets/oldvert.glsl", "assets/oldfrag.glsl");
         let shader0 = Shader::new("assets/vert.glsl", "assets/frag.glsl");
@@ -737,7 +766,8 @@ impl Game {
             player_model_entities: pme,
             mouse_slot: (0,0),
             needtosend,
-            health
+            health,
+            crafting_open: false
         };
         if !headless {
             g.load_model("assets/models/car/scene.gltf");
@@ -853,6 +883,40 @@ impl Game {
         
         
     }
+
+    pub fn update_avail_recipes(inv: &Arc<RwLock<Inventory>>) {
+        unsafe {
+            CURRENT_AVAIL_RECIPES.clear();
+            let inv = inv.write().unwrap();
+
+            for rec in RECIPES.iter() {
+
+                let requirements = rec.0.clone();
+
+                let mut able = true;
+                for req in requirements {
+                    let mut amt = 0;
+
+                    for slot in inv.inv {
+                        if slot.0 == req.0 {
+                            amt += slot.1;
+                        }
+                    }
+                    
+                    if req.1 > amt {
+                        able = false;
+
+                    }
+                }
+
+                if able {
+                    CURRENT_AVAIL_RECIPES.push(rec.clone());
+                }
+                //let result = rec.1;
+            }
+        }
+        
+    }
     
     pub fn wait_for_new_address(&mut self) {
         if self.vars.in_multiplayer {
@@ -892,6 +956,7 @@ impl Game {
             }
         }
     }
+    
 
 
     pub fn initialize_being_in_world(&mut self) -> JoinHandle<()> {
@@ -1499,7 +1564,39 @@ impl Game {
         self.hud.dirty = true;
     }
 
+    pub fn set_in_inventory(inv: &Arc<RwLock<Inventory>>, slot: usize, newid: u32, newcount: u32, in_m: bool, needtosend: &Arc<Queue<Message>>  ) -> Result<bool, bool> {
+        let mut updaterecipes = false;
+        let mut result;
+
+        if in_m {
+            let n = needtosend.clone();
+            n.push(Message::invupdate(slot, newid, newcount));
+            result = Ok(true);
+        } else {
+            let mut inventory = inv.write().unwrap();
+             // If not found, try to find an empty slot to add the new item
+                let mut item = &mut inventory.inv[slot];
+
+                item.0 = newid;
+                item.1 = newcount;
+                inventory.dirty = true;
+                result = Ok(true);
+                updaterecipes = true;
+            
+        }
+
+        if updaterecipes {
+            Game::update_avail_recipes(&inv);
+        }
+
+
+        return result;
+    }
+
     pub fn add_to_inventory(inv: &Arc<RwLock<Inventory>>, id: u32, count: u32, in_m: bool, needtosend: &Arc<Queue<Message>>) -> Result<bool, bool> {
+
+        let mut updaterecipes = false;
+        let mut result;
 
         if in_m {
 
@@ -1516,8 +1613,9 @@ impl Game {
                 n.push(msg);
                 // item.1 += count;
                 // inventory.dirty = true;
-                return Ok(true);
-            }
+                updaterecipes = true;
+                result = Ok(true);
+            } else 
 
             // If not found, try to find an empty slot to add the new item
             if let Some((index, item)) = inventory.inv.iter().enumerate().find(|(index, item)| item.0 == 0) {
@@ -1530,11 +1628,13 @@ impl Game {
                 // item.0 = id;
                 // item.1 = count;
                 // inventory.dirty = true;
-                return Ok(true);
+                updaterecipes = true;
+                result = Ok(true);
+            } else {
+                result = Err(false);
             }
 
 
-            Err(false)
         } else {
             let mut inventory = inv.write().unwrap();
         
@@ -1542,23 +1642,144 @@ impl Game {
             if let Some(item) = inventory.inv.iter_mut().find(|item| item.0 == id) {
                 item.1 += count;
                 inventory.dirty = true;
-                return Ok(true);
-            }
+                result = Ok(true);
+                updaterecipes = true;
+            } else
 
             // If not found, try to find an empty slot to add the new item
             if let Some(item) = inventory.inv.iter_mut().find(|item| item.0 == 0) {
                 item.0 = id;
                 item.1 = count;
                 inventory.dirty = true;
-                return Ok(true);
+                result = Ok(true);
+                updaterecipes = true;
+            } else {
+                result = Err(false);
             }
 
-            // If no empty slot, return an error
-            Err(false)
+            
         }
+
+        if updaterecipes {
+            Game::update_avail_recipes(&inv);
+        }
+
+        return result;
+
+        
         
     }
 
+    pub fn craft_recipe_index(&mut self, index: usize) {
+        unsafe {
+            let recipe = &CURRENT_AVAIL_RECIPES[index];
+
+            let mut hasreqs = true;
+            let mut invlock = self.inventory.write().unwrap();
+            
+            for req in &recipe.0 {
+                let mut amt = 0;
+
+                for i in 0..5 {
+                    let typehere = invlock.inv[i].0;
+                    if typehere == req.0 {
+                        amt += invlock.inv[i].1;
+                    }
+                }
+
+                if amt < req.1 {
+                    hasreqs = false;
+                }
+            }
+
+            
+
+
+
+
+            if hasreqs {
+
+
+                //Find an empty spot OR MATCHING RESULT ITEM SPOT in their imaginary inv that would exist if we were to subtract the necessary ingredients:
+                //Make an imaginary clone of their inventory:
+                let mut invclone = invlock.inv.clone();
+
+                //Subtract the ingredients
+                for req in &recipe.0 {
+                    let mut amt = 0;
+    
+                    for i in 0..5 {
+                        let typehere = invclone[i].0;
+                        if typehere == req.0 {
+                            while invclone[i].1 > 0 && amt < req.1 {
+
+                                    amt += 1;
+                                    invclone[i].1 -= 1;
+
+                                    if invclone[i].1 == 0 {
+                                        invclone[i].0 = 0;
+                                    }
+                            }
+                            if amt >= req.1 {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                //Find the predicted empty spot or matching item slot
+                let resultslot = {
+                    let mut slot = None;
+
+                    for i in 0..5 {
+                        let typehere = invclone[i].0;
+                        if (typehere == 0 || typehere == recipe.1.0) && (invclone[i].1 + recipe.1.1) <= 99 {
+                            slot = Some(i);
+                            break;
+                        }
+                    }
+
+                    slot
+                };
+
+                drop(invlock);
+
+                //Only execute the subtraction and addition of items if they will have that result slot available
+                match resultslot {
+                    None => {
+
+                    }
+                    Some(slot) => {
+
+                        
+
+                        
+                        //Take the reqs away from their real inventory
+                        for req in &recipe.0 {
+                            let mut amt = 0;
+            
+                            for i in 0..5 {
+                                //Turn their inventory into the invclone
+                                Game::set_in_inventory(&self.inventory.clone(), i, invclone[i].0, invclone[i].1, self.vars.in_multiplayer, &self.needtosend);
+                                
+                            }
+                        }
+                        
+                        //Give them the resulting item
+                        Game::set_in_inventory(&self.inventory.clone(), slot, recipe.1.0, invclone[slot].1 + recipe.1.1, self.vars.in_multiplayer, &self.needtosend);
+
+                    }
+                }
+
+
+                
+
+
+            }
+                
+
+        }
+    }
 
     pub fn do_step_sounds(&mut self) {
         static mut TIMER: f32 = 0.0;
@@ -3483,6 +3704,7 @@ impl Game {
         let slot = self.inventory.read().unwrap().inv[slot_selected];
 
         let mut updateinv = false;
+        let mut openedcraft = false;
 
         if true {
 
@@ -3533,6 +3755,14 @@ impl Game {
                         
 
                         
+
+                    } else if blockidhere == 31 {
+                        self.crafting_open = true;
+
+                        self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Normal);
+                        openedcraft = true;
+                        
+
 
                     } else if slot.0 != 0 && slot.1 > 0 {
                          
@@ -3857,6 +4087,10 @@ impl Game {
             self.set_mouse_focused(false);
         }
 
+        if openedcraft {
+            self.set_mouse_focused(false);
+        }
+
         
 
     }
@@ -4067,7 +4301,7 @@ impl Game {
         match key {
             Key::Escape => {
                 if action == Action::Press {
-                    if !self.vars.menu_open && !self.hud.chest_open {
+                    if !self.vars.menu_open && !self.hud.chest_open && !self.crafting_open {
 
                         self.currentbuttons = vec![
                             ("Quit Game", "quittomainmenu")
@@ -4076,6 +4310,12 @@ impl Game {
     
                     } else {
                         self.vars.menu_open = false;
+                    }
+
+                    if self.crafting_open {
+                        self.crafting_open = false;
+                        self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+                        self.set_mouse_focused(true);
                     }
 
                     if self.hud.chest_open {

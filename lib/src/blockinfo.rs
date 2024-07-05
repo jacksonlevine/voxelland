@@ -3,7 +3,44 @@ use crate::{chunk::LightColor, cube::CubeSide};
 pub const BLOCK_DIRECTION_BITS: u32 = 0b0000_0000_0000_0011_0000_0000_0000_0000;
 pub struct Blocks {}
 
-static TEXS: [[(u8, u8); 3]; 31] = [
+
+static BREAKTIMES: [f32; 32] = [
+    0.1,
+    0.5,
+    0.7,
+    0.7,
+    0.5,
+    1.0,
+    0.7,
+    0.2,
+    0.7,
+    1.5,
+    0.7,
+    0.8,
+    1.1,
+    1.5,
+    0.7,
+    9999999.0,
+    1.2,
+    0.5,
+    1.0,
+    1.0,
+    0.6,
+    1.5,
+    1.0,
+    0.2,
+
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+];
+
+static TEXS: [[(u8, u8); 3]; 32] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],  // 0
             [(1, 0), (1, 0), (1, 0)],  // 1 sand
@@ -40,44 +77,50 @@ static TEXS: [[(u8, u8); 3]; 31] = [
             [(12, 1), (12, 1), (12, 1)], // 28 green light
             [(12, 1), (12, 1), (12, 1)], // 29 orange light
             [(12, 1), (12, 1), (12, 1)], // 30 teal light
+            [(12, 1), (12, 1), (12, 1)], // 31 crafttable
         ];
 
-static BREAKTIMES: [f32; 31] = [
-    0.1,
-    0.5,
-    0.7,
-    0.7,
-    0.5,
-    1.0,
-    0.7,
-    0.2,
-    0.7,
-    1.5,
-    0.7,
-    0.8,
-    1.1,
-    1.5,
-    0.7,
-    9999999.0,
-    1.2,
-    0.5,
-    1.0,
-    1.0,
-    0.6,
-    1.5,
-    1.0,
-    0.2,
-
-    1.0,
-    1.0,
-    1.0,
-    1.0,
-    1.0,
-    1.0,
-    1.0
-];
 
 impl Blocks {
+    pub fn get_name(id: u32) -> &'static str {
+        match id {
+            0 => {"Air"}
+            1 => {"Sand"}
+            2 => {"Water"}
+            3 => {"Grass"}
+            4 => {"Dirt"}
+            5 => {"Cobblestone"}
+            6 => {"Wood"}
+            7 => {"Leaves"}
+            8 => {"Glass"}
+            9 => {"Stone"}
+            10 => {"Wood Planks"}
+            11 => {"Bush Leaves"}
+            12 => {"Petrified Wood"}
+            13 => {"Red Stone"}
+            14 => {"Salted Earth"}
+            15 => {"Bedrock"}
+            16 => {"Red Crystal Unattainable"}
+            17 => {"Red Crystal"}
+            18 => {"Light"}
+            19 => {"Door"}
+            20 => {"Ladder"}
+            21 => {"Wooden Trunk"}
+            22 => {"Bamboo"}
+            23 => {"Tall Grass"}
+            24 => {"Blue Light"}
+            25 => {"Purple Light"}
+            26 => {"Yellow Light"}
+            27 => {"Red Light"}
+            28 => {"Green Light"}
+            29 => {"Orange Light"}
+            30 => {"Teal Light"}
+            31 => {"Crafting Bench"}
+            _ => {
+                "Unknown Item"
+            }
+        }
+    }
     pub fn get_light_color(id: u32) -> LightColor {
         static white: LightColor = LightColor{x: 15, y: 15, z:15};
         static blue: LightColor = LightColor{x: 0, y:0, z:15};
@@ -144,8 +187,8 @@ impl Blocks {
         return CLIMBABLES.contains(&id);
     }
     pub fn is_semi_transparent(id: u32) -> bool {
-        static SEMI_TRANSPARENTS: [u32; 7] = [
-            7, 11, 19, 20, 21, 22, 23
+        static SEMI_TRANSPARENTS: [u32; 8] = [
+            7, 11, 19, 20, 21, 22, 23, 31
         ];
         return SEMI_TRANSPARENTS.contains(&id);
     }

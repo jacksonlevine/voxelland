@@ -84,18 +84,18 @@ impl WorldGeometry {
             );
             gl::VertexArrayAttribBinding(shader.vao, uv_attrib as GLuint, 1);
 
-            // UV base attribute
-            let uv_attrib2 = gl::GetAttribLocation(shader.shader_id, b"uvbase\0".as_ptr() as *const i8);
-            gl::EnableVertexArrayAttrib(shader.vao, uv_attrib2 as GLuint);
-            gl::VertexArrayAttribFormat(
-                shader.vao,
-                uv_attrib2 as GLuint,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                (2 * std::mem::size_of::<f32>()) as GLuint,
-            );
-            gl::VertexArrayAttribBinding(shader.vao, uv_attrib2 as GLuint, 1);
+            // // UV base attribute
+            // let uv_attrib2 = gl::GetAttribLocation(shader.shader_id, b"uvbase\0".as_ptr() as *const i8);
+            // gl::EnableVertexArrayAttrib(shader.vao, uv_attrib2 as GLuint);
+            // gl::VertexArrayAttribFormat(
+            //     shader.vao,
+            //     uv_attrib2 as GLuint,
+            //     2,
+            //     gl::FLOAT,
+            //     gl::FALSE,
+            //     (2 * std::mem::size_of::<f32>()) as GLuint,
+            // );
+            // gl::VertexArrayAttribBinding(shader.vao, uv_attrib2 as GLuint, 1);
         }
     }
     
@@ -193,18 +193,18 @@ impl WorldGeometry {
             );
             gl::VertexArrayAttribBinding(shader.vao, uv_attrib as GLuint, 1);
 
-            // UV base attribute
-            let uv_attrib2 = gl::GetAttribLocation(shader.shader_id, b"uvbase\0".as_ptr() as *const i8);
-            gl::EnableVertexArrayAttrib(shader.vao, uv_attrib2 as GLuint);
-            gl::VertexArrayAttribFormat(
-                shader.vao,
-                uv_attrib2 as GLuint,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                (2 * std::mem::size_of::<f32>()) as GLuint,
-            );
-            gl::VertexArrayAttribBinding(shader.vao, uv_attrib2 as GLuint, 1);
+            // // UV base attribute
+            // let uv_attrib2 = gl::GetAttribLocation(shader.shader_id, b"uvbase\0".as_ptr() as *const i8);
+            // gl::EnableVertexArrayAttrib(shader.vao, uv_attrib2 as GLuint);
+            // gl::VertexArrayAttribFormat(
+            //     shader.vao,
+            //     uv_attrib2 as GLuint,
+            //     2,
+            //     gl::FLOAT,
+            //     gl::FALSE,
+            //     (2 * std::mem::size_of::<f32>()) as GLuint,
+            // );
+            // gl::VertexArrayAttribBinding(shader.vao, uv_attrib2 as GLuint, 1);
         }
     }
 

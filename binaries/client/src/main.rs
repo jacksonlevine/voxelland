@@ -57,7 +57,7 @@ fn main() {
             game = gamei;
         }
         Err(e) => {
-            panic!("Jumbotron Shit Broken");
+            panic!("Failed to create Game.");
         }
     }
 

@@ -58,7 +58,7 @@ pub enum MessageType {
     ShutUpMobMsgs,
     MobUpdateBatch,
     TimeUpdate,
-    RequestMyID,
+    TellYouMyID,
     MultiBlockSet,
     ChestReg,
     ReqChestReg,
@@ -120,8 +120,8 @@ impl Display for MessageType {
             MessageType::TimeUpdate => {
                 write!(f, "TimeUpdate")
             },
-            MessageType::RequestMyID => {
-                write!(f, "Requestmyid")
+            MessageType::TellYouMyID => {
+                write!(f, "Tellyoumyid")
             },
             MessageType::MultiBlockSet => {
                 write!(f, "MultiBlockSet")

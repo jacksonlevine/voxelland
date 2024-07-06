@@ -1,6 +1,7 @@
 use std::fs::{self, File};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::io::{self, BufRead, BufReader, Read, Write};
+use std::process::id;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread::{self, JoinHandle};
@@ -17,6 +18,7 @@ use crate::camera::Camera;
 use crate::chunk::ChunkSystem;
 use crate::modelentity::{direction_to_euler, ModelEntity};
 use crate::server_types::{self, Entry, Message, MessageType, MobUpdateBatch};
+use crate::statics::MY_MULTIPLAYER_UUID;
 use crate::vec::IVec3;
 
 
@@ -100,6 +102,11 @@ impl NetworkConnector {
 
         let stream = self.stream.as_ref().unwrap().clone();
         let stream2 = stream.clone();
+
+        let mut idgreeting = Message::new(MessageType::TellYouMyID, Vec3::ZERO, 0.0, 0);
+        idgreeting.goose = unsafe { (*MY_MULTIPLAYER_UUID).as_u64_pair() };
+
+        self.send(&idgreeting);
 
         let csys = self.csys.clone();
         let recv_world_bool = self.received_world.clone();
@@ -273,7 +280,7 @@ impl NetworkConnector {
                                 MessageType::ReqChestReg => {
 
                                 }
-                                MessageType::RequestMyID => {
+                                MessageType::TellYouMyID => {
 
                                 }
                                 MessageType::None => {
@@ -390,6 +397,8 @@ impl NetworkConnector {
                                     
                                     let recv_s = format!("{}", comm.info);
 
+                                    println!("Received seed: {}", recv_s);
+
                                             file.write_all(recv_s.as_bytes()).unwrap();
 
 
@@ -457,7 +466,7 @@ impl NetworkConnector {
                                     gknowncams.insert(
                                         uuid.clone(), Vec3::ZERO
                                     );
-                                    *(my_uuid.write().unwrap()) = Some(uuid);
+                                    //*(my_uuid.write().unwrap()) = Some(uuid);
 
 
                                     

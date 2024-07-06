@@ -323,16 +323,16 @@ fn handle_client(
                 csys.save_current_world_to_file(format!("world/{}", newseed));
                 mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
             }
-            MessageType::RequestMyID => {
-                println!("Telling someone their id is: {client_id}");
+            MessageType::TellYouMyID => {
+                // println!("Telling someone their id is: {client_id}");
 
-                let mut idmsg = Message::new(MessageType::YourId, Vec3::ZERO, 0.0, bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32);
-                idmsg.goose = client_id.as_u64_pair();
+                // let mut idmsg = Message::new(MessageType::YourId, Vec3::ZERO, 0.0, bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32);
+                // idmsg.goose = client_id.as_u64_pair();
 
-                {
-                    let mut mystream = stream.lock().unwrap();
-                    mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
-                }
+                // {
+                //     let mut mystream = stream.lock().unwrap();
+                //     mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
+                // }
             }
             MessageType::Disconnect => {
                 should_break = true;
@@ -413,7 +413,7 @@ fn main() {
 
     gl::load_with(|s| window.get_proc_address(s) as *const _);
 
-    let initialseed: u32 = 127327;
+    let initialseed: u32 = 999996969;
 
     let mut gameh = Game::new(&Arc::new(RwLock::new(window)), false, true, &Arc::new(AtomicBool::new(false)), &Arc::new(Mutex::new(None)));
 
@@ -436,6 +436,8 @@ fn main() {
     let gamewrite = gamearc.write().unwrap();
 
     let mut csys = gamewrite.chunksys.write().unwrap();
+
+    *(csys.currentseed.write().unwrap()) = initialseed;
 
     let chestreg = csys.chest_registry.clone();
 
@@ -497,6 +499,22 @@ fn main() {
 
 
                         let conn = Connection::open("db").unwrap();
+
+                        // Ensure the table exists
+                        conn.execute(
+                            &format!(
+                                "CREATE TABLE IF NOT EXISTS {} (
+                                    x INTEGER,
+                                    y INTEGER,
+                                    z INTEGER,
+                                    value INTEGER,
+                                    PRIMARY KEY (x, y, z)
+                                )",
+                                table_name
+                            ),
+                            (),
+                        )
+                        .unwrap();
 
                         // Insert userdatamap entries
                         let mut stmt = conn.prepare(&format!(
@@ -613,9 +631,44 @@ fn main() {
                 Ok((stream, _)) => {
 
                     println!("New connection: {}", stream.peer_addr().unwrap());
-                    let client_id = Uuid::new_v4();
+                    let mut client_id = Uuid::new_v4();
                     let stream = Arc::new(Mutex::new(stream));
                     stream.lock().unwrap().set_nonblocking(true);
+
+                    let mut gotid = false;
+
+                    while !gotid {
+                        let mut buffer = Vec::new();
+                        buffer.resize(bincode::serialized_size(&Message::new(MessageType::BlockSet, Vec3::ZERO, 0.0, 0)).unwrap() as usize, 0);
+
+                        match stream.lock().unwrap().read_exact(&mut buffer) {
+                            Ok(bytes) => {
+                                match bincode::deserialize::<Message>(&buffer) {
+                                    Ok(comm) => {
+                                        if comm.message_type == MessageType::TellYouMyID {
+                                            let goose = Uuid::from_u64_pair(comm.goose.0, comm.goose.1);
+                                            println!("Received your client id, its {}", goose);
+                                            client_id = goose;
+                                            gotid = true;
+                                        } else {
+                                            println!("Received greeting but it was the wrong messagetype {}", comm.message_type);
+                                        }
+                                        
+                                    },
+                                    Err(e) => {
+                                        println!("Error deserializing id greeting from client {}", e);
+                                    },
+                                }
+                            },
+                            Err(e) => {
+                                println!("Error trying to receive id greeting from client {}", e);
+                            },
+                        }
+                    }
+                        
+
+
+
                     println!("About to lock clients");
                     let mut gotlock = false;
 

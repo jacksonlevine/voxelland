@@ -1,4 +1,4 @@
-use crate::{blockinfo::Blocks, game::{self, Game, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, SINGLEPLAYER}, shader::Shader, text::Text, texture::Texture};
+use crate::{blockinfo::Blocks, game::{self, Game, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, SINGLEPLAYER}, shader::Shader, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, text::Text, texture::Texture};
 use glam::{Vec2, Vec4};
 use glfw::{ffi::{glfwGetWindowMonitor, glfwSetWindowMonitor}, Action, Context, Glfw, GlfwReceiver, Key, Monitor, PWindow, Window, WindowEvent};
 use once_cell::sync::Lazy;
@@ -134,6 +134,13 @@ impl WindowAndKeyContext {
             serveraddress: Arc::new(Mutex::new(None)),
             serveraddrbuffer: String::with_capacity(128)
         };
+
+        LOAD_OR_INITIALIZE_STATICS();
+        unsafe {
+            wak.serveraddrbuffer = (*LAST_ENTERED_SERVERADDRESS).clone();
+            wak.serveraddrbuffer.reserve(100);
+        }
+        
 
         wak
     }
@@ -661,7 +668,10 @@ impl WindowAndKeyContext {
                                             SINGLEPLAYER = false;
                                             DECIDEDSPORMP = true;
                                         }
-                                        
+                                        unsafe {
+                                            *LAST_ENTERED_SERVERADDRESS = self.serveraddrbuffer.clone();
+                                        }
+                                        SAVE_LESA();
                                         *(self.serveraddress.lock().unwrap()) = Some(self.serveraddrbuffer.clone());
                                         self.addressentered.store(true, std::sync::atomic::Ordering::Relaxed);
                                     }

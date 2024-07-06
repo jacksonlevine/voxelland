@@ -416,6 +416,18 @@ impl ChunkSystem {
 
         let conn = Connection::open("chestdb").unwrap();
 
+        conn.execute(&format!(
+            "CREATE TABLE IF NOT EXISTS {} (
+                x INTEGER,
+                y INTEGER,
+                z INTEGER,
+                dirty BOOLEAN,
+                inventory BLOB,
+                PRIMARY KEY (x, y, z)
+            )",
+            table_name
+        ), ()).unwrap();
+
         let mut stmt = conn.prepare(&format!(
             "SELECT x, y, z, dirty, inventory FROM {}",
             table_name
@@ -480,7 +492,10 @@ impl ChunkSystem {
             let line = line.unwrap();
             let mut parts = line.splitn(2, ' ');
             if let Some(seed) = parts.next() {
-                *self.currentseed.write().unwrap() = seed.parse::<u32>().unwrap();
+                let s = seed.parse::<u32>().unwrap();
+                println!("Seed Is {}", s);
+                self.perlin = Perlin::new(s);
+                *self.currentseed.write().unwrap() = s;
             }
         }
 

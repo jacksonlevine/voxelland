@@ -6,6 +6,7 @@ use std::f32::consts::PI;
 use std::io::{self, Write};
 use std::ops::DerefMut;
 use std::slice::Chunks;
+use std::str::FromStr;
 use std::time::Duration;
 use dashmap::DashMap;
 use gl::types::{GLenum, GLsizei, GLsizeiptr, GLuint, GLvoid};
@@ -45,6 +46,7 @@ use crate::selectcube::SelectCube;
 use crate::server_types::{Message, MessageType};
 use crate::shader::Shader;
 use crate::specialblocks::door::{self, DoorInfo};
+use crate::statics::MY_MULTIPLAYER_UUID;
 use crate::texture::Texture;
 use crate::textureface::TextureFace;
 use crate::vec::{self, IVec2, IVec3};
@@ -655,8 +657,8 @@ impl Game {
 
 
         let kc = Arc::new(DashMap::new());
-
-        let my_uuid: Arc<RwLock<Option<Uuid>>> = Arc::new(RwLock::new(None));
+        
+        let my_uuid: Arc<RwLock<Option<Uuid>>> = Arc::new(RwLock::new(Some(unsafe { *MY_MULTIPLAYER_UUID })));
 
         let nsme = Arc::new(DashMap::new());
 

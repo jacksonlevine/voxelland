@@ -454,7 +454,7 @@ fn main() {
             game = g;
         }
         Err(e) => {
-            panic!("Jumbotron Shit Broken");
+            panic!("Failed to create Game.");
         }
     }
 

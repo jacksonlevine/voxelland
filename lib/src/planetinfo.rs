@@ -85,10 +85,10 @@ impl Planets {
     pub fn get_mob_sound_interval(modelindex: usize) -> f32 {
         match modelindex {
             3 => {
-                2.0
+                5.0
             }
             _ => {
-                1.0
+                10.0
             }
         }
     }

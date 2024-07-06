@@ -87,7 +87,7 @@ impl AudioPlayer {
 
     pub fn new() -> Result<Self, libfmod::Error> {
         let system = System::create().unwrap();
-        system.init(128, libfmod::Init::NORMAL, None)?; // Initialize system with 32 channels
+        system.init(512, libfmod::Init::NORMAL, None)?; // Initialize system with 32 channels
         let (head_group, spatial_group, dsp_group) = Self::create_channel_groups(&system);
 
         let name: [i8; 32] = [b'f'.try_into().unwrap(), b'u'.try_into().unwrap(), b's'.try_into().unwrap(), b't'.try_into().unwrap(), b'o'.try_into().unwrap(), b'm'.try_into().unwrap(), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // DSP name

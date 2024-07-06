@@ -251,6 +251,8 @@ impl NetworkConnector {
 
 
                                             csys.write().unwrap().load_chests_from_file();
+                                            //csys.write().unwrap().load_my_inv_from_file();
+                                            hpcommqueue.push(comm);
                                             recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
                                             shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
                                             

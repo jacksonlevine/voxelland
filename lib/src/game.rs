@@ -17,6 +17,7 @@ use gltf::Gltf;
 use lockfree::queue::{self, Queue};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use rusqlite::Connection;
 use uuid::Uuid;
 use vox_format::types::Model;
 use walkdir::WalkDir;
@@ -1165,14 +1166,32 @@ impl Game {
         static mut HASUPLOADED: bool = false;
         static mut VBO: GLuint = 0;
     
-        let vdata: [f32; 30] = [
-            -200.0, 200.0, -200.0,    0.0, 1.0, 
-            -200.0, 200.0, 200.0,     0.0, 0.0, 
-            200.0, 200.0, 200.0,      1.0, 0.0, 
-    
-            200.0, 200.0, 200.0,      1.0, 0.0, 
-            200.0, 200.0, -200.0,     1.0, 1.0, 
-            -200.0, 200.0, -200.0,    0.0, 1.0
+        let vdata: [f32; 120] = [
+            200.0, -2.9, 0.0, 1.0, 0.5,
+            0.0, -10.6, 200.0, 0.5, 0.0,
+            0.0, 200.0, 0.0, 0.5, 0.5,
+            -200.0, -5.9, 0.0, 0.0, 0.5,
+            0.0, -10.6, 200.0, 0.5, 0.0,
+            -200.0, -14.9, 200.0, 0.0, 0.0,
+            0.0, -4.8, -200.0, 0.5, 1.0,
+            -200.0, -5.9, 0.0, 0.0, 0.5,
+            -200.0, -0.8, -200.0, 0.0, 1.0,
+            0.0, -4.8, -200.0, 0.5, 1.0,
+            200.0, -2.9, 0.0, 1.0, 0.5,
+            0.0, 200.0, 0.0, 0.5, 0.5,
+            200.0, -2.9, 0.0, 1.0, 0.5,
+            200.0, -10.7, 200.0, 1.0, 0.0,
+            0.0, -10.6, 200.0, 0.5, 0.0,
+            -200.0, -5.9, 0.0, 0.0, 0.5,
+            0.0, 200.0, 0.0, 0.5, 0.5,
+            0.0, -10.6, 200.0, 0.5, 0.0,
+            0.0, -4.8, -200.0, 0.5, 1.0,
+            0.0, 200.0, 0.0, 0.5, 0.5,
+            -200.0, -5.9, 0.0, 0.0, 0.5,
+            0.0, -4.8, -200.0, 0.5, 1.0,
+            200.0, -7.2, -200.0, 1.0, 1.0,
+            200.0, -2.9, 0.0, 1.0, 0.5,
+
         ];
     
         unsafe {
@@ -1281,7 +1300,7 @@ impl Game {
     
             // Draw the stars
             gl::Disable(gl::CULL_FACE);
-            gl::DrawArrays(gl::TRIANGLES, 0, 6);
+            gl::DrawArrays(gl::TRIANGLES, 0, 24);
             gl::Enable(gl::CULL_FACE);
         }
     }
@@ -1842,6 +1861,45 @@ impl Game {
         return b / peak_height;
     }
 
+    pub fn load_my_inv_from_file(&self) {
+        let table_name = "invs";
+
+        let conn = Connection::open("chestdb").unwrap();
+
+        conn.execute(&format!(
+            "CREATE TABLE IF NOT EXISTS {} (
+                id TEXT PRIMARY KEY,
+                inventory BLOB
+            )",
+            table_name
+        ), ()).unwrap();
+
+        let mut stmt = conn.prepare(&format!(
+            "SELECT inventory FROM {} WHERE id = ?1",
+            table_name
+        )).unwrap();
+    
+        let mut rows = stmt.query([self.my_uuid.read().unwrap().unwrap().to_string()]).unwrap();
+    
+        if let Some(row) = rows.next().unwrap() {
+            let inventory: Vec<u8> = row.get(0).unwrap();
+
+            match bincode::deserialize::<[(u32, u32); 5]>(&inventory) {
+                Ok(inv) => {
+                    let mut invlock = self.inventory.write().unwrap();
+                    invlock.inv = inv.clone();
+                }
+                Err(e) => {
+                    println!("Couldn't de-serialize inventory blob");
+                }
+            }
+
+            
+        } else {
+        }
+
+    }
+
     pub fn update(&mut self) {
         
         let current_time = unsafe { glfwGetTime() as f32 };
@@ -1960,6 +2018,9 @@ impl Game {
                                         self.chunksys.read().unwrap().set_block_and_queue_rerender(comm.otherpos, 
                                         comm.info2, true, true);
 
+                            }
+                            MessageType::ChestReg => {
+                                self.load_my_inv_from_file();
                             }
                             MessageType::ChestInvUpdate => {
                                 let currchest = comm.otherpos;
@@ -2639,7 +2700,7 @@ impl Game {
                     let bprog = (BREAK_TIME / Blocks::get_break_time(BLOCK_TYPE)).clamp(0.0, 1.0);
               
                     
-                    if self.vars.mouse_clicked {
+                    if self.vars.mouse_clicked && !self.crafting_open && !self.vars.menu_open {
                         self.block_overlay.draw_at(hitvec3, (bprog * 8.0).floor() as i8, &camlock.mvp);
                         BREAK_TIME = BREAK_TIME + self.delta_time;
                         if bprog >= 1.0 {

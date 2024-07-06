@@ -265,7 +265,7 @@ impl Game {
 
             if model.sounding {
                 if model.soundtimer < model.soundinterval {
-                    model.soundtimer += self.delta_time + rng.gen_range(0.0..0.5);
+                    model.soundtimer += self.delta_time + rng.gen_range(0.0..0.001);
                 } else {
                     model.soundtimer = 0.0;
                     match model.sound {
@@ -400,7 +400,7 @@ impl Game {
 
             if model.sounding && !self.headless {
 
-                println!("Sounding cricket at {}", model.position);
+                //println!("Sounding cricket at {}", model.position);
 
                     match model.sound {
                         Some(str) => {

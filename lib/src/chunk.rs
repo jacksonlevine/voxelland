@@ -18,6 +18,7 @@ use rand::Rng;
 use rand::SeedableRng;
 use rusqlite::params;
 use rusqlite::Connection;
+use uuid::Uuid;
 use vox_format::data::VoxModels;
 use vox_format::types::Model;
 use walkdir::WalkDir;
@@ -448,6 +449,8 @@ impl ChunkSystem {
             self.chest_registry.insert(coords, chest_inventory);
         }
     }
+
+
 
     pub fn load_world_from_file(&mut self, path: String) {
         self.userdatamap.clear();

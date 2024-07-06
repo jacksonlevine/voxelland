@@ -17,7 +17,7 @@ use std::time::Duration;
 use uuid::Uuid;
 use glam::Vec3;
 use voxelland::chunk::ChunkSystem;
-use voxelland::game::{self, Game};
+use voxelland::game::{self, Game, STARTINGITEMS};
 use voxelland::vec::{self, IVec3};
 use voxelland::server_types::{self, *};
 use dashmap::DashMap;
@@ -32,6 +32,7 @@ type Nsme = (u32, Vec3, f32, usize, f32, bool, bool);
 pub enum QueuedSqlType {
     UserDataMap(u32, IVec3, u32),
     ChestInventoryUpdate(IVec3, [(u32, u32); 20], u32),
+    InventoryInventoryUpdate(Uuid, [(u32, u32); 5]),
     None
 }
 
@@ -207,7 +208,9 @@ fn handle_client(
                         message.x = wasthere.0 as f32;
                         message.y = wasthere.1 as f32;
 
-                        queued_sql.push(QueuedSqlType::ChestInventoryUpdate(currchest, chestinv.inv.clone(), 0));
+                        let currseed = (*csys.read().unwrap().currentseed.read().unwrap()).clone();
+
+                        queued_sql.push(QueuedSqlType::ChestInventoryUpdate(currchest, chestinv.inv.clone(), currseed));
                     }
                     SlotIndexType::InvSlot(e) => {
                         let mut clientlock = clients.lock().unwrap();
@@ -221,6 +224,7 @@ fn handle_client(
                             message.x = wasthere.0 as f32;
                             message.y = wasthere.1 as f32;
                         }
+                        queued_sql.push(QueuedSqlType::InventoryInventoryUpdate(client_id, clientlock.get(&client_id).unwrap().inv.inv));
                     }
                     SlotIndexType::None => {}
                 }
@@ -294,7 +298,8 @@ fn handle_client(
 
                 let mut csys = csys.write().unwrap();
                 csys.set_block(spot, block, true);
-                queued_sql.push(QueuedSqlType::UserDataMap(0, spot, block));
+                let currseed = (*csys.currentseed.read().unwrap()).clone();
+                queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot, block));
             }
             MessageType::MultiBlockSet => {
                 println!("Recvd multi block set");
@@ -309,19 +314,20 @@ fn handle_client(
                 csys.set_block(spot, block, true);
                 csys.set_block(spot2, block2, true);
 
-                queued_sql.push(QueuedSqlType::UserDataMap(0, spot, block));
-                queued_sql.push(QueuedSqlType::UserDataMap(0, spot2, block2));
+                let currseed = (*csys.currentseed.read().unwrap()).clone();
+                queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot, block));
+                queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot2, block2));
             }
             MessageType::RequestTakeoff => {
-                println!("Recvd req takeoff");
-                let mut rng = StdRng::from_entropy();
-                let newseed: u32 = rng.gen();
-                let mut csys = csys.write().unwrap();
+                // println!("Recvd req takeoff");
+                // let mut rng = StdRng::from_entropy();
+                // let newseed: u32 = rng.gen();
+                // let mut csys = csys.write().unwrap();
 
-                let pt = csys.planet_type.clone();
-                csys.reset(0, newseed, (pt + 1) as usize % 2);
-                csys.save_current_world_to_file(format!("world/{}", newseed));
-                mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
+                // let pt = csys.planet_type.clone();
+                // csys.reset(0, newseed, (pt + 1) as usize % 2);
+                // csys.save_current_world_to_file(format!("world/{}", newseed));
+                // mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
             }
             MessageType::TellYouMyID => {
                 // println!("Telling someone their id is: {client_id}");
@@ -567,6 +573,44 @@ fn main() {
 
 
                     },
+                    QueuedSqlType::InventoryInventoryUpdate(key, inv) => {
+
+                        let table_name = "invs";
+                
+                        let conn = Connection::open("chestdb").unwrap();
+
+                        // Ensure the table exists
+                        conn.execute(
+                            &format!(
+                                "CREATE TABLE IF NOT EXISTS {} (
+                                    id TEXT PRIMARY KEY,
+                                    inventory BLOB
+                                )",
+                                table_name
+                            ),
+                            (),
+                        )
+                        .unwrap();
+                    
+                        let inv_bin = bincode::serialize(&inv).unwrap();
+
+                        // Insert or update the inventory data
+                        conn.execute(
+                            &format!(
+                                "INSERT INTO {} (id, inventory) VALUES (?1, ?2)
+                                ON CONFLICT(id) DO UPDATE SET inventory = excluded.inventory",
+                                table_name
+                            ),
+                            (key.to_string(), inv_bin),
+                        )
+                   
+                            
+
+
+                        
+
+
+                    },
                     QueuedSqlType::None => {
                         Ok(0)
                     },
@@ -665,7 +709,46 @@ fn main() {
                             },
                         }
                     }
-                        
+
+
+                        let mut previously_loaded_inv = STARTINGITEMS.clone();
+
+
+                        let table_name = "invs";
+
+                        let conn = Connection::open("chestdb").unwrap();
+
+                        conn.execute(&format!(
+                            "CREATE TABLE IF NOT EXISTS {} (
+                                id TEXT PRIMARY KEY,
+                                inventory BLOB
+                            )",
+                            table_name
+                        ), ()).unwrap();
+
+                        let mut stmt = conn.prepare(&format!(
+                            "SELECT inventory FROM {} WHERE id = ?1",
+                            table_name
+                        )).unwrap();
+                    
+                        let mut rows = stmt.query([client_id.to_string()]).unwrap();
+                    
+                        if let Some(row) = rows.next().unwrap() {
+                            let inventory: Vec<u8> = row.get(0).unwrap();
+
+                            match bincode::deserialize::<[(u32, u32); 5]>(&inventory) {
+                                Ok(inv) => {
+                                    previously_loaded_inv = inv.clone();
+                                }
+                                Err(e) => {
+                                    println!("Couldn't de-serialize inventory blob");
+                                }
+                            }
+
+                            
+                        } else {
+                        }
+                                        
 
 
 
@@ -682,7 +765,7 @@ fn main() {
                                         stream: Arc::clone(&stream),
                                         errorstrikes: 0,
                                         inv: inventory::Inventory{
-                                            dirty: false, inv: game::STARTINGITEMS
+                                            dirty: false, inv: previously_loaded_inv
                                         } 
                                     },
                                 );

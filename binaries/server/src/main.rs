@@ -22,6 +22,7 @@ use voxelland::vec::{self, IVec3};
 use voxelland::server_types::{self, *};
 use dashmap::DashMap;
 use crossbeam::queue::SegQueue;
+use voxelland::playerposition::*;
 
 
 
@@ -33,6 +34,7 @@ pub enum QueuedSqlType {
     UserDataMap(u32, IVec3, u32),
     ChestInventoryUpdate(IVec3, [(u32, u32); 20], u32),
     InventoryInventoryUpdate(Uuid, [(u32, u32); 5]),
+    PlayerPositionUpdate(Uuid, Vec3, f32, f32),
     None
 }
 
@@ -40,7 +42,9 @@ pub struct Client {
     stream: Arc<Mutex<TcpStream>>,
     inv: Inventory,
     errorstrikes: i8,
+    saveposcounter: i32
 }
+
 
 fn handle_client(
     client_id: Uuid,
@@ -230,6 +234,23 @@ fn handle_client(
                 }
             }
             MessageType::PlayerUpdate => {
+
+                {
+                    let mut clients = clients.lock().unwrap();
+
+                    let client = clients.get_mut(&client_id).unwrap();
+                    
+                    if client.saveposcounter > 10 {
+                        client.saveposcounter = 0;
+                        queued_sql.push(QueuedSqlType::PlayerPositionUpdate(client_id, 
+                            Vec3::new(message.x, message.y, message.z),
+                            message.infof,
+                            message.info2 as f32
+                        ));
+                    } else {
+                        client.saveposcounter += 1;
+                    }
+                }
                 let mobmsgs = {
                     knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
 
@@ -405,7 +426,7 @@ fn main() {
     println!("Welcome to VoxelLand Server Version 0.1.0.");
     println!("Hosting on port 6969.");
     let listener = TcpListener::bind("0.0.0.0:6969").unwrap();
-    let clients = Arc::new(Mutex::new(HashMap::new()));
+    let clients: Arc<Mutex<HashMap<Uuid, Client>>> = Arc::new(Mutex::new(HashMap::new()));
     unsafe {
         PACKET_SIZE = bincode::serialized_size(&Message::new(MessageType::RequestSeed, Vec3::new(0.0, 0.0, 0.0), 0.0, 0)).unwrap() as usize;
     }
@@ -419,7 +440,7 @@ fn main() {
 
     gl::load_with(|s| window.get_proc_address(s) as *const _);
 
-    let initialseed: u32 = 999996969;
+    let initialseed: u32 = 23119232;
 
     let mut gameh = Game::new(&Arc::new(RwLock::new(window)), false, true, &Arc::new(AtomicBool::new(false)), &Arc::new(Mutex::new(None)));
 
@@ -448,6 +469,7 @@ fn main() {
     let chestreg = csys.chest_registry.clone();
 
     csys.load_world_from_file(format!("world/{}", initialseed));
+    csys.load_chests_from_file();
 
     csys.save_current_world_to_file(format!("world/{}", initialseed));
 
@@ -599,6 +621,47 @@ fn main() {
                             &format!(
                                 "INSERT INTO {} (id, inventory) VALUES (?1, ?2)
                                 ON CONFLICT(id) DO UPDATE SET inventory = excluded.inventory",
+                                table_name
+                            ),
+                            (key.to_string(), inv_bin),
+                        )
+                   
+                            
+
+
+                        
+
+
+                    },
+
+                    QueuedSqlType::PlayerPositionUpdate(key, pos, pitch, yaw) => {
+
+                        let playerposition = PlayerPosition{pitch: *pitch, yaw: *yaw, pos: PlayerVec{x: pos.x, y: pos.y, z: pos.z}};
+
+                        let table_name = "poses";
+                
+                        let conn = Connection::open("chestdb").unwrap();
+
+                        // Ensure the table exists
+                        conn.execute(
+                            &format!(
+                                "CREATE TABLE IF NOT EXISTS {} (
+                                    id TEXT PRIMARY KEY,
+                                    playerposition BLOB
+                                )",
+                                table_name
+                            ),
+                            (),
+                        )
+                        .unwrap();
+                    
+                        let inv_bin = bincode::serialize(&playerposition).unwrap();
+
+                        // Insert or update the inventory data
+                        conn.execute(
+                            &format!(
+                                "INSERT INTO {} (id, playerposition) VALUES (?1, ?2)
+                                ON CONFLICT(id) DO UPDATE SET playerposition = excluded.playerposition",
                                 table_name
                             ),
                             (key.to_string(), inv_bin),
@@ -766,7 +829,8 @@ fn main() {
                                         errorstrikes: 0,
                                         inv: inventory::Inventory{
                                             dirty: false, inv: previously_loaded_inv
-                                        } 
+                                        },
+                                        saveposcounter: 0
                                     },
                                 );
                                 gotlock = true;
@@ -876,8 +940,7 @@ fn main() {
 
                             
                             gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 3.0, true);
-                            gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 3.0, true);
-                        
+
                         }
                     }
                     

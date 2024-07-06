@@ -41,6 +41,7 @@ use crate::hud::{Hud, HudElement, SlotIndexType};
 use crate::modelentity::ModelEntity;
 use crate::network::NetworkConnector;
 use crate::planetinfo::Planets;
+use crate::playerposition::PlayerPosition;
 use crate::raycast::*;
 use crate::recipes::{Recipe, RECIPES};
 use crate::selectcube::SelectCube;
@@ -1900,6 +1901,48 @@ impl Game {
 
     }
 
+    pub fn load_my_pos_from_file(&self) {
+        let table_name = "poses";
+
+        let conn = Connection::open("chestdb").unwrap();
+
+        conn.execute(&format!(
+            "CREATE TABLE IF NOT EXISTS {} (
+                id TEXT PRIMARY KEY,
+                playerposition BLOB
+            )",
+            table_name
+        ), ()).unwrap();
+
+        let mut stmt = conn.prepare(&format!(
+            "SELECT playerposition FROM {} WHERE id = ?1",
+            table_name
+        )).unwrap();
+    
+        let mut rows = stmt.query([self.my_uuid.read().unwrap().unwrap().to_string()]).unwrap();
+    
+        if let Some(row) = rows.next().unwrap() {
+            let pp: Vec<u8> = row.get(0).unwrap();
+
+            match bincode::deserialize::<PlayerPosition>(&pp) {
+                Ok(playpos) => {
+                    let mut camlock = self.camera.lock().unwrap();
+                    camlock.position = Vec3::new(playpos.pos.x, playpos.pos.y, playpos.pos.z);
+                    camlock.pitch = playpos.pitch;
+                    camlock.yaw = playpos.yaw;
+                    drop(camlock);
+                }
+                Err(e) => {
+                    println!("Couldn't de-serialize playerpos blob");
+                }
+            }
+
+            
+        } else {
+        }
+
+    }
+
     pub fn update(&mut self) {
         
         let current_time = unsafe { glfwGetTime() as f32 };
@@ -2021,6 +2064,7 @@ impl Game {
                             }
                             MessageType::ChestReg => {
                                 self.load_my_inv_from_file();
+                                self.load_my_pos_from_file();
                             }
                             MessageType::ChestInvUpdate => {
                                 let currchest = comm.otherpos;

@@ -3677,6 +3677,14 @@ impl Game {
                 sorted_chunk_facades.extend(unused_or_distant);
                 sorted_chunk_facades.extend(used_and_close);
                 //println!("Neededspots size: {}", neededspots.len());
+
+                neededspots.sort_by(|a, b| {
+                    let dist_a = (a.x - user_c_pos.x).pow(2) + (a.y - user_c_pos.y).pow(2);
+                    let dist_b = (b.x - user_c_pos.x).pow(2) + (b.y - user_c_pos.y).pow(2);
+                    dist_a.cmp(&dist_b)
+                });
+
+                
                 for (index, ns) in neededspots.iter().enumerate() {
                     
                     csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns);

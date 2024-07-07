@@ -21,9 +21,10 @@ use rusqlite::Connection;
 use uuid::Uuid;
 use vox_format::types::Model;
 use walkdir::WalkDir;
-use std::sync::atomic::{AtomicBool, AtomicI8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI8, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, current, JoinHandle};
+
 
 use crate::audio::{self, AudioPlayer};
 use crate::blockinfo::Blocks;
@@ -57,6 +58,10 @@ use crate::worldgeometry::WorldGeometry;
 use crate::inventory::*;
 use std::sync::RwLock;
 
+
+pub static mut SPRINTING: bool = false;
+
+pub static mut STAMINA: i32 = 0;
 
 
 pub static mut SINGLEPLAYER: bool = false;
@@ -112,7 +117,7 @@ pub static mut AMBIENTBRIGHTNESS: f32 = 0.0;
 
 pub static mut CURRENT_AVAIL_RECIPES: Vec<Recipe> = Vec::new();
 
-
+pub static mut ATSMALLTABLE: bool = false;
 
 
 #[derive(Clone)]
@@ -289,7 +294,8 @@ pub struct Game {
     pub needtosend: Arc<Queue<Message>>,
 
     pub health: Arc<AtomicI8>,
-    pub crafting_open: bool
+    pub crafting_open: bool,
+    pub stamina: Arc<AtomicI32>
 }
 
 enum FaderNames {
@@ -314,6 +320,8 @@ impl Game {
         let skyshader = Shader::new("assets/skyvert.glsl", "assets/skyfrag.glsl");
         let faders: RwLock<Vec<Fader>> = RwLock::new(Vec::new());
         let cam = Arc::new(Mutex::new(Camera::new()));
+
+        let stamina = Arc::new(AtomicI32::new(100));
 
         faders
             .write()
@@ -418,7 +426,7 @@ impl Game {
 
 
 
-        let mut hud = Hud::new(&window.clone(), tex.id, health.clone());
+        let mut hud = Hud::new(&window.clone(), tex.id, health.clone(), stamina.clone());
 
         fn add_inventory_rows(elements: &mut Vec<HudElement>, yoffset: f32, rows: i32, start_slot: SlotIndexType) {
               
@@ -771,7 +779,8 @@ impl Game {
             mouse_slot: (0,0),
             needtosend,
             health,
-            crafting_open: false
+            crafting_open: false,
+            stamina
         };
         if !headless {
             g.load_model("assets/models/car/scene.gltf");
@@ -898,6 +907,8 @@ impl Game {
                 let requirements = rec.0.clone();
 
                 let mut able = true;
+
+                
                 for req in requirements {
                     let mut amt = 0;
 
@@ -911,6 +922,10 @@ impl Game {
                         able = false;
 
                     }
+                }
+
+                if ATSMALLTABLE && !rec.2 {
+                    able = false;
                 }
 
                 if able {
@@ -1949,6 +1964,48 @@ impl Game {
         
         let current_time = unsafe { glfwGetTime() as f32 };
         self.delta_time = (current_time - self.prev_time).min(0.05);
+        let stam =self.stamina.load(Ordering::Relaxed);
+
+
+        static mut sprintchecktimer: f32 = 0.0;
+        unsafe {
+            if sprintchecktimer > 0.2 {
+                sprintchecktimer = 0.0;
+
+                if self.controls.shift && !self.vars.in_climbable {
+                    if stam > 0 {
+                        unsafe{ 
+                            SPRINTING = true;
+                            self.stamina.store(stam - 4, Ordering::Relaxed);
+                        }
+        
+                    } else {
+        
+                        unsafe { SPRINTING = false } 
+                        if stam < 100 {
+                            self.stamina.store(stam + 2, Ordering::Relaxed);
+                        }
+                        
+                    }
+                } else {
+                    unsafe{ SPRINTING = false; }
+                    if stam < 100 {
+                        self.stamina.store(stam + 2, Ordering::Relaxed);
+                    }
+                }
+
+
+            } else {
+                sprintchecktimer += self.delta_time;
+            }
+        }
+        
+
+        
+
+        unsafe {
+            STAMINA = self.stamina.load(Ordering::Relaxed);
+        }
 
         if !self.headless {
             unsafe {
@@ -2577,15 +2634,19 @@ impl Game {
         }
            
 
-        let cc_center = camlock.position + Vec3::new(0.0, -1.0, 0.0);
-        self.coll_cage.update_readings(cc_center);
-
         
 
         let mut proposed = camlock.respond_to_controls(&self.controls, &self.delta_time, 5.5);
         self.user_bound_box
             .set_center(proposed + Vec3::new(0.0, -0.5  , 0.0), 0.2, 0.85);
         self.coll_cage.update_colliding(&self.user_bound_box);
+
+
+        
+
+
+
+
         let mut corr_made: Vec<Vec3> = Vec::new();
 
         let mut stepsoundqueued = false;
@@ -2614,6 +2675,9 @@ impl Game {
 
         
         camlock.position = Vec3::new(proposed.x, proposed.y, proposed.z);
+
+        let cc_center = camlock.position + Vec3::new(0.0, -1.0, 0.0);
+        self.coll_cage.update_readings(cc_center);
 
         //let offset = self.coll_cage.get_smoothed_floor_y(camlock.position);
 
@@ -3236,13 +3300,13 @@ impl Game {
 
 
         unsafe {
-            gl::Disable(gl::CULL_FACE);
+            //gl::Disable(gl::CULL_FACE);
             gl::DrawArrays(gl::TRIANGLES, 0, cfl.vlength as i32 / 5);
             let error = gl::GetError();
             if error != gl::NO_ERROR {
                 println!("OpenGL Error after drawing arrays: {}", error);
             }
-            gl::Enable(gl::CULL_FACE);
+            //gl::Enable(gl::CULL_FACE);
             // println!("Chunk rending!");
         }
 
@@ -3823,7 +3887,7 @@ impl Game {
         let mut updateinv = false;
         let mut openedcraft = false;
 
-        if true {
+        if !Blocks::is_non_placeable(slot.0) {
 
             let cl = self.camera.lock().unwrap();
 
@@ -3874,6 +3938,9 @@ impl Game {
                         
 
                     } else if blockidhere == 31 {
+                        unsafe {
+                            ATSMALLTABLE = false;
+                        }
                         self.crafting_open = true;
 
                         self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Normal);
@@ -4194,6 +4261,60 @@ impl Game {
 
             
 
+        } else {
+            if Blocks::is_food(slot.0) {
+
+                //GET THIS FOODS HEALTH STATS
+
+                let foodstats = Blocks::get_food_stats(slot.0);
+
+                //HEAL SOME HEALTH AND STAMINA:
+
+                let h = self.health.load(Ordering::Relaxed);
+
+                let s = self.stamina.load(Ordering::Relaxed);
+
+                self.health.store((h + foodstats.0 as i8).min(20), Ordering::Relaxed);
+                self.stamina.store((s + foodstats.1).min(100), Ordering::Relaxed);
+
+                //REDUCE THE INV ITEM:
+                if self.vars.in_multiplayer {
+                    if slot.1 == 1 {
+                        let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                        mutslot.1 = 0;
+                        mutslot.0 = 0;
+
+
+                           let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, 0.0, slot_selected as u32);
+                            msg.infof = 0.0;
+                            msg.info2 = 1;
+
+                            self.netconn.send(&msg);
+             
+                        
+                    } else {
+                        let slot = &self.inventory.read().unwrap().inv[slot_selected];
+                  
+
+                        let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, slot.0 as f32, slot_selected as u32);
+                            msg.infof = slot.1 as f32 - 1.0;
+                            msg.info2 = 1;
+
+                            self.netconn.send(&msg);
+
+                    }
+                } else {
+                    if slot.1 == 1 {
+                        let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                        mutslot.1 = 0;
+                        mutslot.0 = 0;
+                    } else {
+                        let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                        mutslot.1 -= 1;
+                    }
+                }
+
+            }
         }
 
         if updateinv {
@@ -4456,6 +4577,20 @@ impl Game {
                     self.controls.left = true;
                 } else {
                     self.controls.left = false;
+                }
+            }
+            Key::C => {
+                if action == Action::Press  {
+                    unsafe {
+                        ATSMALLTABLE = true;
+                    }
+                    Game::update_avail_recipes(&self.inventory);
+                    self.crafting_open = true;
+
+                    self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Normal);
+                    self.set_mouse_focused(false);
+                } else {
+                    
                 }
             }
             Key::S => {

@@ -274,7 +274,7 @@ impl Game {
                             //println!("Playing at {}, while player pos is {}", model.position, self.camera.lock().unwrap().position);
 
                             self.audiop.write().unwrap().play(str, &model.position, &model.velocity, Planets::get_mob_volume(model.model_index));
-                        }   
+                        }
                         None => {
 
                         }

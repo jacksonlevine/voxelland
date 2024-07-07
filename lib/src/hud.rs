@@ -1,7 +1,7 @@
 
 use std::sync::*;
 
-use atomic::AtomicI8;
+use atomic::{AtomicI32, AtomicI8};
 use gl::types::{GLsizei, GLuint, GLvoid};
 use glam::Vec2;
 use glfw::PWindow;
@@ -122,11 +122,12 @@ pub struct Hud {
     pub chestdirty: bool,
     pub highlightedslot: SlotIndexType,
     pub mousetrans: Vec2,
-    pub health: Arc<AtomicI8>
+    pub health: Arc<AtomicI8>,
+    pub stamina: Arc<AtomicI32>
 }
 
 impl Hud {
-    pub fn new(window: &Arc<RwLock<PWindow>>, texture: GLuint, health: Arc<AtomicI8>) -> Hud {
+    pub fn new(window: &Arc<RwLock<PWindow>>, texture: GLuint, health: Arc<AtomicI8>, stamina: Arc<AtomicI32>) -> Hud {
         let mut vbo: GLuint = 0;
         let mut chestvbo: GLuint = 0;
         let mut healthvbo: GLuint = 0;
@@ -161,7 +162,8 @@ impl Hud {
             chestdirty: false,
             highlightedslot: SlotIndexType::None,
             mousetrans: Vec2::ZERO,
-            health: health.clone()
+            health: health.clone(),
+            stamina
         }
     }
     pub fn update(&mut self) {
@@ -247,16 +249,17 @@ impl Hud {
     pub fn draw_health(&self) {
 
         static mut LASTHEALTH: i8 = -99;
+        static mut LASTSTAMINA: i32 = -999;
 
         let redface   = TextureFace::new(0, 5);
         let blackface = TextureFace::new(0, 6);
 
-        
+        let wwf = unsafe { WINDOWWIDTH } as f32 / 100.0;
 
         unsafe {
 
             let height = (20.0 / WINDOWHEIGHT as f32) as f32;
-            let width = (300.0 / WINDOWWIDTH as f32) as f32;
+            let width = ((20.0 * wwf) / WINDOWWIDTH as f32) as f32;
 
             let ythickness = (5.0 / WINDOWHEIGHT as f32) as f32;
             let xthickness = (5.0 / WINDOWWIDTH as f32) as f32;
@@ -279,15 +282,18 @@ impl Hud {
 
             let h = self.health.load(atomic::Ordering::Relaxed);
 
-            let redwidth = (h as f32 * 15.0) / WINDOWWIDTH as f32;
+            let redwidth = (h as f32 * wwf) / WINDOWWIDTH as f32;
 
+            let stam = self.stamina.load(atomic::Ordering::Relaxed);
 
-            if h != LASTHEALTH {
+            static mut count: usize = 0;
+
+            if h != LASTHEALTH || stam != LASTSTAMINA {
 
                 let startx = -0.25;
                 let starty = -0.70;
 
-                let allgeo: [f32; 60] /*60 / 5 = 12*/ = [
+                let mut allgeo: Vec<f32> /*60 / 5 = 12*/ = vec![
                     startx - xthickness ,                                  starty - ythickness,                                      blackface.blx, blackface.bly, -1.0,  
                     startx - xthickness + width + xthickness + xthickness, starty - ythickness,                                      blackface.brx, blackface.bry, -1.0, 
                     startx - xthickness + width + xthickness + xthickness, starty - ythickness + height  + ythickness + ythickness,  blackface.trx, blackface.tr_y, -1.0, 
@@ -305,6 +311,35 @@ impl Hud {
                     startx ,                     starty + height,                redface.tlx, redface.tly, -1.0, 
                     startx ,                     starty,                         redface.blx, redface.bly, -1.0,
                 ];
+
+
+                let redwidth = ((stam as f32 * 0.2) * wwf) / WINDOWWIDTH as f32;
+                let redface   = TextureFace::new(0, 7);
+                let startx = 0.05;
+
+                allgeo.extend_from_slice(&[
+                    startx - xthickness ,                                  starty - ythickness,                                      blackface.blx, blackface.bly, -1.0,  
+                    startx - xthickness + width + xthickness + xthickness, starty - ythickness,                                      blackface.brx, blackface.bry, -1.0, 
+                    startx - xthickness + width + xthickness + xthickness, starty - ythickness + height  + ythickness + ythickness,  blackface.trx, blackface.tr_y, -1.0, 
+
+                    startx - xthickness + width + xthickness + xthickness, starty - ythickness + height  + ythickness + ythickness,  blackface.trx, blackface.tr_y, -1.0, 
+                    startx - xthickness ,                                  starty - ythickness + height  + ythickness + ythickness,  blackface.tlx, blackface.tly, -1.0, 
+                    startx - xthickness ,                                  starty - ythickness,                                     blackface.blx, blackface.bly, -1.0,
+
+
+                    startx,                      starty,                         redface.blx, redface.bly, -1.0,  
+                    startx + redwidth,             starty,                         redface.brx, redface.bry, -1.0, 
+                    startx + redwidth,             starty + height,                redface.trx, redface.tr_y, -1.0, 
+
+                    startx + redwidth,              starty + height,                redface.trx, redface.tr_y, -1.0, 
+                    startx ,                     starty + height,                redface.tlx, redface.tly, -1.0, 
+                    startx ,                     starty,                         redface.blx, redface.bly, -1.0,
+                ]);
+
+                unsafe {
+                    count = allgeo.len();
+                }
+
 
                 let vao = self.healthvao;
                 let vbo = self.healthvbo;
@@ -333,7 +368,7 @@ impl Hud {
                 LASTHEALTH = h;
             }
 
-            gl::DrawArrays(gl::TRIANGLES, 0, 12);
+            gl::DrawArrays(gl::TRIANGLES, 0, count as i32 / 5);
         }
         
     }

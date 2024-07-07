@@ -4,7 +4,7 @@ pub const BLOCK_DIRECTION_BITS: u32 = 0b0000_0000_0000_0011_0000_0000_0000_0000;
 pub struct Blocks {}
 
 
-static BREAKTIMES: [f32; 32] = [
+static BREAKTIMES: [f32; 34] = [
     0.1,
     0.5,
     0.7,
@@ -37,10 +37,13 @@ static BREAKTIMES: [f32; 32] = [
     1.0,
     1.0,
     1.0,
+    1.0,
+
+    1.0, 
     1.0
 ];
 
-static TEXS: [[(u8, u8); 3]; 32] = [
+static TEXS: [[(u8, u8); 3]; 34] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],  // 0
             [(1, 0), (1, 0), (1, 0)],  // 1 sand
@@ -78,6 +81,9 @@ static TEXS: [[(u8, u8); 3]; 32] = [
             [(12, 1), (12, 1), (12, 1)], // 29 orange light
             [(12, 1), (12, 1), (12, 1)], // 30 teal light
             [(12, 1), (12, 1), (12, 1)], // 31 crafttable
+
+            [(3, 3), (3, 3), (3, 3)], // 32 apple
+            [(2, 3),(2, 3),(2, 3)], // 33 bamboo chute
         ];
 
 
@@ -116,6 +122,9 @@ impl Blocks {
             29 => {"Orange Light"}
             30 => {"Teal Light"}
             31 => {"Crafting Bench"}
+
+            32 => {"Apple"}
+            33 => {"Bamboo Piece"}
             _ => {
                 "Unknown Item"
             }
@@ -192,12 +201,25 @@ impl Blocks {
         ];
         return SEMI_TRANSPARENTS.contains(&id);
     }
+    pub fn is_non_placeable(id: u32) -> bool {
+        static NP: [u32; 3] = [
+            32, 33, 17
+        ];
+        return NP.contains(&id);
+    }
     pub fn is_light(id: u32) -> bool {
         static LIGHTS: [u32; 8] = [
             18, 24, 25, 26, 27, 28, 29, 30
         ];
         return LIGHTS.contains(&id);
     }
+    pub fn is_food(id: u32) -> bool {
+        static FOOD: [u32; 2] = [
+            32, 33
+        ];
+        return FOOD.contains(&id);
+    }
+
     pub fn block_id_bits() -> u32 {
         0b0000_0000_0000_0000_1111_1111_1111_1111
     }
@@ -215,6 +237,13 @@ impl Blocks {
 
     pub fn block_flag_bits() -> u32 {
         0b1111_1111_1111_1111_0000_0000_0000_0000
+    }
+    pub fn get_food_stats(id: u32) -> (i32, i32) {
+        match id {
+            _ => {
+                (6, 50)
+            }
+        }
     }
     pub fn get_walk_series(id: u32) -> &'static str {
         match id {

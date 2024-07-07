@@ -4,9 +4,10 @@ use gl::types::{GLuint, GLvoid};
 use glam::{Mat4, Vec3};
 use glfw::ffi::glfwGetTime;
 use lockfree::queue::Queue;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use vox_format::chunk::Chunk;
 
-use crate::{camera::Camera, chunk::ChunkSystem, collisioncage::{BoundBox, CollCage, Side}, game::Game, server_types::Message, shader::Shader, vec};
+use crate::{blockinfo, camera::Camera, chunk::ChunkSystem, collisioncage::{BoundBox, CollCage, Side}, game::Game, server_types::Message, shader::Shader, vec};
 
 use crate::inventory::Inventory;
 
@@ -151,6 +152,13 @@ impl Drops {
     }
 
     pub fn add_drop(&mut self, pos: Vec3, block_id: u32, amt: u32) {
+        let mut block_id = block_id;
+        if block_id == 7 {
+            let mut rng = StdRng::from_entropy();
+            if rng.gen_range(0..100) < 3 {
+                block_id = 32;
+            }
+        }
         let drop = Drop::new(block_id, pos, &self.csys, amt);
         self.drops.push(drop);
     }

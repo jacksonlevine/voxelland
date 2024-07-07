@@ -4,8 +4,10 @@ use std::{ops::Bound, sync::{Arc, Mutex, RwLock}};
 
 use dashmap::DashMap;
 use glam::*;
+use once_cell::sync::Lazy;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use uuid::Uuid;
+use vox_format::chunk;
 
 pub enum AggroTarget {
     ThisCamera,
@@ -95,8 +97,11 @@ pub struct ModelEntity {
     pub attacktimer: f32,
     pub soundvolume: f32,
     pub attackinterval: f32,
-    pub soundinterval: f32
+    pub soundinterval: f32,
+    pub lastchunkpos: vec::IVec2
 }
+
+pub static SERVER_GENERATED_CHUNKS: Lazy<DashMap<vec::IVec2, bool>> = Lazy::new(|| DashMap::new());
 
 impl ModelEntity {
 
@@ -108,7 +113,41 @@ impl ModelEntity {
     }
 
     pub fn generate_chunk_on_server_if_not_generated(&mut self) {
-        let csys = self.csys.write();
+        
+        static NEIGHS: [vec::IVec2; 5] = [
+            vec::IVec2{
+                x: 0, y: 0
+            },
+            vec::IVec2{
+                x: -1, y: 0
+            },
+            vec::IVec2{
+                x: 1, y: 0
+            },
+            vec::IVec2{
+                x: 0, y: 1
+            },
+            vec::IVec2{
+                x: 0, y: -1
+            }
+        ];
+
+        let chunkpos = ChunkSystem::spot_to_chunk_pos(&IVec3::new(self.position.x as i32, self.position.y as i32, self.position.z as i32));
+        if self.lastchunkpos != chunkpos {
+
+            let csys = self.csys.write().unwrap();
+
+            for neigh in NEIGHS {
+                let thisspot = chunkpos + neigh;
+                if !SERVER_GENERATED_CHUNKS.contains_key(&thisspot) {
+                    csys.generate_chunk(&thisspot);
+                    SERVER_GENERATED_CHUNKS.insert(thisspot, true);
+                }
+                
+            }
+
+            self.lastchunkpos = chunkpos;
+        }
     }
 
 
@@ -164,6 +203,7 @@ impl ModelEntity {
                 soundvolume: 0.0,
                 attackinterval: Planets::get_mob_attack_interval(model_index),
                 soundinterval: Planets::get_mob_sound_interval(model_index),
+                lastchunkpos: vec::IVec2::new(-99,99)
             }
         }
         
@@ -222,6 +262,7 @@ impl ModelEntity {
                 soundvolume: 0.0,
                 attackinterval: Planets::get_mob_attack_interval(model_index),
                 soundinterval: Planets::get_mob_sound_interval(model_index),
+                lastchunkpos: vec::IVec2::new(-99,99)
             }
      
         
@@ -323,11 +364,11 @@ impl ModelEntity {
                 match res {
                     Some(res) => {
                         let block = 
-{
-                        let blockbitshere = self.csys.read().unwrap().blockat(res.1);
-                        let block = blockbitshere & Blocks::block_id_bits();
-                        block
-};
+                        {
+                            let blockbitshere = self.csys.read().unwrap().blockat(res.1);
+                            let block = blockbitshere & Blocks::block_id_bits();
+                            block
+                        };
                         if block == 23u32 {
                             self.controls.clear();
                             self.controls.up = true;

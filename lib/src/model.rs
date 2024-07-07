@@ -293,7 +293,7 @@ impl Game {
                     let campos = camlock.position;
                     drop(camlock);
 
-                    if model.position.distance(campos) < 5.0 {
+                    if model.position.distance(campos) < 1.0 {
                         tookdamage = true;
                     }
                     model.attacktimer = 0.0;
@@ -346,6 +346,10 @@ impl Game {
             if !model.coll_cage.solid.contains(&Side::FLOOR) {
                 model.grounded = false;
                 model.was_grounded = false;
+            }
+
+            if self.headless {
+                model.generate_chunk_on_server_if_not_generated();
             }
 
             const GRAV: f32 = 9.8;

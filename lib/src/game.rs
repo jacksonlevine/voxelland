@@ -1584,6 +1584,8 @@ impl Game {
 
         
         self.hud.dirty = true;
+
+        Game::update_avail_recipes(&self.inventory);
     }
 
     pub fn set_in_inventory(inv: &Arc<RwLock<Inventory>>, slot: usize, newid: u32, newcount: u32, in_m: bool, needtosend: &Arc<Queue<Message>>  ) -> Result<bool, bool> {
@@ -2086,6 +2088,7 @@ impl Game {
                                 let uuid = Uuid::from_u64_pair(comm.goose.0, comm.goose.1);
 
                                 let mut updateinv = false;
+                                
 
                                 match *self.my_uuid.read().unwrap() {
                                     Some(ud) => {
@@ -2143,6 +2146,8 @@ impl Game {
                 
                                                     slot.0 = comm.rot as u32;
                                                     slot.1 = comm.infof as u32;
+
+                                                    
         
                                                     updateinv = true;
                                                 }
@@ -2163,7 +2168,12 @@ impl Game {
 
                                 if updateinv {
                                     self.update_inventory();
+                                    Game::update_avail_recipes(&self.inventory);
                                 }
+
+                                
+                                
+                                
             
                                 
                             }

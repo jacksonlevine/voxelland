@@ -99,3 +99,12 @@ impl IVec3 {
         }
     }
 }
+
+impl IVec2 {
+    pub const fn new(x: i32, y: i32) -> IVec2 {
+        IVec2 {
+            x,
+            y
+        }
+    }
+}

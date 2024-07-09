@@ -98,7 +98,9 @@ pub static mut SPAWNPOINT: Vec3 = Vec3::ZERO;
 pub static mut MOUSED_SLOT: SlotIndexType = SlotIndexType::None;
 
 
-pub static mut SONGS: [&'static str; 7] = [
+pub static mut SONGS: [&'static str; 9] = [
+    "assets/music/qv2.mp3",
+    "assets/music/song.mp3",
     "assets/music/Farfromhome.mp3",
     "assets/music/ifol.mp3",
     "assets/music/NoFuture.mp3",
@@ -148,7 +150,7 @@ pub struct Node {
 }
 
 
-static REQUIRED_SHIP_FLYAWAY_HEIGHT: f32 = 0.0;
+static REQUIRED_SHIP_FLYAWAY_HEIGHT: f32 = 300.0;
 
 
 pub struct ControlsState {
@@ -680,6 +682,11 @@ impl Game {
         let pme = Arc::new(DashMap::new());
 
         let needtosend = Arc::new(Queue::new());
+
+        // unsafe {
+        //     let mut rng = StdRng::from_entropy();
+        //     SONGINDEX = (SONGINDEX + rng.gen_range(1..SONGS.len())) % SONGS.len();
+        // }
 
         let mut g = Game {
             chunksys: chunksys.clone(),
@@ -1823,8 +1830,9 @@ impl Game {
     pub fn do_step_sounds(&mut self) {
         static mut TIMER: f32 = 0.0;
         static mut LAST_CAM_POS: Vec3 = Vec3{x: 0.0, y: 0.0, z: 0.0};
-        let campos = self.camera.lock().unwrap().position;
-
+        let cl = self.camera.lock().unwrap();
+        let campos = cl.position - cl.direction * 0.5;
+        drop(cl);
         
         unsafe {
             let diff = campos.distance(LAST_CAM_POS); 
@@ -1850,7 +1858,7 @@ impl Game {
         let blockat = self.chunksys.read().unwrap().blockat(IVec3::new(camfootpos.x.floor() as i32, camfootpos.y.floor() as i32, camfootpos.z.floor() as i32));
         let blockat = blockat & Blocks::block_id_bits();
         if blockat != 0 {
-            self.audiop.write().unwrap().play_next_in_series(&Blocks::get_walk_series(blockat), &camfootpos, &Vec3::new(0.0, 0.0, 0.0), 0.5);
+            self.audiop.write().unwrap().play_next_in_series(&Blocks::get_walk_series(blockat), &(camfootpos), &Vec3::new(0.0, 0.0, 0.0), 0.5);
         }
         
     }
@@ -2008,13 +2016,14 @@ impl Game {
         }
 
         if !self.headless {
+            let mut rng = StdRng::from_entropy();
             unsafe {
                 if SONGTIMER < SONGINTERVAL {
                     SONGTIMER += self.delta_time;
                 } else {
                     SONGTIMER = 0.0;
                     self.audiop.write().unwrap().play_in_head(SONGS[SONGINDEX]);
-                    SONGINDEX = (SONGINDEX + 1) % SONGS.len();
+                    SONGINDEX = (SONGINDEX + rng.gen_range(1..SONGS.len())) % SONGS.len();
                     
                 }
             }
@@ -4629,16 +4638,16 @@ impl Game {
                     self.controls.shift = false;
                 }
             }
-            // Key::M => {
-            //     if action == Action::Press {
-            //         if self.vars.in_multiplayer {
-            //             self.netconn.send(&Message::new(MessageType::RequestTakeoff, Vec3::ZERO, 0.0, 0));
-            //         } else {
-            //             self.takeoff_ship();
-            //         }
+            Key::M => {
+                if action == Action::Press {
+                    if self.vars.in_multiplayer {
+                        self.netconn.send(&Message::new(MessageType::RequestTakeoff, Vec3::ZERO, 0.0, 0));
+                    } else {
+                        self.takeoff_ship();
+                    }
                     
-            //     }
-            // }
+                }
+            }
             // Key::L => {
             //     if action == Action::Press {
             //         self.chunksys.read().unwrap().save_current_world_to_file(String::from("saves/world1"));

@@ -24,7 +24,7 @@ use vox_format::types::Model;
 use walkdir::WalkDir;
 use std::sync::{Arc, Mutex};
 
-use noise::{NoiseFn, Perlin};
+use noise::{NoiseFn, Perlin, MultiFractal};
 
 use crate::audio;
 use crate::audio::AudioPlayer;
@@ -33,6 +33,7 @@ use crate::chunkregistry::ChunkRegistry;
 use crate::cube::Cube;
 use crate::cube::CubeSide;
 use crate::inventory::ChestInventory;
+use crate::packedvertex;
 use crate::packedvertex::PackedVertex;
 use crate::planetinfo::Planets;
 use crate::shader::Shader;
@@ -1374,9 +1375,18 @@ impl ChunkSystem {
                             let mut blocklightval = 0.0;
 
                             let lmlock = self.lightmap.lock().unwrap();
-                            if lmlock.contains_key(&spot) {
-                                blocklightval = lmlock.get(&spot).unwrap().sum().x as f32;  //TEMPORARILY USE JUST THE RED VALUE FOR THIS
-                            }
+                            let blocklighthere = match lmlock.get(&spot) {
+                                Some(k) => {
+                                    k.sum()
+                                }
+                                None => {
+                                    LightColor::ZERO
+                                }
+                            };
+
+                            let packedrgb = PackedVertex::pack_rgb(blocklighthere.x, blocklighthere.y, blocklighthere.z);
+
+                            let prgb: u32 = 0b0000_0000_0000_0000_0000_0000_0000_0000 | (packedrgb) as u32;
                             drop(lmlock);
 
                             for vert in DoorInfo::door_model_from_index(modelindex as usize).chunks(5) {
@@ -1384,7 +1394,7 @@ impl ChunkSystem {
                                     vert[0] + spot.x as f32,
                                     vert[1] + spot.y as f32,
                                     vert[2] + spot.z as f32,
-                                    vert[3] + blocklightval,
+                                    f32::from_bits(prgb),
                                     vert[4]
                                 ])
                             }
@@ -1406,9 +1416,18 @@ impl ChunkSystem {
                             let mut blocklightval = 0.0;
 
                             let lmlock = self.lightmap.lock().unwrap();
-                            if lmlock.contains_key(&spot) {
-                                blocklightval = lmlock.get(&spot).unwrap().sum().x as f32;  //TEMPORARILY USE JUST THE RED VALUE FOR THIS
-                            }
+                            let blocklighthere = match lmlock.get(&spot) {
+                                Some(k) => {
+                                    k.sum()
+                                }
+                                None => {
+                                    LightColor::ZERO
+                                }
+                            };
+
+                            let packedrgb = PackedVertex::pack_rgb(blocklighthere.x, blocklighthere.y, blocklighthere.z);
+
+                            let prgb: u32 = 0b0000_0000_0000_0000_0000_0000_0000_0000 | (packedrgb) as u32;
                             drop(lmlock);
 
                             for vert in LadderInfo::ladder_model_from_index(modelindex as usize).chunks(5) {
@@ -1416,7 +1435,7 @@ impl ChunkSystem {
                                     vert[0] + spot.x as f32,
                                     vert[1] + spot.y as f32,
                                     vert[2] + spot.z as f32,
-                                    vert[3] + blocklightval,
+                                    f32::from_bits(prgb),
                                     vert[4]
                                 ])
                             }
@@ -1436,9 +1455,18 @@ impl ChunkSystem {
                             let mut blocklightval = 0.0;
 
                             let lmlock = self.lightmap.lock().unwrap();
-                            if lmlock.contains_key(&spot) {
-                                blocklightval = lmlock.get(&spot).unwrap().sum().x as f32;  //TEMPORARILY USE JUST THE RED VALUE FOR THIS
-                            }
+                            let blocklighthere = match lmlock.get(&spot) {
+                                Some(k) => {
+                                    k.sum()
+                                }
+                                None => {
+                                    LightColor::ZERO
+                                }
+                            };
+
+                            let packedrgb = PackedVertex::pack_rgb(blocklighthere.x, blocklighthere.y, blocklighthere.z);
+
+                            let prgb: u32 = 0b0000_0000_0000_0000_0000_0000_0000_0000 | (packedrgb) as u32;
                             drop(lmlock);
 
                             for vert in ChestInfo::chest_model_from_index(modelindex as usize).chunks(5) {
@@ -1446,7 +1474,7 @@ impl ChunkSystem {
                                     vert[0] + spot.x as f32,
                                     vert[1] + spot.y as f32,
                                     vert[2] + spot.z as f32,
-                                    vert[3] + blocklightval,
+                                    f32::from_bits(prgb),
                                     vert[4]
                                 ])
                             }
@@ -1465,9 +1493,18 @@ impl ChunkSystem {
                             let mut blocklightval = 0.0;
 
                             let lmlock = self.lightmap.lock().unwrap();
-                            if lmlock.contains_key(&spot) {
-                                blocklightval = lmlock.get(&spot).unwrap().sum().x as f32;  //TEMPORARILY USE JUST THE RED VALUE FOR THIS
-                            }
+                            let blocklighthere = match lmlock.get(&spot) {
+                                Some(k) => {
+                                    k.sum()
+                                }
+                                None => {
+                                    LightColor::ZERO
+                                }
+                            };
+
+                            let packedrgb = PackedVertex::pack_rgb(blocklighthere.x, blocklighthere.y, blocklighthere.z);
+
+                            let prgb: u32 = 0b0000_0000_0000_0000_0000_0000_0000_0000 | (packedrgb) as u32;
                             drop(lmlock);
 
                             for vert in TallGrassInfo::tallgrass_model_from_index(modelindex as usize).chunks(5) {
@@ -1475,7 +1512,7 @@ impl ChunkSystem {
                                     vert[0] + spot.x as f32,
                                     vert[1] + spot.y as f32,
                                     vert[2] + spot.z as f32,
-                                    vert[3] + blocklightval,
+                                    f32::from_bits(prgb),
                                     vert[4]
                                 ])
                             }
@@ -1496,9 +1533,18 @@ impl ChunkSystem {
                             let mut blocklightval = 0.0;
 
                             let lmlock = self.lightmap.lock().unwrap();
-                            if lmlock.contains_key(&spot) {
-                                blocklightval = lmlock.get(&spot).unwrap().sum().x as f32;  //TEMPORARILY USE JUST THE RED VALUE FOR THIS
-                            }
+                            let blocklighthere = match lmlock.get(&spot) {
+                                Some(k) => {
+                                    k.sum()
+                                }
+                                None => {
+                                    LightColor::ZERO
+                                }
+                            };
+
+                            let packedrgb = PackedVertex::pack_rgb(blocklighthere.x, blocklighthere.y, blocklighthere.z);
+
+                            let prgb: u32 = 0b0000_0000_0000_0000_0000_0000_0000_0000 | (packedrgb) as u32;
                             drop(lmlock);
 
                             for vert in CraftTableInfo::craft_table_model_from_index(modelindex as usize).chunks(5) {
@@ -1506,7 +1552,7 @@ impl ChunkSystem {
                                     vert[0] + spot.x as f32,
                                     vert[1] + spot.y as f32,
                                     vert[2] + spot.z as f32,
-                                    vert[3] + blocklightval,
+                                    f32::from_bits(prgb),
                                     vert[4]
                                 ])
                             }

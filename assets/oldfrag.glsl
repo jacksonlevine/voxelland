@@ -14,6 +14,8 @@ uniform vec3 camDir;
 uniform float sunset;
 uniform float sunrise;
 
+in vec3 blockColor;
+
 float similarity(vec3 dir1, vec3 dir2) {
     return (dot(normalize(dir1), normalize(dir2)) + 1.0) * 0.5;
 }
@@ -40,9 +42,6 @@ void main()
         distance = distance * 10.0;
     }
 
-    
-
-    
 
     if(FragColor.a < 0.4) {
         discard;

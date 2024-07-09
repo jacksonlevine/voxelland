@@ -340,15 +340,15 @@ fn handle_client(
                 queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot2, block2));
             }
             MessageType::RequestTakeoff => {
-                // println!("Recvd req takeoff");
-                // let mut rng = StdRng::from_entropy();
-                // let newseed: u32 = rng.gen();
-                // let mut csys = csys.write().unwrap();
+                println!("Recvd req takeoff");
+                let mut rng = StdRng::from_entropy();
+                let newseed: u32 = rng.gen();
+                let mut csys = csys.write().unwrap();
 
-                // let pt = csys.planet_type.clone();
-                // csys.reset(0, newseed, (pt + 1) as usize % 2);
-                // csys.save_current_world_to_file(format!("world/{}", newseed));
-                // mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
+                let pt = csys.planet_type.clone();
+                csys.reset(0, newseed, (pt + 1) as usize % 2);
+                csys.save_current_world_to_file(format!("world/{}", newseed));
+                mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
             }
             MessageType::TellYouMyID => {
                 // println!("Telling someone their id is: {client_id}");

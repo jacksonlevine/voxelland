@@ -150,7 +150,7 @@ pub struct Node {
 }
 
 
-static REQUIRED_SHIP_FLYAWAY_HEIGHT: f32 = 300.0;
+static REQUIRED_SHIP_FLYAWAY_HEIGHT: f32 = 0.0;
 
 
 pub struct ControlsState {
@@ -324,7 +324,7 @@ impl Game {
         let cam = Arc::new(Mutex::new(Camera::new()));
 
         let stamina = Arc::new(AtomicI32::new(100));
-
+        
         faders
             .write()
             .unwrap()
@@ -747,7 +747,7 @@ impl Game {
             select_cube: SelectCube::new(),
             block_overlay: BlockOverlay::new(tex.id),
             ship_pos: Vec3::new(0.0,0.0,0.0),
-            planet_y_offset: REQUIRED_SHIP_FLYAWAY_HEIGHT,
+            planet_y_offset: 0.0,
             window: window.clone(),
             guisys: GuiSystem::new(&window.clone(), &tex),
             hud,

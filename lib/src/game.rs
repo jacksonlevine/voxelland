@@ -64,6 +64,11 @@ pub static mut SPRINTING: bool = false;
 pub static mut STAMINA: i32 = 0;
 
 
+pub static mut WINDED: bool = false;
+pub static mut WINDEDTIMER: f32 = 0.0;
+
+pub static WINDEDLENGTH: f32 = 2.0;
+
 pub static mut SINGLEPLAYER: bool = false;
 
 pub static mut DECIDEDSPORMP: bool = false;
@@ -1837,9 +1842,11 @@ impl Game {
         unsafe {
             let diff = campos.distance(LAST_CAM_POS); 
 
+            let interval = if unsafe { SPRINTING } { 0.2 } else { 0.4 };
+
             if diff > self.delta_time * 2.0 {
                
-                if TIMER > 0.4 {
+                if TIMER > interval {
                     self.do_step_sound_now(campos);
                     TIMER = 0.0;
                 } else {
@@ -1974,6 +1981,19 @@ impl Game {
         self.delta_time = (current_time - self.prev_time).min(0.05);
         let stam =self.stamina.load(Ordering::Relaxed);
 
+        unsafe {
+            if WINDED {
+                if WINDEDTIMER < WINDEDLENGTH {
+                    WINDED = true;
+                    WINDEDTIMER += self.delta_time;
+                } else {
+                    WINDED = false;
+                    WINDEDTIMER = 0.0;
+                }
+            }
+            
+        }
+
 
         static mut sprintchecktimer: f32 = 0.0;
         unsafe {
@@ -1982,12 +2002,18 @@ impl Game {
 
                 if self.controls.shift && !self.vars.in_climbable {
                     if stam > 0 {
-                        unsafe{ 
+                        unsafe { 
                             SPRINTING = true;
                             self.stamina.store(stam - 4, Ordering::Relaxed);
                         }
         
                     } else {
+
+                        if stam < 0 {
+                            unsafe {
+                                WINDED = true;
+                            }
+                        }
         
                         unsafe { SPRINTING = false } 
                         if stam < 100 {

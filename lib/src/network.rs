@@ -404,9 +404,12 @@ impl NetworkConnector {
                                     println!("Received seed: {}", recv_s);
 
                                             file.write_all(recv_s.as_bytes()).unwrap();
-
-
-
+                                            {
+                                                let c = csys.write().unwrap();
+                                                let mut see = &mut *(c.currentseed.write().unwrap());
+                                                (*see) = recv_s.parse().unwrap();
+                                            }
+                                           
                                             commqueue.push(comm.clone());
                                             
                                             thread::sleep(Duration::from_millis(200));

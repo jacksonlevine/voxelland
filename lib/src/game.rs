@@ -150,7 +150,7 @@ pub struct Node {
 }
 
 
-static REQUIRED_SHIP_FLYAWAY_HEIGHT: f32 = 300.0;
+static REQUIRED_SHIP_FLYAWAY_HEIGHT: f32 = -300.0;
 
 
 pub struct ControlsState {
@@ -297,7 +297,8 @@ pub struct Game {
 
     pub health: Arc<AtomicI8>,
     pub crafting_open: bool,
-    pub stamina: Arc<AtomicI32>
+    pub stamina: Arc<AtomicI32>,
+    pub loading_new_world: AtomicBool
 }
 
 enum FaderNames {
@@ -683,10 +684,10 @@ impl Game {
 
         let needtosend = Arc::new(Queue::new());
 
-        // unsafe {
-        //     let mut rng = StdRng::from_entropy();
-        //     SONGINDEX = (SONGINDEX + rng.gen_range(1..SONGS.len())) % SONGS.len();
-        // }
+        unsafe {
+            let mut rng = StdRng::from_entropy();
+            SONGINDEX = (SONGINDEX + rng.gen_range(1..SONGS.len())) % SONGS.len();
+        }
 
         let mut g = Game {
             chunksys: chunksys.clone(),
@@ -747,7 +748,7 @@ impl Game {
             select_cube: SelectCube::new(),
             block_overlay: BlockOverlay::new(tex.id),
             ship_pos: Vec3::new(0.0,0.0,0.0),
-            planet_y_offset: REQUIRED_SHIP_FLYAWAY_HEIGHT,
+            planet_y_offset: 0.0,
             window: window.clone(),
             guisys: GuiSystem::new(&window.clone(), &tex),
             hud,
@@ -787,7 +788,8 @@ impl Game {
             needtosend,
             health,
             crafting_open: false,
-            stamina
+            stamina,
+            loading_new_world: AtomicBool::new(false)
         };
         if !headless {
             g.load_model("assets/models/car/scene.gltf");
@@ -819,8 +821,8 @@ impl Game {
                 // g.setup_vertex_attributes();
     
                 //start coming down from the sky in ship
-                //g.vars.ship_going_down = true;
-                //g.vars.ship_going_up = false;
+                // g.vars.ship_going_down = true;
+                // g.vars.ship_going_up = false;
     
                 g.wait_for_new_address();
                 
@@ -1037,7 +1039,14 @@ impl Game {
         unsafe {
             SPAWNPOINT = ship_float_pos  + Vec3::new(5.0, 2.0, 0.0);
             self.camera.lock().unwrap().position = SPAWNPOINT;
+
+
+
+
+
         }
+        
+
         
 
 
@@ -1927,7 +1936,12 @@ impl Game {
     }
 
     pub fn load_my_pos_from_file(&self) {
-        let table_name = "poses";
+        let csys = self.chunksys.read().unwrap();
+        let currseed = csys.currentseed.read().unwrap().clone();
+        drop(csys);
+
+
+        let table_name = format!("poses_{}", currseed);
 
         let conn = Connection::open("chestdb").unwrap();
 
@@ -2350,7 +2364,9 @@ impl Game {
                                 };
                             }
                             MessageType::Seed => {
+                                println!("RECEIVED SEED");
                                 //Means we're going to a new world
+                                self.loading_new_world.store(false, Ordering::Relaxed);
                                 self.non_static_model_entities.clear();
                             }
                             _ => {
@@ -2505,7 +2521,7 @@ impl Game {
                     //YOu are in multiplayer
                     self.update_server_received_modents();
                 }
-                if overlayfade <= 0.1 {
+                if overlayfade <= 0.1 && !self.loading_new_world.load(Ordering::Relaxed) {
                     self.update_movement_and_physics();
                 }
                 
@@ -4502,7 +4518,8 @@ impl Game {
             //self.netconn.send(&msg);
 
             self.netconn.received_world.store(false, Ordering::Relaxed);
- 
+            
+            self.loading_new_world.store(true, Ordering::Relaxed);
 
             let msg = Message::new(MessageType::RequestUdm, Vec3::ZERO, 0.0, 0);
             self.netconn.send(&msg);

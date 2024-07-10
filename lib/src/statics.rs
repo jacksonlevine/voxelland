@@ -11,6 +11,8 @@ pub static mut MY_MULTIPLAYER_UUID: Lazy<Uuid> = Lazy::new(|| Uuid::new_v4());
 
 pub static mut LAST_ENTERED_SERVERADDRESS: Lazy<String> = Lazy::new(|| String::from(""));
 
+pub static mut SERVER_LATEST_SEED: u32 = 23119232;
+
 pub fn SAVE_LESA() {
     let mmu = "lesa";
 
@@ -20,6 +22,46 @@ pub fn SAVE_LESA() {
         file.write_all(LAST_ENTERED_SERVERADDRESS.to_string().as_bytes()).unwrap();
     }
     println!("UUID file created or overwritten.");
+}
+
+
+pub fn SAVE_SERVLATESTSEED() {
+    let mmu = "servlatestseed";
+
+    // Always create or overwrite the file
+    let mut file = File::create(mmu).unwrap();
+    unsafe {
+        file.write_all(SERVER_LATEST_SEED.to_string().as_bytes()).unwrap();
+    }
+    println!("Latest seed file created or overwritten.");
+}
+
+pub fn LOAD_OR_INITIALIZE_SERVER_STATICS() {
+
+
+    let mmu = "servlatestseed";
+
+    if Path::new(mmu).exists() {
+        // If the file exists, read its contents
+        let contents = fs::read_to_string(mmu).unwrap();
+
+        let num: u32 = contents.parse().unwrap();
+
+        unsafe {
+            SERVER_LATEST_SEED = num;
+        }
+        println!("Latest seed file loaded.");
+    } else {
+        // If the file doesn't exist, create and write to it
+        let mut file = File::create(mmu).unwrap();
+        unsafe {
+            file.write_all(SERVER_LATEST_SEED.to_string().as_bytes()).unwrap();
+        }
+        println!("Latest seed file created and written to.");
+    }
+
+
+
 }
 
 pub fn LOAD_OR_INITIALIZE_STATICS() {

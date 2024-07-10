@@ -5,6 +5,7 @@ use rusqlite::{params, Connection};
 use serde::{Serialize, Deserialize};
 use voxelland::hud::SlotIndexType;
 use voxelland::inventory::{self, ChestInventory, Inventory};
+use voxelland::statics::{LOAD_OR_INITIALIZE_SERVER_STATICS, SERVER_LATEST_SEED};
 use std::collections::HashMap;
 use std::fs::{self, File};
 
@@ -34,7 +35,7 @@ pub enum QueuedSqlType {
     UserDataMap(u32, IVec3, u32),
     ChestInventoryUpdate(IVec3, [(u32, u32); 20], u32),
     InventoryInventoryUpdate(Uuid, [(u32, u32); 5]),
-    PlayerPositionUpdate(Uuid, Vec3, f32, f32),
+    PlayerPositionUpdate(Uuid, Vec3, f32, f32, u32),
     None
 }
 
@@ -236,6 +237,11 @@ fn handle_client(
             MessageType::PlayerUpdate => {
 
                 {
+
+                    let csys = csys.read().unwrap();
+                    let currseed = csys.currentseed.read().unwrap().clone();
+                    drop(csys);
+
                     let mut clients = clients.lock().unwrap();
 
                     let client = clients.get_mut(&client_id).unwrap();
@@ -245,7 +251,8 @@ fn handle_client(
                         queued_sql.push(QueuedSqlType::PlayerPositionUpdate(client_id, 
                             Vec3::new(message.x, message.y, message.z),
                             message.infof,
-                            message.info2 as f32
+                            message.info2 as f32,
+                            currseed
                         ));
                     } else {
                         client.saveposcounter += 1;
@@ -346,6 +353,7 @@ fn handle_client(
                 let mut csys = csys.write().unwrap();
 
                 let pt = csys.planet_type.clone();
+                
                 csys.reset(0, newseed, (pt + 1) as usize % 2);
                 csys.save_current_world_to_file(format!("world/{}", newseed));
                 mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -440,7 +448,11 @@ fn main() {
 
     gl::load_with(|s| window.get_proc_address(s) as *const _);
 
-    let initialseed: u32 = 23119232;
+    unsafe {
+        LOAD_OR_INITIALIZE_SERVER_STATICS();
+    }
+
+    let initialseed: u32 = unsafe { SERVER_LATEST_SEED };
 
     let mut gameh = Game::new(&Arc::new(RwLock::new(window)), false, true, &Arc::new(AtomicBool::new(false)), &Arc::new(Mutex::new(None)));
 
@@ -634,12 +646,12 @@ fn main() {
 
                     },
 
-                    QueuedSqlType::PlayerPositionUpdate(key, pos, pitch, yaw) => {
+                    QueuedSqlType::PlayerPositionUpdate(key, pos, pitch, yaw, seed) => {
 
                         let playerposition = PlayerPosition{pitch: *pitch, yaw: *yaw, pos: PlayerVec{x: pos.x, y: pos.y, z: pos.z}};
 
-                        let table_name = "poses";
-                
+                        let table_name = format!("poses_{}", seed);
+                        
                         let conn = Connection::open("chestdb").unwrap();
 
                         // Ensure the table exists
@@ -916,6 +928,8 @@ fn main() {
                 if true {//chunksys.read().unwrap().planet_type == 1 {
                     let mut rng = StdRng::from_entropy();
                     let mut gamewrite = gamearc.write().unwrap();
+
+                    gamewrite.non_static_model_entities.clear();
                     gamewrite.create_non_static_model_entity(0, Vec3::new(-100.0, 100.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0,false);
                     
                     gamewrite.create_non_static_model_entity(4, Vec3::new(-100.0, 100.0, -450.0), 30.0, Vec3::new(0.0, 0.0, 0.0), 7.0, false);

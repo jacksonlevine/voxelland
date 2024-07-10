@@ -312,6 +312,8 @@ impl ChunkSystem {
         writeln!(file, "{}", self.currentseed.read().unwrap()).unwrap();
 
         let mut file = File::create(path.clone() + "/pt").unwrap();
+        println!("Saving planet type {}", self.planet_type);
+
         writeln!(file, "{}", self.planet_type).unwrap();
 
     }
@@ -586,13 +588,51 @@ impl ChunkSystem {
 
     pub fn reset(&mut self, radius: u8, seed: u32, noisetype: usize) {
         println!("Start of reset func");
+        if !self.headless {
+            for cg in &self.geobank {
+                unsafe {
+                    gl::DeleteBuffers(1, &cg.vbo32);
+                    gl::DeleteBuffers(1, &cg.tvbo32);
+                    gl::DeleteBuffers(1, &cg.vbo8);
+                    gl::DeleteBuffers(1, &cg.tvbo8);
+
+                    gl::DeleteBuffers(1, &cg.vbo8rgb);
+                    gl::DeleteBuffers(1, &cg.tvbo8rgb);
+
+                    gl::DeleteBuffers(1, &cg.vvbo);
+                    gl::DeleteBuffers(1, &cg.uvvbo);
+                }
+            }
+        }
+
+        self.generated_chunks.clear();
         
+        println!("After deleting buffers");
+        self.chunks.clear();
+        println!("After clearing chunks");
+        self.geobank.clear();
+        println!("After clearing geobank");
+        self.chunk_memories.lock().unwrap().memories.clear();
+        println!("After clearing memories");
+        self.takencare.clear();
+        println!("After clearing takencare");
+        while let Some(_) = self.finished_geo_queue.pop() {}
+        while let Some(_) = self.finished_user_geo_queue.pop() {}
+        while let Some(_) = self.user_rebuild_requests.pop() {}
+        while let Some(_) = self.gen_rebuild_requests.pop() {}
+        while let Some(_) = self.background_rebuild_requests.pop() {}
+        println!("After that whole popping thing");
+        self.userdatamap.clear();
+        self.nonuserdatamap.clear();
+        self.justcollisionmap.clear();
+        println!("After clearing the next 3 things");
         self.radius = radius;
         self.perlin = Perlin::new(seed);
         self.voxel_models = None;
         self.planet_type = noisetype as u8;
         (*self.currentseed.write().unwrap()) = seed;
         println!("After setting currentseed");
+
 
         if !self.headless {
             for _ in 0..radius * 2 + 5 {
@@ -1865,8 +1905,15 @@ impl ChunkSystem {
 
                                 if item <= dim_range.1 as u32 && item >= dim_range.0 as u32  &&  item2 >= 3 as u32 {
 
+                                    match self.voxel_models.as_ref() {
+                                        Some(vm) => {
+                                            self.stamp_here(&coord, &vm[item as usize], Some(&mut implicated));
+                                        },
+                                        None => {
+                                            println!("Couldn't access the voxel models ref for some reason! Index: {}", item)
+                                        },
+                                    }
                                     
-                                    self.stamp_here(&coord, &self.voxel_models.as_ref().unwrap()[item as usize], Some(&mut implicated));
                                     
                                 }
                             }

@@ -683,10 +683,10 @@ impl Game {
 
         let needtosend = Arc::new(Queue::new());
 
-        // unsafe {
-        //     let mut rng = StdRng::from_entropy();
-        //     SONGINDEX = (SONGINDEX + rng.gen_range(1..SONGS.len())) % SONGS.len();
-        // }
+        unsafe {
+            let mut rng = StdRng::from_entropy();
+            SONGINDEX = (SONGINDEX + rng.gen_range(1..SONGS.len())) % SONGS.len();
+        }
 
         let mut g = Game {
             chunksys: chunksys.clone(),

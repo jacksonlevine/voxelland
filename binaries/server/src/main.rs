@@ -11,7 +11,7 @@ use std::fs::{self, File};
 
 use std::io::{ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU32};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
@@ -28,6 +28,8 @@ use voxelland::playerposition::*;
 
 
 static mut PACKET_SIZE: usize = 0;
+
+
 
 type Nsme = (u32, Vec3, f32, usize, f32, bool, bool);
 
@@ -355,7 +357,7 @@ fn handle_client(
                 let pt = csys.planet_type.clone();
                 
                 csys.reset(0, newseed, (pt + 1) as usize % 2);
-                csys.save_current_world_to_file(format!("world/{}", newseed));
+                //csys.save_current_world_to_file(format!("world/{}", newseed));
                 mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
             }
             MessageType::TellYouMyID => {
@@ -458,6 +460,7 @@ fn main() {
 
     while !gameh.is_finished() {
         thread::sleep(Duration::from_millis(100));
+        println!("Sleeping for this thing?");
     }
     let mut game: Game;
 

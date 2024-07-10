@@ -495,14 +495,13 @@ impl ChunkSystem {
         let reader = BufReader::new(file);
     
         for line in reader.lines() {
-            let line = line.unwrap();
-            let mut parts = line.splitn(2, ' ');
-            if let Some(seed) = parts.next() {
-                let s = seed.parse::<u32>().unwrap();
-                println!("Seed Is {}", s);
-                self.perlin = Perlin::new(s);
-                *self.currentseed.write().unwrap() = s;
-            }
+            let seed = line.unwrap();
+            //let mut parts = line.splitn(2, ' ');
+            let s = seed.parse::<u32>().unwrap();
+            println!("Seed Is {}", s);
+            self.perlin = Perlin::new(s);
+            *self.currentseed.write().unwrap() = s;
+            
         }
 
         let seed = self.currentseed.read().unwrap();

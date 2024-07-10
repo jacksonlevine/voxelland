@@ -21,7 +21,7 @@ use rusqlite::Connection;
 use uuid::Uuid;
 use vox_format::types::Model;
 use walkdir::WalkDir;
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI8, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, current, JoinHandle};
 
@@ -67,6 +67,8 @@ pub static mut STAMINA: i32 = 0;
 pub static mut SINGLEPLAYER: bool = false;
 
 pub static mut DECIDEDSPORMP: bool = false;
+
+static mut CURR_SEED: AtomicU32 = AtomicU32::new(0);
 
 pub fn wait_for_decide_singleplayer() {
     unsafe {
@@ -1989,6 +1991,7 @@ impl Game {
         let stam =self.stamina.load(Ordering::Relaxed);
 
 
+
         static mut sprintchecktimer: f32 = 0.0;
         unsafe {
             if sprintchecktimer > 0.2 {
@@ -3151,6 +3154,9 @@ impl Game {
         }
         
         let cs = self.chunksys.read().unwrap();
+        unsafe {
+            CURR_SEED.store(*cs.currentseed.read().unwrap(), Ordering::Relaxed);
+        }
         let cmem = cs.chunk_memories.lock().unwrap();
         for (index, cfl) in cmem.memories.iter().enumerate() {
             if cfl.used {

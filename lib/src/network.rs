@@ -404,11 +404,11 @@ impl NetworkConnector {
                                     println!("Received seed: {}", recv_s);
 
                                             file.write_all(recv_s.as_bytes()).unwrap();
-                                            {
-                                                let c = csys.write().unwrap();
-                                                let mut see = &mut *(c.currentseed.write().unwrap());
-                                                (*see) = recv_s.parse().unwrap();
-                                            }
+                                            // {
+                                            //     let c = csys.write().unwrap();
+                                            //     let mut see = &mut *(c.currentseed.write().unwrap());
+                                            //     (*see) = recv_s.parse().unwrap();
+                                            // }
                                            
                                             commqueue.push(comm.clone());
                                             
@@ -428,7 +428,7 @@ impl NetworkConnector {
                                     
                                 },
                                 MessageType::Pt => {
-                                    //println!("Receiving Pt:");
+                                    println!("Receiving PT:");
                                     // let mut buff = vec![0 as u8; comm.info as usize];
 
                                     // stream_lock.set_nonblocking(false).unwrap();

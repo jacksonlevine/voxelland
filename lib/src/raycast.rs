@@ -32,3 +32,11 @@ pub fn raycast_voxel(origin: Vec3, direction: Vec3, csys: &RwLock<ChunkSystem>, 
 
     None
 }
+
+pub fn raycast_voxel_with_bob(origin: Vec3, direction: Vec3, csys: &RwLock<ChunkSystem>, max_distance: f32, walkbob: f32) -> Option<(Vec3, IVec3)> {
+    
+    let bob = Vec3::new(0.0, walkbob.sin() /20.0, 0.0) + Vec3::new(0.0, 0.3, 0.0);
+
+    //println!("Raycasting with a {}, {}, {} origin shift for bob", bob.x, bob.y, bob.z);
+    raycast_voxel(origin + bob, direction, csys, max_distance)
+}

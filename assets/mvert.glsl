@@ -53,7 +53,7 @@ void main() {
 
     TexCoord = uv;
 
-    vec3 bob = vec3(0.0, ((sin(walkbob) )/20.0), 0.0) + vec3(0.0, 0.5, 0.0);
+    vec3 bob = vec3(0.0, ((sin(walkbob) )/20.0), 0.0) + vec3(0.0, 0.3, 0.0);
     
     gl_Position = mvp * (rotatedPosition + vec4(mix(lastpos, pos, min(interp_time*4.0, 1.0)), 0.0) + vec4(bob * -1.0, 0.0));
 }

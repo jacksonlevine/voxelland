@@ -63,7 +63,7 @@ void main()
     float ambBright = ambientBrightMult * ambientBright;
 
     float distance = pow(distance(position, camPos)/(5), 2)/5.0f;
-    vec3 bob = vec3(0.0, ((sin(walkbob) )/20.0), 0.0) + vec3(0.0, 0.5, 0.0);
+    vec3 bob = vec3(0.0, ((sin(walkbob) )/20.0), 0.0) + vec3(0.0, 0.3, 0.0);
     gl_Position = mvp * (vec4(position - bob , 1.0) );
 
     float bright = min(16.0f,ambBright);

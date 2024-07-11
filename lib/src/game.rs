@@ -1987,7 +1987,7 @@ impl Game {
 
         if unsafe {MOVING}
         {
-            self.vars.walkbobtimer = (self.vars.walkbobtimer + self.delta_time * 6.0);
+            self.vars.walkbobtimer = (self.vars.walkbobtimer + self.delta_time * 10.0);
             self.vars.walkbobtimer %= 2.0 * consts::PI;
         }
             
@@ -2837,7 +2837,7 @@ impl Game {
                 LAST_CAM_POS = camlock.position;
                 LAST_CAM_DIR = camlock.direction;
 
-                HIT_RESULT = raycast_voxel(camlock.position, camlock.direction, &self.chunksys, 10.0);
+                HIT_RESULT = raycast_voxel_with_bob(camlock.position, camlock.direction, &self.chunksys, 10.0, self.vars.walkbobtimer);
                 
                 
                 
@@ -3874,7 +3874,7 @@ impl Game {
     }
     pub fn cast_break_ray(&mut self) {
         let cl = self.camera.lock().unwrap();
-        match raycast_voxel(cl.position, cl.direction, &self.chunksys, 10.0) {
+        match raycast_voxel_with_bob(cl.position, cl.direction, &self.chunksys, 10.0, self.vars.walkbobtimer) {
             Some((tip, block_hit)) => {
                 let blockbits = self.chunksys.read().unwrap().blockat(block_hit);
                 let blockat = blockbits & Blocks::block_id_bits();
@@ -3960,7 +3960,7 @@ impl Game {
 
             let cl = self.camera.lock().unwrap();
 
-            match raycast_voxel(cl.position, cl.direction, &self.chunksys, 10.0) {
+            match raycast_voxel_with_bob(cl.position, cl.direction, &self.chunksys, 10.0, self.vars.walkbobtimer) {
                 
                 Some((tip, block_hit)) => {
 

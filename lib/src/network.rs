@@ -395,16 +395,24 @@ impl NetworkConnector {
                                     // stream_lock.read_exact(&mut buff).unwrap();
 
 
-                                    fs::create_dir_all("mp").unwrap();
-                                    let mut file = File::create("mp/seed").unwrap(); 
-
-                                    
                                     let recv_s = format!("{}", comm.info);
 
                                     println!("Received seed: {}", recv_s);
 
-                                            file.write_all(recv_s.as_bytes()).unwrap();
+                                     // Create directory if not exists
+                                        fs::create_dir_all("mp").unwrap();
 
+                                        // Create or open file for writing
+                                        let mut file = File::create("mp/seed2").unwrap();
+
+                                        // Write the received seed to the file
+                                        file.write_all(recv_s.as_bytes()).unwrap();
+                                        // Flush the buffer to ensure all data is written
+                                        file.flush().unwrap();
+
+                                        // Verify if the content is correctly written
+                                        let content = std::fs::read_to_string("mp/seed2").unwrap();
+                                        println!("File content: {}", content);
 
 
                                             commqueue.push(comm.clone());

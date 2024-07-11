@@ -4,6 +4,7 @@ use std::fs;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
+use std::path::Path;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::AtomicU8;
 use std::sync::RwLock;
@@ -488,24 +489,29 @@ impl ChunkSystem {
         //         self.userdatamap.insert(vec::IVec3::from_str(&key).unwrap(), value.parse::<u32>().unwrap());
         //     }
         // }
-    
-        let file = File::open(format!("{}/seed", path)).unwrap();
-        let reader = BufReader::new(file);
-    
-        for line in reader.lines() {
-            let line = line.unwrap();
-            let mut parts = line.splitn(2, ' ');
-            if let Some(seed) = parts.next() {
-                let s = seed.parse::<u32>().unwrap();
-                println!("Seed Is {}", s);
-                self.perlin = Perlin::new(s);
-                *self.currentseed.write().unwrap() = s;
+        let pa = format!("{}/seed2", path);
+        if Path::new(&pa).exists() {
+            let file = File::open(pa).unwrap();
+            let reader = BufReader::new(file);
+        
+            for line in reader.lines() {
+                let line = line.unwrap();
+                let mut parts = line.splitn(2, ' ');
+                if let Some(seed) = parts.next() {
+                    let s = seed.parse::<u32>().unwrap();
+                    println!("Seed Is {}", s);
+                    self.perlin = Perlin::new(s);
+                    *self.currentseed.write().unwrap() = s;
+                }
             }
+        } else {
+            println!("Seed2 doesnt exist");
         }
+        
 
         let seed = self.currentseed.read().unwrap();
         let table_name = format!("userdatamap_{}", seed);
-
+        println!("LOADING FROM TABLENAME {}", table_name);
 
 
         // Query the userdatamap table
@@ -787,7 +793,7 @@ impl ChunkSystem {
     pub fn queue_geoindex_rerender(&self, geo_index: usize, user_power: bool, light: bool) {
         if light {
             self.light_rebuild_requests.push(geo_index);
-            println!("Pushed light rebuild request");
+            //println!("Pushed light rebuild request");
         } else {
             match user_power {
                 true => {

@@ -525,6 +525,8 @@ fn main() {
 
                         let table_name = format!("userdatamap_{}", seed);
 
+                        println!("Adding to table {}", table_name);
+
 
                         let conn = Connection::open("db").unwrap();
 

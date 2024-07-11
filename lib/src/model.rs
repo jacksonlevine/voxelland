@@ -517,6 +517,14 @@ impl Game {
             gl::Uniform1f(
                 gl::GetUniformLocation(
                     self.modelshader.shader_id,
+                    b"walkbob\0".as_ptr() as *const i8,
+                ),
+                self.vars.walkbobtimer,
+            );
+
+            gl::Uniform1f(
+                gl::GetUniformLocation(
+                    self.modelshader.shader_id,
                     b"opacity\0".as_ptr() as *const i8,
                 ),
                 1.0

@@ -1846,7 +1846,7 @@ impl ChunkSystem {
 
         let mut should_break = false;
 
-        let dim_floor = Planets::get_floor_block(self.planet_type as u32);
+        let dim_floors = Planets::get_floor_blocks(self.planet_type as u32);
 
         let dim_range = Planets::get_voxel_model_index_range(self.planet_type as u32);
 
@@ -1862,14 +1862,14 @@ impl ChunkSystem {
                 for y in (0..CH-40).rev() {
                     let coord = IVec3::new(cpos.x * CW + x, y, cpos.y * CW + z);
                     //if index == spot {
-                        if self.natural_blockat(coord) == dim_floor {
+                        if dim_floors.contains(&self.natural_blockat(coord)) {
 
-                            let featnoise = self.feature_noise(IVec2{x:coord.x, y: coord.z})*20.0;
+                            let featnoise = self.feature_noise(IVec2{x:coord.x*20, y: coord.z*20})*20.0;
                             if featnoise > 0.0 {
                                 let item: u32 = (featnoise as u32 - dim_range.0 as u32) as u32;
-                                let item2: u32 = rng.gen_range(dim_range.0 as u32..dim_range.1 as u32 * 2);
+                                let item2: u32 = rng.gen_range(0..128);
 
-                                if item <= dim_range.1 as u32 && item >= dim_range.0 as u32  &&  item2 >= 3 as u32 {
+                                if item <= dim_range.1 as u32 && item >= dim_range.0 as u32  &&  item2 >= 127 as u32 {
 
                                     
                                     self.stamp_here(&coord, &self.voxel_models.as_ref().unwrap()[item as usize], Some(&mut implicated));
@@ -1879,8 +1879,8 @@ impl ChunkSystem {
                             
 
                                 
-                            should_break = true;
-                            break;
+                            // should_break = true;
+                            // break;
                         }
                     //}
                     
@@ -1948,6 +1948,25 @@ impl ChunkSystem {
     }
 
 
+    pub fn cave_noise(&self, spot: vec::IVec3) -> f64 {
+
+        const XZDIVISOR1: f64 = 25.35;
+
+
+        let noise1 = f64::max(
+            0.0,
+            self.perlin.get([
+                (spot.x as f64) / XZDIVISOR1,
+                (spot.y as f64) / XZDIVISOR1,
+                spot.z as f64 / XZDIVISOR1,
+            ])
+        );
+
+        noise1
+        
+    }
+
+
     pub fn noise_func(&self, spot: vec::IVec3) -> f64 {
 
         let xzdivisor1 = 600.35 * 4.0;
@@ -1999,7 +2018,35 @@ impl ChunkSystem {
 
         // Mixing noise1 and noise2 based on p, assuming `mix` is a function that blends the two values
         // Rust doesn't have a direct `mix` function, but you can create one or use a linear interpolation
-        ChunkSystem::mix(noise1, noise2, p)
+        let noisemix = ChunkSystem::mix(noise1, noise2, p);
+
+
+        let noise3 = f64::max(
+            0.0,
+            50.0 + self.perlin.get([
+                spot.x as f64 / 25.35,
+                y as f64 / 25.35,
+                spot.z as f64 / 25.35,
+            ]) * 10.0
+                + self.perlin.get([
+                    spot.x as f64 / 60.35,
+                    y as f64 / 50.35,
+                    spot.z as f64 / 60.35,
+                ]) * 10.0
+                - f64::max(y as f64 / 3.0, 0.0),
+        );
+
+        let mut p2 = self
+            .perlin
+            .get([(spot.x as f64 + 4500.0) / 250.0, (spot.y as f64 + 5000.0) / 250.0, (spot.z as f64 - 5000.0)/ 250.0])
+            * 10.0;
+
+        p2 = f64::max(p2, 0.0);
+        p2 = f64::min(p2, 1.0);
+
+        
+
+        ChunkSystem::mix(noisemix, noise3, p2)
         
     }
 
@@ -2114,6 +2161,10 @@ impl ChunkSystem {
         if spot.y == 0 {
             return 15;
         }
+
+        if self.cave_noise(spot) > 0.5 {
+            return 0;
+        }
         match self.planet_type {
             1 => {
                 if self.noise_func2(spot) > 10.0 {
@@ -2126,23 +2177,34 @@ impl ChunkSystem {
                 }
             }
             _ => {
-                static WL: f32 = 40.0;
+                static WL: f32 = 60.0;
 
                 let biomenum = self.biome_noise(IVec2{x: spot.x, y: spot.z});
+                let biomenum2 = self.biome_noise(IVec2{x: spot.x * 20 + 5000, y: spot.z * 20 + 5000});
 
                 let mut underdirt = 5;
-                let mut undersurface = 3;
-                let mut surface = 4;
+                let mut surface = 3;
+                let mut undersurface = 4;
                 let mut liquid = 2;
                 let mut beach = 1;
 
+                
+
                 if biomenum > 0.0 {
                     underdirt = 1;
-                    undersurface = 1;
                     surface = 1;
+                    undersurface = 1;
                     liquid = 2;
                     beach = 1;
+                } else {
+                    if biomenum2 > 0.0 {
+                        surface = 34; 
+                    }
                 }
+
+                
+
+                
                         
 
 
@@ -2156,9 +2218,9 @@ impl ChunkSystem {
                         || self.noise_func(spot + vec::IVec3 { x: 0, y: 5, z: 0 }) > 10.0
                     {
                         if self.noise_func(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {
-                            return undersurface;
+                            return surface;
                         }
-                        return surface;
+                        return undersurface;
                     } else {
                         return beach;
                     }

@@ -20,11 +20,11 @@ impl Planets {
             }
         }
     }
-    pub fn get_floor_block(dim_id: u32) -> u32 {
+    pub fn get_floor_blocks(dim_id: u32) -> Vec<u32> {
         return match dim_id {
-            0 => 3,
-            1 => 1,
-            _ => 3
+            0 => vec![3, 34],
+            1 => vec![1],
+            _ => vec![3, 34]
         }
     }
     pub fn get_fog_col(dim_id: u32) -> (f32, f32, f32, f32) {

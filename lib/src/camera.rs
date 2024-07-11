@@ -1,4 +1,4 @@
-use crate::game::{ControlsState, SPRINTING, STAMINA};
+use crate::game::{ControlsState, MOVING, SPRINTING, STAMINA};
 use glam::{Mat4, Vec3};
 pub struct Camera {
     pub yaw: f32,
@@ -77,18 +77,26 @@ impl Camera {
             }
         }
         
+        let mut moving = false;
 
         if cs.forward {
+            moving = true;
             self.velocity += (self.direction * Vec3::new(1.0, 0.0, 1.0)).normalize() * xz_speed_mult * *delta * speed_mult;
         }
         if cs.left {
+            moving = true;
             self.velocity += (self.right * Vec3::new(xz_speed_mult, 0.0, xz_speed_mult)) * *delta * speed_mult;
         }
         if cs.back {
+            moving = true;
             self.velocity += (self.direction * Vec3::new(1.0, 0.0, 1.0)).normalize() * xz_speed_mult * -*delta * speed_mult;
         }
         if cs.right {
+            moving = true;
             self.velocity += (self.right * Vec3::new(xz_speed_mult, 0.0, xz_speed_mult)) * -*delta * speed_mult;
+        }
+        unsafe {
+            MOVING = moving;
         }
         self.recalculate();
 

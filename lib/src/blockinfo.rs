@@ -4,7 +4,7 @@ pub const BLOCK_DIRECTION_BITS: u32 = 0b0000_0000_0000_0011_0000_0000_0000_0000;
 pub struct Blocks {}
 
 
-static BREAKTIMES: [f32; 34] = [
+static BREAKTIMES: [f32; 35] = [
     0.1,
     0.5,
     0.7,
@@ -40,10 +40,11 @@ static BREAKTIMES: [f32; 34] = [
     1.0,
 
     1.0, 
+    1.0,
     1.0
 ];
 
-static TEXS: [[(u8, u8); 3]; 34] = [
+static TEXS: [[(u8, u8); 3]; 35] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],  // 0
             [(1, 0), (1, 0), (1, 0)],  // 1 sand
@@ -84,6 +85,7 @@ static TEXS: [[(u8, u8); 3]; 34] = [
 
             [(3, 3), (3, 3), (3, 3)], // 32 apple
             [(2, 3),(2, 3),(2, 3)], // 33 bamboo chute
+            [(7,4),(7,4),(7,4)], // 34 dead leaves
         ];
 
 
@@ -125,6 +127,7 @@ impl Blocks {
 
             32 => {"Apple"}
             33 => {"Bamboo Piece"}
+            34 => {"Dead Leaf Mulch"}
             _ => {
                 "Unknown Item"
             }
@@ -250,6 +253,9 @@ impl Blocks {
             3 => {
                 "grassstepseries"
             }
+            34 => {
+                "plantplaceseries"
+            }
             1 => {
                 "sandstepseries"
             }
@@ -268,6 +274,9 @@ impl Blocks {
         match id {
             3 => {
                 "grassstepseries"
+            }
+            34 => {
+                "plantplaceseries"
             }
             7 => {
                 "plantplaceseries"

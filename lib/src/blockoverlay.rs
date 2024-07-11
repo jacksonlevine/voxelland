@@ -101,7 +101,7 @@ impl BlockOverlay {
         }
     }
 
-    pub fn draw_at(&self, pos: Vec3, breakprogress: i8, mvp: &Mat4) {
+    pub fn draw_at(&self, pos: Vec3, breakprogress: i8, mvp: &Mat4, walkbob: f32) {
         unsafe {
             gl::Disable(gl::CULL_FACE);
             gl::BindVertexArray(self.shader.vao);
@@ -134,6 +134,15 @@ impl BlockOverlay {
                 ),
                 0,
             );
+
+            gl::Uniform1f(
+                gl::GetUniformLocation(
+                    self.shader.shader_id,
+                    b"walkbob\0".as_ptr() as *const i8,
+                ),
+                walkbob,
+            );
+
 
             // println!("Break phase: {breakprogress} Pos {} {} {}", pos.x, pos.y, pos.z);
 

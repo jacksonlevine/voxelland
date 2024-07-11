@@ -2,7 +2,7 @@ use core::time;
 use std::borrow::BorrowMut;
 use std::cmp::max;
 use std::collections::HashSet;
-use std::f32::consts::PI;
+use std::f32::consts::{self, PI};
 use std::io::{self, Write};
 use std::ops::DerefMut;
 use std::slice::Chunks;
@@ -72,6 +72,8 @@ pub static WINDEDLENGTH: f32 = 2.0;
 pub static mut SINGLEPLAYER: bool = false;
 
 pub static mut DECIDEDSPORMP: bool = false;
+
+pub static mut MOVING: bool = false;
 
 pub fn wait_for_decide_singleplayer() {
     unsafe {
@@ -213,7 +215,8 @@ pub struct GameVariables {
     pub in_multiplayer: bool,
     pub menu_open: bool,
     pub main_menu: bool,
-    pub in_climbable: bool
+    pub in_climbable: bool,
+    pub walkbobtimer: f32
 }
 
 pub enum VisionType {
@@ -724,7 +727,8 @@ impl Game {
                 in_multiplayer: connectonstart, //For now,
                 menu_open: false,
                 main_menu: false,
-                in_climbable: false
+                in_climbable: false,
+                walkbobtimer: 0.0
             },
             controls: ControlsState::new(),
             faders: Arc::new(faders),
@@ -1070,13 +1074,13 @@ impl Game {
         static mut VBO: GLuint = 0;
     
         let vdata: [f32; 30] = [
-            -100.0, 100.0, -100.0,    0.0, 1.0, 
-            -100.0, 100.0, 100.0,     0.0, 0.0, 
-            100.0, 100.0, 100.0,      1.0, 0.0, 
+            -100.0, 100.5, -100.0,    0.0, 1.0, 
+            -100.0, 100.5, 100.0,     0.0, 0.0, 
+            100.0, 100.5, 100.0,      1.0, 0.0, 
     
-            100.0, 100.0, 100.0,      1.0, 0.0, 
-            100.0, 100.0, -100.0,     1.0, 1.0, 
-            -100.0, 100.0, -100.0,    0.0, 1.0
+            100.0, 100.5, 100.0,      1.0, 0.0, 
+            100.0, 100.5, -100.0,     1.0, 1.0, 
+            -100.0, 100.5, -100.0,    0.0, 1.0
         ];
     
         unsafe {
@@ -1842,7 +1846,7 @@ impl Game {
         unsafe {
             let diff = campos.distance(LAST_CAM_POS); 
 
-            let interval = if unsafe { SPRINTING } { 0.2 } else { 0.4 };
+            let interval = if unsafe { SPRINTING } { 0.4 } else { 0.7 };
 
             if diff > self.delta_time * 2.0 {
                
@@ -1980,6 +1984,13 @@ impl Game {
         let current_time = unsafe { glfwGetTime() as f32 };
         self.delta_time = (current_time - self.prev_time).min(0.05);
         let stam =self.stamina.load(Ordering::Relaxed);
+
+        if unsafe {MOVING}
+        {
+            self.vars.walkbobtimer = (self.vars.walkbobtimer + self.delta_time * 6.0);
+            self.vars.walkbobtimer %= 2.0 * consts::PI;
+        }
+            
 
         unsafe {
             if WINDED {
@@ -2849,12 +2860,12 @@ impl Game {
             match HIT_RESULT {
                 Some((_head, hit)) => {
                     let hitvec3 = Vec3::new(hit.x as f32, hit.y as f32, hit.z as f32);
-                    self.select_cube.draw_at(hitvec3, &camlock.mvp);
+                    self.select_cube.draw_at(hitvec3, &camlock.mvp, self.vars.walkbobtimer);
                     let bprog = (BREAK_TIME / Blocks::get_break_time(BLOCK_TYPE)).clamp(0.0, 1.0);
               
                     
                     if self.vars.mouse_clicked && !self.crafting_open && !self.vars.menu_open {
-                        self.block_overlay.draw_at(hitvec3, (bprog * 8.0).floor() as i8, &camlock.mvp);
+                        self.block_overlay.draw_at(hitvec3, (bprog * 8.0).floor() as i8, &camlock.mvp, self.vars.walkbobtimer);
                         BREAK_TIME = BREAK_TIME + self.delta_time;
                         if bprog >= 1.0 {
                             drop(camlock);
@@ -3074,11 +3085,17 @@ impl Game {
         static mut SUNRISE_LOC: i32 = 0;
         static mut FOGCOL_LOC: i32 = 0;
         static mut PLANET_Y_LOC: i32 = 0;
+        static mut WALKBOB_LOC: i32 = 0;
         unsafe {
             if C_POS_LOC == -1 {
                 C_POS_LOC = gl::GetUniformLocation(
                     self.shader0.shader_id,
                     b"chunkpos\0".as_ptr() as *const i8,
+                );
+
+                WALKBOB_LOC = gl::GetUniformLocation(
+                    self.shader0.shader_id,
+                    b"walkbob\0".as_ptr() as *const i8,
                 );
                 MVP_LOC =
                     gl::GetUniformLocation(self.shader0.shader_id, b"mvp\0".as_ptr() as *const i8);
@@ -3131,7 +3148,8 @@ impl Game {
             );
             gl::Uniform1f(AMBIENT_BRIGHT_MULT_LOC, self.ambient_bright_mult);
             gl::Uniform1f(VIEW_DISTANCE_LOC, 8.0);
-            gl::Uniform1f(UNDERWATER_LOC, 0.0);
+            gl::Uniform1f(UNDERWATER_LOC, if self.headinwater { 1.0 } else { 0.0 });
+            gl::Uniform1f(WALKBOB_LOC, self.vars.walkbobtimer);
             gl::Uniform3f(
                 CAM_DIR_LOC,
                 cam_lock.direction.x,
@@ -3256,12 +3274,19 @@ impl Game {
         static mut CAM_DIR_LOC: i32 = 0;
         static mut SUNSET_LOC: i32 = 0;
         static mut SUNRISE_LOC: i32 = 0;
+        static mut WALKBOB_LOC: i32 = 0;
         unsafe {
             if MVP_LOC == -1 {
 
                 MVP_LOC =
                     gl::GetUniformLocation(self.oldshader.shader_id, b"mvp\0".as_ptr() as *const i8);
                 //println!("MVP LOC: {}", MVP_LOC);
+
+                WALKBOB_LOC = gl::GetUniformLocation(
+                    self.oldshader.shader_id,
+                    b"walkbob\0".as_ptr() as *const i8,
+                );
+
                 CAM_POS_LOC = gl::GetUniformLocation(
                     self.oldshader.shader_id,
                     b"camPos\0".as_ptr() as *const i8,
@@ -3310,6 +3335,7 @@ impl Game {
                 cam_lock.direction.z,
             );
             gl::Uniform1f(SUNSET_LOC, self.sunset_factor);
+            gl::Uniform1f(WALKBOB_LOC, self.vars.walkbobtimer);
             gl::Uniform1f(SUNRISE_LOC, self.sunrise_factor);
             gl::Uniform1i(
                 gl::GetUniformLocation(

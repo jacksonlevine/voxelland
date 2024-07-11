@@ -60,7 +60,7 @@ impl SelectCube {
         }
     }
 
-    pub fn draw_at(&self, pos: Vec3, mvp: &Mat4) {
+    pub fn draw_at(&self, pos: Vec3, mvp: &Mat4, walkbob: f32) {
         unsafe {
             gl::BindVertexArray(self.shader.vao);
             gl::UseProgram(self.shader.shader_id);
@@ -75,6 +75,11 @@ impl SelectCube {
                 pos.x,
                 pos.y,
                 pos.z
+            );
+
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.shader.shader_id, b"walkbob\0".as_ptr() as *const i8),
+                walkbob
             );
 
             gl::PolygonMode( gl::FRONT_AND_BACK, gl::LINE );

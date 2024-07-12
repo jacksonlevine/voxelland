@@ -295,7 +295,7 @@ fn handle_client(
                                 println!("Mob err {e}");
                             },
                         };
-                    thread::sleep(Duration::from_millis(10));
+                    //thread::sleep(Duration::from_millis(10));
 
                         match mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap()) {
                             Ok(_) => {
@@ -307,7 +307,7 @@ fn handle_client(
                         };
                     }
 
-                    thread::sleep(Duration::from_millis(10));
+                    //thread::sleep(Duration::from_millis(10));
                 }
             }
             MessageType::BlockSet => {

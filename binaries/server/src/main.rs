@@ -130,10 +130,12 @@ fn handle_client(
 
                 {
                     let mut mystream = stream.lock().unwrap();
+                    mystream.set_nonblocking(false);
                     mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
                     println!("Wrote the header");
                     mystream.write_all(&buffer).unwrap();
                     println!("Wrote the file buffer");
+                    mystream.set_nonblocking(true);
                 }
             }
             MessageType::ReqChestReg => {

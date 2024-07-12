@@ -287,6 +287,7 @@ fn handle_client(
 
                     {
                         let mut mystream = stream.lock().unwrap();
+                        //println!("Mobmsg: {:?}", &bincode::serialize(&mobmsg).unwrap());
                         match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
                             Ok(_) => {
                                 //println!("Sent mob header");

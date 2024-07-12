@@ -513,10 +513,20 @@ impl NetworkConnector {
                                     println!("Receiving a Mob Batch:");
                                     let mut payload_buffer = vec![0u8; comm.info as usize];
                                     let mut total_read = 0;
+
+                                    let mut expectedsize = comm.info;
+
+                                    let mut unexpected = false;
                                 
-                                    while total_read < comm.info as usize {
+                                    while total_read < expectedsize as usize {
                                         match stream_lock.read(&mut payload_buffer[total_read..]) {
-                                            Ok(n) if n > 0 => total_read += n,
+                                            Ok(n) if n > 0 => {
+                                                total_read += n;
+                                                if payload_buffer[0] == 15 && payload_buffer[1] == 0 {
+                                                    unexpected = true;
+                                                    expectedsize = bincode::serialized_size(&comm).unwrap() as u32;
+                                                }
+                                            },
                                             Ok(_) => {
                                                 println!("Connection closed by server");
                                                 break;
@@ -531,7 +541,7 @@ impl NetworkConnector {
                                         }
                                     }
                                 
-                                    if total_read == comm.info as usize {
+                                    if total_read == comm.info as usize && !unexpected {
                                         
                                         match bincode::deserialize::<MobUpdateBatch>(&payload_buffer) {
                                             Ok(recv_s) => {
@@ -551,6 +561,9 @@ impl NetworkConnector {
                                             }
                                         }
                                     } else {
+
+                                        
+
                                         println!("Failed to read the full MobUpdateBatch payload");
                                     }
                                 }

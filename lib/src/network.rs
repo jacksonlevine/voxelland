@@ -311,6 +311,8 @@ impl NetworkConnector {
 
 
                                     let uuid = Uuid::from_u64_pair(comm.goose.0, comm.goose.1);
+
+                                    //println!("Player update: {uuid}");
                                     //println!("NSME Length: {}", nsme.len());
                                     match pme.get_mut(&uuid) {
                                         Some(mut me) => {

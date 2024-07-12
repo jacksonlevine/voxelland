@@ -2355,7 +2355,7 @@ impl Game {
                             MessageType::PlayerUpdate => {
                                 let newpos = Vec3::new(comm.x, comm.y, comm.z);
                                 //let id = comm.info;
-                                let modind = comm.info2;
+                                let modind = 0;
                                 let rot = comm.rot;
                                 let scale = 0.3;
                                 //let sounding  = comm.bo;

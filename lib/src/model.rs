@@ -237,11 +237,11 @@ impl Game {
         let mut modent = ModelEntity::new_with_id(0/*Does not use model entities id system, uses players id system */, model_index, pos, scale, rot, &self.chunksys, &self.camera, false);
         modent.allowable_jump_height = jump_height;
 
-        let animations = self.animations[model_index].clone();
-        let nodes = self.nodes[model_index].clone();
+       // let animations = self.animations[model_index].clone();
+        //let nodes = self.nodes[model_index].clone();
 
-        modent.animations = animations;
-        modent.nodes = nodes;
+        //modent.animations = animations;
+        //modent.nodes = nodes;
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             let csys_arc = Arc::clone(&self.chunksys);
@@ -548,6 +548,8 @@ impl Game {
                 };
                     
                 let index = modelent.model_index;
+                if index < self.gltf_vaos.len() && index < self.gltf_textures.len() {
+                       
                 let vaosetset = &self.gltf_vaos[index];
 
                 //println!("Doing Vaosetset {index}");
@@ -766,6 +768,9 @@ impl Game {
                     }
                     
                 }
+                }
+
+             
 
                 
             }

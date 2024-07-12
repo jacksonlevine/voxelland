@@ -293,12 +293,8 @@ fn handle_client(
                                 println!("Mob err {e}");
                             },
                         };
-                    }
-
                     thread::sleep(Duration::from_millis(10));
 
-                    {
-                        let mut mystream = stream.lock().unwrap();
                         match mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap()) {
                             Ok(_) => {
                                 //println!("Sent mob payload");

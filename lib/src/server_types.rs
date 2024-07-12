@@ -12,7 +12,7 @@ use crate::collisioncage::CollCage;
 use crate::vec;
 
 
-pub const MOB_BATCH_SIZE: usize = 16;
+pub const MOB_BATCH_SIZE: usize = 6;
 
 impl Display for Message {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -232,20 +232,7 @@ impl MobUpdateBatch {
             emptymsg.clone(),
 
             emptymsg.clone(),
-            emptymsg.clone(),
-            emptymsg.clone(),
-            emptymsg.clone(),
-
-
-            emptymsg.clone(),
-            emptymsg.clone(),
-            emptymsg.clone(),
-            emptymsg.clone(),
-
-            emptymsg.clone(),
-            emptymsg.clone(),
-            emptymsg.clone(),
-            emptymsg.clone(),
+            emptymsg.clone()
         ];
 
         for i in 0..count {

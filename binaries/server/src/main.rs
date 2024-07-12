@@ -297,6 +297,8 @@ fn handle_client(
                         };
                     thread::sleep(Duration::from_millis(10));
 
+                            println!("Sending payload: {:?}", &bincode::serialize(&mobmsgbatch).unwrap());
+
                         match mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap()) {
                             Ok(_) => {
                                 //println!("Sent mob payload");

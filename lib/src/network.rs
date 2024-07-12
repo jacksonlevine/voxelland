@@ -510,20 +510,18 @@ impl NetworkConnector {
                                     
                                 },
                                 MessageType::MobUpdateBatch => {
-                                    //println!("Receiving a Mob Batch:");
+                                    println!("Receiving a Mob Batch:");
                                     let mut payload_buffer = vec![0u8; comm.info as usize];
                                     let mut total_read = 0;
-        
+                                
                                     while total_read < comm.info as usize {
                                         match stream_lock.read(&mut payload_buffer[total_read..]) {
                                             Ok(n) if n > 0 => total_read += n,
                                             Ok(_) => {
-                                                // Connection closed
                                                 println!("Connection closed by server");
                                                 break;
                                             }
                                             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-                                                // Sleep for a short period and retry
                                                 thread::sleep(Duration::from_millis(10));
                                             }
                                             Err(e) => {
@@ -532,8 +530,9 @@ impl NetworkConnector {
                                             }
                                         }
                                     }
-        
+                                
                                     if total_read == comm.info as usize {
+                                        println!("Received payload: {:?}", &payload_buffer); // Log the raw payload
                                         match bincode::deserialize::<MobUpdateBatch>(&payload_buffer) {
                                             Ok(recv_s) => {
                                                 if recv_s.count > server_types::MOB_BATCH_SIZE as u8 {

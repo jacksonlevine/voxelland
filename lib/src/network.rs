@@ -527,19 +527,23 @@ impl NetworkConnector {
                                     }
         
                                     if total_read == comm.info as usize {
-                                        match bincode::deserialize::<MobUpdateBatch>(&payload_buffer) {
-                                            Ok(recv_s) => {
-                                                if recv_s.count > server_types::MOB_BATCH_SIZE as u8 {
-                                                    println!("Ignoring invalid packet with count > {} of {}", server_types::MOB_BATCH_SIZE, recv_s.count);
-                                                } else {
-                                                    for i in 0..recv_s.count.min(8) {
-                                                        let msg = recv_s.msgs[i as usize].clone();
-                                                        commqueue.push(msg);
+                                        match bincode::deserialize::<Vec<MobUpdateBatch>>(&payload_buffer) {
+                                            Ok(vec) => {
+
+                                                for recv_s in vec {
+                                                    if recv_s.count > server_types::MOB_BATCH_SIZE as u8 {
+                                                        println!("Ignoring invalid packet with count > {} of {}", server_types::MOB_BATCH_SIZE, recv_s.count);
+                                                    } else {
+                                                        for i in 0..recv_s.count.min(8) {
+                                                            let msg = recv_s.msgs[i as usize].clone();
+                                                            commqueue.push(msg);
+                                                        }
                                                     }
                                                 }
+                                                
                                             }
                                             Err(e) => {
-                                                println!("Failed to deserialize MobUpdateBatch: {}", e);
+                                                println!("Failed to deserialize MobUpdateBatch Vec: {}", e);
                                             }
                                         }
                                     } else {

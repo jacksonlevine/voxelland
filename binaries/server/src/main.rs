@@ -279,34 +279,68 @@ fn handle_client(
                     mobmsgs
                 };
 
+                let mut mobmsgbatches = Vec::new();
+
                 for chunk in mobmsgs.chunks(server_types::MOB_BATCH_SIZE) {
+
                     let mobmsgbatch = MobUpdateBatch::new(chunk.len(), chunk);
-                    let mobmsg = Message::new(MessageType::MobUpdateBatch, Vec3::ZERO, 0.0, bincode::serialized_size(&mobmsgbatch).unwrap() as u32);
+                    mobmsgbatches.push(mobmsgbatch);
+                    // {
+                    //     let mut mystream = stream.lock().unwrap();
+                    //     match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
+                    //         Ok(_) => {
+                    //             //println!("Sent mob header");
+                    //         },
+                    //         Err(e) => {
+                    //             println!("Mob err {e}");
+                    //         },
+                    //     };
+                    // thread::sleep(Duration::from_millis(10));
 
-                    {
-                        let mut mystream = stream.lock().unwrap();
-                        match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
-                            Ok(_) => {
-                                //println!("Sent mob header");
-                            },
-                            Err(e) => {
-                                println!("Mob err {e}");
-                            },
-                        };
-                    thread::sleep(Duration::from_millis(10));
+                    //     match mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap()) {
+                    //         Ok(_) => {
+                    //             //println!("Sent mob payload");
+                    //         },
+                    //         Err(e) => {
+                    //             println!("Mob err {e}");
+                    //         },
+                    //     };
+                    // }
 
-                        match mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap()) {
-                            Ok(_) => {
-                                //println!("Sent mob payload");
-                            },
-                            Err(e) => {
-                                println!("Mob err {e}");
-                            },
-                        };
-                    }
-
-                    thread::sleep(Duration::from_millis(10));
+                    // thread::sleep(Duration::from_millis(10));
                 }
+
+
+
+                
+                let mobmsg = Message::new(MessageType::MobUpdateBatch, Vec3::ZERO, 0.0, bincode::serialized_size(&mobmsgbatches).unwrap() as u32);
+
+                {
+                    
+                            let mut mystream = stream.lock().unwrap();
+                            match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
+                                Ok(_) => {
+                                    //println!("Sent mob header");
+                                },
+                                Err(e) => {
+                                    println!("Mob err {e}");
+                                },
+                            };
+                        thread::sleep(Duration::from_millis(10));
+    
+                            match mystream.write_all(&bincode::serialize(&mobmsgbatches).unwrap()) {
+                                Ok(_) => {
+                                    //println!("Sent mob payload");
+                                },
+                                Err(e) => {
+                                    println!("Mob err {e}");
+                                },
+                            };
+                        
+    
+                        // thread::sleep(Duration::from_millis(10));
+                }
+
             }
             MessageType::BlockSet => {
                 println!("Recvd block set");

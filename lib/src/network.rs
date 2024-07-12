@@ -532,7 +532,7 @@ impl NetworkConnector {
                                     }
                                 
                                     if total_read == comm.info as usize {
-                                        println!("Received payload: {:?}", &payload_buffer); // Log the raw payload
+                                        
                                         match bincode::deserialize::<MobUpdateBatch>(&payload_buffer) {
                                             Ok(recv_s) => {
                                                 if recv_s.count > server_types::MOB_BATCH_SIZE as u8 {
@@ -546,6 +546,8 @@ impl NetworkConnector {
                                             }
                                             Err(e) => {
                                                 println!("Failed to deserialize MobUpdateBatch: {}", e);
+                                                println!("Received payload: {:?}", &payload_buffer); // Log the raw payload
+                                                
                                             }
                                         }
                                     } else {

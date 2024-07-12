@@ -297,7 +297,7 @@ fn handle_client(
                         };
                     thread::sleep(Duration::from_millis(30));
 
-                            println!("Sending payload: {:?}", &bincode::serialize(&mobmsgbatch).unwrap());
+                            
 
                         match mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap()) {
                             Ok(_) => {

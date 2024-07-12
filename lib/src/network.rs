@@ -225,6 +225,8 @@ impl NetworkConnector {
 
                                         let mut payload_buffer = vec![0u8; comm.info as usize];
                                         let mut total_read = 0;
+
+                                        let mut numtimes = 0;
             
                                         while total_read < comm.info as usize {
                                             match stream_lock.read(&mut payload_buffer[total_read..]) {
@@ -242,6 +244,11 @@ impl NetworkConnector {
                                                     println!("Error receiving chestreg: {}", e);
                                                     break;
                                                 }
+                                            }
+                                            numtimes += 1;
+                                            if numtimes > 100 {
+                                                numtimes = 0;
+                                                NetworkConnector::sendtolocked(&reqchest, &mut stream_lock);
                                             }
                                         }
             

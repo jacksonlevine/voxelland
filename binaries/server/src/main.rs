@@ -161,6 +161,8 @@ fn handle_client(
                     }
                     println!("Wrote the chest header");
 
+                    thread::sleep(Duration::from_millis(20));
+
                     if buffer.len() > 0 {
                         let mut mystream = stream.lock().unwrap();
                         mystream.write_all(&buffer);

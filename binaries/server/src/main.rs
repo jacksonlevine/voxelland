@@ -295,6 +295,7 @@ fn handle_client(
                                 println!("Mob err {e}");
                             },
                         };
+                        mystream.flush();
                     thread::sleep(Duration::from_millis(30));
 
                             
@@ -307,6 +308,7 @@ fn handle_client(
                                 println!("Mob err {e}");
                             },
                         };
+                        mystream.flush();
                     }
 
                     thread::sleep(Duration::from_millis(30));

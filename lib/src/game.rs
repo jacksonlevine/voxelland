@@ -1923,8 +1923,21 @@ impl Game {
 
             match bincode::deserialize::<[(u32, u32); 5]>(&inventory) {
                 Ok(inv) => {
-                    let mut invlock = self.inventory.write().unwrap();
-                    invlock.inv = inv.clone();
+                    let mut loaded = false;
+                    while !loaded {
+                        match self.inventory.try_write() {
+                            Ok(mut invlock) => {
+                                invlock.inv = inv.clone();
+                                loaded =true;
+                            }
+                            Err(e) => {
+                                println!("couldn't lock inv, retrying");
+                                thread::sleep(Duration::from_millis(100));
+                            }
+                        };
+                    }
+                    
+                    
                 }
                 Err(e) => {
                     println!("Couldn't de-serialize inventory blob");
@@ -1934,7 +1947,7 @@ impl Game {
             
         } else {
         }
-
+        println!("Loaded my inv from file!");
     }
 
     pub fn load_my_pos_from_file(&self) {
@@ -1962,11 +1975,24 @@ impl Game {
 
             match bincode::deserialize::<PlayerPosition>(&pp) {
                 Ok(playpos) => {
-                    let mut camlock = self.camera.lock().unwrap();
-                    camlock.position = Vec3::new(playpos.pos.x, playpos.pos.y, playpos.pos.z);
-                    camlock.pitch = playpos.pitch;
-                    camlock.yaw = playpos.yaw;
-                    drop(camlock);
+
+                    let mut loaded = false;
+                    while !loaded {
+                        match self.camera.try_lock() {
+                            Ok(mut camlock) => {
+                                camlock.position = Vec3::new(playpos.pos.x, playpos.pos.y, playpos.pos.z);
+                                camlock.pitch = playpos.pitch;
+                                camlock.yaw = playpos.yaw;
+                                loaded = true;
+                            }
+                            Err(e) => {
+                                println!("Couldn't lock camera to load pos from file. Retrying...");
+                                thread::sleep(Duration::from_millis(100));
+                            }
+                        }
+                    }
+                    
+                   
                 }
                 Err(e) => {
                     println!("Couldn't de-serialize playerpos blob");

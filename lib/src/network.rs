@@ -11,6 +11,8 @@ use dashmap::DashMap;
 use glam::Vec3;
 use glfw::ffi::glfwGetTime;
 use lockfree::queue::Queue;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use rusqlite::Connection;
 use uuid::Uuid;
 
@@ -70,16 +72,47 @@ impl NetworkConnector {
 
         if let Some(stream) = &self.stream {
             let serialized_message = bincode::serialize(message).unwrap();
-            let mut stream_lock = stream.lock().unwrap();
-            stream_lock.write_all(&serialized_message).unwrap();
+            let mut written = false;
+            while !written {
+                match stream.try_lock() {
+                    Ok(mut streamlock) => {
+                        streamlock.write_all(&serialized_message).unwrap();
+                        written = true;
+        
+                    }
+                    Err(e) => {
+                        println!("Couldn't get stream lock in send, trying again");
+                        thread::sleep(Duration::from_millis(100));
+                    }
+                }
+            }
         }
     }
 
-    pub fn sendto(message: &Message, stream: &Arc<Mutex<TcpStream>>) {
+    pub fn sendto(message: &Message, stream: &Arc<Mutex<TcpStream>>, print: bool) {
        // println!("Sending a {}", message.message_type);
         let serialized_message = bincode::serialize(message).unwrap();
-        let mut stream_lock = stream.lock().unwrap();
-        stream_lock.write_all(&serialized_message).unwrap();
+        let mut written = false;
+        while !written {
+            match stream.try_lock() {
+                Ok(mut streamlock) => {
+                    streamlock.write_all(&serialized_message).unwrap();
+                    written = true;
+    
+                }
+                Err(e) => {
+                    if print {
+                        println!("Couldn't get stream lock for {} in sendto, trying again", message.message_type);
+                    }
+                    
+                    let mut rng = StdRng::from_entropy();
+                    let rand = rng.gen_range(50..150);
+                    thread::sleep(Duration::from_millis(rand));
+                }
+            }
+        }
+        
+        
     }
 
     pub fn sendtolocked(message: &Message, stream: &mut TcpStream) {
@@ -134,22 +167,33 @@ impl NetworkConnector {
             let shouldsend = shouldsend.clone();
             while sr.load(std::sync::atomic::Ordering::Relaxed) {
                 if shouldsend.load(std::sync::atomic::Ordering::Relaxed) {
-                    match sendqueue.pop() {
-                        Some(t) => {
-                            NetworkConnector::sendto(&t, &stream);
-                        }
-                        None => {
-
+                    let mut moretosend = true;
+                    while moretosend {
+                        match sendqueue.pop() {
+                            Some(t) => {
+                                NetworkConnector::sendto(&t, &stream, true);
+                                thread::sleep(Duration::from_millis(10));
+                            }
+                            None => {
+                                moretosend = false;
+                            }
                         }
                     }
-                    let c = cam.lock().unwrap();
-                    let dir = direction_to_euler(c.direction);
-                    let mut message = Message::new(MessageType::PlayerUpdate, c.position, dir.y, 0);
-                    message.infof = c.pitch;
-                    message.info2 = c.yaw as u32;
-                    drop(c);
+                    
+                    match cam.try_lock() {
+                        Ok(c) => {
+                            let dir = direction_to_euler(c.direction);
+                            let mut message = Message::new(MessageType::PlayerUpdate, c.position, dir.y, 0);
+                            message.infof = c.pitch;
+                            message.info2 = c.yaw as u32;
 
-                    NetworkConnector::sendto(&message, &stream);
+                            NetworkConnector::sendto(&message, &stream, true);
+                        },
+                        Err(e) => {
+                            println!("Couldn't get camera lock");
+                        },
+                    };
+                    
                 }
                 thread::sleep(Duration::from_millis(250));
             }
@@ -172,19 +216,26 @@ impl NetworkConnector {
             let reqpt = Message::new(MessageType::RequestPt, Vec3::ZERO, 0.0, 0);
             let reqchest = Message::new(MessageType::ReqChestReg, Vec3::ZERO, 0.0, 0);
             
-            NetworkConnector::sendto(&requdm, &stream);
+            NetworkConnector::sendto(&requdm, &stream, true);
 
             while sr.load(std::sync::atomic::Ordering::Relaxed) {
                 let mut temp_buffer = vec![0; PACKET_SIZE];
 
                 let data_available = {
-                    let stream_lock = stream.lock().unwrap();
-                    stream_lock.peek(&mut temp_buffer).is_ok()
+                    match stream.try_lock() {
+                        Ok(stream_lock) => {
+                            stream_lock.peek(&mut temp_buffer).is_ok()
+                        }
+                        Err(e) => {
+                            false
+                        }
+                    }
+                    
                 };
 
                 if data_available {
                     let mut stream_lock = stream.lock().unwrap();
-
+                    stream_lock.set_nonblocking(true);
 
 
 
@@ -225,8 +276,10 @@ impl NetworkConnector {
 
                                         let mut payload_buffer = vec![0u8; comm.info as usize];
                                         let mut total_read = 0;
+
+                                        let mut numtimes = 0;
             
-                                        while total_read < comm.info as usize {
+                                        while total_read < comm.info as usize && numtimes < 100 {
                                             match stream_lock.read(&mut payload_buffer[total_read..]) {
                                                 Ok(n) if n > 0 => total_read += n,
                                                 Ok(_) => {
@@ -243,6 +296,11 @@ impl NetworkConnector {
                                                     break;
                                                 }
                                             }
+                                            numtimes += 1;
+                                            if numtimes > 99 {
+                                                println!("Lost this chestreg. ");
+                                                break;
+                                            }
                                         }
             
                                         if total_read == comm.info as usize {
@@ -251,10 +309,31 @@ impl NetworkConnector {
                                             let mut file = File::create("chestdb").unwrap();
                                             file.write_all(&payload_buffer).unwrap();
 
+                                            drop(file);
 
-                                            csys.write().unwrap().load_chests_from_file();
+                                            let mut written = false;
+                                            let mut retries = 0;
+
+                                            while !written {
+                                                match csys.try_write() {
+                                                    Ok(csys) => {
+                                                        csys.load_chests_from_file();
+                                                        written = true;
+                                                    }
+                                                    Err(e) => {
+                                                        thread::sleep(Duration::from_millis(100));
+                                                        retries += 1;
+                                                        println!("Retrying. {}th retry", retries);
+
+                                                    }
+                                                }
+                                                println!("ENd of this loop");
+                                            }
+                                            
+                                            println!("Got past loop");
+
                                             //csys.write().unwrap().load_my_inv_from_file();
-                                            hpcommqueue.push(comm);
+                                            hpcommqueue.push(comm.clone());
                                             recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
                                             shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
                                             
@@ -275,10 +354,11 @@ impl NetworkConnector {
                                     } else {
                                         recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
                                         shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
+                                        println!("No chest reg, we're good");
                                     }
 
                                     
-                                    
+                                    println!("Finished this");
 
                                 }
                                 MessageType::ReqChestReg => {
@@ -357,6 +437,11 @@ impl NetworkConnector {
                                 },
                                 MessageType::Udm => {
                                     println!("Receiving Udm:");
+
+                                    if recv_world_bool.load(std::sync::atomic::Ordering::Relaxed) {
+                                        println!("Saying no thanks to this second UDM");
+                                        continue;
+                                    }
                                     shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
                                     
                                     stream_lock.set_nonblocking(false).unwrap();

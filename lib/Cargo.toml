@@ -38,6 +38,7 @@ once_cell = "1.19.0"
 imgui = "0.9.0"
 imgui-opengl-renderer = "0.12.1"
 crossbeam = "0.8.4"
+loom = "0.7.2"
 
 [dependencies.rusqlite]
 version = "0.31.0"

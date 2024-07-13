@@ -11,6 +11,7 @@ use dashmap::DashMap;
 use glam::Vec3;
 use glfw::ffi::glfwGetTime;
 use lockfree::queue::Queue;
+use once_cell::sync::Lazy;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rusqlite::Connection;
@@ -43,6 +44,9 @@ pub struct NetworkConnector {
     pub sendqueue: Arc<Queue<Message>>
 }
 
+pub static bullshit_queue: Lazy<Queue<Message>> = Lazy::new(|| Queue::new());
+pub static tellnow_queue: Lazy<Queue<Message>> = Lazy::new(|| Queue::new());
+
 impl NetworkConnector {
     pub fn new(csys: &Arc<RwLock<ChunkSystem>>, commqueue: &Arc<Queue<Message>>, commqueue2: &Arc<Queue<Message>>, gkc: &Arc<DashMap<Uuid, Vec3>>,
                 my_uuid: &Arc<RwLock<Option<Uuid>>>, nsme: &Arc<DashMap<u32, ModelEntity>>, mycam: &Arc<Mutex<Camera>>, pme: &Arc<DashMap<Uuid, ModelEntity>>,
@@ -67,33 +71,52 @@ impl NetworkConnector {
         }
     }
 
-    pub fn send(&self, message: &Message) {
+    pub fn send(&self, message: &Message, trysend: bool) {
         //println!("Sending a {}", message.message_type);
 
-        if let Some(stream) = &self.stream {
-            let serialized_message = bincode::serialize(message).unwrap();
-            let mut written = false;
-            while !written {
-                match stream.try_lock() {
-                    Ok(mut streamlock) => {
-                        streamlock.write_all(&serialized_message).unwrap();
-                        written = true;
-        
-                    }
-                    Err(e) => {
-                        println!("Couldn't get stream lock in send, trying again");
-                        thread::sleep(Duration::from_millis(100));
-                    }
-                }
-            }
+        if trysend {
+            bullshit_queue.push(message.clone());
+
+        } else {
+            tellnow_queue.push(message.clone());
         }
+
+        // if let Some(stream) = &self.stream {
+            
+            // let serialized_message = bincode::serialize(message).unwrap();
+            // let mut written = false;
+            // let mut retries = 0;
+            // let mut fail = false;
+            // while !written && !fail {
+            //     match stream.try_lock() {
+            //         Ok(mut streamlock) => {
+            //             streamlock.write_all(&serialized_message).unwrap();
+            //             written = true;
+                        
+            //         }
+            //         Err(e) => {
+            //             println!("Couldn't get stream lock in send for {}, trying again", message.message_type);
+            //             retries += 1;
+            //             thread::sleep(Duration::from_millis(50));
+            //             if retries > 5 && trysend {
+            //                 fail = true;
+            //                 break;
+            //             }
+            //         }
+            //     }
+                 
+        //     // }
+        // }
     }
 
-    pub fn sendto(message: &Message, stream: &Arc<Mutex<TcpStream>>, print: bool) {
+    pub fn sendto(message: &Message, stream: &Arc<Mutex<TcpStream>>, print: bool, trysend: bool ) {
+        
        // println!("Sending a {}", message.message_type);
         let serialized_message = bincode::serialize(message).unwrap();
         let mut written = false;
-        while !written {
+        let mut retries = 0;
+        let mut fail = false;
+        while !written & !fail {
             match stream.try_lock() {
                 Ok(mut streamlock) => {
                     streamlock.write_all(&serialized_message).unwrap();
@@ -104,11 +127,16 @@ impl NetworkConnector {
                     if print {
                         println!("Couldn't get stream lock for {} in sendto, trying again", message.message_type);
                     }
-                    
-                    let mut rng = StdRng::from_entropy();
-                    let rand = rng.gen_range(50..150);
-                    thread::sleep(Duration::from_millis(rand));
+                    thread::sleep(Duration::from_millis(50));
+                    // let mut rng = StdRng::from_entropy();
+                    // let rand = rng.gen_range(50..150);
+                    // thread::sleep(Duration::from_millis(rand));
                 }
+            }
+            retries += 1;
+            if trysend && retries > 5 {
+                fail = true;
+                break;
             }
         }
         
@@ -139,7 +167,7 @@ impl NetworkConnector {
         let mut idgreeting = Message::new(MessageType::TellYouMyID, Vec3::ZERO, 0.0, 0);
         idgreeting.goose = unsafe { (*MY_MULTIPLAYER_UUID).as_u64_pair() };
 
-        self.send(&idgreeting);
+        Self::sendto(&idgreeting, &stream2, false, false);
 
         let csys = self.csys.clone();
         let recv_world_bool = self.received_world.clone();
@@ -167,43 +195,101 @@ impl NetworkConnector {
             let shouldsend = shouldsend.clone();
             while sr.load(std::sync::atomic::Ordering::Relaxed) {
                 if shouldsend.load(std::sync::atomic::Ordering::Relaxed) {
-                    let mut moretosend = true;
-                    while moretosend {
-                        match sendqueue.pop() {
-                            Some(t) => {
-                                NetworkConnector::sendto(&t, &stream, true);
-                                thread::sleep(Duration::from_millis(10));
-                            }
-                            None => {
-                                moretosend = false;
+
+                    match tellnow_queue.pop() {
+                        Some(message) => {
+
+                        }
+                        None => {
+                            match sendqueue.pop() {
+                                Some(t) => {
+                                    NetworkConnector::sendto(&t, &stream, true, false);
+                                    thread::sleep(Duration::from_millis(10));
+                                }
+                                None => {
+                                    
+
+                                    match bullshit_queue.pop() {
+                                        Some(t) => {
+                                            NetworkConnector::sendto(&t, &stream, true, false);
+                                            thread::sleep(Duration::from_millis(10));
+                                        }
+                                        None => {
+                                            
+
+                                                static mut timer: f64 = 0.0;
+                                                static mut last_time: f64 = 0.0;
+                                                let current_time = unsafe {
+                                                    glfwGetTime()
+                                                };
+                                                let delta_time = current_time - unsafe { last_time };
+                                                unsafe {
+                                                    last_time = current_time;
+                                                }
+                                                
+                                                if unsafe{timer} > 0.25 {
+
+                                                    let mut message;
+                                                    let mut gotcamlock = false;
+                                                    match cam.try_lock() {
+                                                        Ok(c) => {
+                                                            let dir = direction_to_euler(c.direction.clone());
+                                                            message = Message::new(MessageType::PlayerUpdate, c.position.clone(), dir.y, 0);
+                                                            message.infof = c.pitch.clone();
+                                                            message.info2 = c.yaw.clone() as u32;
+                
+                                                            gotcamlock  = true;
+                
+                                                            
+                                                        },
+                                                        Err(e) => {
+                                                            message = Message::new(MessageType::None, Vec3::ZERO, 0.0, 0);
+                                                            println!("Couldn't get camera lock");
+                                                        },
+                                                    };
+                
+                                                    if gotcamlock {
+                                                        NetworkConnector::sendto(&message, &stream, true, true);
+                                                    }
+                                                    
+                                                    unsafe{timer = 0.0;}; 
+                                                } else {
+                                                    unsafe {
+                                                        timer += delta_time;
+                                                    }
+                                                }
+                                        }
+                                    }
+
+
+
+
+
+
+
+                                    
+                              
+                                    
+
+
+                                }
                             }
                         }
-                    }
-                    let mut message;
-                    let mut gotcamlock = false;
-                    match cam.try_lock() {
-                        Ok(c) => {
-                            let dir = direction_to_euler(c.direction);
-                            message = Message::new(MessageType::PlayerUpdate, c.position, dir.y, 0);
-                            message.infof = c.pitch;
-                            message.info2 = c.yaw as u32;
 
-                            gotcamlock  = true;
-
-                            
-                        },
-                        Err(e) => {
-                            message = Message::new(MessageType::None, Vec3::ZERO, 0.0, 0);
-                            println!("Couldn't get camera lock");
-                        },
-                    };
-
-                    if gotcamlock {
-                        NetworkConnector::sendto(&message, &stream, true);
                     }
                     
+                
+
+
+
+
+
+
+
+
+
+                    
                 }
-                thread::sleep(Duration::from_millis(250));
             }
         }));
 
@@ -224,7 +310,7 @@ impl NetworkConnector {
             let reqpt = Message::new(MessageType::RequestPt, Vec3::ZERO, 0.0, 0);
             let reqchest = Message::new(MessageType::ReqChestReg, Vec3::ZERO, 0.0, 0);
             
-            NetworkConnector::sendto(&requdm, &stream, true);
+            NetworkConnector::sendto(&requdm, &stream, true, false);
 
             while sr.load(std::sync::atomic::Ordering::Relaxed) {
                 let mut temp_buffer = vec![0; PACKET_SIZE];

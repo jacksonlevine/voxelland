@@ -979,7 +979,7 @@ impl Game {
             "quittomainmenu" => {
                 self.exit();
                 if self.vars.in_multiplayer {
-                    self.netconn.send(&Message::new(MessageType::Disconnect, Vec3::ZERO, 0.0, 0))
+                    self.netconn.send(&Message::new(MessageType::Disconnect, Vec3::ZERO, 0.0, 0), false)
                 }
                 self.window.write().unwrap().set_should_close(true);
             }
@@ -2163,7 +2163,7 @@ impl Game {
             }
             match self.needtosend.pop() {
                 Some(comm) => {
-                    self.netconn.send(&comm);
+                    self.netconn.send(&comm, false);
                 }
                 None => {
 
@@ -3931,7 +3931,7 @@ impl Game {
                         message.info2 = 0;
                         message.otherpos = other_half;
 
-                        self.netconn.send(&message);
+                        self.netconn.send(&message, false);
                     } else {
                         self.chunksys.read().unwrap().set_block(block_hit, 0, true);
                         self.chunksys.read().unwrap().set_block_and_queue_rerender(other_half, 0, true, true);
@@ -3945,7 +3945,7 @@ impl Game {
                     //TODO: PROBLEM HERE THAT WILL ALLOW USERS TO KEEP DUPING A BLOCK AS LONG AS THE SERVER DOESNT RESPOND
                     if self.vars.in_multiplayer {
                         let message = Message::new(MessageType::BlockSet, Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32), 0.0, 0);
-                        self.netconn.send(&message);
+                        self.netconn.send(&message, false);
                     } else {
                         self.chunksys.read().unwrap().set_block_and_queue_rerender(block_hit, 0, true, true);
                     }
@@ -4017,7 +4017,7 @@ impl Game {
                             );
                             message.info2 = otherhalfbits;
                             message.otherpos = otherhalf;
-                            self.netconn.send(&message);
+                            self.netconn.send(&message, false);
                         } else {
                             self.chunksys.write().unwrap().set_block(otherhalf, otherhalfbits, true);
                             self.chunksys.write().unwrap().set_block_and_queue_rerender(block_hit, blockbitshere, true, true);
@@ -4161,7 +4161,7 @@ impl Game {
                                             message.otherpos = rightup;
 
 
-                                        self.netconn.send(&message);
+                                        self.netconn.send(&message, false);
 
                                     } else {
                                         self.chunksys.read().unwrap().set_block_and_queue_rerender(right, blockbitsright, false, true);
@@ -4203,7 +4203,7 @@ impl Game {
                                             message.info2 = neightopbits;
                                             message.otherpos = leftup;
 
-                                        self.netconn.send(&message);
+                                        self.netconn.send(&message, false);
 
                                     } else {
                                         self.chunksys.read().unwrap().set_block_and_queue_rerender(left, blockbitsleft, false, true);
@@ -4226,7 +4226,7 @@ impl Game {
                                     message.info2 = top_id;
                                     message.otherpos = place_above;
 
-                                self.netconn.send(&message);
+                                self.netconn.send(&message, false);
 
                             } else {
                                 self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, bottom_id, false, true);
@@ -4262,7 +4262,7 @@ impl Game {
                                     0.0, 
                                     ladder_id);
 
-                                self.netconn.send(&message);
+                                self.netconn.send(&message, false);
                             } else {
                                 self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, ladder_id, false, true);
                             }
@@ -4294,7 +4294,7 @@ impl Game {
                                     0.0, 
                                     chest_id);
 
-                                self.netconn.send(&message);
+                                self.netconn.send(&message, false);
                             } else {
                                 self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, chest_id, false, true);
                             }
@@ -4302,7 +4302,7 @@ impl Game {
                         } else {
                             if self.vars.in_multiplayer {
                                 let message = Message::new(MessageType::BlockSet, Vec3::new(place_point.x as f32, place_point.y as f32, place_point.z as f32), 0.0, id);
-                                self.netconn.send(&message);
+                                self.netconn.send(&message, false);
                             } else {
                                 self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, id, false, true);
                             }
@@ -4319,7 +4319,7 @@ impl Game {
                                     msg.infof = 0.0;
                                     msg.info2 = 1;
 
-                                    self.netconn.send(&msg);
+                                    self.netconn.send(&msg, false);
                      
                                 
                             } else {
@@ -4330,7 +4330,7 @@ impl Game {
                                     msg.infof = slot.1 as f32 - 1.0;
                                     msg.info2 = 1;
 
-                                    self.netconn.send(&msg);
+                                    self.netconn.send(&msg, false);
 
                             }
                         } else {
@@ -4384,7 +4384,7 @@ impl Game {
                             msg.infof = 0.0;
                             msg.info2 = 1;
 
-                            self.netconn.send(&msg);
+                            self.netconn.send(&msg, false);
              
                         
                     } else {
@@ -4395,7 +4395,7 @@ impl Game {
                             msg.infof = slot.1 as f32 - 1.0;
                             msg.info2 = 1;
 
-                            self.netconn.send(&msg);
+                            self.netconn.send(&msg, false);
 
                     }
                 } else {
@@ -4465,7 +4465,7 @@ impl Game {
                                                         msg.info2 = /*0 = CHEST, 1 = INV, 2 = NONE */0;
                                                         msg.infof = self.mouse_slot.1 as f32;
 
-                                                        self.netconn.send(&msg);
+                                                        self.netconn.send(&msg, false);
 
 
 
@@ -4507,7 +4507,7 @@ impl Game {
                                                 msg.otherpos = self.hud.current_chest;
                                                 msg.info2 = /*0 = CHEST, 1 = INV, 2 = NONE */ 1;
                                                 msg.infof = self.mouse_slot.1 as f32;
-                                                self.netconn.send(&msg);
+                                                self.netconn.send(&msg, false);
 
 
                                     }
@@ -4583,7 +4583,7 @@ impl Game {
  
 
             let msg = Message::new(MessageType::RequestUdm, Vec3::ZERO, 0.0, 0);
-            self.netconn.send(&msg);
+            self.netconn.send(&msg, false);
 
             while !self.netconn.received_world.load(Ordering::Relaxed) {
                 thread::sleep(Duration::from_millis(500));
@@ -4719,7 +4719,7 @@ impl Game {
             Key::M => {
                 if action == Action::Press {
                     if self.vars.in_multiplayer {
-                        self.netconn.send(&Message::new(MessageType::RequestTakeoff, Vec3::ZERO, 0.0, 0));
+                        self.netconn.send(&Message::new(MessageType::RequestTakeoff, Vec3::ZERO, 0.0, 0), false);
                     } else {
                         self.takeoff_ship();
                     }

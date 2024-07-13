@@ -179,20 +179,28 @@ impl NetworkConnector {
                             }
                         }
                     }
-                    
+                    let mut message;
+                    let mut gotcamlock = false;
                     match cam.try_lock() {
                         Ok(c) => {
                             let dir = direction_to_euler(c.direction);
-                            let mut message = Message::new(MessageType::PlayerUpdate, c.position, dir.y, 0);
+                            message = Message::new(MessageType::PlayerUpdate, c.position, dir.y, 0);
                             message.infof = c.pitch;
                             message.info2 = c.yaw as u32;
 
-                            NetworkConnector::sendto(&message, &stream, true);
+                            gotcamlock  = true;
+
+                            
                         },
                         Err(e) => {
+                            message = Message::new(MessageType::None, Vec3::ZERO, 0.0, 0);
                             println!("Couldn't get camera lock");
                         },
                     };
+
+                    if gotcamlock {
+                        NetworkConnector::sendto(&message, &stream, true);
+                    }
                     
                 }
                 thread::sleep(Duration::from_millis(250));

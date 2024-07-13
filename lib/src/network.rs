@@ -111,7 +111,59 @@ impl NetworkConnector {
 
     pub fn sendto(message: &Message, stream: &Arc<Mutex<TcpStream>>, print: bool, trysend: bool ) {
         
+
+        if trysend {
+            bullshit_queue.push(message.clone());
+
+        } else {
+            tellnow_queue.push(message.clone());
+        }
+
+
        // println!("Sending a {}", message.message_type);
+        // let serialized_message = bincode::serialize(message).unwrap();
+        // let mut written = false;
+        // let mut retries = 0;
+        // let mut fail = false;
+        // while !written & !fail {
+        //     match stream.try_lock() {
+        //         Ok(mut streamlock) => {
+        //             streamlock.write_all(&serialized_message).unwrap();
+        //             written = true;
+    
+        //         }
+        //         Err(e) => {
+        //             if print {
+        //                 println!("Couldn't get stream lock for {} in sendto, trying again", message.message_type);
+        //             }
+        //             thread::sleep(Duration::from_millis(50));
+        //             // let mut rng = StdRng::from_entropy();
+        //             // let rand = rng.gen_range(50..150);
+        //             // thread::sleep(Duration::from_millis(rand));
+        //         }
+        //     }
+        //     retries += 1;
+        //     if trysend && retries > 5 {
+        //         fail = true;
+        //         break;
+        //     }
+        // }
+        
+        
+    }
+
+    pub fn sendtoold(message: &Message, stream: &Arc<Mutex<TcpStream>>, print: bool, trysend: bool ) {
+        
+
+        // if trysend {
+        //     bullshit_queue.push(message.clone());
+
+        // } else {
+        //     tellnow_queue.push(message.clone());
+        // }
+
+        
+       //println!("Sending a {}", message.message_type);
         let serialized_message = bincode::serialize(message).unwrap();
         let mut written = false;
         let mut retries = 0;
@@ -127,10 +179,10 @@ impl NetworkConnector {
                     if print {
                         println!("Couldn't get stream lock for {} in sendto, trying again", message.message_type);
                     }
-                    thread::sleep(Duration::from_millis(50));
-                    // let mut rng = StdRng::from_entropy();
-                    // let rand = rng.gen_range(50..150);
-                    // thread::sleep(Duration::from_millis(rand));
+                    //thread::sleep(Duration::from_millis(50));
+                    let mut rng = StdRng::from_entropy();
+                    let rand = rng.gen_range(50..150);
+                    thread::sleep(Duration::from_millis(rand));
                 }
             }
             retries += 1;
@@ -167,7 +219,7 @@ impl NetworkConnector {
         let mut idgreeting = Message::new(MessageType::TellYouMyID, Vec3::ZERO, 0.0, 0);
         idgreeting.goose = unsafe { (*MY_MULTIPLAYER_UUID).as_u64_pair() };
 
-        Self::sendto(&idgreeting, &stream2, false, false);
+        Self::sendtoold(&idgreeting, &stream2, false, false);
 
         let csys = self.csys.clone();
         let recv_world_bool = self.received_world.clone();
@@ -194,7 +246,7 @@ impl NetworkConnector {
             let cam = camclone.clone();
             let shouldsend = shouldsend.clone();
             while sr.load(std::sync::atomic::Ordering::Relaxed) {
-                if shouldsend.load(std::sync::atomic::Ordering::Relaxed) {
+                if true {
 
                     match tellnow_queue.pop() {
                         Some(message) => {
@@ -203,7 +255,7 @@ impl NetworkConnector {
                         None => {
                             match sendqueue.pop() {
                                 Some(t) => {
-                                    NetworkConnector::sendto(&t, &stream, true, false);
+                                    NetworkConnector::sendtoold(&t, &stream, true, false);
                                     thread::sleep(Duration::from_millis(10));
                                 }
                                 None => {
@@ -211,12 +263,12 @@ impl NetworkConnector {
 
                                     match bullshit_queue.pop() {
                                         Some(t) => {
-                                            NetworkConnector::sendto(&t, &stream, true, false);
+                                            NetworkConnector::sendtoold(&t, &stream, true, false);
                                             thread::sleep(Duration::from_millis(10));
                                         }
                                         None => {
                                             
-
+                                            if shouldsend.load(std::sync::atomic::Ordering::Relaxed) {
                                                 static mut timer: f64 = 0.0;
                                                 static mut last_time: f64 = 0.0;
                                                 let current_time = unsafe {
@@ -249,7 +301,7 @@ impl NetworkConnector {
                                                     };
                 
                                                     if gotcamlock {
-                                                        NetworkConnector::sendto(&message, &stream, true, true);
+                                                        NetworkConnector::sendtoold(&message, &stream, true, true);
                                                     }
                                                     
                                                     unsafe{timer = 0.0;}; 
@@ -258,6 +310,7 @@ impl NetworkConnector {
                                                         timer += delta_time;
                                                     }
                                                 }
+                                            }
                                         }
                                     }
 
@@ -310,7 +363,7 @@ impl NetworkConnector {
             let reqpt = Message::new(MessageType::RequestPt, Vec3::ZERO, 0.0, 0);
             let reqchest = Message::new(MessageType::ReqChestReg, Vec3::ZERO, 0.0, 0);
             
-            NetworkConnector::sendto(&requdm, &stream, true, false);
+            NetworkConnector::sendtoold(&requdm, &stream, true, false);
 
             while sr.load(std::sync::atomic::Ordering::Relaxed) {
                 let mut temp_buffer = vec![0; PACKET_SIZE];

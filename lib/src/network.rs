@@ -165,32 +165,12 @@ impl NetworkConnector {
         
        //println!("Sending a {}", message.message_type);
         let serialized_message = bincode::serialize(message).unwrap();
-        let mut written = false;
-        let mut retries = 0;
-        let mut fail = false;
-        while !written & !fail {
-            match stream.try_lock() {
-                Ok(mut streamlock) => {
-                    streamlock.write_all(&serialized_message).unwrap();
-                    written = true;
+
+        
+        let mut streamlock = stream.lock().unwrap();
+        streamlock.write_all(&serialized_message).unwrap();
     
-                }
-                Err(e) => {
-                    if print {
-                        println!("Couldn't get stream lock for {} in sendto, trying again", message.message_type);
-                    }
-                    //thread::sleep(Duration::from_millis(50));
-                    let mut rng = StdRng::from_entropy();
-                    let rand = rng.gen_range(50..150);
-                    thread::sleep(Duration::from_millis(rand));
-                }
-            }
-            retries += 1;
-            if trysend && retries > 5 {
-                fail = true;
-                break;
-            }
-        }
+
         
         
     }
@@ -407,6 +387,9 @@ impl NetworkConnector {
                             };
 
                             match comm.message_type {
+                                MessageType::TellMeYourDamnID => {
+                                    
+                                }
                                 MessageType::Disconnect => {
                                     pme.remove(&Uuid::from_u64_pair(comm.goose.0, comm.goose.1));
                                 }

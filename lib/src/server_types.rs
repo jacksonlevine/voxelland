@@ -63,7 +63,8 @@ pub enum MessageType {
     ChestReg,
     ReqChestReg,
     ChestInvUpdate,
-    Disconnect
+    Disconnect,
+    TellMeYourDamnID
 }
 
 impl Display for MessageType {
@@ -131,6 +132,9 @@ impl Display for MessageType {
             },
             MessageType::ReqChestReg => {
                 write!(f, "ReqChestReg")
+            },
+            MessageType::TellMeYourDamnID => {
+                write!(f, "TellMeYourDamnID")
             },
 
 

@@ -178,8 +178,15 @@ impl NetworkConnector {
                 let mut temp_buffer = vec![0; PACKET_SIZE];
 
                 let data_available = {
-                    let stream_lock = stream.lock().unwrap();
-                    stream_lock.peek(&mut temp_buffer).is_ok()
+                    match stream.try_lock() {
+                        Ok(stream_lock) => {
+                            stream_lock.peek(&mut temp_buffer).is_ok()
+                        }
+                        Err(e) => {
+                            false
+                        }
+                    }
+                    
                 };
 
                 if data_available {

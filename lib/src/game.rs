@@ -1,32 +1,32 @@
-use core::time;
-use std::borrow::BorrowMut;
+
+
 use std::cmp::max;
 use std::collections::HashSet;
-use std::f32::consts::{self, PI};
-use std::io::{self, Write};
-use std::ops::DerefMut;
-use std::slice::Chunks;
-use std::str::FromStr;
+use std::f32::consts::{self};
+use std::io::{Write};
+
+
+
 use std::time::Duration;
 use dashmap::DashMap;
 use gl::types::{GLenum, GLsizei, GLsizeiptr, GLuint, GLvoid};
 use glam::{Mat4, Vec2, Vec3, Vec4};
-use glfw::ffi::{glfwGetCursorPos, glfwGetTime, GLFWwindow};
+use glfw::ffi::{glfwGetTime};
 use glfw::{Action, Key, MouseButton, PWindow};
-use gltf::Gltf;
-use lockfree::queue::{self, Queue};
+
+use lockfree::queue::{Queue};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rusqlite::Connection;
 use uuid::Uuid;
-use vox_format::types::Model;
-use walkdir::WalkDir;
+
+
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI8, Ordering};
 use std::sync::{Arc, Mutex};
-use std::thread::{self, current, JoinHandle};
+use std::thread::{self, JoinHandle};
 
 
-use crate::audio::{self, AudioPlayer};
+use crate::audio::{AudioPlayer};
 use crate::blockinfo::Blocks;
 use crate::blockoverlay::BlockOverlay;
 use crate::chunk::{ChunkFacade, ChunkSystem};
@@ -817,8 +817,8 @@ impl Game {
                 
 
 
-        let aeclone = g.addressentered.clone();
-        let aclone = g.address.clone();
+        let _aeclone = g.addressentered.clone();
+        let _aclone = g.address.clone();
 
         thread::spawn(move || {
 
@@ -1621,7 +1621,7 @@ impl Game {
 
     pub fn set_in_inventory(inv: &Arc<RwLock<Inventory>>, slot: usize, newid: u32, newcount: u32, in_m: bool, needtosend: &Arc<Queue<Message>>  ) -> Result<bool, bool> {
         let mut updaterecipes = false;
-        let mut result;
+        let result;
 
         if in_m {
             let n = needtosend.clone();
@@ -1630,7 +1630,7 @@ impl Game {
         } else {
             let mut inventory = inv.write().unwrap();
              // If not found, try to find an empty slot to add the new item
-                let mut item = &mut inventory.inv[slot];
+                let item = &mut inventory.inv[slot];
 
                 item.0 = newid;
                 item.1 = newcount;
@@ -1651,7 +1651,7 @@ impl Game {
     pub fn add_to_inventory(inv: &Arc<RwLock<Inventory>>, id: u32, count: u32, in_m: bool, needtosend: &Arc<Queue<Message>>) -> Result<bool, bool> {
 
         let mut updaterecipes = false;
-        let mut result;
+        let result;
 
         if in_m {
 
@@ -1660,7 +1660,7 @@ impl Game {
             let inventory = inv.read().unwrap();
         
             // First, try to find an item with the given `id`
-            if let Some((index, item)) = inventory.inv.iter().enumerate().find(|(index, item)| item.0 == id) {
+            if let Some((index, item)) = inventory.inv.iter().enumerate().find(|(_index, item)| item.0 == id) {
                 let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, id as f32, index as u32);
                 msg.infof = item.1 as f32 + 1.0;
                 msg.info2 = 1;
@@ -1673,7 +1673,7 @@ impl Game {
             } else 
 
             // If not found, try to find an empty slot to add the new item
-            if let Some((index, item)) = inventory.inv.iter().enumerate().find(|(index, item)| item.0 == 0) {
+            if let Some((index, _item)) = inventory.inv.iter().enumerate().find(|(_index, item)| item.0 == 0) {
                 
                 let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, id as f32, index as u32);
                 msg.infof = 1.0;
@@ -1730,7 +1730,7 @@ impl Game {
             let recipe = &CURRENT_AVAIL_RECIPES[index];
 
             let mut hasreqs = true;
-            let mut invlock = self.inventory.write().unwrap();
+            let invlock = self.inventory.write().unwrap();
             
             for req in &recipe.0 {
                 let mut amt = 0;
@@ -1810,8 +1810,8 @@ impl Game {
 
                         
                         //Take the reqs away from their real inventory
-                        for req in &recipe.0 {
-                            let mut amt = 0;
+                        for _req in &recipe.0 {
+                            let _amt = 0;
             
                             for i in 0..5 {
                                 //Turn their inventory into the invclone
@@ -1926,7 +1926,7 @@ impl Game {
                     let mut invlock = self.inventory.write().unwrap();
                     invlock.inv = inv.clone();
                 }
-                Err(e) => {
+                Err(_e) => {
                     println!("Couldn't de-serialize inventory blob");
                 }
             }
@@ -1968,7 +1968,7 @@ impl Game {
                     camlock.yaw = playpos.yaw;
                     drop(camlock);
                 }
-                Err(e) => {
+                Err(_e) => {
                     println!("Couldn't de-serialize playerpos blob");
                 }
             }
@@ -1987,7 +1987,7 @@ impl Game {
 
         if unsafe {MOVING}
         {
-            self.vars.walkbobtimer = (self.vars.walkbobtimer + self.delta_time * 10.0);
+            self.vars.walkbobtimer = self.vars.walkbobtimer + self.delta_time * 10.0;
             self.vars.walkbobtimer %= 2.0 * consts::PI;
         }
             
@@ -2242,7 +2242,7 @@ impl Game {
                                         match ud {
                                             Some(ud) => {
                                                 if uuid == ud {
-                                                    let mut playerinv = &mut self.inventory.write().unwrap();
+                                                    let playerinv = &mut self.inventory.write().unwrap();
                                                     let slot = &mut playerinv.inv[e as usize];
                 
                                                    // let wasthere = slot.clone();
@@ -2295,7 +2295,7 @@ impl Game {
             //while morestuff {
 
 
-            for v in 0..5{
+            for _v in 0..5{
                 match self.server_command_queue.pop() {
                     Some(comm) => {
                         match comm.message_type {
@@ -2832,7 +2832,7 @@ impl Game {
         let camlock = self.camera.lock().unwrap();
         unsafe {
             
-            if(camlock.position != LAST_CAM_POS || camlock.direction != LAST_CAM_DIR) {
+            if camlock.position != LAST_CAM_POS || camlock.direction != LAST_CAM_DIR {
                 
                 LAST_CAM_POS = camlock.position;
                 LAST_CAM_DIR = camlock.direction;
@@ -2842,8 +2842,8 @@ impl Game {
                 
                 
                 BLOCK_TYPE = match HIT_RESULT {
-                    Some((head, hit)) => {
-                        if(LAST_BLOCK_POS != hit) {
+                    Some((_head, hit)) => {
+                        if LAST_BLOCK_POS != hit {
                             BREAK_TIME = 0.0;
                             LAST_BLOCK_POS = hit;
                         }
@@ -3180,7 +3180,7 @@ impl Game {
         
         let cs = self.chunksys.read().unwrap();
         let cmem = cs.chunk_memories.lock().unwrap();
-        for (index, cfl) in cmem.memories.iter().enumerate() {
+        for (_index, cfl) in cmem.memories.iter().enumerate() {
             if cfl.used {
                 let dd1: Mutex<Vec<u32>> = Mutex::new(Vec::new());
                 let dd2: Mutex<Vec<u8>> = Mutex::new(Vec::new());
@@ -3219,7 +3219,7 @@ impl Game {
         self.draw_stars();
         self.draw_clouds();
         
-        for (index, cfl) in cmem.memories.iter().enumerate() {
+        for (_index, cfl) in cmem.memories.iter().enumerate() {
             if cfl.used {
                 let dd1: Mutex<Vec<u32>> = Mutex::new(Vec::new());
                 let dd2: Mutex<Vec<u8>> = Mutex::new(Vec::new());
@@ -3480,7 +3480,7 @@ impl Game {
             if nt == 1 {
                 self.create_non_static_model_entity(0, Vec3::new(-100.0, 100.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0, false);
     
-                for i in 0..4 {
+                for _i in 0..4 {
                     if rng.gen_range(0..3) <= 2 {
                         self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0, false);
                         self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0, false);
@@ -3501,9 +3501,9 @@ impl Game {
 
     pub fn rebuild_whole_world_while_showing_loading_screen(&mut self) -> std::thread::JoinHandle<()> {
 
-        let csys = self.chunksys.clone();
-        let campos = self.camera.lock().unwrap().position.clone();
-        let shader = self.shader0.clone();
+        let _csys = self.chunksys.clone();
+        let _campos = self.camera.lock().unwrap().position.clone();
+        let _shader = self.shader0.clone();
 
         let threadhandle = thread::spawn(move|| {
             //ChunkSystem::initial_rebuild_on_main_thread(&csys, &shader, &campos)
@@ -3534,7 +3534,7 @@ impl Game {
 
     pub fn chunk_thread_inner_function(cam_arc: &Arc<Mutex<Camera>>, csys_arc: &Arc<RwLock<ChunkSystem>>, last_user_c_pos: &mut vec::IVec2) {
         //println!("Starting over the CTIF");
-        let mut rng = StdRng::from_entropy();
+        let _rng = StdRng::from_entropy();
 
         let mut lightstuff = true;
         while lightstuff {
@@ -3622,7 +3622,7 @@ impl Game {
                         Some(index) => {
                            // println!("Popping stuff USER {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, false);
-                            let mut userstuff = true;
+                            let _userstuff = true;
                             
                         }
                         None => {}
@@ -3887,7 +3887,7 @@ impl Game {
                     self.drops.add_drop(tip, 17, 1);
                 } else if blockat == 19 { //Door stuff
                     let top = DoorInfo::get_door_top_bit(blockbits);
-                    let mut other_half;
+                    let other_half;
 
                     if top == 1 {
                         other_half = block_hit + IVec3::new(0, -1, 0);
@@ -3969,7 +3969,7 @@ impl Game {
 
                     if blockidhere == 19 {
                         let top = DoorInfo::get_door_top_bit(blockbitshere);
-                        let mut otherhalf;
+                        let otherhalf;
 
                         if top == 1 {
                             otherhalf = block_hit + IVec3::new(0,-1,0);
@@ -3998,7 +3998,7 @@ impl Game {
                         }
                     } else if blockidhere == 21 { //RIGHT CLICKED A CHEST
                         
-                        let csys = self.chunksys.write().unwrap();
+                        let _csys = self.chunksys.write().unwrap();
 
                         self.hud.current_chest = block_hit;
                         updateinv = true;
@@ -4119,7 +4119,7 @@ impl Game {
                                     DoorInfo::set_opposite_door_bits(&mut blockbitsright, 0);
                                     DoorInfo::set_opposite_door_bits(&mut neightopbits, 0);
 
-                                    let chunktoreb = ChunkSystem::spot_to_chunk_pos(&right);
+                                    let _chunktoreb = ChunkSystem::spot_to_chunk_pos(&right);
 
                                     if self.vars.in_multiplayer {
                                         let mut message = Message::new(
@@ -4161,7 +4161,7 @@ impl Game {
                                     DoorInfo::set_opposite_door_bits(&mut blockbitsleft, 0);
                                     DoorInfo::set_opposite_door_bits(&mut neightopbits, 0);
 
-                                    let chunktoreb = ChunkSystem::spot_to_chunk_pos(&left);
+                                    let _chunktoreb = ChunkSystem::spot_to_chunk_pos(&left);
 
                                     if self.vars.in_multiplayer {
                                         let mut message = Message::new(

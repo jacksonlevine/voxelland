@@ -31,9 +31,9 @@ impl CraftTableInfo {
     }
 
     pub fn get_craft_table_uvs() -> Vec<f32> {
-        let straps = TextureFace::new(13,0);
-        let blank = TextureFace::new(14,0);
-        let front = TextureFace::new(15,0);
+        let _straps = TextureFace::new(13,0);
+        let _blank = TextureFace::new(14,0);
+        let _front = TextureFace::new(15,0);
 
         let uvs = vec![
             0.21347180008888245, 0.8583516478538513, 0.0, 0.0,

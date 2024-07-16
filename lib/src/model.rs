@@ -1,16 +1,16 @@
 
 
-use std::{collections::HashMap, fs, path::Path, str::FromStr, sync::Arc};
+use std::{fs, path::Path, sync::Arc};
 
 use dashmap::DashMap;
 use gl::types::{GLsizeiptr, GLuint, GLvoid};
 use glam::{Mat4, Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
-use gltf::{accessor::{DataType, Dimensions}, image::Source, mesh::util::ReadIndices, Semantic};
+use gltf::{accessor::{Dimensions}, image::Source, mesh::util::ReadIndices};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use uuid::Uuid;
-use crate::{monsters::Monsters, planetinfo::Planets};
-use gltf::{animation::Interpolation, animation::util::ReadOutputs};
+use crate::{planetinfo::Planets};
+use gltf::{animation::util::ReadOutputs};
 use crate::{collisioncage::{CollCage, Side}, game::*, modelentity::{AggroTarget, ModelEntity}, vec};
 use percent_encoding::percent_decode_str;
 
@@ -31,7 +31,7 @@ fn num_components(dimensions: Dimensions) -> i32 {
 fn load_document_textures(document: &gltf::Document, buffers: &[gltf::buffer::Data], base_path: &str) -> Vec<GLuint> {
     document.images().map(|image| {
         let data = match image.source() {
-            Source::Uri { uri, mime_type } => {
+            Source::Uri { uri, mime_type: _ } => {
                 // External image: Load from a file
                 let decoded_uri = percent_decode_str(uri).decode_utf8_lossy(); // Decode the URI
                 let path = format!("{}/{}", base_path, decoded_uri); // Use the decoded URI to form the path
@@ -50,7 +50,7 @@ fn load_document_textures(document: &gltf::Document, buffers: &[gltf::buffer::Da
                     }
                 }
             },
-            Source::View { view, mime_type } => {
+            Source::View { view, mime_type: _ } => {
                 // Embedded image: Get data from buffer
                 let buffer_index = view.buffer().index();
                 let start = view.offset();
@@ -390,7 +390,7 @@ impl Game {
                 model.controls.up = false;
             }
 
-            if let Some(current_animation) = model.current_animation {
+            if let Some(_current_animation) = model.current_animation {
                 model.animation_time += self.delta_time;
                 //apply_animation(&mut model.nodes, &model.animations[current_animation], model.animation_time);
             }
@@ -654,7 +654,7 @@ impl Game {
                             );
 
                             match modelt {
-                                ModelEntityType::Static(entity) => {
+                                ModelEntityType::Static(_entity) => {
                                     gl::Uniform1f(
                                         gl::GetUniformLocation(
                                             self.modelshader.shader_id,
@@ -803,7 +803,7 @@ impl Game {
         for animation in document.animations() {
             let mut channels = Vec::new();
             for channel in animation.channels() {
-                let sampler = channel.sampler();
+                let _sampler = channel.sampler();
                 let reader = channel.reader(|buffer| Some(&buffers[buffer.index()]));
                 let inputs = reader.read_inputs().unwrap().collect::<Vec<f32>>();
                 let outputs: Vec<Vec<f32>> = match reader.read_outputs().unwrap() {
@@ -871,7 +871,7 @@ impl Game {
     }
 
     pub fn create_model_vbos(&mut self) {
-        for (index, (document, buffers, images)) in self.gltf_models.iter().enumerate() {
+        for (index, (document, buffers, _images)) in self.gltf_models.iter().enumerate() {
             self.gltf_counts.push(Vec::new());
             self.gltf_drawmodes.push(Vec::new());
             self.gltf_vaos.push(Vec::new());

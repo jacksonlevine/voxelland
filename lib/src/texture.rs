@@ -36,7 +36,7 @@ impl Texture {
             if error != gl::NO_ERROR {
                 println!("OpenGL Error after creating texture storage: {}", error);
             }
-            let mut data: image::ImageBuffer<image::Rgba<u8>, Vec<u8>> = img.to_rgba8().clone();
+            let data: image::ImageBuffer<image::Rgba<u8>, Vec<u8>> = img.to_rgba8().clone();
             
 
             gl::TextureSubImage2D(
@@ -75,7 +75,7 @@ impl Texture {
         static mut PERL: Lazy<Perlin> = Lazy::new(|| Perlin::new(0));
 
         unsafe {
-            if(TIMER < 100.0) {
+            if TIMER < 100.0 {
                 TIMER += delta_time*2.0;
             } else {
                 TIMER = 0.0;

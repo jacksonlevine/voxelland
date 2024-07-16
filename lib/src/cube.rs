@@ -1,5 +1,5 @@
-use crate::vec::{self, IVec3};
-use glam::Vec3;
+use crate::vec::{self};
+
 use num_enum::FromPrimitive;
 
 #[derive(Debug, Clone, Copy, FromPrimitive, PartialEq)]

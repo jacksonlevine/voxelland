@@ -5,12 +5,12 @@ use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::path::Path;
-use std::sync::atomic::AtomicU32;
-use std::sync::atomic::AtomicU8;
+
+
 use std::sync::RwLock;
 
 use dashmap::DashMap;
-use dashmap::DashSet;
+
 use gl::types::GLuint;
 use glam::Vec3;
 use num_enum::FromPrimitive;
@@ -19,22 +19,22 @@ use rand::Rng;
 use rand::SeedableRng;
 use rusqlite::params;
 use rusqlite::Connection;
-use uuid::Uuid;
-use vox_format::data::VoxModels;
-use vox_format::types::Model;
-use walkdir::WalkDir;
+
+
+
+
 use std::sync::{Arc, Mutex};
 
-use noise::{NoiseFn, Perlin, MultiFractal};
+use noise::{NoiseFn, Perlin};
 
-use crate::audio;
+
 use crate::audio::AudioPlayer;
 use crate::chunkregistry::ChunkMemory;
 use crate::chunkregistry::ChunkRegistry;
 use crate::cube::Cube;
 use crate::cube::CubeSide;
 use crate::inventory::ChestInventory;
-use crate::packedvertex;
+
 use crate::packedvertex::PackedVertex;
 use crate::planetinfo::Planets;
 use crate::shader::Shader;
@@ -49,9 +49,9 @@ use crate::vec::{self, IVec2};
 
 use crate::blockinfo::Blocks;
 use crate::voxmodel::JVoxModel;
-use crate::worldgeometry::WorldGeometry;
 
-use std::str::FromStr;
+
+
 use std::io::Write;
 
 
@@ -366,7 +366,7 @@ impl ChunkSystem {
                     eprintln!("No chest inventory found for key {:?}", key);
                 }
             }
-            Err(e) => {
+            Err(_e) => {
 
             }
         };
@@ -553,7 +553,7 @@ impl ChunkSystem {
     }
     
 
-    pub fn start_with_seed(seed: u32) {
+    pub fn start_with_seed(_seed: u32) {
         
     }
 
@@ -695,7 +695,7 @@ impl ChunkSystem {
             y: (spot.z as f32 / CW as f32).floor() as i32,
         }
     }
-    pub fn initial_rebuild_on_main_thread(csys: &Arc<RwLock<ChunkSystem>>, shader: &Shader, campos: &Vec3) {
+    pub fn initial_rebuild_on_main_thread(csys: &Arc<RwLock<ChunkSystem>>, _shader: &Shader, campos: &Vec3) {
 
         // unsafe {
         //     gl::BindVertexArray(shader.vao);
@@ -1002,7 +1002,7 @@ impl ChunkSystem {
             }
 
             match lmlock.get_mut(&spot) {
-                Some(mut k) => {
+                Some(k) => {
                     let mut i = 0;
                     while i < k.rays.len() {
                         if k.rays[i].origin == origin {
@@ -1046,13 +1046,12 @@ impl ChunkSystem {
             let blockbitshere = self.blockat(n.1);
 
             //println!("Got the block bits here: {}", blockbitshere);
-            let blockidhere = (blockbitshere & Blocks::block_id_bits());
+            let blockidhere = blockbitshere & Blocks::block_id_bits();
 
-            let goinghere = (blockidhere == 0 || 
+            let goinghere = blockidhere == 0 || 
                 Blocks::is_transparent(blockidhere) ||
                 Blocks::is_semi_transparent(blockidhere) ||
-                n.1 == origin
-            );
+                n.1 == origin;
 
             //println!("Goinghere: {}", goinghere);
             
@@ -1071,7 +1070,7 @@ impl ChunkSystem {
                 let inner_light_seg;
 
                 match lmlock.get_mut(&n.1) {
-                    Some(mut k2) => {
+                    Some(k2) => {
                         inner_light_seg = k2
 
                     }
@@ -1121,7 +1120,7 @@ impl ChunkSystem {
 
 
 
-                        let mut existing_new_light_seg;
+                        let existing_new_light_seg;
 
                         
                         let mut existing_next_value = LightColor::ZERO;
@@ -1130,7 +1129,7 @@ impl ChunkSystem {
                             Some(k2) => {
                                 existing_new_light_seg = k2;
 
-                                for (ind, ray) in &mut existing_new_light_seg.rays.iter().enumerate() {
+                                for (_ind, ray) in &mut existing_new_light_seg.rays.iter().enumerate() {
                                     if ray.origin == origin {
 
                                         existing_next_value = ray.value; //Either this or we'll consider it zero
@@ -1203,7 +1202,7 @@ impl ChunkSystem {
             for z in 0..CW {
                 for y in 0..CH {
                     let blockcoord = IVec3::new(pos.x*CW + x,y,pos.y*CW + z);
-                    let mut lmlock = lmarc.lock().unwrap();
+                    let lmlock = lmarc.lock().unwrap();
                     match lmlock.get(&blockcoord) {
                         Some(k) => {
                             for ray in &k.rays {
@@ -1378,7 +1377,7 @@ impl ChunkSystem {
 
                             let doortop = DoorInfo::get_door_top_bit(flags);
 
-                            let mut blocklightval = 0.0;
+                            let _blocklightval = 0.0;
 
                             let lmlock = self.lightmap.lock().unwrap();
                             let blocklighthere = match lmlock.get(&spot) {
@@ -1415,11 +1414,11 @@ impl ChunkSystem {
                         } else if block == 20 {
                             let direction = Blocks::get_direction_bits(flags);
 
-                            let mut modelindex: i32 = direction as i32;
+                            let modelindex: i32 = direction as i32;
 
 
 
-                            let mut blocklightval = 0.0;
+                            let _blocklightval = 0.0;
 
                             let lmlock = self.lightmap.lock().unwrap();
                             let blocklighthere = match lmlock.get(&spot) {
@@ -1454,11 +1453,11 @@ impl ChunkSystem {
                         } else if block == 21 {
                             let direction = Blocks::get_direction_bits(flags);
 
-                            let mut modelindex: i32 = direction as i32;
+                            let modelindex: i32 = direction as i32;
 
 
 
-                            let mut blocklightval = 0.0;
+                            let _blocklightval = 0.0;
 
                             let lmlock = self.lightmap.lock().unwrap();
                             let blocklighthere = match lmlock.get(&spot) {
@@ -1492,11 +1491,11 @@ impl ChunkSystem {
                             
                         } else if block == 23 {
 
-                            let mut modelindex: i32 = 0;
+                            let modelindex: i32 = 0;
 
 
 
-                            let mut blocklightval = 0.0;
+                            let _blocklightval = 0.0;
 
                             let lmlock = self.lightmap.lock().unwrap();
                             let blocklighthere = match lmlock.get(&spot) {
@@ -1532,11 +1531,11 @@ impl ChunkSystem {
                         if block == 31 {
                             let direction = Blocks::get_direction_bits(flags);
 
-                            let mut modelindex: i32 = direction as i32;
+                            let modelindex: i32 = direction as i32;
 
 
 
-                            let mut blocklightval = 0.0;
+                            let _blocklightval = 0.0;
 
                             let lmlock = self.lightmap.lock().unwrap();
                             let blocklighthere = match lmlock.get(&spot) {
@@ -1581,7 +1580,7 @@ impl ChunkSystem {
                                     let neigh_semi_trans = Blocks::is_semi_transparent(neigh_block);
                                     let water_bordering_transparent = block == 2 && neigh_block != 2 && Blocks::is_transparent(neigh_block);
 
-                                    let mut lmlock = self.lightmap.lock().unwrap();
+                                    let lmlock = self.lightmap.lock().unwrap();
             
                                     let blocklighthere = match lmlock.get(&neighspot) {
                                         Some(k) => {
@@ -1676,7 +1675,7 @@ impl ChunkSystem {
                                         None => { false }
                                     };
 
-                                    let mut lmlock = self.lightmap.lock().unwrap();
+                                    let lmlock = self.lightmap.lock().unwrap();
             
                                     let blocklighthere = match lmlock.get(&neighspot) {
                                         Some(k) => {
@@ -1844,7 +1843,7 @@ impl ChunkSystem {
         // let rand_number2: u32 = rng.gen();
         let mut implicated: HashSet<vec::IVec2> = HashSet::new();
 
-        let mut should_break = false;
+        let should_break = false;
 
         let dim_floors = Planets::get_floor_blocks(self.planet_type as u32);
 
@@ -1913,7 +1912,7 @@ impl ChunkSystem {
 
         const XZDIVISOR1: f64 = 100.35 * 4.0;
 
-        let mut y = 20;
+        let y = 20;
 
         let noise1 = f64::max(
             0.0,
@@ -1932,7 +1931,7 @@ impl ChunkSystem {
 
         const XZDIVISOR1: f64 = 45.35 * 4.0;
 
-        let mut y = 20;
+        let y = 20;
 
         let noise1 = f64::max(
             0.0,
@@ -1970,7 +1969,7 @@ impl ChunkSystem {
     pub fn noise_func(&self, spot: vec::IVec3) -> f64 {
 
         let xzdivisor1 = 600.35 * 4.0;
-        let xzdivisor2 = 1000.35 * 4.0;
+        let _xzdivisor2 = 1000.35 * 4.0;
 
         let mut y = spot.y - 20;
 

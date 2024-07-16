@@ -1,4 +1,4 @@
-use glam::{FloatExt, Vec3};
+use glam::{Vec3};
 
 use crate::vec;
 use num_enum::FromPrimitive;

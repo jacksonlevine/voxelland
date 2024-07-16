@@ -1,9 +1,9 @@
-use crate::{blockinfo::Blocks, game::{self, Game, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, SINGLEPLAYER}, shader::Shader, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, text::Text, texture::Texture};
-use glam::{Vec2, Vec4};
-use glfw::{ffi::{glfwGetWindowMonitor, glfwSetWindowMonitor}, Action, Context, Glfw, GlfwReceiver, Key, Monitor, PWindow, Window, WindowEvent};
-use once_cell::sync::Lazy;
-use sys::ImVector_ImVec4;
-use std::{path::Path, ptr::addr_of_mut, sync::{atomic::AtomicBool, Arc, Mutex, RwLock}, time::{Duration, Instant}};
+use crate::{blockinfo::Blocks, game::{Game, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, SINGLEPLAYER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}};
+
+use glfw::{Action, Context, Glfw, GlfwReceiver, Key, PWindow, WindowEvent};
+
+
+use std::{sync::{atomic::AtomicBool, Arc, Mutex, RwLock}, time::{Duration, Instant}};
 use imgui::*;
 use imgui_opengl_renderer::Renderer;
 
@@ -104,7 +104,7 @@ impl WindowAndKeyContext {
                 ..Default::default()
             }),
         }]);
-        let mut renderer = Renderer::new(&mut imgui, |s| window.get_proc_address(s) as *const _);
+        let renderer = Renderer::new(&mut imgui, |s| window.get_proc_address(s) as *const _);
 
 
         unsafe {
@@ -200,7 +200,7 @@ impl WindowAndKeyContext {
                             let available_height = window_size[1];
         
                             let pos_x = (available_width - button_width) / 2.0;
-                            let mut pos_y = (available_height - (button_height) - 10.0 ) / 2.0;
+                            let pos_y = (available_height - (button_height) - 10.0 ) / 2.0;
 
                                 ui.set_cursor_pos([pos_x, pos_y - 50.0]);
 
@@ -268,7 +268,7 @@ impl WindowAndKeyContext {
         
                                 
                             }
-                            glfw::WindowEvent::Key(key, scancode, action, _modifiers) => {
+                            glfw::WindowEvent::Key(key, _scancode, action, _modifiers) => {
         
                                 let pressed = action == glfw::Action::Press || action == glfw::Action::Repeat;
                                 io.keys_down[key as usize] = pressed;
@@ -718,7 +718,7 @@ impl WindowAndKeyContext {
             
                                     
                                 }
-                                glfw::WindowEvent::Key(key, scancode, action, _modifiers) => {
+                                glfw::WindowEvent::Key(key, _scancode, action, _modifiers) => {
             
                                     let pressed = action == glfw::Action::Press || action == glfw::Action::Repeat;
                                     io.keys_down[key as usize] = pressed;

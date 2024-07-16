@@ -1,14 +1,14 @@
 use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
+
 use std::fmt::{self, Display, Formatter};
-use std::sync::Arc;
-use tokio::net::{TcpListener, TcpStream};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::sync::Mutex;
+
+
+
+
 use uuid::Uuid;
 use glam::Vec3;
 
-use crate::collisioncage::CollCage;
+
 use crate::vec;
 
 
@@ -169,7 +169,7 @@ impl Message {
         if count > MOB_BATCH_SIZE {
             panic!("No MobUpdateBatch over size {}", MOB_BATCH_SIZE);
         }
-        let emptymsg = Message::new(MessageType::None, Vec3::ZERO, 0.0, 0);
+        let _emptymsg = Message::new(MessageType::None, Vec3::ZERO, 0.0, 0);
 
         for i in 0..count {
             self.msgs[i] = MobMessage::from_message(&slice[i]);

@@ -1,4 +1,4 @@
-use glfw::ffi::glfwGetTime;
+
 
 use crate::game::*;
 
@@ -195,7 +195,7 @@ impl Game {
                     gl::Enable(gl::CULL_FACE);
                 }
             }
-            Some(VisionType::Vox(vox_index)) => {
+            Some(VisionType::Vox(_vox_index)) => {
 
             }
             None => {

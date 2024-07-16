@@ -1,7 +1,7 @@
 use std::fs::{self, File};
 use std::net::{TcpStream, ToSocketAddrs};
-use std::io::{self, BufRead, BufReader, Read, Write};
-use std::process::id;
+use std::io::{self, Read, Write};
+
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread::{self, JoinHandle};
@@ -11,15 +11,15 @@ use dashmap::DashMap;
 use glam::Vec3;
 use glfw::ffi::glfwGetTime;
 use lockfree::queue::Queue;
-use rusqlite::Connection;
+
 use uuid::Uuid;
 
 use crate::camera::Camera;
 use crate::chunk::ChunkSystem;
 use crate::modelentity::{direction_to_euler, ModelEntity};
-use crate::server_types::{self, Entry, Message, MessageType, MobUpdateBatch, MOB_BATCH_SIZE};
+use crate::server_types::{self, Message, MessageType, MOB_BATCH_SIZE};
 use crate::statics::MY_MULTIPLAYER_UUID;
-use crate::vec::IVec3;
+
 
 
 pub struct NetworkConnector {
@@ -112,8 +112,8 @@ impl NetworkConnector {
         let recv_world_bool = self.received_world.clone();
         let commqueue = self.commqueue.clone();
         let gknowncams = self.gknowncams.clone();
-        let my_uuid = self.my_uuid.clone();
-        let nsmes = self.nsme.clone();
+        let _my_uuid = self.my_uuid.clone();
+        let _nsmes = self.nsme.clone();
         let pme = self.pme.clone();
 
 
@@ -182,7 +182,7 @@ impl NetworkConnector {
                         Ok(stream_lock) => {
                             stream_lock.peek(&mut temp_buffer).is_ok()
                         }
-                        Err(e) => {
+                        Err(_e) => {
                             false
                         }
                     }
@@ -210,7 +210,7 @@ impl NetworkConnector {
                                     }
                                     msg
                                 }
-                                Err(e) => {
+                                Err(_e) => {
                                     Message::new(MessageType::None, Vec3::ZERO, 0.0, 0)
                                 }
                             };
@@ -317,7 +317,7 @@ impl NetworkConnector {
 
                                     let newpos = Vec3::new(comm.x, comm.y, comm.z);
                                     //let id = comm.info;
-                                    let modind = comm.info2;
+                                    let _modind = comm.info2;
                                     let rot = comm.rot;
                                     let scale = 0.3;
 
@@ -392,7 +392,7 @@ impl NetworkConnector {
 
                                             NetworkConnector::sendtolocked(&reqseed, &mut stream_lock);
                                         }
-                                        Err(e) => {
+                                        Err(_e) => {
                                             println!("Error receiving, trying again...");
                                             NetworkConnector::sendtolocked(&requdm, &mut stream_lock);
                                         }
@@ -506,11 +506,11 @@ impl NetworkConnector {
                                     
                                 },
                                 MessageType::NewMob => {
-                                    let newid = comm.info;
+                                    let _newid = comm.info;
 
-                                    let newtype = comm.info2;
+                                    let _newtype = comm.info2;
 
-                                    let newpos = Vec3::new(comm.x, comm.y, comm.z);
+                                    let _newpos = Vec3::new(comm.x, comm.y, comm.z);
                                 },
                                 MessageType::WhatsThatMob => todo!(),
                                 MessageType::ShutUpMobMsgs =>  {

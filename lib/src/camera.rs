@@ -1,4 +1,4 @@
-use crate::game::{ControlsState, MOVING, SPRINTING, STAMINA};
+use crate::game::{ControlsState, MOVING, SPRINTING};
 use glam::{Mat4, Vec3};
 pub struct Camera {
     pub yaw: f32,

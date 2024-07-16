@@ -1,10 +1,10 @@
 use glam::Vec3;
 use libfmod::ffi::FMOD_DSP_STATE;
-use libfmod::{Channel, ChannelGroup, DspDescription, DspParameterDesc, Sound, System, Vector};
-use libfmod::{Dsp, DspCallbackType, DspState};
-use std::ffi::c_void;
+use libfmod::{Channel, ChannelGroup, Sound, System, Vector};
+
+
 use std::f32::consts::PI;
-use std::ptr;
+
 use std::{collections::HashMap, sync::atomic::AtomicBool};
 
 static mut SINE_WAVE_STATE: Option<SineWaveState> = None;
@@ -16,11 +16,11 @@ struct SineWaveState {
 }
 
 extern "C" fn dsp_callback(
-    dsp_state: *mut FMOD_DSP_STATE,
-    inbuffer: *mut f32,
+    _dsp_state: *mut FMOD_DSP_STATE,
+    _inbuffer: *mut f32,
     outbuffer: *mut f32,
     length: u32,
-    inchannels: i32,
+    _inchannels: i32,
     outchannels: *mut i32,
 ) -> i32 {
     unsafe {
@@ -90,7 +90,7 @@ impl AudioPlayer {
         system.init(512, libfmod::Init::NORMAL, None)?; // Initialize system with 32 channels
         let (head_group, spatial_group, dsp_group) = Self::create_channel_groups(&system);
 
-        let name: [i8; 32] = [b'f'.try_into().unwrap(), b'u'.try_into().unwrap(), b's'.try_into().unwrap(), b't'.try_into().unwrap(), b'o'.try_into().unwrap(), b'm'.try_into().unwrap(), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // DSP name
+        let _name: [i8; 32] = [b'f'.try_into().unwrap(), b'u'.try_into().unwrap(), b's'.try_into().unwrap(), b't'.try_into().unwrap(), b'o'.try_into().unwrap(), b'm'.try_into().unwrap(), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // DSP name
     
         // let dsp = system
         //     .create_dsp(libfmod::DspDescription {
@@ -252,7 +252,7 @@ impl AudioPlayer {
     }
 
     pub fn cleanup_channels(&mut self) {
-        for (name, channels) in &mut self.channels {
+        for (_name, channels) in &mut self.channels {
             // Collect the indices of channels that are not playing
             let mut chanstoremove = Vec::new();
             for (index, channel) in channels.iter().enumerate() {

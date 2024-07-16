@@ -1,8 +1,8 @@
 
-use std::sync::{atomic::AtomicBool, Arc, Mutex, RwLock};
+
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use voxelland::{audio::AudioPlayer, camera::Camera, chunk::*, game::Game};
+use voxelland::{chunk::*};
 
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -10,7 +10,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let width = 1280;
     let height = 720;
     let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
-    let (mut window, events) = glfw
+    let (mut window, _events) = glfw
         .create_window(width, height, "Hello", glfw::WindowMode::Windowed)
         .expect("Failed to create GLFW window.");
     gl::load_with(|s| window.get_proc_address(s) as *const _);

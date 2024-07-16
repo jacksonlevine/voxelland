@@ -2,7 +2,7 @@
 use std::sync::*;
 
 use atomic::{AtomicI32, AtomicI8};
-use gl::types::{GLsizei, GLuint, GLvoid};
+use gl::types::{GLuint, GLvoid};
 use glam::Vec2;
 use glfw::PWindow;
 

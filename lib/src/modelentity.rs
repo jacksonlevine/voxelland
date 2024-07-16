@@ -1,13 +1,13 @@
 
 
-use std::{ops::Bound, sync::{Arc, Mutex, RwLock}};
+use std::{sync::{Arc, Mutex, RwLock}};
 
 use dashmap::DashMap;
 use glam::*;
 use once_cell::sync::Lazy;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use uuid::Uuid;
-use vox_format::chunk;
+
 
 pub enum AggroTarget {
     ThisCamera,
@@ -54,7 +54,7 @@ pub fn euler_to_direction(euler_angles: Vec3) -> Vec3 {
 }
 
 
-use crate::{blockinfo::Blocks, camera::Camera, chunk::ChunkSystem, collisioncage::{BoundBox, CollCage}, game::{Animation, ControlsState, Node, AMBIENTBRIGHTNESS}, planetinfo::Planets, raycast::{self, raycast_voxel}, vec::{self, IVec3}};
+use crate::{blockinfo::Blocks, camera::Camera, chunk::ChunkSystem, collisioncage::{BoundBox, CollCage}, game::{Animation, ControlsState, Node, AMBIENTBRIGHTNESS}, planetinfo::Planets, raycast::{raycast_voxel}, vec::{self, IVec3}};
 
 static mut CURRENT_ID: u32 = 0;
 
@@ -274,7 +274,7 @@ impl ModelEntity {
         self.up = self.direction.cross(self.right);
     }
 
-    pub fn random_behavior(&mut self, delta: &f32) {
+    pub fn random_behavior(&mut self, _delta: &f32) {
         let rand = self.rng.gen_range(0..6);
 
         match rand {
@@ -282,7 +282,7 @@ impl ModelEntity {
                 self.controls.clear();
                 let res = raycast_voxel(self.position, self.direction, &self.csys, 5.0);
                 match res {
-                    Some(res) => {
+                    Some(_res) => {
                         self.controls.lookingleft = true;
                     }
                     None => {
@@ -296,7 +296,7 @@ impl ModelEntity {
                 self.controls.clear();
                 let res = raycast_voxel(self.position, self.direction, &self.csys, 5.0);
                 match res {
-                    Some(res) => {
+                    Some(_res) => {
                         self.controls.lookingright = true;
                     }
                     None => {
@@ -314,7 +314,7 @@ impl ModelEntity {
         }
     }
 
-    pub fn cricket_behavior(&mut self, delta: &f32) {
+    pub fn cricket_behavior(&mut self, _delta: &f32) {
 
 
         
@@ -421,7 +421,7 @@ impl ModelEntity {
                     }
                     
                 }
-                AggroTarget::ModelEntityID(id) => {
+                AggroTarget::ModelEntityID(_id) => {
                     //let modent = 
                 }
                 AggroTarget::ThisCamera => {

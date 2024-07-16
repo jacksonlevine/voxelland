@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use crate::chunk::ChunkGeo;
+
 use crate::shader::Shader;
 use gl;
 use gl::types::{GLsizei, GLsizeiptr, GLuint, GLvoid};

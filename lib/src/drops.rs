@@ -1,13 +1,13 @@
-use std::{ops::Bound, sync::*};
+use std::{sync::*};
 
 use gl::types::{GLuint, GLvoid};
 use glam::{Mat4, Vec3};
 use glfw::ffi::glfwGetTime;
 use lockfree::queue::Queue;
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use vox_format::chunk::Chunk;
 
-use crate::{blockinfo, camera::Camera, chunk::ChunkSystem, collisioncage::{BoundBox, CollCage, Side}, game::Game, server_types::Message, shader::Shader, vec};
+
+use crate::{camera::Camera, chunk::ChunkSystem, collisioncage::{BoundBox, CollCage, Side}, game::Game, server_types::Message, shader::Shader, vec};
 
 use crate::inventory::Inventory;
 
@@ -234,11 +234,11 @@ impl Drops {
 
             if (drop.position).distance(campos) < 1.0 {
                 match Game::add_to_inventory(&self.inv, drop.block_id, drop.amount, self.in_multiplayer, &self.needtosend) {
-                    Ok(t) => {
+                    Ok(_t) => {
                         to_remove_indices.push(index);
                         println!("Picked up {} {}", drop.block_id, drop.amount);
                     },
-                    Err(t) => {
+                    Err(_t) => {
 
                     }
                 }

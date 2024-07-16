@@ -39,7 +39,7 @@ impl Display for MobUpdateBatch {
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Copy)]
 pub enum MessageType {
     None,
     RequestUdm,
@@ -156,6 +156,31 @@ impl Display for MessageType {
 
 impl Message {
 
+    #[inline]
+    #[must_use]
+    pub const fn from_mob_message(message: &MobMessage) -> Self {
+        Self {
+            message_type: message.message_type, x:message.x, y: message.y, z: message.z, rot: message.rot, info: message.info, info2: message.info2, infof: message.infof, goose: message.goose, otherpos: message.otherpos, bo: message.bo, hostile: message.hostile,
+            count: 0, msgs: [MobMessage::EMPTY; MOB_BATCH_SIZE]
+        }
+    }
+
+    pub fn inoculate_with_mobupdates(&mut self, count: usize, slice: &[Message]) {
+        if count > MOB_BATCH_SIZE {
+            panic!("No MobUpdateBatch over size {}", MOB_BATCH_SIZE);
+        }
+        let emptymsg = Message::new(MessageType::None, Vec3::ZERO, 0.0, 0);
+
+        for i in 0..count {
+            self.msgs[i] = MobMessage::from_message(&slice[i]);
+        }
+        self.count = count as u8;
+        // for i in count..self.msgs.len() {
+        //     self.msgs[i] = MobMessage::from_message(&emptymsg);
+        // }
+
+    }
+
     pub fn invupdate(slot: usize, newid: u32, newamount: u32) -> Message {
 
         let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, newid as f32, slot as u32);
@@ -178,7 +203,10 @@ impl Message {
             goose: Uuid::new_v4().as_u64_pair(),
             otherpos: vec::IVec3::new(0,0,0),
             bo: false,
-            hostile: false
+            hostile: false,
+
+            count: 0,
+            msgs: [MobMessage::EMPTY; MOB_BATCH_SIZE]
         }
     }
 
@@ -186,6 +214,41 @@ impl Message {
         let m = Message::new(MessageType::BlockSet, Vec3::new(0.0,0.0,0.0), 0.0, 0);
         bincode::serialized_size(&m).unwrap() as usize
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MobMessage {
+    pub message_type: MessageType,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub rot: f32,
+    pub info: u32,
+    pub info2: u32,
+    pub infof: f32,
+    pub goose: (u64, u64),
+    pub otherpos: vec::IVec3,
+    pub bo: bool,
+    pub hostile: bool,
+}
+
+impl MobMessage {
+    pub const EMPTY: Self = Self::new();
+
+    #[inline]
+    #[must_use]
+    pub const fn new() -> Self {
+        Self { message_type: MessageType::None, x:0.0, y: 0.0, z: 0.0, rot: 0.0, info: 0, info2: 0, infof: 0.0, goose: (0, 0), otherpos: vec::IVec3{x:0, y:0, z:0}, bo: false, hostile: false}
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn from_message(message: &Message) -> Self {
+        Self {
+            message_type: message.message_type, x:message.x, y: message.y, z: message.z, rot: message.rot, info: message.info, info2: message.info2, infof: message.infof, goose: message.goose, otherpos: message.otherpos, bo: message.bo, hostile: message.hostile
+        }
+    }
+
 }
 
 
@@ -202,7 +265,11 @@ pub struct Message {
     pub goose: (u64, u64),
     pub otherpos: vec::IVec3,
     pub bo: bool,
-    pub hostile: bool
+    pub hostile: bool,
+
+
+    pub count: u8,
+    pub msgs: [MobMessage; MOB_BATCH_SIZE]
 }
 
 #[derive(Serialize, Deserialize)]

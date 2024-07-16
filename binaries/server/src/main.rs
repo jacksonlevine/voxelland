@@ -282,8 +282,9 @@ fn handle_client(
                 };
 
                 for chunk in mobmsgs.chunks(server_types::MOB_BATCH_SIZE) {
-                    let mobmsgbatch = MobUpdateBatch::new(chunk.len(), chunk);
-                    let mobmsg = Message::new(MessageType::MobUpdateBatch, Vec3::ZERO, 0.0, bincode::serialized_size(&mobmsgbatch).unwrap() as u32);
+
+                    let mut mobmsg = Message::new(MessageType::MobUpdateBatch, Vec3::ZERO, 0.0, 0);
+                    mobmsg.inoculate_with_mobupdates(chunk.len(), chunk);
 
                     {
                         let mut mystream = stream.lock().unwrap();
@@ -297,17 +298,9 @@ fn handle_client(
                         };
                     thread::sleep(Duration::from_millis(10));
 
-                        match mystream.write_all(&bincode::serialize(&mobmsgbatch).unwrap()) {
-                            Ok(_) => {
-                                //println!("Sent mob payload");
-                            },
-                            Err(e) => {
-                                println!("Mob err {e}");
-                            },
-                        };
+                        
                     }
 
-                    thread::sleep(Duration::from_millis(10));
                 }
             }
             MessageType::BlockSet => {

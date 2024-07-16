@@ -17,7 +17,7 @@ use uuid::Uuid;
 use crate::camera::Camera;
 use crate::chunk::ChunkSystem;
 use crate::modelentity::{direction_to_euler, ModelEntity};
-use crate::server_types::{self, Entry, Message, MessageType, MobUpdateBatch};
+use crate::server_types::{self, Entry, Message, MessageType, MobUpdateBatch, MOB_BATCH_SIZE};
 use crate::statics::MY_MULTIPLAYER_UUID;
 use crate::vec::IVec3;
 
@@ -517,48 +517,18 @@ impl NetworkConnector {
                                     
                                 },
                                 MessageType::MobUpdateBatch => {
-                                    //println!("Receiving a Mob Batch:");
-                                    let mut payload_buffer = vec![0u8; comm.info as usize];
-                                    let mut total_read = 0;
-        
-                                    while total_read < comm.info as usize {
-                                        match stream_lock.read(&mut payload_buffer[total_read..]) {
-                                            Ok(n) if n > 0 => total_read += n,
-                                            Ok(_) => {
-                                                // Connection closed
-                                                println!("Connection closed by server");
-                                                break;
-                                            }
-                                            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-                                                // Sleep for a short period and retry
-                                                thread::sleep(Duration::from_millis(10));
-                                            }
-                                            Err(e) => {
-                                                println!("Error receiving MobUpdateBatch: {}", e);
-                                                break;
-                                            }
-                                        }
-                                    }
-        
-                                    if total_read == comm.info as usize {
-                                        match bincode::deserialize::<MobUpdateBatch>(&payload_buffer) {
-                                            Ok(recv_s) => {
-                                                if recv_s.count > server_types::MOB_BATCH_SIZE as u8 {
-                                                    println!("Ignoring invalid packet with count > {} of {}", server_types::MOB_BATCH_SIZE, recv_s.count);
-                                                } else {
-                                                    for i in 0..recv_s.count.min(8) {
-                                                        let msg = recv_s.msgs[i as usize].clone();
-                                                        commqueue.push(msg);
-                                                    }
-                                                }
-                                            }
-                                            Err(e) => {
-                                                println!("Failed to deserialize MobUpdateBatch: {}", e);
-                                            }
-                                        }
+                                    //println!("Got MUB, count {}", comm.count);
+                                    if comm.count > server_types::MOB_BATCH_SIZE as u8 {
+                                        println!("Ignoring invalid mobbatch with count > {} of {}", server_types::MOB_BATCH_SIZE, comm.count);
                                     } else {
-                                        println!("Failed to read the full MobUpdateBatch payload");
+                                        for i in 0..comm.count.min(MOB_BATCH_SIZE as u8) {
+                                            
+                                            let msg = Message::from_mob_message(&comm.msgs[i as usize]);
+                                            commqueue.push(msg);
+                                        }
                                     }
+                                            
+  
                                 }
                                 MessageType::TimeUpdate => {
                                     commqueue.push(comm.clone());

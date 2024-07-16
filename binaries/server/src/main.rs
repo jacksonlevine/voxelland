@@ -416,7 +416,7 @@ fn handle_client(
 fn main() {
     println!("Welcome to VoxelLand Server Version 0.1.0.");
     println!("Hosting on port 6969.");
-    let listener = TcpListener::bind("0.0.0.0:6969").unwrap();
+    let listener = TcpListener::bind("0.0.0.0:4848").unwrap();
     let clients: Arc<Mutex<HashMap<Uuid, Client>>> = Arc::new(Mutex::new(HashMap::new()));
     unsafe {
         PACKET_SIZE = bincode::serialized_size(&Message::new(MessageType::RequestSeed, Vec3::new(0.0, 0.0, 0.0), 0.0, 0)).unwrap() as usize;

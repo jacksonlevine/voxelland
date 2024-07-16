@@ -8,7 +8,7 @@ use glam::Vec3;
 fn main() -> io::Result<()> {
 
 
-    let mut stream = TcpStream::connect("127.0.0.1:6969")?;
+    let mut stream = TcpStream::connect("127.0.0.1:4848")?;
     println!("Connected to the server!");
 
 

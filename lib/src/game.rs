@@ -957,7 +957,7 @@ impl Game {
         if self.vars.in_multiplayer {
     
     
-            //print!("Enter server address (e.g., 127.0.0.1:6969): ");
+            //print!("Enter server address (e.g., 127.0.0.1:4848): ");
             //io::stdout().flush().unwrap(); // Ensure the prompt is printed before reading input
 
             //let mut address = String::new();

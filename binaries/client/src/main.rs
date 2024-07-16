@@ -1,4 +1,4 @@
-use glfw::ffi::glfwTerminate;
+
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::fmt::writer::BoxMakeWriter;
 use tracing_subscriber::fmt::Subscriber;
@@ -38,7 +38,7 @@ fn main() {
 
     
 
-    let mut gameh = Game::new(&wak_context.window, true, false, &wak_context.addressentered, &wak_context.serveraddress);
+    let gameh = Game::new(&wak_context.window, true, false, &wak_context.addressentered, &wak_context.serveraddress);
 
     while !gameh.is_finished() {
         if !wak_context.window.read().unwrap().should_close() {
@@ -50,13 +50,13 @@ fn main() {
     }
 
 
-    let mut game: Game;
+    let game: Game;
 
     match gameh.join() {
         Ok(gamei) => {
             game = gamei;
         }
-        Err(e) => {
+        Err(_e) => {
             panic!("Failed to create Game.");
         }
     }
@@ -79,7 +79,7 @@ fn main() {
         Ok(_) => {
             wak_context.game.as_mut().unwrap().loadedworld.store(true, std::sync::atomic::Ordering::Relaxed);
         }
-        Err(e) => {
+        Err(_e) => {
 
         }
     }

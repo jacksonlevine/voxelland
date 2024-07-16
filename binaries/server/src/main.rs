@@ -1,12 +1,12 @@
-use lockfree::queue::{self, Queue};
+
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rusqlite::{params, Connection};
-use serde::{Serialize, Deserialize};
+
 use voxelland::hud::SlotIndexType;
 use voxelland::inventory::{self, ChestInventory, Inventory};
 use std::collections::HashMap;
-use std::fs::{self, File};
+use std::fs::{File};
 
 use std::io::{ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -17,7 +17,7 @@ use std::time::Duration;
 use uuid::Uuid;
 use glam::Vec3;
 use voxelland::chunk::ChunkSystem;
-use voxelland::game::{self, Game, STARTINGITEMS};
+use voxelland::game::{Game, STARTINGITEMS};
 use voxelland::vec::{self, IVec3};
 use voxelland::server_types::{self, *};
 use dashmap::DashMap;
@@ -54,7 +54,7 @@ fn handle_client(
     mobspawnqueued: &Arc<AtomicBool>,
     shutupmobmsgs: &Arc<AtomicBool>,
     nsmes: &Arc<Mutex<Vec<Nsme>>>,
-    wl: &Arc<Mutex<u8>>,
+    _wl: &Arc<Mutex<u8>>,
     tod: &Arc<Mutex<f32>>,
     queued_sql: &Arc<SegQueue<QueuedSqlType>>,
     chest_reg: &Arc<DashMap<vec::IVec3, ChestInventory>>,
@@ -308,7 +308,7 @@ fn handle_client(
                 let spot = IVec3::new(message.x as i32, message.y as i32, message.z as i32);
                 let block = message.info;
 
-                let mut csys = csys.write().unwrap();
+                let csys = csys.write().unwrap();
                 csys.set_block(spot, block, true);
                 let currseed = (*csys.currentseed.read().unwrap()).clone();
                 queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot, block));
@@ -322,7 +322,7 @@ fn handle_client(
                 let block = message.info;
                 let block2 = message.info2;
 
-                let mut csys = csys.write().unwrap();
+                let csys = csys.write().unwrap();
                 csys.set_block(spot, block, true);
                 csys.set_block(spot2, block2, true);
 
@@ -425,7 +425,7 @@ fn main() {
     let width = 10;
     let height = 10;
     let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
-    let (mut window, events) = glfw
+    let (mut window, _events) = glfw
         .create_window(width, height, "VoxellandServer", glfw::WindowMode::Windowed)
         .expect("Failed to create GLFW window.");
 
@@ -433,18 +433,18 @@ fn main() {
 
     let initialseed: u32 = 23119232;
 
-    let mut gameh = Game::new(&Arc::new(RwLock::new(window)), false, true, &Arc::new(AtomicBool::new(false)), &Arc::new(Mutex::new(None)));
+    let gameh = Game::new(&Arc::new(RwLock::new(window)), false, true, &Arc::new(AtomicBool::new(false)), &Arc::new(Mutex::new(None)));
 
     while !gameh.is_finished() {
         thread::sleep(Duration::from_millis(100));
     }
-    let mut game: Game;
+    let game: Game;
 
     match gameh.join() {
         Ok(g) => {
             game = g;
         }
-        Err(e) => {
+        Err(_e) => {
             panic!("Failed to create Game.");
         }
     }
@@ -466,27 +466,27 @@ fn main() {
 
     drop(csys);
 
-    let mut knowncams = &gamewrite.known_cameras.clone();
+    let knowncams = &gamewrite.known_cameras.clone();
 
-    let mut chunksys = &gamewrite.chunksys.clone();
+    let chunksys = &gamewrite.chunksys.clone();
 
     let nsme = &gamewrite.non_static_model_entities.clone();
 
-    let mut nsme_bare = nsme.iter().map(|e| (e.id, e.position, e.rot.y, e.model_index, e.scale, e.sounding, e.hostile)).collect::<Vec<_>>();
+    let nsme_bare = nsme.iter().map(|e| (e.id, e.position, e.rot.y, e.model_index, e.scale, e.sounding, e.hostile)).collect::<Vec<_>>();
 
-    let mut mobspawnqueued = Arc::new(AtomicBool::new(true));
+    let mobspawnqueued = Arc::new(AtomicBool::new(true));
 
 
     
 
-    let mut nsme_bare_arc: Arc<Mutex<Vec<Nsme>>> = Arc::new(Mutex::new(nsme_bare));
+    let nsme_bare_arc: Arc<Mutex<Vec<Nsme>>> = Arc::new(Mutex::new(nsme_bare));
 
 
 
-    let mut shutupmobmsgs = Arc::new(AtomicBool::new(false));
+    let shutupmobmsgs = Arc::new(AtomicBool::new(false));
 
 
-    let mut todclone = gamewrite.timeofday.clone();
+    let todclone = gamewrite.timeofday.clone();
 
     drop(gamewrite);
 
@@ -678,7 +678,7 @@ fn main() {
                 Ok(_) => {
                     retry = false;
                 }
-                Err(e) => {
+                Err(_e) => {
                     println!("Sqlite failure, retrying..");
                     retry = true;
                     retries += 1;
@@ -742,7 +742,7 @@ fn main() {
                         buffer.resize(bincode::serialized_size(&Message::new(MessageType::BlockSet, Vec3::ZERO, 0.0, 0)).unwrap() as usize, 0);
 
                         match stream.lock().unwrap().read_exact(&mut buffer) {
-                            Ok(bytes) => {
+                            Ok(_bytes) => {
                                 match bincode::deserialize::<Message>(&buffer) {
                                     Ok(comm) => {
                                         if comm.message_type == MessageType::TellYouMyID {
@@ -796,7 +796,7 @@ fn main() {
                                 Ok(inv) => {
                                     previously_loaded_inv = inv.clone();
                                 }
-                                Err(e) => {
+                                Err(_e) => {
                                     println!("Couldn't de-serialize inventory blob");
                                 }
                             }
@@ -828,7 +828,7 @@ fn main() {
                                 );
                                 gotlock = true;
                             }
-                            Err(e) => {
+                            Err(_e) => {
                             }
                         };
                     }
@@ -915,7 +915,7 @@ fn main() {
 
 
                     
-                    for i in 0..10 {
+                    for _i in 0..10 {
                         if rng.gen_range(0..=3) <= 2 {
                             gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1, false);
                             gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),600.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1, false);

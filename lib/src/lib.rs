@@ -1,3 +1,5 @@
+#![warn(clippy::unused_imports)]
+
 pub mod blockinfo;
 pub mod camera;
 pub mod chunk;
@@ -37,3 +39,4 @@ pub mod specialblocks;
 pub mod recipes;
 pub mod statics;
 pub mod playerposition;
+

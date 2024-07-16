@@ -110,7 +110,7 @@ pub static mut MOUSED_SLOT: SlotIndexType = SlotIndexType::None;
 pub static mut CROUCHING: bool = false;
 
 
-pub static mut SONGS: [&'static str; 9] = [
+pub static mut SONGS: [&'static str; 10] = [
     "assets/music/qv2.mp3",
     "assets/music/song.mp3",
     "assets/music/Farfromhome.mp3",
@@ -120,6 +120,7 @@ pub static mut SONGS: [&'static str; 9] = [
     "assets/music/SereneFacade.mp3",
     "assets/music/Unease.mp3",
     "assets/music/UnknownDanger.mp3",
+    "assets/music/empythree.mp3",
 ];
 
 pub static mut SONGTIMER: f32 = 299.0;
@@ -698,7 +699,7 @@ impl Game {
 
         unsafe {
             let mut rng = StdRng::from_entropy();
-            SONGINDEX = (SONGINDEX + rng.gen_range(1..SONGS.len())) % SONGS.len();
+            SONGINDEX = 9;//(SONGINDEX + rng.gen_range(1..SONGS.len())) % SONGS.len();
         }
 
         let mut g = Game {

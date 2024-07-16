@@ -2,6 +2,41 @@ use once_cell::sync::Lazy;
 
 pub type Recipe = (Vec<(u32, u32)>, (u32, u32), bool);
 
+pub static mut RECIPES_DISABLED: bool = false;
+pub static mut RECIPE_COOLDOWN_TIMER: f32 = 0.0;
+
+#[derive(Clone)]
+pub struct RecipeEntry {
+    pub recipe: Recipe,
+    pub disabled: bool,
+    pub disabledtimer: f32
+}
+
+
+impl RecipeEntry {
+    #[inline]
+    pub const fn from_recipe(recipe: Recipe) -> Self {
+        Self {
+            recipe,
+            disabled: false,
+            disabledtimer: 0.0
+        }
+    }
+
+    pub fn tick_disabled_timer(&mut self, dt: f32) {
+        if self.disabled {
+            println!("I'm ticking disabled timer deta time: {dt}, my timer: {}", self.disabledtimer);
+            if self.disabledtimer > 1.0 {
+                self.disabledtimer = 0.0;
+                self.disabled = false;
+                
+            } else {
+                self.disabledtimer += dt;
+            }
+        }
+    }
+}
+
 
 
 pub static RECIPES: Lazy<[Recipe; 14]> = Lazy::new(|| [

@@ -1,4 +1,4 @@
-use crate::{blockinfo::Blocks, game::{Game, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, SINGLEPLAYER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}};
+use crate::{blockinfo::Blocks, game::{Game, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, SINGLEPLAYER}, recipes::{RecipeEntry, RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}};
 
 use glfw::{Action, Context, Glfw, GlfwReceiver, Key, PWindow, WindowEvent};
 
@@ -319,6 +319,7 @@ impl WindowAndKeyContext {
                             let gmenuopen = g.vars.menu_open;
             
                             let gcraftopen = g.crafting_open;
+                            let gchestopen = g.hud.chest_open;
             
                             if g.vars.main_menu {
                                 main_menu = true;
@@ -409,7 +410,8 @@ impl WindowAndKeyContext {
                                         let window_size = (700.0, 700.0);
             
                                         let window_pos = [width as f32 / 2.0 - (window_size.0/2.0), height as f32 / 2.0 - (window_size.1/2.0)];
-            
+                                        let mut recipeindexscrafted = Vec::new();
+
                                         ui.window("Transparent Window")
                                             .size([window_size.0, window_size.1], Condition::Always)
                                             .position(window_pos, Condition::Always)
@@ -433,13 +435,29 @@ impl WindowAndKeyContext {
                                                 //     pos_y += button_height + 10.0; // Add some spacing between buttons
                                                 // }
                                                 unsafe {
-                                                    for (index, recipe) in CURRENT_AVAIL_RECIPES.iter().enumerate() {
+
+
+                                                    for (index, recipeent) in CURRENT_AVAIL_RECIPES.lock().unwrap().iter_mut().enumerate() {
+      
+                                                        let recipe = recipeent.recipe.clone();
                                                         ui.set_cursor_pos([pos_x, pos_y]);
                                                         let str = format!("{}, {}", Blocks::get_name(recipe.1.0), recipe.1.1);
-                                                        if ui.button_with_size(str, [button_width, button_height]) {
-                                                            g.craft_recipe_index(index);
+                                                        if RECIPES_DISABLED {
+                                                            ui.text_colored([0.0, 0.0, 1.0, 1.0], str);
+                                                           
+                
+                                                        } else {
+                                                            if ui.button_with_size(str, [button_width, button_height]) {
+                                                                recipeindexscrafted.push(index);
+                                                                //g.craft_recipe_index(index);
+                                                                recipeent.disabled = true;
+                                                                unsafe {
+                                                                    RECIPES_DISABLED = true;
+                                                                }
+                                                            }
+                
                                                         }
-            
+                                                        
                                                         let mut costs = String::from("Using ");
             
                                                         for (index, entry) in recipe.0.iter().enumerate() {
@@ -455,18 +473,41 @@ impl WindowAndKeyContext {
             
             
                                                         ui.text_colored([1.0, 0.0, 0.0, 1.0], costs);
-                                                        g.update_inventory();
-                                                        Game::update_avail_recipes(&g.inventory.clone());
+                                                        
+                                                        
                                                         
             
                                                         pos_y += button_height + 10.0; // Add some spacing between buttons
                                                     }
                                                 }
+
+                                                
                                                 
                                                 
                                             });
-            
-            
+
+                                            
+
+                                            for recipe in recipeindexscrafted {
+                                                g.craft_recipe_index(recipe);
+                                            }
+                                            Game::update_avail_recipes(&g.inventory.clone());
+
+                                            unsafe {
+                                                if RECIPES_DISABLED {
+                                                    if RECIPE_COOLDOWN_TIMER < 1.0 {
+                                                        RECIPE_COOLDOWN_TIMER += self.delta_time;
+                                                    } else {
+                                                        RECIPES_DISABLED = false;
+                                                        RECIPE_COOLDOWN_TIMER = 0.0;
+                                                    }
+                                                }
+                                                
+                                            }
+
+                                            g.update_inventory();
+
+
             
                                             // Render the ImGui frame
                                             self.guirenderer.render(&mut self.imgui);
@@ -503,8 +544,9 @@ impl WindowAndKeyContext {
                                                 if mousebutton == glfw::MouseButtonLeft {
                                                     
                                                     if !io.want_capture_mouse {
+
                                                         
-                                                        if !gmenuopen {
+                                                        if !gmenuopen && !gchestopen {
                                                             self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
                                                             self.game.as_mut().unwrap().set_mouse_focused(true);
                                                         }

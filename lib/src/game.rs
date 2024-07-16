@@ -44,7 +44,7 @@ use crate::network::NetworkConnector;
 use crate::planetinfo::Planets;
 use crate::playerposition::PlayerPosition;
 use crate::raycast::*;
-use crate::recipes::{Recipe, RECIPES};
+use crate::recipes::{Recipe, RecipeEntry, RECIPES};
 use crate::selectcube::SelectCube;
 use crate::server_types::{Message, MessageType};
 use crate::shader::Shader;
@@ -105,6 +105,11 @@ pub static mut SPAWNPOINT: Vec3 = Vec3::ZERO;
 pub static mut MOUSED_SLOT: SlotIndexType = SlotIndexType::None;
 
 
+
+
+pub static mut CROUCHING: bool = false;
+
+
 pub static mut SONGS: [&'static str; 9] = [
     "assets/music/qv2.mp3",
     "assets/music/song.mp3",
@@ -124,7 +129,7 @@ pub static mut SONGINDEX: usize = 0;
 
 pub static mut AMBIENTBRIGHTNESS: f32 = 0.0;
 
-pub static mut CURRENT_AVAIL_RECIPES: Vec<Recipe> = Vec::new();
+pub static mut CURRENT_AVAIL_RECIPES: Mutex<Vec<RecipeEntry>> = Mutex::new(Vec::new());
 
 pub static mut ATSMALLTABLE: bool = false;
 
@@ -915,7 +920,10 @@ impl Game {
 
     pub fn update_avail_recipes(inv: &Arc<RwLock<Inventory>>) {
         unsafe {
-            CURRENT_AVAIL_RECIPES.clear();
+            {
+                CURRENT_AVAIL_RECIPES.lock().unwrap().clear();
+            }
+            
             let inv = inv.write().unwrap();
 
             for rec in RECIPES.iter() {
@@ -945,7 +953,8 @@ impl Game {
                 }
 
                 if able {
-                    CURRENT_AVAIL_RECIPES.push(rec.clone());
+
+                    CURRENT_AVAIL_RECIPES.lock().unwrap().push(RecipeEntry::from_recipe(rec.clone()));
                 }
                 //let result = rec.1;
             }
@@ -1727,7 +1736,12 @@ impl Game {
 
     pub fn craft_recipe_index(&mut self, index: usize) {
         unsafe {
-            let recipe = &CURRENT_AVAIL_RECIPES[index];
+            let recipe = {
+                let r = CURRENT_AVAIL_RECIPES.lock().unwrap();
+                &r[index].clone().recipe
+            };
+            
+
 
             let mut hasreqs = true;
             let invlock = self.inventory.write().unwrap();
@@ -2558,8 +2572,34 @@ impl Game {
 
     pub fn update_movement_and_physics(&mut self) { 
 
+
+
+
+        static mut SPOTIFSHIFTING: Vec3 = Vec3::ZERO;
+        static mut SPOTSET: bool = false;
+
+
+
+
         let camarc = self.camera.clone();
         let mut camlock = camarc.lock().unwrap();
+
+
+
+
+        unsafe {
+            if CROUCHING {
+                if !SPOTSET {
+                    let y = camlock.position.y.round();
+                    let mut hardspot = camlock.position.floor();
+                    hardspot.y = y;
+                    SPOTIFSHIFTING = hardspot + Vec3::new(0.5, 0.0, 0.5);
+                    SPOTSET = true;
+                }
+            } else {
+                SPOTSET = false;
+            }
+        }
 
 
         static mut wasngrounded: bool = false;
@@ -2624,13 +2664,15 @@ impl Game {
         }
 
 
-        if !self.coll_cage.solid.contains(&Side::FLOOR) {
+        if !self.coll_cage.solid.contains(&Side::FLOOR) && !(unsafe {CROUCHING}) {
             self.grounded = false;
             unsafe{ wasngrounded = true; }
         } else {
         }
 
         const GRAV: f32 = 9.8;
+
+
         if self.inwater || self.vars.in_climbable {
             self.time_falling_scalar = 1.0;
             if !self.grounded {
@@ -2641,7 +2683,8 @@ impl Game {
             }
 
             if self.controls.up {
-                camlock.velocity += Vec3::new(0.0, 5.0*self.delta_time, 0.0);
+                let amount = unsafe { if SPRINTING { 12.0  } else { 7.0 }};
+                camlock.velocity += Vec3::new(0.0, amount *self.delta_time, 0.0);
             }
         }
         else {
@@ -2680,9 +2723,36 @@ impl Game {
         }
            
 
-        
+        let mut proposed =
+                                    unsafe {
+                                        if CROUCHING {
+                                            camlock.respond_to_controls(&self.controls, &self.delta_time, 1.5)
+                                        } else {
+                                            
+                                            camlock.respond_to_controls(&self.controls, &self.delta_time, 5.5)
+                                        }
+                                    };
+        unsafe {
+            if CROUCHING {
 
-        let mut proposed = camlock.respond_to_controls(&self.controls, &self.delta_time, 5.5);
+                fn cap_distance(proposed: Vec3, reference: Vec3, max_distance: f32) -> Vec3 {
+                    let direction = proposed - reference;
+                    let distance = direction.length();
+                
+                    if distance > max_distance {
+                        reference + direction.normalize() * max_distance
+                    } else {
+                        proposed
+                    }
+                }
+
+
+                if proposed.distance(SPOTIFSHIFTING) > 1.0 {
+                    proposed = cap_distance(proposed, SPOTIFSHIFTING, 1.0);
+                }
+            }
+        }
+        
         self.user_bound_box
             .set_center(proposed + Vec3::new(0.0, -0.5  , 0.0), 0.2, 0.85);
         self.coll_cage.update_colliding(&self.user_bound_box);
@@ -4689,6 +4759,16 @@ impl Game {
                 } else {
                     self.controls.shift = false;
                 }
+            }
+            Key::LeftControl => {
+                unsafe {
+                    if action == Action::Press || action == Action::Repeat {
+                        CROUCHING = true;
+                    } else {
+                        CROUCHING = false;
+                    }
+                }
+                
             }
             Key::M => {
                 if action == Action::Press {

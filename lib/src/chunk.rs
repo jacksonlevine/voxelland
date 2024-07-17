@@ -1936,7 +1936,7 @@ impl ChunkSystem {
 
     pub fn ore_noise(&self, spot: vec::IVec3) -> f64 {
 
-        const XYZDIVISOR: f64 = 30.53;
+        const XYZDIVISOR: f64 = 15.53;
 
 
         let noise1 = f64::max(
@@ -1948,7 +1948,7 @@ impl ChunkSystem {
             ])
         );
 
-        noise1
+        noise1 * ((60.0 - spot.y as f64).max(0.0) / 7.0)
         
     }
 
@@ -2236,7 +2236,7 @@ impl ChunkSystem {
 
                 if self.noise_func(spot) > 10.0 {
                     if self.noise_func(spot + vec::IVec3 { x: 0, y: 10, z: 0 }) > 10.0 {
-                        if self.ore_noise(spot) > 10.0 {
+                        if self.ore_noise(spot) > 1.0 {
                             return 35;
                         } else {
                             return underdirt;

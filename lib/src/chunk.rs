@@ -1849,6 +1849,7 @@ impl ChunkSystem {
 
         let dim_range = Planets::get_voxel_model_index_range(self.planet_type as u32);
 
+ 
         //Two rng per chunk! 
         //let spot: u32 = rng.gen_range(0..(CW as u32 * CW as u32)*(CH-40) as u32);
         //let item: u32 = rng.gen_range(dim_range.0 as u32..dim_range.1 as u32);
@@ -1874,6 +1875,7 @@ impl ChunkSystem {
                                     self.stamp_here(&coord, &self.voxel_models.as_ref().unwrap()[item as usize], Some(&mut implicated));
                                     
                                 }
+
                             }
                             
 
@@ -1920,6 +1922,29 @@ impl ChunkSystem {
                 spot.x as f64 / XZDIVISOR1,
                 y as f64,
                 spot.y as f64 / XZDIVISOR1,
+            ])
+        );
+
+        noise1
+        
+    }
+
+
+
+
+
+
+    pub fn ore_noise(&self, spot: vec::IVec3) -> f64 {
+
+        const XYZDIVISOR: f64 = 30.53;
+
+
+        let noise1 = f64::max(
+            0.0,
+            self.perlin.get([
+                spot.x as f64 / XYZDIVISOR,
+                spot.y as f64 / XYZDIVISOR,
+                spot.z as f64 / XYZDIVISOR,
             ])
         );
 
@@ -2211,7 +2236,12 @@ impl ChunkSystem {
 
                 if self.noise_func(spot) > 10.0 {
                     if self.noise_func(spot + vec::IVec3 { x: 0, y: 10, z: 0 }) > 10.0 {
-                        return underdirt;
+                        if self.ore_noise(spot) > 10.0 {
+                            return 35;
+                        } else {
+                            return underdirt;
+                        }
+                        
                     }
                     if spot.y > (WL + 2.0) as i32
                         || self.noise_func(spot + vec::IVec3 { x: 0, y: 5, z: 0 }) > 10.0

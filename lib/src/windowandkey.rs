@@ -1,4 +1,4 @@
-use crate::{blockinfo::Blocks, game::{Game, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, SINGLEPLAYER}, recipes::{RecipeEntry, RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}};
+use crate::{blockinfo::Blocks, game::{Game, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, SINGLEPLAYER}, recipes::{RecipeEntry, RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, texture::Texture};
 
 use glfw::{Action, Context, Glfw, GlfwReceiver, Key, PWindow, WindowEvent};
 
@@ -30,7 +30,9 @@ pub struct WindowAndKeyContext {
     pub addressentered: Arc<AtomicBool>,
     pub serveraddress: Arc<Mutex<Option<String>>>,
 
-    pub serveraddrbuffer: String
+    pub serveraddrbuffer: String,
+
+    pub logo: Texture
 }
 
 fn toggle_fullscreen(window_ptr: *mut glfw::ffi::GLFWwindow) {
@@ -98,12 +100,15 @@ impl WindowAndKeyContext {
             data: include_bytes!("../../font.ttf"),
             size_pixels: font_size,
             config: Some(FontConfig {
-                oversample_h: 4,
-                oversample_v: 4,
+                oversample_h: 1,
+                oversample_v: 1,
                 pixel_snap_h: true,
+                size_pixels: 72.0,
                 ..Default::default()
             }),
         }]);
+
+        
         let renderer = Renderer::new(&mut imgui, |s| window.get_proc_address(s) as *const _);
 
 
@@ -132,7 +137,8 @@ impl WindowAndKeyContext {
             guirenderer: renderer,
             addressentered: Arc::new(AtomicBool::new(false)),
             serveraddress: Arc::new(Mutex::new(None)),
-            serveraddrbuffer: String::with_capacity(128)
+            serveraddrbuffer: String::with_capacity(128),
+            logo: Texture::new("assets/Untitled3.png").unwrap()
         };
 
         LOAD_OR_INITIALIZE_STATICS();
@@ -172,21 +178,20 @@ impl WindowAndKeyContext {
             
                     let (width, height) = self.window.read().unwrap().get_framebuffer_size();
                     self.imgui.io_mut().display_size = [width as f32, height as f32];
-                    
+                                        
                     // Start the ImGui frame
                     let ui = self.imgui.frame();
-        
+
                     let window_flags = WindowFlags::NO_DECORATION
                         | WindowFlags::NO_MOVE
                         | WindowFlags::NO_RESIZE
                         | WindowFlags::NO_SCROLLBAR
                         | WindowFlags::NO_TITLE_BAR
                         | WindowFlags::NO_BACKGROUND;
-        
+
                     let window_size = (700.0, 700.0);
-        
-                    let window_pos = [width as f32 / 2.0 - (window_size.0/2.0), height as f32 / 2.0 - (window_size.1/2.0)];
-        
+                    let window_pos = [width as f32 / 2.0 - (window_size.0 / 2.0), height as f32 / 2.0 - (window_size.1 / 2.0)];
+
                     ui.window("Transparent Window")
                         .size([window_size.0, window_size.1], Condition::Always)
                         .position(window_pos, Condition::Always)
@@ -195,45 +200,55 @@ impl WindowAndKeyContext {
                             let button_width = 500.0;
                             let button_height = 20.0;
                             let window_size = ui.window_size();
-        
+
                             let available_width = window_size[0];
                             let available_height = window_size[1];
-        
+
                             let pos_x = (available_width - button_width) / 2.0;
-                            let pos_y = (available_height - (button_height) - 10.0 ) / 2.0;
+                            let pos_y = (available_height - (button_height) - 10.0) / 2.0;
 
-                                ui.set_cursor_pos([pos_x, pos_y - 50.0]);
+                            ui.set_cursor_pos([pos_x, pos_y - 240.0]);
 
-                                ui.text_colored([1.0, 0.0, 0.0, 1.0], "Welcome! Please choose an option.");
-        
-                                ui.set_cursor_pos([pos_x, pos_y - 25.0]);
+                            // Scale down the image to 50% of its original size
+                            let scaled_size = [
+                                (self.logo.size.0 as f32 * 0.5).round(),
+                                (self.logo.size.1 as f32 * 0.5).round(),
+                            ];
 
-                                
-        
-                                if ui.button_with_size("Singleplayer", [button_width, button_height]) {
-                                    unsafe {
-                                        SINGLEPLAYER = true;
-                                        DECIDEDSPORMP = true;
-                                    }
+                            // Calculate the position to center the image
+                            let image_pos_x = (available_width - scaled_size[0]) / 2.0;
+                            let image_pos_y = ((available_height - scaled_size[1]) / 2.0) - 150.0;
+
+                            ui.set_cursor_pos([image_pos_x, image_pos_y]);
+
+                            let texture_id = imgui::TextureId::from(self.logo.id as usize);
+                            imgui::Image::new(texture_id, scaled_size).build(&ui);
+
+                            ui.set_cursor_pos([pos_x, pos_y - 50.0]);
+                            ui.text_colored([1.0, 0.0, 0.0, 1.0], "Welcome! Please choose an option.");
+
+                            ui.set_cursor_pos([pos_x, pos_y - 25.0]);
+
+                            if ui.button_with_size("Singleplayer", [button_width, button_height]) {
+                                unsafe {
+                                    SINGLEPLAYER = true;
+                                    DECIDEDSPORMP = true;
                                 }
-        
-                                ui.set_cursor_pos([pos_x, pos_y]);
-        
-                                
-        
-                                if ui.button_with_size("Multiplayer", [button_width, button_height]) {
-                                    unsafe {
-                                        SINGLEPLAYER = false;
-                                        DECIDEDSPORMP = true;
-                                    }
+                            }
+
+                            ui.set_cursor_pos([pos_x, pos_y]);
+
+                            if ui.button_with_size("Multiplayer", [button_width, button_height]) {
+                                unsafe {
+                                    SINGLEPLAYER = false;
+                                    DECIDEDSPORMP = true;
                                 }
+                            }
                         });
-        
+
                     // Render the ImGui frame
                     self.guirenderer.render(&mut self.imgui);
-        
-        
-        
+                            
                     let io = self.imgui.io_mut();
                     for (_, event) in glfw::flush_messages(&self.events) {
         

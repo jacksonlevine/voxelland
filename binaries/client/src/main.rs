@@ -23,7 +23,7 @@ fn main() {
     tracing::subscriber::set_global_default(subscriber)
         .expect("setting default subscriber failed");
 
-    let mut wak_context = WindowAndKeyContext::new("Barkaroo", 1280, 720);
+    let mut wak_context = WindowAndKeyContext::new("Jackson Levine's VoxelLand", 1280, 720);
 
     unsafe {
         while !DECIDEDSPORMP {

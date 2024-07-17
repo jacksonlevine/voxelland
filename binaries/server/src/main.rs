@@ -737,7 +737,9 @@ fn main() {
 
                     let mut gotid = false;
 
-                    while !gotid {
+                    let mut retries = 0;
+
+                    while !gotid && retries < 100 {
                         let mut buffer = Vec::new();
                         buffer.resize(bincode::serialized_size(&Message::new(MessageType::BlockSet, Vec3::ZERO, 0.0, 0)).unwrap() as usize, 0);
 
@@ -764,8 +766,13 @@ fn main() {
                                 println!("Error trying to receive id greeting from client {}", e);
                             },
                         }
+                        retries += 1;
                     }
 
+                    if !gotid {
+                        println!("Sorry, this guy didn't send an ID. He's out!");
+                    } else {
+     
 
                         let mut previously_loaded_inv = STARTINGITEMS.clone();
 
@@ -808,54 +815,62 @@ fn main() {
 
 
 
-                    println!("About to lock clients");
-                    let mut gotlock = false;
+                        println!("About to lock clients");
+                        let mut gotlock = false;
 
-                    while !gotlock {
-                        match clients.try_lock() {
-                            Ok(mut e) => {
-                                
-                                e.insert(
-                                    client_id,
-                                    Client {
-                                        stream: Arc::clone(&stream),
-                                        errorstrikes: 0,
-                                        inv: inventory::Inventory{
-                                            dirty: false, inv: previously_loaded_inv
+                        while !gotlock {
+                            match clients.try_lock() {
+                                Ok(mut e) => {
+                                    
+                                    e.insert(
+                                        client_id,
+                                        Client {
+                                            stream: Arc::clone(&stream),
+                                            errorstrikes: 0,
+                                            inv: inventory::Inventory{
+                                                dirty: false, inv: previously_loaded_inv
+                                            },
+                                            saveposcounter: 0
                                         },
-                                        saveposcounter: 0
-                                    },
-                                );
-                                gotlock = true;
-                            }
-                            Err(_e) => {
-                            }
-                        };
+                                    );
+                                    gotlock = true;
+                                }
+                                Err(_e) => {
+                                }
+                            };
+                        }
+                        
+                        
+                        println!("Locked clients");
+
+
+                        let clients_ref_clone = Arc::clone(&clients);
+                        let csysarc_clone = Arc::clone(&chunksys);
+                        let knowncams_clone = Arc::clone(&knowncams);
+                        //let nsme_clone = Arc::clone(&nsme);
+
+                        let msq_clone = Arc::clone(&mobspawnqueued);
+                        let su_clone = Arc::clone(&shutupmobmsgs);
+                        let nsme_clone = Arc::clone(&nsme_bare_arc);
+                        let wl_clone = Arc::clone(&writelock);
+
+                        let todclone = todclone.clone();
+
+                        let queued_sql = qs2.clone();
+                        let chestreg = chestreg.clone();
+                        println!("About to spawn thread");
+                        thread::spawn(move || {
+                            handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone, &su_clone, &nsme_clone, &wl_clone, &todclone, &queued_sql, &chestreg);
+                        });
+                        println!("Spawned thread");
+
+
+
+
                     }
-                    
-                    
-                    println!("Locked clients");
 
 
-                    let clients_ref_clone = Arc::clone(&clients);
-                    let csysarc_clone = Arc::clone(&chunksys);
-                    let knowncams_clone = Arc::clone(&knowncams);
-                    //let nsme_clone = Arc::clone(&nsme);
-
-                    let msq_clone = Arc::clone(&mobspawnqueued);
-                    let su_clone = Arc::clone(&shutupmobmsgs);
-                    let nsme_clone = Arc::clone(&nsme_bare_arc);
-                    let wl_clone = Arc::clone(&writelock);
-
-                    let todclone = todclone.clone();
-
-                    let queued_sql = qs2.clone();
-                    let chestreg = chestreg.clone();
-                    println!("About to spawn thread");
-                    thread::spawn(move || {
-                        handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone, &su_clone, &nsme_clone, &wl_clone, &todclone, &queued_sql, &chestreg);
-                    });
-                    println!("Spawned thread");
+                     
                     
                 }
                 Err(ref e) if e.kind() == ErrorKind::WouldBlock => {

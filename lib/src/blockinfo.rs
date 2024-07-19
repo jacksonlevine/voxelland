@@ -262,10 +262,25 @@ impl Blocks {
                 "grassstepseries"
             }
             34 => {
+                "mulchstepseries"
+            }
+            7 => {
+                "plantplaceseries"
+            }
+            11 => {
                 "plantplaceseries"
             }
             1 => {
                 "sandstepseries"
+            }
+            6 => {
+                "woodstepseries"
+            }
+            4 => {
+                "dirtstepseries"
+            }
+            10 => {
+                "woodstepseries"
             }
             22 => {
                 "grassstepseries"
@@ -284,7 +299,7 @@ impl Blocks {
                 "grassstepseries"
             }
             34 => {
-                "plantplaceseries"
+                "mulchstepseries"
             }
             7 => {
                 "plantplaceseries"
@@ -300,6 +315,12 @@ impl Blocks {
             }
             19 => {
                 "doorseries"
+            }
+            22 => {
+                "plantplaceseries"
+            }
+            11 => {
+                "plantplaceseries"
             }
             _ => {
                 "stoneplaceseries"

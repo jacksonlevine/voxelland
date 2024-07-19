@@ -857,6 +857,29 @@ impl Game {
                     "assets/sfx/grassstep6.mp3",
                 ]);
 
+
+                audiop.preload_series("woodstepseries", vec![
+                    "assets/sfx/woodstep1.mp3",
+                    "assets/sfx/woodstep2.mp3",
+                    "assets/sfx/woodstep3.mp3",
+                    "assets/sfx/woodstep4.mp3",
+                    "assets/sfx/woodstep5.mp3"
+                ]);
+
+                audiop.preload_series("mulchstepseries", vec![
+                    "assets/sfx/mulchstep1.mp3",
+                    "assets/sfx/mulchstep2.mp3",
+                    "assets/sfx/mulchstep3.mp3",
+                    "assets/sfx/mulchstep4.mp3"
+                ]);
+
+                audiop.preload_series("dirtstepseries", vec![
+                    "assets/sfx/dirtstep1.mp3",
+                    "assets/sfx/dirtstep2.mp3",
+                    "assets/sfx/dirtstep3.mp3",
+                    "assets/sfx/dirtstep4.mp3"
+                ]);
+
                 audiop.preload_series("sandstepseries", vec![
                     "assets/sfx/sandstep1.mp3",
                     "assets/sfx/sandstep2.mp3",
@@ -1861,9 +1884,9 @@ impl Game {
         unsafe {
             let diff = campos.distance(LAST_CAM_POS); 
 
-            let interval = if unsafe { SPRINTING } { 0.4 } else { 0.7 };
+            let interval = if unsafe { SPRINTING } { 0.3 } else { 0.45 };
 
-            if diff > self.delta_time * 2.0 {
+            if diff > self.delta_time * 3.0 {
                
                 if TIMER > interval {
                     self.do_step_sound_now(campos);

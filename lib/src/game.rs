@@ -4776,16 +4776,16 @@ impl Game {
                 }
                 
             }
-            Key::M => {
-                if action == Action::Press {
-                    if self.vars.in_multiplayer {
-                        self.netconn.send(&Message::new(MessageType::RequestTakeoff, Vec3::ZERO, 0.0, 0));
-                    } else {
-                        self.takeoff_ship();
-                    }
+            // Key::M => {
+            //     if action == Action::Press {
+            //         if self.vars.in_multiplayer {
+            //             self.netconn.send(&Message::new(MessageType::RequestTakeoff, Vec3::ZERO, 0.0, 0));
+            //         } else {
+            //             self.takeoff_ship();
+            //         }
                     
-                }
-            }
+            //     }
+            // }
             // Key::L => {
             //     if action == Action::Press {
             //         self.chunksys.read().unwrap().save_current_world_to_file(String::from("saves/world1"));
@@ -4834,13 +4834,13 @@ impl Game {
 
             }
 
-            Key::L => {
-                if action == Action::Press {
-                    self.vars.menu_open = !self.vars.menu_open;
-                }
+            // Key::L => {
+            //     if action == Action::Press {
+            //         self.vars.menu_open = !self.vars.menu_open;
+            //     }
                 
 
-            }
+            // }
             Key::O => {
                 //self.faders.write().unwrap()[FaderNames::VisionsFader as usize].down();
             }

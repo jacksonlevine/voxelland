@@ -343,7 +343,7 @@ impl Game {
             .write()
             .unwrap()
             .extend(vec![
-                Fader::new(96.0, 90.0, 30.0, false), //FOV fader for moving
+                Fader::new(92.0, 90.0, 30.0, false), //FOV fader for moving
                 Fader::new(1.0, 0.0, 5.0, false)    //"Visions" fader for overlay
                 ]);
 
@@ -2429,7 +2429,8 @@ impl Game {
                     }
                 }
             }
-            if self.controls.forward || self.controls.back || self.controls.left || self.controls.right
+            if (self.controls.forward || self.controls.back || self.controls.left || self.controls.right)
+            && unsafe {SPRINTING}
             {
                 if !self.faders.read().unwrap()[FaderNames::FovFader as usize].mode {
                     self.faders.write().unwrap()[FaderNames::FovFader as usize].up();
@@ -2726,7 +2727,7 @@ impl Game {
 
         let mut proposed =
                                     unsafe {
-                                        if CROUCHING {
+                                        if CROUCHING && self.grounded {
                                             camlock.respond_to_controls(&self.controls, &self.delta_time, 1.5)
                                         } else {
                                             
@@ -2741,11 +2742,15 @@ impl Game {
                     let distance = direction.length();
                 
                     if distance > max_distance {
-                        reference + direction.normalize() * max_distance
+                        let v3 = reference + direction.normalize() * max_distance;
+                        Vec3::new(v3.x, proposed.y, v3.z)
                     } else {
                         proposed
                     }
                 }
+
+                let prop2 = Vec3::new(proposed.x, 0.0, proposed.z);
+                let spotshift = Vec3::new(SPOTIFSHIFTING.x, 0.0, SPOTIFSHIFTING.z);
 
 
                 if proposed.distance(SPOTIFSHIFTING) > 1.0 {

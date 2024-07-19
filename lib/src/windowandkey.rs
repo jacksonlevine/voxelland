@@ -82,6 +82,8 @@ impl WindowAndKeyContext {
             .expect("Failed to create GLFW window.");
         gl::load_with(|s| window.get_proc_address(s) as *const _);
 
+
+
         window.set_key_polling(true);
         window.set_framebuffer_size_polling(true);
         window.set_mouse_button_polling(true);
@@ -344,7 +346,33 @@ impl WindowAndKeyContext {
             
                                     
                                     g.update();
-            
+                                    
+                                    let state = self.glfw.get_joystick(glfw::JoystickId::Joystick1);
+
+                                    static mut lastx: f64 = 0.0;
+                                    static mut lasty: f64 = 0.0;
+
+                                    static mut x: f64 = 0.0;
+                                    static mut y: f64 = 0.0;
+
+                                    
+                                    let axes = state.get_axes();
+
+                                    if axes.len() >= 2 {
+                                        unsafe {
+                                            x += axes[0] as f64;
+                                            y += axes[1] as f64;
+    
+                                            if lastx != x || lasty != y {
+                                                lastx = x;
+                                                lasty = y;
+                                                g.cursor_pos(x, y);
+                                            }
+    
+                                            
+                                        }
+                                    }
+                                    
                                     
             
                                     

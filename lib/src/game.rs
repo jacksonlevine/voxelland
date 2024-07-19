@@ -343,7 +343,7 @@ impl Game {
             .write()
             .unwrap()
             .extend(vec![
-                Fader::new(100.0, 97.0, 30.0, false), //FOV fader for moving
+                Fader::new(96.0, 90.0, 30.0, false), //FOV fader for moving
                 Fader::new(1.0, 0.0, 5.0, false)    //"Visions" fader for overlay
                 ]);
 
@@ -699,7 +699,7 @@ impl Game {
 
         unsafe {
             let mut rng = StdRng::from_entropy();
-            SONGINDEX = 9;//(SONGINDEX + rng.gen_range(1..SONGS.len())) % SONGS.len();
+            SONGINDEX = (SONGINDEX + rng.gen_range(1..SONGS.len())) % SONGS.len();
         }
 
         let mut g = Game {
@@ -2755,7 +2755,7 @@ impl Game {
         }
         
         self.user_bound_box
-            .set_center(proposed + Vec3::new(0.0, -0.5  , 0.0), 0.2, 0.85);
+            .set_center(proposed + Vec3::new(0.0, -0.5  , 0.0), 0.2, 0.95);
         self.coll_cage.update_colliding(&self.user_bound_box);
 
 

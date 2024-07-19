@@ -29,7 +29,7 @@ impl GuiSystem {
         let mut texts = Vec::new();
 
 
-        texts.push(Text::new("Official Test", &window.read().unwrap(), menu_shader.shader_id, Vec2::new(100.0,100.0), texture.id));
+        texts.push(Text::new("", &window.read().unwrap(), menu_shader.shader_id, Vec2::new(100.0,100.0), texture.id));
 
         texts.push(Text::new("Press B to board the ship.", &window.read().unwrap(), menu_shader.shader_id, Vec2::new(800.0,100.0), texture.id));
 

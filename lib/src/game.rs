@@ -1599,6 +1599,30 @@ impl Game {
                 ];
             }
 
+            if count.len() > 2 {
+                let g1 = GlyphFace::new(43);
+                let g2 = GlyphFace::new(43);
+
+                self.hud.chestelements[81].uvs = [
+                    g1.blx, g1.bly,
+                    g1.brx, g1.bry,
+                    g1.trx, g1.tr_y,
+
+                    g1.trx, g1.tr_y,
+                    g1.tlx, g1.tly,
+                    g1.blx, g1.bly
+                ];
+                self.hud.chestelements[82].uvs = [
+                    g2.blx, g2.bly,
+                    g2.brx, g2.bry,
+                    g2.trx, g2.tr_y,
+
+                    g2.trx, g2.tr_y,
+                    g2.tlx, g2.tly,
+                    g2.blx, g2.bly
+                ];
+            }
+
             if count.len() == 1 {
                 let g2 = GlyphFace::new(count.as_bytes()[0]);
                 self.hud.chestelements[81].uvs = [

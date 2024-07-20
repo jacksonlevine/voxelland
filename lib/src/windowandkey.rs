@@ -1,10 +1,11 @@
 use crate::{blockinfo::Blocks, game::{Game, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, SINGLEPLAYER}, recipes::{RecipeEntry, RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, texture::Texture};
 
-use glfw::{Action, Context, Glfw, GlfwReceiver, Key, PWindow, WindowEvent};
+use glfw::{Action, Context, Glfw, GlfwReceiver, Key, Modifiers, PWindow, WindowEvent};
 
 
 use std::{sync::{atomic::AtomicBool, Arc, Mutex, RwLock}, time::{Duration, Instant}};
 use imgui::*;
+use imgui::{Key as ImGuiKey};
 use imgui_opengl_renderer::Renderer;
 
 pub static mut WINDOWWIDTH: i32 = 0;
@@ -95,6 +96,33 @@ impl WindowAndKeyContext {
         // Initialize ImGui
         let mut imgui = imgui::Context::create();
         imgui.set_ini_filename(None);
+
+        let scale_factor = 1.0;
+
+
+        imgui.io_mut().font_global_scale = scale_factor;
+        imgui.style_mut().scale_all_sizes(scale_factor);
+
+        {
+            let mut io = imgui.io_mut();
+
+            io.key_map[ImGuiKey::Backspace as usize] = Key::Backspace as u32;
+            io.key_map[ImGuiKey::Tab as usize] = Key::Tab as u32;
+            io.key_map[ImGuiKey::LeftArrow as usize] = Key::Left as u32;
+            io.key_map[ImGuiKey::RightArrow as usize] = Key::Right as u32;
+            io.key_map[ImGuiKey::UpArrow as usize] = Key::Up as u32;
+            io.key_map[ImGuiKey::DownArrow as usize] = Key::Down as u32;
+            io.key_map[ImGuiKey::PageUp as usize] = Key::PageUp as u32;
+            io.key_map[ImGuiKey::PageDown as usize] = Key::PageDown as u32;
+            io.key_map[ImGuiKey::Home as usize] = Key::Home as u32;
+            io.key_map[ImGuiKey::End as usize] = Key::End as u32;
+            io.key_map[ImGuiKey::Insert as usize] = Key::Insert as u32;
+            io.key_map[ImGuiKey::Delete as usize] = Key::Delete as u32;
+            io.key_map[ImGuiKey::Backspace as usize] = Key::Backspace as u32;
+            io.key_map[ImGuiKey::Space as usize] = Key::Space as u32;
+            io.key_map[ImGuiKey::Enter as usize] = Key::Enter as u32;
+            io.key_map[ImGuiKey::Escape as usize] = Key::Escape as u32;
+        }
 
 
         let font_size = 16.0;
@@ -767,7 +795,7 @@ impl WindowAndKeyContext {
                         // Render the ImGui frame
                         self.guirenderer.render(&mut self.imgui);
             
-            
+                        
             
                         let io = self.imgui.io_mut();
                         for (_, event) in glfw::flush_messages(&self.events) {
@@ -803,10 +831,14 @@ impl WindowAndKeyContext {
             
                                     
                                 }
-                                glfw::WindowEvent::Key(key, _scancode, action, _modifiers) => {
-            
+                                glfw::WindowEvent::Key(key, scancode, action, modifiers) => {
+                             
                                     let pressed = action == glfw::Action::Press || action == glfw::Action::Repeat;
                                     io.keys_down[key as usize] = pressed;
+
+                                    Self::set_mod(io, modifiers);
+                                    io.keys_down[key as usize] = action != Action::Release;
+
             
                                 if action == glfw::Action::Press {
                                     match key {
@@ -816,7 +848,7 @@ impl WindowAndKeyContext {
                                         glfw::Key::LeftSuper | glfw::Key::RightSuper => io.key_super = true,
                                         glfw::Key::Backspace => {
                                             io.keys_down[glfw::Key::Backspace as usize] = true;
-                                            io.add_input_character('\u{8}');
+                                            io.add_input_character('\x08');
                                         }
                                         _ => {}
                                     }
@@ -857,5 +889,12 @@ impl WindowAndKeyContext {
         
 
         self.window.write().unwrap().swap_buffers();
+    }
+
+    fn set_mod(io: &mut imgui::Io, modifier: Modifiers) {
+        io.key_ctrl = modifier.intersects(Modifiers::Control);
+        io.key_alt = modifier.intersects(Modifiers::Alt);
+        io.key_shift = modifier.intersects(Modifiers::Shift);
+        io.key_super = modifier.intersects(Modifiers::Super);
     }
 }

@@ -144,7 +144,7 @@ impl BlockOverlay {
             );
 
 
-            // println!("Break phase: {breakprogress} Pos {} {} {}", pos.x, pos.y, pos.z);
+            // info!("Break phase: {breakprogress} Pos {} {} {}", pos.x, pos.y, pos.z);
 
             gl::DrawArrays(gl::TRIANGLES, 0, 36);
             gl::Enable(gl::CULL_FACE);

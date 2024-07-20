@@ -38,16 +38,16 @@ impl Game {
                     let index = model_index;
                 let vaosetset = &self.gltf_vaos[index];
 
-                //println!("Doing Vaosetset {index}");
+                //info!("Doing Vaosetset {index}");
                 let texsetset = &self.gltf_textures[index];
 
                 for (ind, vaoset) in vaosetset.iter().enumerate() {
-                    //println!("Doing Vaoset {ind} of Vaosetset {index}");
+                    //info!("Doing Vaoset {ind} of Vaosetset {index}");
 
                     let texset = &texsetset[ind];
 
                     for(ii, vao) in vaoset.iter().enumerate() {
-                        //println!("Doing Vao {ii} of Vaoset {ind} of Vaosetset {index}");
+                        //info!("Doing Vao {ii} of Vaoset {ind} of Vaosetset {index}");
                         gl::BindVertexArray(*vao);
 
                             

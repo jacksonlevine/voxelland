@@ -1,7 +1,7 @@
 
 
 use std::{fs, path::Path, sync::Arc};
-
+use tracing::info;
 use dashmap::DashMap;
 use gl::types::{GLsizeiptr, GLuint, GLvoid};
 use glam::{Mat4, Vec3, Vec4};
@@ -35,12 +35,12 @@ fn load_document_textures(document: &gltf::Document, buffers: &[gltf::buffer::Da
                 // External image: Load from a file
                 let decoded_uri = percent_decode_str(uri).decode_utf8_lossy(); // Decode the URI
                 let path = format!("{}/{}", base_path, decoded_uri); // Use the decoded URI to form the path
-                println!("Loading external image: {}", decoded_uri);
+                info!("Loading external image: {}", decoded_uri);
 
                 match fs::read(&path) {
                     Ok(data) => {
                         // Proceed with using the image data
-                        println!("Image loaded successfully.");
+                        info!("Image loaded successfully.");
                         data
                     },
                     Err(e) => {
@@ -55,7 +55,7 @@ fn load_document_textures(document: &gltf::Document, buffers: &[gltf::buffer::Da
                 let buffer_index = view.buffer().index();
                 let start = view.offset();
                 let end = start + view.length();
-                println!("Loading embedded image from buffer index: {}", buffer_index); 
+                info!("Loading embedded image from buffer index: {}", buffer_index); 
                 buffers[buffer_index][start..end].to_vec()
             },
         };
@@ -271,7 +271,7 @@ impl Game {
                     match model.sound {
                         Some(str) => {
 
-                            //println!("Playing at {}, while player pos is {}", model.position, self.camera.lock().unwrap().position);
+                            //info!("Playing at {}, while player pos is {}", model.position, self.camera.lock().unwrap().position);
 
                             self.audiop.write().unwrap().play(str, &model.position, &model.velocity, Planets::get_mob_volume(model.model_index));
                         }
@@ -340,7 +340,7 @@ impl Game {
     }
 
     pub fn update_non_static_model_entities(&mut self) {
-        //println!("Updating NSMEs, delta time: {}", self.delta_time);
+        //info!("Updating NSMEs, delta time: {}", self.delta_time);
         for mut model in self.non_static_model_entities.iter_mut() {
             let model: &mut ModelEntity = model.value_mut();
             if !model.coll_cage.solid.contains(&Side::FLOOR) {
@@ -404,7 +404,7 @@ impl Game {
 
             if model.sounding && !self.headless {
 
-                //println!("Sounding cricket at {}", model.position);
+                //info!("Sounding cricket at {}", model.position);
 
                     match model.sound {
                         Some(str) => {
@@ -552,16 +552,16 @@ impl Game {
                        
                 let vaosetset = &self.gltf_vaos[index];
 
-                //println!("Doing Vaosetset {index}");
+                //info!("Doing Vaosetset {index}");
                 let texsetset = &self.gltf_textures[index];
 
                 for (ind, vaoset) in vaosetset.iter().enumerate() {
-                    //println!("Doing Vaoset {ind} of Vaosetset {index}");
+                    //info!("Doing Vaoset {ind} of Vaosetset {index}");
 
                     let texset = &texsetset[ind];
 
                     for(ii, vao) in vaoset.iter().enumerate() {
-                        //println!("Doing Vao {ii} of Vaoset {ind} of Vaosetset {index}");
+                        //info!("Doing Vao {ii} of Vaoset {ind} of Vaosetset {index}");
                         gl::BindVertexArray(*vao);
 
                             

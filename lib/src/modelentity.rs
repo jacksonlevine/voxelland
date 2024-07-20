@@ -503,7 +503,7 @@ impl ModelEntity {
             self.velocity -= amt_to_subtract;
         }
         #[cfg(feature = "show_mob_pos")]
-        println!(
+        info!(
             "Mob cam pos: {}, {}, {}",
             self.position.x, self.position.y, self.position.z
         );

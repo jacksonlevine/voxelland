@@ -191,7 +191,7 @@ impl Hud {
                     let tl: Vec2 = realpos + (realsize*0.5) - Vec2::new(realsize.x, 0.0);
 
                     let element_id = element.element_ass_slot_to_shader_float();
-                    //println!("Putting e id {}", element_id);
+                    //info!("Putting e id {}", element_id);
 
                     allgeo.extend_from_slice(&[
                         bl.x, bl.y, element.uvs[0], element.uvs[1], element_id,

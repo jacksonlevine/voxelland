@@ -4,7 +4,7 @@ pub const BLOCK_DIRECTION_BITS: u32 = 0b0000_0000_0000_0011_0000_0000_0000_0000;
 pub struct Blocks {}
 
 
-static BREAKTIMES: [f32; 37] = [
+static BREAKTIMES: [f32; 40] = [
     0.1,
     0.5,
     0.7,
@@ -43,10 +43,14 @@ static BREAKTIMES: [f32; 37] = [
     1.0,
     1.0,
     1.0,
-    1.0
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+
 ];
 
-static TEXS: [[(u8, u8); 3]; 37] = [
+static TEXS: [[(u8, u8); 3]; 40] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],  // 0
             [(1, 0), (1, 0), (1, 0)],  // 1 sand
@@ -92,6 +96,10 @@ static TEXS: [[(u8, u8); 3]; 37] = [
 
             [(2,4),(2,4),(2,4)], // 35 metal rock
             [(2,5),(2,5),(2,5)], // 36 crude blade
+
+            [(3,5),(3,5),(3,5)], // 37 crude pick
+            [(4,5),(4,5),(4,5)], // 38 crude mattock
+            [(5,5),(5,5),(5,5)], // 39 crude axe
         ];
 
 
@@ -136,6 +144,10 @@ impl Blocks {
             34 => {"Dead Leaf Mulch"}
             35 => {"Metal Rock"}
             36 => {"Crude Blade"}
+
+            37 => {"Crude Pick"}
+            38 => {"Crude Mattock"}
+            39 => {"Crude Axe"}
             _ => {
                 "Unknown Item"
             }
@@ -213,8 +225,8 @@ impl Blocks {
         return SEMI_TRANSPARENTS.contains(&id);
     }
     pub fn is_non_placeable(id: u32) -> bool {
-        static NP: [u32; 4] = [
-            32, 33, 17, 36
+        static NP: [u32; 7] = [
+            32, 33, 17, 36, 37, 38, 39
         ];
         return NP.contains(&id);
     }
@@ -315,9 +327,6 @@ impl Blocks {
             }
             19 => {
                 "doorseries"
-            }
-            22 => {
-                "plantplaceseries"
             }
             11 => {
                 "plantplaceseries"

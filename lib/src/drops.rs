@@ -6,7 +6,7 @@ use glfw::ffi::glfwGetTime;
 use lockfree::queue::Queue;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
-
+use tracing::info;
 use crate::{camera::Camera, chunk::ChunkSystem, collisioncage::{BoundBox, CollCage, Side}, game::Game, server_types::Message, shader::Shader, vec};
 
 use crate::inventory::Inventory;
@@ -172,13 +172,13 @@ impl Drops {
             gl::Disable(gl::CULL_FACE);
             gl::BindVertexArray(self.shader.vao);
             gl::UseProgram(self.shader.shader_id);
-            //println!("Drawing {} drops", self.drops.len());
+            //info!("Drawing {} drops", self.drops.len());
             for drop in &self.drops {
                 let pos_loc = gl::GetUniformLocation(self.shader.shader_id, b"pos\0".as_ptr() as *const i8);
                 let time_loc = gl::GetUniformLocation(self.shader.shader_id, b"time\0".as_ptr() as *const i8);
                 let blockid_loc = gl::GetUniformLocation(self.shader.shader_id, b"blockID\0".as_ptr() as *const i8);
                 let tex_loc = gl::GetUniformLocation(self.shader.shader_id, b"ourTexture\0".as_ptr() as *const i8);
-                //println!("Drop at {} {} {}", drop.position.x, drop.position.y, drop.position.z);
+                //info!("Drop at {} {} {}", drop.position.x, drop.position.y, drop.position.z);
                 let mvp_loc = gl::GetUniformLocation(self.shader.shader_id, b"mvp\0".as_ptr() as *const i8);
 
                 gl::UniformMatrix4fv(mvp_loc, 1, gl::FALSE, mvp.to_cols_array().as_ptr());
@@ -236,7 +236,7 @@ impl Drops {
                 match Game::add_to_inventory(&self.inv, drop.block_id, drop.amount, self.in_multiplayer, &self.needtosend) {
                     Ok(_t) => {
                         to_remove_indices.push(index);
-                        println!("Picked up {} {}", drop.block_id, drop.amount);
+                        info!("Picked up {} {}", drop.block_id, drop.amount);
                     },
                     Err(_t) => {
 

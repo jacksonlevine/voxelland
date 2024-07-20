@@ -5,6 +5,8 @@ use std::collections::HashSet;
 use std::f32::consts::{self};
 use std::io::{Write};
 
+use tracing::info;
+
 
 
 use std::time::Duration;
@@ -52,6 +54,7 @@ use crate::specialblocks::door::{self, DoorInfo};
 use crate::statics::MY_MULTIPLAYER_UUID;
 use crate::texture::Texture;
 use crate::textureface::TextureFace;
+use crate::tools::{get_block_material, get_tools_target_material, Material};
 use crate::vec::{self, IVec2, IVec3};
 use crate::voxmodel::JVoxModel;
 use crate::worldgeometry::WorldGeometry;
@@ -62,7 +65,7 @@ use std::sync::RwLock;
 pub static mut SPRINTING: bool = false;
 
 pub static mut STAMINA: i32 = 0;
-
+pub static mut UPDATE_THE_BLOCK_OVERLAY: bool = false;
 
 pub static mut WINDED: bool = false;
 pub static mut WINDEDTIMER: f32 = 0.0;
@@ -351,7 +354,7 @@ impl Game {
             gl::BindVertexArray(shader0.vao);
             let error = gl::GetError();
             if error != gl::NO_ERROR {
-                println!("OpenGL Error after binding vertex array: {}", error);
+                info!("OpenGL Error after binding vertex array: {}", error);
             }
         }
         let tex = Texture::new("assets/world.png").unwrap();
@@ -691,7 +694,7 @@ impl Game {
         let mut visions_camera = Camera::new();
         visions_camera.position = Vec3::new(0.0, 3.0, -5.0);
         visions_camera.recalculate();
-        println!("Visions camera direction: {} {} {}", visions_camera.direction.x, visions_camera.direction.y, visions_camera.direction.z);
+        info!("Visions camera direction: {} {} {}", visions_camera.direction.x, visions_camera.direction.y, visions_camera.direction.z);
 
         let pme = Arc::new(DashMap::new());
 
@@ -815,7 +818,7 @@ impl Game {
 
                 g.load_model("assets/models/cricket/scene.gltf");
 
-                println!("gltf model count: {}", g.gltf_models.len());
+                info!("gltf model count: {}", g.gltf_models.len());
     
                 g.create_model_vbos();
         }
@@ -1003,7 +1006,7 @@ impl Game {
             let address = self.address.lock().unwrap().as_ref().unwrap().trim().to_string(); // Remove any trailing newline characters
 
             self.netconn.connect(address); // Connect to the provided address
-            println!("Connected to the server!");
+            info!("Connected to the server!");
             
         }
     }
@@ -1020,7 +1023,7 @@ impl Game {
                 self.vars.menu_open = false;
             }
             _ => {
-                println!("Unknown button command given");
+                info!("Unknown button command given");
             }
         }
     }
@@ -1965,7 +1968,7 @@ impl Game {
                     invlock.inv = inv.clone();
                 }
                 Err(_e) => {
-                    println!("Couldn't de-serialize inventory blob");
+                    info!("Couldn't de-serialize inventory blob");
                 }
             }
 
@@ -2007,7 +2010,7 @@ impl Game {
                     drop(camlock);
                 }
                 Err(_e) => {
-                    println!("Couldn't de-serialize playerpos blob");
+                    info!("Couldn't de-serialize playerpos blob");
                 }
             }
 
@@ -2053,28 +2056,28 @@ impl Game {
                     if stam > 0 {
                         unsafe { 
                             SPRINTING = true;
-                            self.stamina.store(stam - 4, Ordering::Relaxed);
+                           // self.stamina.store(stam - 4, Ordering::Relaxed);
                         }
         
                     } else {
 
-                        if stam < 0 {
-                            unsafe {
-                                WINDED = true;
-                            }
-                        }
+                        // if stam < 0 {
+                        //     unsafe {
+                        //         WINDED = true;
+                        //     }
+                        // }
         
-                        unsafe { SPRINTING = false } 
-                        if stam < 100 {
-                            self.stamina.store(stam + 2, Ordering::Relaxed);
-                        }
+                        // unsafe { SPRINTING = false } 
+                        // if stam < 100 {
+                        //     self.stamina.store(stam + 2, Ordering::Relaxed);
+                        // }
                         
                     }
                 } else {
                     unsafe{ SPRINTING = false; }
-                    if stam < 100 {
-                        self.stamina.store(stam + 2, Ordering::Relaxed);
-                    }
+                    // if stam < 100 {
+                    //     self.stamina.store(stam + 2, Ordering::Relaxed);
+                    // }
                 }
 
 
@@ -2162,13 +2165,13 @@ impl Game {
                 // unsafe {
                 //     match MOUSED_SLOT {
                 //         SlotIndexType::ChestSlot(e) => {
-                //             println!("Moused chest slot {}", HudElement::ass_slot_to_shader_float(&MOUSED_SLOT));
+                //             info!("Moused chest slot {}", HudElement::ass_slot_to_shader_float(&MOUSED_SLOT));
                 //         },
                 //         SlotIndexType::InvSlot(e) => {
-                //             println!("Moused inv slot {}", HudElement::ass_slot_to_shader_float(&MOUSED_SLOT));
+                //             info!("Moused inv slot {}", HudElement::ass_slot_to_shader_float(&MOUSED_SLOT));
                 //         },
                 //         SlotIndexType::None => {
-                //             println!("Moused no invslot");
+                //             info!("Moused no invslot");
                 //         },
                 //     }
                 // }
@@ -2194,15 +2197,22 @@ impl Game {
                                         self.chunksys.read().unwrap().set_block_and_queue_rerender(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
                                         comm.info, false, true);
                                     }
+                                    unsafe {
+                                        UPDATE_THE_BLOCK_OVERLAY = true;
+                                    }
                             }
                             MessageType::MultiBlockSet => {
 
+                                        let cread = self.chunksys.read().unwrap();
 
-                                        self.chunksys.read().unwrap().set_block_no_sound(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
+                                        cread.set_block_no_sound(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
                                         comm.info, true);
 
-                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(comm.otherpos, 
+                                        cread.set_block_and_queue_rerender(comm.otherpos, 
                                         comm.info2, true, true);
+                                        unsafe {
+                                            UPDATE_THE_BLOCK_OVERLAY = true;
+                                        }
 
                             }
                             MessageType::ChestReg => {
@@ -2362,12 +2372,12 @@ impl Game {
                                 let sounding  = comm.bo;
                                 let hostile = comm.hostile;
                                 // if sounding {
-                                //     println!("We got a sounding message");
+                                //     info!("We got a sounding message");
                                 // }
                                 
 
                                 let nsme = self.non_static_model_entities.clone();
-                                //println!("Mob update. NSME Length: {}", nsme.len());
+                                //info!("Mob update. NSME Length: {}", nsme.len());
                                 match nsme.get_mut(&id) {
                                     Some(mut me) => {
                                         let modent = me.value_mut();
@@ -2385,7 +2395,7 @@ impl Game {
                                         
                                     }
                                     None => {
-                                        //println!("Received an update for a mob {} that doesn't exist. Creating it...", id);
+                                        //info!("Received an update for a mob {} that doesn't exist. Creating it...", id);
                                         self.insert_static_model_entity(id, modind as usize, newpos, scale, Vec3::new(0.0,rot,0.0), 5.0, hostile);
                                     }
                                 };
@@ -2402,7 +2412,7 @@ impl Game {
 
 
                                 let uuid = Uuid::from_u64_pair(comm.goose.0, comm.goose.1);
-                                //println!("NSME Length: {}", nsme.len());
+                                //info!("NSME Length: {}", nsme.len());
                                 match pme.get_mut(&uuid) {
                                     Some(mut me) => {
                                         let modent = me.value_mut();
@@ -2419,7 +2429,7 @@ impl Game {
                                         
                                     }
                                     None => {
-                                        println!("Received an update for a player {} that doesn't exist. Creating it...", uuid);
+                                        info!("Received an update for a player {} that doesn't exist. Creating it...", uuid);
                                         self.insert_player_model_entity(uuid, modind as usize, newpos, scale, Vec3::new(0.0,rot,0.0), 5.0);
                                     }
                                 };
@@ -2590,7 +2600,7 @@ impl Game {
             
         }
 
-        //println!("Planet y off: {}", self.planet_y_offset);
+        //info!("Planet y off: {}", self.planet_y_offset);
         
         
     }
@@ -2926,13 +2936,20 @@ impl Game {
 
         static mut BLOCK_TYPE: u32 = 0;
 
+        static mut BLOCK_MATERIAL: Material = Material::Dirt;
+
         static mut BREAK_TIME: f32 = 0.0;
+
+        
 
         let camlock = self.camera.lock().unwrap();
         unsafe {
             
-            if camlock.position != LAST_CAM_POS || camlock.direction != LAST_CAM_DIR {
-                
+            if camlock.position != LAST_CAM_POS || camlock.direction != LAST_CAM_DIR || UPDATE_THE_BLOCK_OVERLAY {
+
+
+                UPDATE_THE_BLOCK_OVERLAY = false;
+
                 LAST_CAM_POS = camlock.position;
                 LAST_CAM_DIR = camlock.direction;
 
@@ -2953,6 +2970,8 @@ impl Game {
                     }
                     
                 };
+
+                BLOCK_MATERIAL = get_block_material(BLOCK_TYPE);
             }
 
 
@@ -2961,15 +2980,30 @@ impl Game {
                     let hitvec3 = Vec3::new(hit.x as f32, hit.y as f32, hit.z as f32);
                     self.select_cube.draw_at(hitvec3, &camlock.mvp, self.vars.walkbobtimer);
                     let bprog = (BREAK_TIME / Blocks::get_break_time(BLOCK_TYPE)).clamp(0.0, 1.0);
-              
+                    
+                    let slot_selected = self.hud.bumped_slot;
+                    let slot = {
+                        let b = self.inventory.read().unwrap().inv[slot_selected];
+                        b.clone()
+                    };
+                    
+                    let tooltype = get_tools_target_material(slot.0);
+
+                    let tool_is_for_this_material = tooltype == BLOCK_MATERIAL;
+
+                    let mut modifier = 1.0;
+                    if tool_is_for_this_material { 
+                        modifier = 4.0;
+                    }
                     
                     if self.vars.mouse_clicked && !self.crafting_open && !self.vars.menu_open {
                         self.block_overlay.draw_at(hitvec3, (bprog * 8.0).floor() as i8, &camlock.mvp, self.vars.walkbobtimer);
-                        BREAK_TIME = BREAK_TIME + self.delta_time;
+                        BREAK_TIME = BREAK_TIME + self.delta_time * modifier;
                         if bprog >= 1.0 {
                             drop(camlock);
                             if !self.vars.ship_taken_off {
                                 self.cast_break_ray();
+                                //UPDATE_THE_OVERLAY = true;
                             }
                             BREAK_TIME = 0.0;
                         }
@@ -3007,8 +3041,8 @@ impl Game {
 
         match ugqarc.pop() {
             Some(ready) => {
-                //println!("Some user queue");
-               // println!("Weird!");
+                //info!("Some user queue");
+               // info!("Weird!");
 
                 let bankarc = self.chunksys.read().unwrap().geobank[ready.geo_index].clone();
 
@@ -3022,8 +3056,8 @@ impl Game {
                 cmemlock.memories[ready.geo_index].pos = ready.newpos;
                 cmemlock.memories[ready.geo_index].used = true;
 
-                //println!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
-                //println!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
+                //info!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
+                //info!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
                 //if num == 0 { num = 1; } else { num = 0; }
                 //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
                 // if num == 0 {
@@ -3064,7 +3098,7 @@ impl Game {
         match gqarc.pop() {
             Some(ready) => {
 
-                //println!("Weird!");
+                //info!("Weird!");
 
                 let bankarc = self.chunksys.read().unwrap().geobank[ready.geo_index].clone();
 
@@ -3078,8 +3112,8 @@ impl Game {
                 cmemlock.memories[ready.geo_index].pos = ready.newpos;
                 cmemlock.memories[ready.geo_index].used = true;
 
-                //println!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
-                //println!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
+                //info!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
+                //info!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
                 //if num == 0 { num = 1; } else { num = 0; }
                 //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
                 // if num == 0 {
@@ -3118,8 +3152,8 @@ impl Game {
                     match ugqarc.pop() {
                         Some(ready) => {
                             
-                                    //println!("Some user queue");
-                                    // println!("Weird!");
+                                    //info!("Some user queue");
+                                    // info!("Weird!");
                 
                                 let bankarc = self.chunksys.read().unwrap().geobank[ready.geo_index].clone();
                 
@@ -3131,8 +3165,8 @@ impl Game {
                                 cmemlock.memories[ready.geo_index].pos = ready.newpos;
                                 cmemlock.memories[ready.geo_index].used = true;
                 
-                                //println!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
-                                //println!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
+                                //info!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
+                                //info!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
                                 //if num == 0 { num = 1; } else { num = 0; }
                                 //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
                                 // if num == 0 {
@@ -3198,7 +3232,7 @@ impl Game {
                 );
                 MVP_LOC =
                     gl::GetUniformLocation(self.shader0.shader_id, b"mvp\0".as_ptr() as *const i8);
-                //println!("MVP LOC: {}", MVP_LOC);
+                //info!("MVP LOC: {}", MVP_LOC);
                 CAM_POS_LOC = gl::GetUniformLocation(
                     self.shader0.shader_id,
                     b"camPos\0".as_ptr() as *const i8,
@@ -3299,15 +3333,15 @@ impl Game {
 
                     let error = gl::GetError();
                     if error != gl::NO_ERROR {
-                        println!("OpenGL Error after uniforming the chunk pos: {}", error);
+                        info!("OpenGL Error after uniforming the chunk pos: {}", error);
                     }
-                    //println!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
+                    //info!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
                     gl::DrawArrays(gl::TRIANGLES, 0, cfl.length as i32);
                     let error = gl::GetError();
                     if error != gl::NO_ERROR {
-                        println!("OpenGL Error after drawing arrays: {}", error);
+                        info!("OpenGL Error after drawing arrays: {}", error);
                     }
-                    // println!("Chunk rending!");
+                    // info!("Chunk rending!");
                 }
             }
         }
@@ -3343,15 +3377,15 @@ impl Game {
 
                     let error = gl::GetError();
                     if error != gl::NO_ERROR {
-                        println!("OpenGL Error after uniforming the chunk pos: {}", error);
+                        info!("OpenGL Error after uniforming the chunk pos: {}", error);
                     }
-                    //println!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
+                    //info!("Rendering {} in chunk at {}, {}", banklock.data32.len(), banklock.pos.x, banklock.pos.y);
                     gl::DrawArrays(gl::TRIANGLES, 0, cfl.tlength as i32);
                     let error = gl::GetError();
                     if error != gl::NO_ERROR {
-                        println!("OpenGL Error after drawing arrays: {}", error);
+                        info!("OpenGL Error after drawing arrays: {}", error);
                     }
-                    // println!("Chunk rending!");
+                    // info!("Chunk rending!");
                 }
                 //We drew the transparents, then...
 
@@ -3379,7 +3413,7 @@ impl Game {
 
                 MVP_LOC =
                     gl::GetUniformLocation(self.oldshader.shader_id, b"mvp\0".as_ptr() as *const i8);
-                //println!("MVP LOC: {}", MVP_LOC);
+                //info!("MVP LOC: {}", MVP_LOC);
 
                 WALKBOB_LOC = gl::GetUniformLocation(
                     self.oldshader.shader_id,
@@ -3464,10 +3498,10 @@ impl Game {
             gl::DrawArrays(gl::TRIANGLES, 0, cfl.vlength as i32 / 5);
             let error = gl::GetError();
             if error != gl::NO_ERROR {
-                println!("OpenGL Error after drawing arrays: {}", error);
+                info!("OpenGL Error after drawing arrays: {}", error);
             }
             //gl::Enable(gl::CULL_FACE);
-            // println!("Chunk rending!");
+            // info!("Chunk rending!");
         }
 
 
@@ -3536,9 +3570,9 @@ impl Game {
 
         if let Some(handle) = self.chunk_thread.take() {
             handle.join().unwrap();
-            println!("Thread joined successfully!");
+            info!("Thread joined successfully!");
         } else {
-            println!("No thread to join or already joined.");
+            info!("No thread to join or already joined.");
         }
 
         self.drops.drops.clear();
@@ -3554,9 +3588,9 @@ impl Game {
 
         if let Some(handle) = self.chunk_thread.take() {
             handle.join().unwrap();
-            println!("Thread joined successfully!");
+            info!("Thread joined successfully!");
         } else {
-            println!("No thread to join or already joined.");
+            info!("No thread to join or already joined.");
         }
         
 
@@ -3632,7 +3666,7 @@ impl Game {
     }
 
     pub fn chunk_thread_inner_function(cam_arc: &Arc<Mutex<Camera>>, csys_arc: &Arc<RwLock<ChunkSystem>>, last_user_c_pos: &mut vec::IVec2) {
-        //println!("Starting over the CTIF");
+        //info!("Starting over the CTIF");
         let _rng = StdRng::from_entropy();
 
         let mut lightstuff = true;
@@ -3643,7 +3677,7 @@ impl Game {
             match csys_arc.light_rebuild_requests.pop() {
                 Some(index) => {
                     csys_arc.rebuild_index(index, true, true);
-                    //println!("Popping stuff LIGHT {}", rng.gen_range(0..255));
+                    //info!("Popping stuff LIGHT {}", rng.gen_range(0..255));
                 }
                 None => {
                     lightstuff = false;
@@ -3659,13 +3693,13 @@ impl Game {
 
             match csys_arc.user_rebuild_requests.pop() {
                 Some(index) => {
-                    //println!("Popping stuff USER {}", rng.gen_range(0..255));
+                    //info!("Popping stuff USER {}", rng.gen_range(0..255));
                     csys_arc.rebuild_index(index, true, false);
 
 
                     match csys_arc.light_rebuild_requests.pop() {
                         Some(index) => {
-                            //println!("Popping stuff LIGHT {}", rng.gen_range(0..255));
+                            //info!("Popping stuff LIGHT {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, true);
                         }
                         None => {
@@ -3684,10 +3718,10 @@ impl Game {
             match csys_arc.gen_rebuild_requests.pop() {
                 Some(index) => {
                     csys_arc.rebuild_index(index, true, false);
-                   // println!("Popping stuff GEN {}", rng.gen_range(0..255));
+                   // info!("Popping stuff GEN {}", rng.gen_range(0..255));
                     match csys_arc.user_rebuild_requests.pop() {
                         Some(index) => {
-                           // println!("Popping stuff USER {}", rng.gen_range(0..255));
+                           // info!("Popping stuff USER {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, false);
                             
                         }
@@ -3695,7 +3729,7 @@ impl Game {
                     }
                     match csys_arc.light_rebuild_requests.pop() {
                         Some(index) => {
-                           // println!("Popping stuff LIGHT {}", rng.gen_range(0..255));
+                           // info!("Popping stuff LIGHT {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, true);
                         }
                         None => {
@@ -3714,12 +3748,12 @@ impl Game {
             let csys_arc = csys_arc.read().unwrap();
             match csys_arc.background_rebuild_requests.pop() {
                 Some(index) => {
-                   // println!("Popping stuff BACKGROUND {}", rng.gen_range(0..255));
+                   // info!("Popping stuff BACKGROUND {}", rng.gen_range(0..255));
                     csys_arc.rebuild_index(index, false, false);
                     
                     match csys_arc.user_rebuild_requests.pop() {
                         Some(index) => {
-                           // println!("Popping stuff USER {}", rng.gen_range(0..255));
+                           // info!("Popping stuff USER {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, false);
                             let _userstuff = true;
                             
@@ -3729,7 +3763,7 @@ impl Game {
 
                     match csys_arc.light_rebuild_requests.pop() {
                         Some(index) => {
-                           // println!("Popping stuff LIGHT {}", rng.gen_range(0..255));
+                           // info!("Popping stuff LIGHT {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, true);
                         }
                         None => {
@@ -3738,7 +3772,7 @@ impl Game {
 
                     match csys_arc.gen_rebuild_requests.pop() {
                         Some(index) => {
-                           // println!("Popping stuff GEN {}", rng.gen_range(0..255));
+                           // info!("Popping stuff GEN {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, false);
                             let mut genstuff = true;
                             while genstuff {
@@ -3836,7 +3870,7 @@ impl Game {
 
                 sorted_chunk_facades.extend(unused_or_distant);
                 sorted_chunk_facades.extend(used_and_close);
-                //println!("Neededspots size: {}", neededspots.len());
+                //info!("Neededspots size: {}", neededspots.len());
 
                 neededspots.sort_by(|a, b| {
                     let dist_a = (a.x - user_c_pos.x).pow(2) + (a.y - user_c_pos.y).pow(2);
@@ -3933,7 +3967,7 @@ impl Game {
 
                 camlock.recalculate();
                 #[cfg(feature = "show_cam_pos")]
-                println!(
+                info!(
                     "Cam dir: {}, {}, {}",
                     camlock.direction.x, camlock.direction.y, camlock.direction.z
                 );
@@ -4055,7 +4089,7 @@ impl Game {
         let mut updateinv = false;
         let mut openedcraft = false;
 
-        if !Blocks::is_non_placeable(slot.0) {
+        if true {
 
             let cl = self.camera.lock().unwrap();
 
@@ -4136,11 +4170,11 @@ impl Game {
                             hit_normal = vec::IVec3::new(0, 0, if diff.z > 0.0 { 1 } else { -1 });
                         }
 
-                        println!("Hit normal is {} {} {}", hit_normal.x, hit_normal.y, hit_normal.z);
+                        info!("Hit normal is {} {} {}", hit_normal.x, hit_normal.y, hit_normal.z);
 
 
                         let place_point = block_hit + hit_normal;
-                        println!("Placing {} at {} {} {}", id, place_point.x, place_point.y, place_point.z);
+                        info!("Placing {} at {} {} {}", id, place_point.x, place_point.y, place_point.z);
 
                         if id == 19 { //Door shit
 
@@ -4373,47 +4407,50 @@ impl Game {
                             }
 
                         } else {
-                            if self.vars.in_multiplayer {
-                                let message = Message::new(MessageType::BlockSet, Vec3::new(place_point.x as f32, place_point.y as f32, place_point.z as f32), 0.0, id);
-                                self.netconn.send(&message);
-                            } else {
-                                self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, id, false, true);
+                            if !Blocks::is_non_placeable(slot.0) {
+                                if self.vars.in_multiplayer {
+                                    let message = Message::new(MessageType::BlockSet, Vec3::new(place_point.x as f32, place_point.y as f32, place_point.z as f32), 0.0, id);
+                                    self.netconn.send(&message);
+                                } else {
+                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, id, false, true);
+                                }
                             }
                         }
+                        if !Blocks::is_non_placeable(slot.0) {
+                            if self.vars.in_multiplayer {
+                                if slot.1 == 1 {
+                                    let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                                    mutslot.1 = 0;
+                                    mutslot.0 = 0;
 
-                        if self.vars.in_multiplayer {
-                            if slot.1 == 1 {
-                                let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
-                                mutslot.1 = 0;
-                                mutslot.0 = 0;
 
+                                    let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, 0.0, slot_selected as u32);
+                                        msg.infof = 0.0;
+                                        msg.info2 = 1;
 
-                                   let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, 0.0, slot_selected as u32);
-                                    msg.infof = 0.0;
-                                    msg.info2 = 1;
+                                        self.netconn.send(&msg);
+                        
+                                    
+                                } else {
+                                    let slot = &self.inventory.read().unwrap().inv[slot_selected];
+                            
 
-                                    self.netconn.send(&msg);
-                     
-                                
+                                    let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, slot.0 as f32, slot_selected as u32);
+                                        msg.infof = slot.1 as f32 - 1.0;
+                                        msg.info2 = 1;
+
+                                        self.netconn.send(&msg);
+
+                                }
                             } else {
-                                let slot = &self.inventory.read().unwrap().inv[slot_selected];
-                          
-
-                                let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, slot.0 as f32, slot_selected as u32);
-                                    msg.infof = slot.1 as f32 - 1.0;
-                                    msg.info2 = 1;
-
-                                    self.netconn.send(&msg);
-
-                            }
-                        } else {
-                            if slot.1 == 1 {
-                                let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
-                                mutslot.1 = 0;
-                                mutslot.0 = 0;
-                            } else {
-                                let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
-                                mutslot.1 -= 1;
+                                if slot.1 == 1 {
+                                    let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                                    mutslot.1 = 0;
+                                    mutslot.0 = 0;
+                                } else {
+                                    let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                                    mutslot.1 -= 1;
+                                }
                             }
                         }
 
@@ -4687,7 +4724,7 @@ impl Game {
                 *self.chunksys.read().unwrap().currentseed.write().unwrap() = seed;
                 self.start_chunks_with_radius(10, seed, CURR_NT);
 
-                println!("Now noise type is {}", self.chunksys.read().unwrap().planet_type);
+                info!("Now noise type is {}", self.chunksys.read().unwrap().planet_type);
             }
         }
 

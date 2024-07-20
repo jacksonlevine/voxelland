@@ -2,6 +2,8 @@
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::fmt::writer::BoxMakeWriter;
 use tracing_subscriber::fmt::Subscriber;
+use tracing_appender::non_blocking::{self, WorkerGuard};
+use tracing::info;
 use std::fs::File;
 
 use voxelland::windowandkey::WindowAndKeyContext;
@@ -12,16 +14,19 @@ use voxelland::game::{Game, DECIDEDSPORMP};
 
 fn main() {
 
-    let file = File::create("app.log").unwrap();
-    let make_writer = BoxMakeWriter::new(file);
+    // Create a non-blocking, asynchronous file writer
+    let file = File::create("app.log").expect("Unable to create log file");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file);
 
+    // Create a tracing subscriber with the non-blocking writer
     let subscriber = Subscriber::builder()
-        .with_writer(make_writer)
+        .with_writer(non_blocking)
         .with_span_events(FmtSpan::CLOSE)
         .finish();
 
     tracing::subscriber::set_global_default(subscriber)
         .expect("setting default subscriber failed");
+
 
     let mut wak_context = WindowAndKeyContext::new("Distant Garden", 1280, 720);
 
@@ -61,7 +66,7 @@ fn main() {
         }
     }
 
-    println!("gltf model count: {}", game.gltf_models.len());
+    info!("gltf model count: {}", game.gltf_models.len());
 
     wak_context.game = Some(game);
 

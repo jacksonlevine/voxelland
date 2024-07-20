@@ -1,7 +1,7 @@
 use std::fs::{self, File};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::io::{self, Read, Write};
-
+use tracing::info;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread::{self, JoinHandle};
@@ -16,6 +16,7 @@ use uuid::Uuid;
 
 use crate::camera::Camera;
 use crate::chunk::ChunkSystem;
+use crate::game::UPDATE_THE_BLOCK_OVERLAY;
 use crate::modelentity::{direction_to_euler, ModelEntity};
 use crate::server_types::{self, Message, MessageType, MOB_BATCH_SIZE};
 use crate::statics::MY_MULTIPLAYER_UUID;
@@ -66,7 +67,7 @@ impl NetworkConnector {
     }
 
     pub fn send(&self, message: &Message) {
-        //println!("Sending a {}", message.message_type);
+        //info!("Sending a {}", message.message_type);
 
         if let Some(stream) = &self.stream {
             let serialized_message = bincode::serialize(message).unwrap();
@@ -76,14 +77,14 @@ impl NetworkConnector {
     }
 
     pub fn sendto(message: &Message, stream: &Arc<Mutex<TcpStream>>) {
-       // println!("Sending a {}", message.message_type);
+       // info!("Sending a {}", message.message_type);
         let serialized_message = bincode::serialize(message).unwrap();
         let mut stream_lock = stream.lock().unwrap();
         stream_lock.write_all(&serialized_message).unwrap();
     }
 
     pub fn sendtolocked(message: &Message, stream: &mut TcpStream) {
-       // println!("Sending a {}", message.message_type);
+       // info!("Sending a {}", message.message_type);
         let serialized_message = bincode::serialize(message).unwrap();
         stream.write_all(&serialized_message).unwrap();
     }
@@ -209,7 +210,7 @@ impl NetworkConnector {
 
                                                 match msg.message_type {
                                                     MessageType::ChestInvUpdate => {
-                                                        println!("CIU incoming goose {}", Uuid::from_u64_pair(msg.goose.0, msg.goose.1));
+                                                        info!("CIU incoming goose {}", Uuid::from_u64_pair(msg.goose.0, msg.goose.1));
                                                     }
                                                     _ => {
 
@@ -228,7 +229,7 @@ impl NetworkConnector {
                                             }
                                             MessageType::ChestReg => {
                                                 
-                                                println!("Receiving ChestReg:");
+                                                info!("Receiving ChestReg:");
 
                                                 if comm.info > 0 {
 
@@ -247,7 +248,7 @@ impl NetworkConnector {
                                                             Ok(n) if n > 0 => total_read += n,
                                                             Ok(_) => {
                                                                 // Connection closed
-                                                                println!("Connection closed by server during chestreg");
+                                                                info!("Connection closed by server during chestreg");
                                                                 break;
                                                             }
                                                             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
@@ -255,7 +256,7 @@ impl NetworkConnector {
                                                                 thread::sleep(Duration::from_millis(10));
                                                             }
                                                             Err(e) => {
-                                                                println!("Error receiving chestreg: {}", e);
+                                                                info!("Error receiving chestreg: {}", e);
                                                                 break;
                                                             }
                                                         }
@@ -268,7 +269,7 @@ impl NetworkConnector {
                         
                                                     if total_read == comm.info as usize {
 
-                                                        println!("Got the expected bytes for chestreg");
+                                                        info!("Got the expected bytes for chestreg");
                                                         let mut file = File::create("chestdb").unwrap();
                                                         file.write_all(&payload_buffer).unwrap();
 
@@ -282,7 +283,7 @@ impl NetworkConnector {
                                                     } else {
 
 
-                                                        println!("Error receiving chestreg, trying again...");
+                                                        info!("Error receiving chestreg, trying again...");
                                                         NetworkConnector::sendtolocked(&reqchest, &mut stream_lock);
                                                     }
 
@@ -333,8 +334,8 @@ impl NetworkConnector {
 
                                                 let uuid = Uuid::from_u64_pair(comm.goose.0, comm.goose.1);
 
-                                                //println!("Player update: {uuid}");
-                                                //println!("NSME Length: {}", nsme.len());
+                                                //info!("Player update: {uuid}");
+                                                //info!("NSME Length: {}", nsme.len());
                                                 match pme.get_mut(&uuid) {
                                                     Some(mut me) => {
                                                         let modent = me.value_mut();
@@ -364,6 +365,8 @@ impl NetworkConnector {
                                                 //     csys.read().unwrap().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
                                                 //     recv_m.info, false, true);
                                                 // }
+                                                
+                                                
                                                 hpcommqueue.push(comm.clone());
                                             },
                                             MessageType::MultiBlockSet => {
@@ -377,7 +380,7 @@ impl NetworkConnector {
                                                 hpcommqueue.push(comm.clone());
                                             },
                                             MessageType::Udm => {
-                                                println!("Receiving Udm:");
+                                                info!("Receiving Udm:");
                                                 shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
                                                 
                                                 stream_lock.set_nonblocking(false).unwrap();
@@ -393,14 +396,14 @@ impl NetworkConnector {
 
 
                                                     Ok(_) => {
-                                                        println!("Got the expected bytes for udm");
+                                                        info!("Got the expected bytes for udm");
                                                         let mut file = File::create("db").unwrap();
                                                         file.write_all(&buff).unwrap();
 
                                                         NetworkConnector::sendtolocked(&reqseed, &mut stream_lock);
                                                     }
                                                     Err(_e) => {
-                                                        println!("Error receiving, trying again...");
+                                                        info!("Error receiving, trying again...");
                                                         NetworkConnector::sendtolocked(&requdm, &mut stream_lock);
                                                     }
 
@@ -409,7 +412,7 @@ impl NetworkConnector {
                                                 stream_lock.set_nonblocking(true).unwrap();
                                             },
                                             MessageType::Seed => {
-                                                //println!("Receiving Seed:");
+                                                //info!("Receiving Seed:");
                                                 // let mut buff = vec![0 as u8; comm.info as usize];
 
                                                 // stream_lock.set_nonblocking(false).unwrap();
@@ -420,7 +423,7 @@ impl NetworkConnector {
 
                                                 let recv_s = format!("{}", comm.info);
 
-                                                println!("Received seed: {}", recv_s);
+                                                info!("Received seed: {}", recv_s);
 
                                                 // Create directory if not exists
                                                     fs::create_dir_all("mp").unwrap();
@@ -435,7 +438,7 @@ impl NetworkConnector {
 
                                                     // Verify if the content is correctly written
                                                     let content = std::fs::read_to_string("mp/seed2").unwrap();
-                                                    println!("File content: {}", content);
+                                                    info!("File content: {}", content);
 
 
                                                         commqueue.push(comm.clone());
@@ -445,7 +448,7 @@ impl NetworkConnector {
 
 
                                                 stream_lock.set_nonblocking(true).unwrap();
-                                                //println!("{}", recv_s);
+                                                //info!("{}", recv_s);
 
                                                 
                                             },
@@ -456,7 +459,7 @@ impl NetworkConnector {
                                                 
                                             },
                                             MessageType::Pt => {
-                                                //println!("Receiving Pt:");
+                                                //info!("Receiving Pt:");
                                                 // let mut buff = vec![0 as u8; comm.info as usize];
 
                                                 // stream_lock.set_nonblocking(false).unwrap();
@@ -481,22 +484,22 @@ impl NetworkConnector {
                                                 NetworkConnector::sendtolocked(&reqchest, &mut stream_lock);
                                                 
                             
-                                                //println!("{}", recv_s);
+                                                //info!("{}", recv_s);
 
                                                 
                                                 
                                             },
                                             MessageType::YourId => {
-                                                // //println!("Receiving Your ID:");
+                                                // //info!("Receiving Your ID:");
                                                 // stream_lock.set_nonblocking(false).unwrap();
                                                 // let mut buff = vec![0 as u8; comm.info as usize];
                                                 // stream_lock.read_exact(&mut buff).unwrap();
 
                                                 let recv_s = comm.goose;
                                                 let uuid = Uuid::from_u64_pair(recv_s.0, recv_s.1);
-                                                //println!("{}", uuid);
+                                                //info!("{}", uuid);
 
-                                                println!("My uuid, I am being told, is {uuid}");
+                                                info!("My uuid, I am being told, is {uuid}");
 
                                                 gknowncams.insert(
                                                     uuid.clone(), Vec3::ZERO
@@ -524,9 +527,9 @@ impl NetworkConnector {
                                                 
                                             },
                                             MessageType::MobUpdateBatch => {
-                                                //println!("Got MUB, count {}", comm.count);
+                                                //info!("Got MUB, count {}", comm.count);
                                                 if comm.count > server_types::MOB_BATCH_SIZE as u8 {
-                                                    println!("Ignoring invalid mobbatch with count > {} of {}", server_types::MOB_BATCH_SIZE, comm.count);
+                                                    info!("Ignoring invalid mobbatch with count > {} of {}", server_types::MOB_BATCH_SIZE, comm.count);
                                                 } else {
                                                     for i in 0..comm.count.min(MOB_BATCH_SIZE as u8) {
                                                         
@@ -541,19 +544,19 @@ impl NetworkConnector {
                                                 commqueue.push(comm.clone());
                                             }
                                             MessageType::ChestInvUpdate => {
-                                                //println!("Receiving CIU from goose {}", Uuid::from_u64_pair(comm.goose.0, comm.goose.1));
+                                                //info!("Receiving CIU from goose {}", Uuid::from_u64_pair(comm.goose.0, comm.goose.1));
                                                 hpcommqueue.push(comm.clone());
                                             },
                                         }
 
-                                        //println!("Received message from server: {:?}", recv_m);
+                                        //info!("Received message from server: {:?}", recv_m);
                                     }
                                     Ok(_) => {
-                                        println!("Connection closed by server");
+                                        info!("Connection closed by server");
                                         break;
                                     }
                                     Err(e) => {
-                                        println!("Failed to receive message: {}", e);
+                                        info!("Failed to receive message: {}", e);
                                         break;
                                     }
                                 }
@@ -562,7 +565,7 @@ impl NetworkConnector {
                     }));
                 }
                 Err(e) => {
-                    println!("Error from connect(): {e}");
+                    info!("Error from connect(): {e}");
                     thread::sleep(Duration::from_secs(1));
                 }
             }

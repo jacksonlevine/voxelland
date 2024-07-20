@@ -24,6 +24,8 @@ use dashmap::DashMap;
 use crossbeam::queue::SegQueue;
 use voxelland::playerposition::*;
 
+use tracing::info;
+
 
 
 static mut PACKET_SIZE: usize = 0;
@@ -64,7 +66,7 @@ fn handle_client(
         buffer = vec![0; PACKET_SIZE];
     }
 
-    println!("Inside thread");
+    info!("Inside thread");
 
     loop {
         let mut should_break = false;
@@ -86,7 +88,7 @@ fn handle_client(
                         let mut message: Message = match bincode::deserialize(&buffer[..numbytes]) {
                             Ok(m) => m,
                             Err(_) => {
-                                println!("Erroneous message received!");
+                                info!("Erroneous message received!");
                                 Message::new(MessageType::None, Vec3::ZERO, 0.0, 0)
                             }
                         };
@@ -115,14 +117,14 @@ fn handle_client(
                 shutupmobmsgs.store(true, std::sync::atomic::Ordering::Relaxed);
             }
             MessageType::RequestUdm => {
-                println!("Recvd req world");
+                info!("Recvd req world");
 
                 let buffer = {
                     let mut file = File::open("db").unwrap();
-                    println!("Opened the db file");
+                    info!("Opened the db file");
                     let mut buffer = Vec::new();
                     file.read_to_end(&mut buffer).unwrap();
-                    println!("Read the file to end");
+                    info!("Read the file to end");
                     buffer
                 };
 
@@ -131,24 +133,24 @@ fn handle_client(
                 {
                     let mut mystream = stream.lock().unwrap();
                     mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
-                    println!("Wrote the header");
+                    info!("Wrote the header");
                     mystream.write_all(&buffer).unwrap();
-                    println!("Wrote the file buffer");
+                    info!("Wrote the file buffer");
                 }
             }
             MessageType::ReqChestReg => {
-                println!("Recvd req chest reg");
+                info!("Recvd req chest reg");
 
                 let buffer = {
                     let mut buffer = Vec::new();
                     match File::open("chestdb") {
                         Ok(mut file) => {
-                            println!("Opened the db file");
+                            info!("Opened the db file");
                             file.read_to_end(&mut buffer).unwrap();
                         }
                         Err(_) => {}
                     };
-                    println!("Read the file to end");
+                    info!("Read the file to end");
                     buffer
                 };
 
@@ -159,19 +161,19 @@ fn handle_client(
                         let mut mystream = stream.lock().unwrap();
                         mystream.write_all(&bincode::serialize(&chestmsg).unwrap());
                     }
-                    println!("Wrote the chest header");
+                    info!("Wrote the chest header");
 
                     thread::sleep(Duration::from_millis(20));
 
                     if buffer.len() > 0 {
                         let mut mystream = stream.lock().unwrap();
                         mystream.write_all(&buffer);
-                        println!("Wrote the chest file buffer");
+                        info!("Wrote the chest file buffer");
                     }
                 }
             }
             MessageType::RequestSeed => {
-                println!("Recvd req seed");
+                info!("Recvd req seed");
 
                 let currseed = {
                     let csys = csys.read().unwrap();
@@ -290,10 +292,10 @@ fn handle_client(
                         let mut mystream = stream.lock().unwrap();
                         match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
                             Ok(_) => {
-                                //println!("Sent mob header");
+                                //info!("Sent mob header");
                             },
                             Err(e) => {
-                                println!("Mob err {e}");
+                                info!("Mob err {e}");
                             },
                         };
                     thread::sleep(Duration::from_millis(10));
@@ -304,7 +306,7 @@ fn handle_client(
                 }
             }
             MessageType::BlockSet => {
-                println!("Recvd block set");
+                info!("Recvd block set");
                 let spot = IVec3::new(message.x as i32, message.y as i32, message.z as i32);
                 let block = message.info;
 
@@ -314,7 +316,7 @@ fn handle_client(
                 queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot, block));
             }
             MessageType::MultiBlockSet => {
-                println!("Recvd multi block set");
+                info!("Recvd multi block set");
 
                 let spot = IVec3::new(message.x as i32, message.y as i32, message.z as i32);
                 let spot2 = message.otherpos;
@@ -331,7 +333,7 @@ fn handle_client(
                 queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot2, block2));
             }
             MessageType::RequestTakeoff => {
-                println!("Recvd req takeoff");
+                info!("Recvd req takeoff");
                 let mut rng = StdRng::from_entropy();
                 let newseed: u32 = rng.gen();
                 let mut csys = csys.write().unwrap();
@@ -342,7 +344,7 @@ fn handle_client(
                 mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
             }
             MessageType::TellYouMyID => {
-                // println!("Telling someone their id is: {client_id}");
+                // info!("Telling someone their id is: {client_id}");
 
                 // let mut idmsg = Message::new(MessageType::YourId, Vec3::ZERO, 0.0, bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32);
                 // idmsg.goose = client_id.as_u64_pair();
@@ -372,7 +374,7 @@ fn handle_client(
                 thread::sleep(Duration::from_millis(100));
 
                 {
-                    println!("Telling someone their id is: {client_id}");
+                    info!("Telling someone their id is: {client_id}");
                     let mut idmsg = Message::new(MessageType::YourId, Vec3::ZERO, 0.0, bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32);
                     idmsg.goose = client_id.as_u64_pair();
 
@@ -401,7 +403,7 @@ fn handle_client(
             }
         }
         if should_break {
-            println!("Removed {}", client_id);
+            info!("Removed {}", client_id);
             knowncams.remove(&client_id);
             let mut locked_clients = clients.lock().unwrap();
             locked_clients.remove(&client_id);
@@ -414,8 +416,8 @@ fn handle_client(
 
 
 fn main() {
-    println!("Welcome to VoxelLand Server Version 0.1.0.");
-    println!("Hosting on port 4848.");
+    info!("Welcome to VoxelLand Server Version 0.1.0.");
+    info!("Hosting on port 4848.");
     let listener = TcpListener::bind("0.0.0.0:4848").unwrap();
     let clients: Arc<Mutex<HashMap<Uuid, Client>>> = Arc::new(Mutex::new(HashMap::new()));
     unsafe {
@@ -504,7 +506,7 @@ fn main() {
 
     fn handlesql(sql: &QueuedSqlType) {
 
-        println!("Calling handlesql");
+        info!("Calling handlesql");
         let mut retry = true;
         let mut retries = 0;
 
@@ -516,7 +518,7 @@ fn main() {
 
                         let table_name = format!("userdatamap_{}", seed);
 
-                        println!("Adding to table {}", table_name);
+                        info!("Adding to table {}", table_name);
 
 
                         let conn = Connection::open("db").unwrap();
@@ -679,7 +681,7 @@ fn main() {
                     retry = false;
                 }
                 Err(_e) => {
-                    println!("Sqlite failure, retrying..");
+                    info!("Sqlite failure, retrying..");
                     retry = true;
                     retries += 1;
                     thread::sleep(Duration::from_millis(100));
@@ -730,7 +732,7 @@ fn main() {
             match listener.accept() {
                 Ok((stream, _)) => {
 
-                    println!("New connection: {}", stream.peer_addr().unwrap());
+                    info!("New connection: {}", stream.peer_addr().unwrap());
                     let mut client_id = Uuid::new_v4();
                     let stream = Arc::new(Mutex::new(stream));
                     stream.lock().unwrap().set_nonblocking(true);
@@ -749,28 +751,28 @@ fn main() {
                                     Ok(comm) => {
                                         if comm.message_type == MessageType::TellYouMyID {
                                             let goose = Uuid::from_u64_pair(comm.goose.0, comm.goose.1);
-                                            println!("Received your client id, its {}", goose);
+                                            info!("Received your client id, its {}", goose);
                                             client_id = goose;
                                             gotid = true;
                                         } else {
-                                            println!("Received greeting but it was the wrong messagetype {}", comm.message_type);
+                                            info!("Received greeting but it was the wrong messagetype {}", comm.message_type);
                                         }
                                         
                                     },
                                     Err(e) => {
-                                        println!("Error deserializing id greeting from client {}", e);
+                                        info!("Error deserializing id greeting from client {}", e);
                                     },
                                 }
                             },
                             Err(e) => {
-                                println!("Error trying to receive id greeting from client {}", e);
+                                info!("Error trying to receive id greeting from client {}", e);
                             },
                         }
                         retries += 1;
                     }
 
                     if !gotid {
-                        println!("Sorry, this guy didn't send an ID. He's out!");
+                        info!("Sorry, this guy didn't send an ID. He's out!");
                     } else {
      
 
@@ -804,7 +806,7 @@ fn main() {
                                     previously_loaded_inv = inv.clone();
                                 }
                                 Err(_e) => {
-                                    println!("Couldn't de-serialize inventory blob");
+                                    info!("Couldn't de-serialize inventory blob");
                                 }
                             }
 
@@ -815,7 +817,7 @@ fn main() {
 
 
 
-                        println!("About to lock clients");
+                        info!("About to lock clients");
                         let mut gotlock = false;
 
                         while !gotlock {
@@ -841,7 +843,7 @@ fn main() {
                         }
                         
                         
-                        println!("Locked clients");
+                        info!("Locked clients");
 
 
                         let clients_ref_clone = Arc::clone(&clients);
@@ -858,11 +860,11 @@ fn main() {
 
                         let queued_sql = qs2.clone();
                         let chestreg = chestreg.clone();
-                        println!("About to spawn thread");
+                        info!("About to spawn thread");
                         thread::spawn(move || {
                             handle_client(client_id, clients_ref_clone, &csysarc_clone, &knowncams_clone, &msq_clone, &su_clone, &nsme_clone, &wl_clone, &todclone, &queued_sql, &chestreg);
                         });
-                        println!("Spawned thread");
+                        info!("Spawned thread");
 
 
 
@@ -879,13 +881,13 @@ fn main() {
                 }
                 Err(e) => {
 
-                    println!("Connection failed: {}", e);
+                    info!("Connection failed: {}", e);
                 }
             }
 
 
 
-        //println!("Running this");
+        //info!("Running this");
         glfw.poll_events();
         gamearc.write().unwrap().update();
         let mut nblock = nsme_bare_arc.lock().unwrap();
@@ -919,7 +921,7 @@ fn main() {
             
         
             if mobspawnqueued.load(std::sync::atomic::Ordering::Relaxed) {
-                println!("Spawning mobs");
+                info!("Spawning mobs");
 
                 if true {//chunksys.read().unwrap().planet_type == 1 {
                     let mut rng = StdRng::from_entropy();

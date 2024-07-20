@@ -118,7 +118,7 @@ impl Camera {
         }
 
         #[cfg(feature = "show_cam_pos")]
-        println!(
+        info!(
             "Cam pos: {}, {}, {}",
             self.position.x, self.position.y, self.position.z
         );

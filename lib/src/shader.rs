@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::Read;
 use std::ptr;
 use std::str;
-
+use tracing::info;
 #[derive(Clone)]
 pub struct Shader {
     pub shader_id: gl::types::GLuint,
@@ -26,7 +26,7 @@ impl Shader {
             gl::CreateVertexArrays(1, &mut vao);
             let error = gl::GetError();
             if error != gl::NO_ERROR {
-                println!("OpenGL Error after creating vertex array: {}", error);
+                info!("OpenGL Error after creating vertex array: {}", error);
             }
         }
 
@@ -58,7 +58,7 @@ impl Shader {
                     ptr::null_mut(),
                     log.as_mut_ptr() as *mut gl::types::GLchar,
                 );
-                println!(
+                info!(
                     "ERROR::SHADER::COMPILATION_FAILED\n{}",
                     str::from_utf8(&log).unwrap()
                 );
@@ -88,7 +88,7 @@ impl Shader {
                     ptr::null_mut(),
                     log.as_mut_ptr() as *mut gl::types::GLchar,
                 );
-                println!(
+                info!(
                     "ERROR::PROGRAM::LINKING_FAILED\n{}",
                     str::from_utf8(&log).unwrap()
                 );

@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 use uuid::Uuid;
 
 
-
+use tracing::info;
 
 
 pub static mut MY_MULTIPLAYER_UUID: Lazy<Uuid> = Lazy::new(|| Uuid::new_v4());
@@ -19,7 +19,7 @@ pub fn SAVE_LESA() {
     unsafe {
         file.write_all(LAST_ENTERED_SERVERADDRESS.to_string().as_bytes()).unwrap();
     }
-    println!("UUID file created or overwritten.");
+    info!("UUID file created or overwritten.");
 }
 
 pub fn LOAD_OR_INITIALIZE_STATICS() {
@@ -33,7 +33,7 @@ pub fn LOAD_OR_INITIALIZE_STATICS() {
         unsafe {
             (*MY_MULTIPLAYER_UUID) = uuid;
         }
-        println!("UUID file loaded, its {uuid}.");
+        info!("UUID file loaded, its {uuid}.");
     } else {
         // If the file doesn't exist, create and write to it
         let mut file = File::create(mmu).unwrap();
@@ -41,7 +41,7 @@ pub fn LOAD_OR_INITIALIZE_STATICS() {
             file.write_all(MY_MULTIPLAYER_UUID.to_string().as_bytes()).unwrap();
         }
         unsafe {
-            println!("UUID file created and written to, with {}.", *MY_MULTIPLAYER_UUID);
+            info!("UUID file created and written to, with {}.", *MY_MULTIPLAYER_UUID);
         }
         
     }
@@ -54,14 +54,14 @@ pub fn LOAD_OR_INITIALIZE_STATICS() {
         unsafe {
             (*LAST_ENTERED_SERVERADDRESS) = contents;
         }
-        println!("UUID file loaded.");
+        info!("UUID file loaded.");
     } else {
         // If the file doesn't exist, create and write to it
         let mut file = File::create(mmu).unwrap();
         unsafe {
             file.write_all(LAST_ENTERED_SERVERADDRESS.to_string().as_bytes()).unwrap();
         }
-        println!("UUID file created and written to.");
+        info!("UUID file created and written to.");
     }
 
 

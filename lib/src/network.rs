@@ -80,7 +80,22 @@ impl NetworkConnector {
        // info!("Sending a {}", message.message_type);
         let serialized_message = bincode::serialize(message).unwrap();
         let mut stream_lock = stream.lock().unwrap();
-        stream_lock.write_all(&serialized_message).unwrap();
+        let mut attempts = 0;
+
+        loop {
+            match stream_lock.write_all(&serialized_message) {
+                Ok(_) => return (),
+                Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                    // Sleep for a short duration and retry
+                    std::thread::sleep(Duration::from_millis(10));
+                    attempts += 1;
+                    if attempts > 50 {
+                        return ()
+                    }
+                }
+                Err(e) => return (),
+            }
+        }
     }
 
     pub fn sendtolocked(message: &Message, stream: &mut TcpStream) {

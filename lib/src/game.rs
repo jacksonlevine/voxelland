@@ -78,6 +78,12 @@ pub static mut DECIDEDSPORMP: bool = false;
 
 pub static mut MOVING: bool = false;
 
+pub static mut SHOULDRUN: bool = false;
+
+
+
+pub static mut ROOFOVERHEAD: bool = false;
+
 pub fn wait_for_decide_singleplayer() {
     unsafe {
         while !DECIDEDSPORMP {
@@ -324,7 +330,9 @@ enum FaderNames {
 
 impl Game {
     pub fn new(window: &Arc<RwLock<PWindow>>, connectonstart: bool, headless: bool, addressentered: &Arc<AtomicBool>, address: &Arc<Mutex<Option<String>>>) -> JoinHandle<Game> {
-
+        unsafe {
+            SHOULDRUN =  true;
+        }
         let mut connectonstart = connectonstart;
         //wait_for_decide_singleplayer();
 
@@ -445,6 +453,42 @@ impl Game {
 
         let health = Arc::new(AtomicI8::new(20));
 
+        
+        let camclone = cam.clone();
+        let csysclone = chunksys.clone();
+        if !headless {
+            thread::spawn(move || {
+                while unsafe {SHOULDRUN} {
+                    let mut pos = Vec3::ZERO;
+                    let mut hitblock = false;
+                    match camclone.try_lock() {
+                        Ok(camlock) => {
+                            pos = camlock.position.clone();
+                        }
+                        Err(e) => {
+                        }
+                    }
+    
+                    while !hitblock && pos.y < 128.0 {
+                        let ppos = vec::IVec3::new(pos.x as i32, pos.y as i32, pos.z as i32);
+                        if csysclone.read().unwrap().blockat(ppos) != 0 {
+                            hitblock = true;
+                            break;
+                        }
+                        pos.y += 1.0;
+                    }
+                    unsafe {
+                        if hitblock {
+                            ROOFOVERHEAD = true;
+                        } else {
+                            ROOFOVERHEAD = false;
+                        }
+                    }
+                    
+                }
+            });
+        }
+        
 
 
 

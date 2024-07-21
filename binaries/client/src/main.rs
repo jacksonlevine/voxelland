@@ -8,7 +8,7 @@ use std::fs::File;
 
 use voxelland::windowandkey::WindowAndKeyContext;
 
-use voxelland::game::{Game, DECIDEDSPORMP};
+use voxelland::game::{Game, DECIDEDSPORMP, SHOULDRUN};
 
 
 
@@ -94,4 +94,6 @@ fn main() {
     while !wak_context.window.read().unwrap().should_close() {
         wak_context.run();
     }
+
+    unsafe { SHOULDRUN = false; }
 }

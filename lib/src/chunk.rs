@@ -11,6 +11,7 @@ use std::sync::RwLock;
 use dashmap::DashMap;
 
 use gl::types::GLuint;
+use glam::Vec2;
 use glam::Vec3;
 use num_enum::FromPrimitive;
 use rand::rngs::StdRng;
@@ -39,6 +40,8 @@ use crate::specialblocks::door::DoorInfo;
 use crate::specialblocks::ladder::LadderInfo;
 use crate::specialblocks::tallgrass::TallGrassInfo;
 use crate::textureface::TextureFace;
+use crate::textureface::ONE_OVER_16;
+use crate::textureface::TEXTURE_WIDTH;
 use crate::vec::IVec3;
 use crate::vec::{self, IVec2};
 
@@ -1267,6 +1270,7 @@ impl ChunkSystem {
         let mut data8rgb = geobankarc.data8rgb.lock().unwrap();
         let mut tdata8rgb = geobankarc.tdata8rgb.lock().unwrap();
 
+        let mut weatherstoptops: HashMap<vec::IVec2, i32> = HashMap::new();
         let mut tops: HashMap<vec::IVec2, i32> = HashMap::new();
 
         for i in 0..CW {
@@ -1329,6 +1333,20 @@ impl ChunkSystem {
                     //     }
                     // }
                     if block != 0 {
+                        if !weatherstoptops.contains_key(&vec::IVec2 {
+                            x: i,
+                            y: k,
+                        }) {
+                            weatherstoptops.insert(
+                                vec::IVec2 {
+                                    x: i,
+                                    y: k,
+                                },
+                                spot.y,
+                            );
+                        }
+                        
+
                         if block == 19 {
                             let direction = Blocks::get_direction_bits(flags);
                             let open = DoorInfo::get_door_open_bit(flags);
@@ -1730,6 +1748,157 @@ impl ChunkSystem {
                             }
                         }
                     }
+                }
+
+                //BEGIN ADD WEATHER PANES FOR RAIN/SNOW/ETC, nOT EVERY BLOCK
+                
+                if ((i * CW) + k) % 20 == 0  {
+                    let topy = match weatherstoptops.get(&vec::IVec2 {
+                        x: i,
+                        y: k,
+                    }) {
+                        Some(top) => {
+                            //println!("Found top {}", *top);
+                            *top
+                        }
+                        None => {
+                            0
+                        }
+                    };
+
+                    let mut rng = StdRng::from_entropy();
+                    
+                    let xzoff = Vec2::new(rng.gen_range(0.0..1.7), rng.gen_range(0.0..1.7));
+
+
+
+                    //spot xz top
+                    let spoint: IVec3 = vec::IVec3 {
+                        x: (chunklock.pos.x * CW) + i,
+                        y: topy,
+                        z: (chunklock.pos.y * CW) + k,
+                    };
+
+                    //spot xz top
+                    let spo = Vec3 {
+                        x: (chunklock.pos.x * CW) as f32 + i as f32+ xzoff.x,
+                        y: topy as f32,
+                        z: (chunklock.pos.y * CW) as f32 + k as f32 + xzoff.y,
+                    };
+
+
+
+                    //LET BLOCKLIGHT AT TOP 
+                    //FADE BLOCKLIGHT WITH HIGHER Y IN SHADER 
+                    //OR JUST SET TO <AMB> AT TOP SO IT FADES UP NATURALLY FROM VERTEX SHADING
+
+                    let face = TextureFace::new(15, 0);
+
+                    
+
+                    vdata.extend_from_slice(&[
+                        spo.x as f32, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 1.0, spo.y as f32, spo.z as f32 + 1.0,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 1.0, spo.y as f32 + 128.0, spo.z as f32 + 1.0,   0.0 /*BLOCKLIGHT */, 14.0,
+
+                        spo.x as f32 + 1.0, spo.y as f32 + 128.0, spo.z as f32 + 1.0,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+
+
+
+
+                        spo.x as f32 + 1.0, spo.y as f32, spo.z as f32 + 1.0,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
+
+                        spo.x as f32, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 1.0, spo.y as f32 + 128.0, spo.z as f32 + 1.0,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 1.0, spo.y as f32, spo.z as f32 + 1.0,   0.0 /*BLOCKLIGHT */, 14.0,
+
+
+                        spo.x as f32, spo.y as f32, spo.z as f32 + 1.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 1.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 1.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+
+                        spo.x as f32 + 1.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32, spo.y as f32 + 128.0, spo.z as f32 + 1.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32, spo.y as f32, spo.z as f32 + 1.0,              0.0 /*BLOCKLIGHT */, 14.0,
+
+
+                        spo.x as f32 + 1.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32, spo.y as f32, spo.z as f32 + 1.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32, spo.y as f32 + 128.0, spo.z as f32 + 1.0,              0.0 /*BLOCKLIGHT */, 14.0,
+
+                        spo.x as f32, spo.y as f32 + 128.0, spo.z as f32 + 1.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 1.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 1.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+
+                    ]);
+
+                    
+                    uvdata.extend_from_slice(&[
+                        face.blx, face.bly, 0.0, 0.0,
+                        face.brx, face.bry, 0.0, 0.0,
+                        face.brx, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.brx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.blx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.blx, face.bly, 0.0, 0.0,
+
+                        face.blx, face.bly, 0.0, 0.0,
+                        face.brx, face.bry, 0.0, 0.0,
+                        face.brx, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.brx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.blx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.blx, face.bly, 0.0, 0.0,
+
+                        face.blx, face.bly, 0.0, 0.0,
+                        face.brx, face.bry, 0.0, 0.0,
+                        face.brx, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.brx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.blx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.blx, face.bly, 0.0, 0.0,
+
+                        face.blx, face.bly, 0.0, 0.0,
+                        face.brx, face.bry, 0.0, 0.0,
+                        face.brx, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.brx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.blx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.blx, face.bly, 0.0, 0.0,
+                    ]);
+
+                    //println!("{}", face.blx);
+
+                    // if texcoord.x  >= face.blx
+
+                    // // Define your temporary slice
+                    // let temp_slice = &[
+                    //     face.blx, face.bly, 0.0, 0.0,
+                    //     face.brx, face.bry, 0.0, 0.0,
+                    //     face.brx, face.bly   , 0.0, 0.0,
+                    //     face.brx, face.bly   , 0.0, 0.0,
+                    //     face.blx, face.bly   , 0.0, 0.0,
+                    //     face.blx, face.bly, 0.0, 0.0,
+                    // ];
+
+                    // // Print the values in the temporary slice as a GLSL array of vec2
+                    // println!("vec2 uvdata[] = vec2[](");
+                    // for (i, value) in temp_slice.iter().enumerate() {
+                    //     if i % 4 == 0 {
+                    //         if i != 0 {
+                    //             println!("), ");
+                    //         }
+                    //         print!("vec2(");
+                    //     }
+                    //     if i % 4 == 2 || i % 4 == 3 {
+                    //         continue; // Skip the 0.0, 0.0 values
+                    //     }
+                    //     print!("{:.6}", value);
+                    //     if i % 4 == 0 {
+                    //         print!(", ");
+                    //     }
+                    // }
+                    // println!("));");
                 }
             }
         }

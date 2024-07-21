@@ -33,7 +33,7 @@ impl ChestInfo {
     pub fn get_chest_uvs() -> Vec<f32> {
         let straps = TextureFace::new(13,0);
         let blank = TextureFace::new(14,0);
-        let front = TextureFace::new(15,0);
+        let front = TextureFace::new(14,2);
 
         let uvs = vec![
             blank.blx, blank.bly,blank.brx, blank.bry,

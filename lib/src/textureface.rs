@@ -1,6 +1,6 @@
 pub const ONE_PIXEL: f32 = 0.00183823529411764705882352941176;
 pub const TEXTURE_WIDTH: f32 = 0.02941176470588235294117647058824;
-pub const ONE_OVER_16: f32 = 0.03308823529411764705882352941176;
+pub const ONE_OVER_16: f32 = 0.03308823529411764705882352941176; //Not actually 1 over 16, but the size of one entire tile on the spritesheet including the padding
 
 pub struct TextureFace {
     pub tlx: f32,

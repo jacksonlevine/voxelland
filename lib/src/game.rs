@@ -360,6 +360,10 @@ impl Game {
         let tex = Texture::new("assets/world.png").unwrap();
         tex.add_to_unit(0);
 
+        let weathertex = Texture::new("assets/weather.png").unwrap();
+        weathertex.add_to_unit(2);
+
+
         let audiop = Arc::new(RwLock::new(AudioPlayer::new().unwrap()));
 
 
@@ -3491,6 +3495,13 @@ impl Game {
                 cam_lock.direction.y,
                 cam_lock.direction.z,
             );
+
+            
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.oldshader.shader_id, b"time\0".as_ptr() as *const i8),
+                glfwGetTime() as f32
+            );
+    
             gl::Uniform1f(SUNSET_LOC, self.sunset_factor);
             gl::Uniform1f(WALKBOB_LOC, self.vars.walkbobtimer);
             gl::Uniform1f(SUNRISE_LOC, self.sunrise_factor);
@@ -3500,6 +3511,13 @@ impl Game {
                     b"ourTexture\0".as_ptr() as *const i8,
                 ),
                 0,
+            );
+            gl::Uniform1i(
+                gl::GetUniformLocation(
+                    self.oldshader.shader_id,
+                    b"weatherTexture\0".as_ptr() as *const i8,
+                ),
+                2,
             );
             // let fc = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
             // gl::Uniform4f(

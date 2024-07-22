@@ -119,6 +119,8 @@ fn handle_client(
             MessageType::RequestUdm => {
                 info!("Recvd req world");
 
+
+
                 let buffer = {
                     let mut file = File::open("db").unwrap();
                     info!("Opened the db file");
@@ -132,10 +134,12 @@ fn handle_client(
 
                 {
                     let mut mystream = stream.lock().unwrap();
+                    mystream.set_nonblocking(false);
                     mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
                     info!("Wrote the header");
                     mystream.write_all(&buffer).unwrap();
                     info!("Wrote the file buffer");
+                    mystream.set_nonblocking(true);
                 }
             }
             MessageType::ReqChestReg => {

@@ -1752,7 +1752,7 @@ impl ChunkSystem {
 
                 //BEGIN ADD WEATHER PANES FOR RAIN/SNOW/ETC, nOT EVERY BLOCK
                 
-                if ((i * CW) + k) % 8 == 0  {
+                if ((i * CW) + k) % 17 == 0  {
                     let topy = match weatherstoptops.get(&vec::IVec2 {
                         x: i,
                         y: k,

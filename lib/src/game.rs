@@ -3548,7 +3548,7 @@ impl Game {
             );
             gl::Uniform1f(
                 gl::GetUniformLocation(self.oldshader.shader_id, b"weathertype\0".as_ptr() as *const i8),
-                1.0 as f32
+                0.0 as f32
             );
     
             gl::Uniform1f(SUNSET_LOC, self.sunset_factor);

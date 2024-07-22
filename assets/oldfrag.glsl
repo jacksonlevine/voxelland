@@ -52,8 +52,10 @@ void main()
             RealTexCoord += vec2(texw * 3.0, 0.0); 
 
             RealTexCoord += vec2(0.0, time * -0.2  );
-        } else {
+        } else if (weathertype == 2.0 ) {
             RealTexCoord += vec2(0.0, time * -0.8);
+        } else {
+            discard;
         }
 
         

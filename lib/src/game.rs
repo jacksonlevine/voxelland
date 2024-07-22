@@ -320,7 +320,8 @@ pub struct Game {
 
     pub health: Arc<AtomicI8>,
     pub crafting_open: bool,
-    pub stamina: Arc<AtomicI32>
+    pub stamina: Arc<AtomicI32>,
+    pub weathertype: f32
 }
 
 enum FaderNames {
@@ -853,7 +854,8 @@ impl Game {
             needtosend,
             health,
             crafting_open: false,
-            stamina
+            stamina,
+            weathertype: 0.0
         };
         if !headless {
             g.load_model("assets/models/car/scene.gltf");
@@ -3548,7 +3550,7 @@ impl Game {
             );
             gl::Uniform1f(
                 gl::GetUniformLocation(self.oldshader.shader_id, b"weathertype\0".as_ptr() as *const i8),
-                0.0 as f32
+                self.weathertype
             );
     
             gl::Uniform1f(SUNSET_LOC, self.sunset_factor);
@@ -4926,6 +4928,14 @@ impl Game {
                     }
                 }
                 
+            }
+            Key::M => {
+                if action == Action::Press {
+                    self.weathertype = self.weathertype + 1.0;
+                    if self.weathertype > 2.0 {
+                        self.weathertype = 0.0;
+                    }
+                }
             }
             // Key::M => {
             //     if action == Action::Press {

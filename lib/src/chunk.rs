@@ -1752,7 +1752,7 @@ impl ChunkSystem {
 
                 //BEGIN ADD WEATHER PANES FOR RAIN/SNOW/ETC, nOT EVERY BLOCK
                 
-                if ((i * CW) + k) % 20 == 0  {
+                if ((i * CW) + k) % 8 == 0  {
                     let topy = match weatherstoptops.get(&vec::IVec2 {
                         x: i,
                         y: k,
@@ -1797,72 +1797,72 @@ impl ChunkSystem {
                     
 
                     vdata.extend_from_slice(&[
-                        spo.x as f32, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 + 1.0, spo.y as f32, spo.z as f32 + 1.0,   0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 + 1.0, spo.y as f32 + 128.0, spo.z as f32 + 1.0,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
 
-                        spo.x as f32 + 1.0, spo.y as f32 + 128.0, spo.z as f32 + 1.0,   0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
-
-
+                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
 
 
-                        spo.x as f32 + 1.0, spo.y as f32, spo.z as f32 + 1.0,   0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
-
-                        spo.x as f32, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 + 1.0, spo.y as f32 + 128.0, spo.z as f32 + 1.0,   0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 + 1.0, spo.y as f32, spo.z as f32 + 1.0,   0.0 /*BLOCKLIGHT */, 14.0,
 
 
-                        spo.x as f32, spo.y as f32, spo.z as f32 + 1.0,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 + 1.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 + 1.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
 
-                        spo.x as f32 + 1.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32, spo.y as f32 + 128.0, spo.z as f32 + 1.0,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32, spo.y as f32, spo.z as f32 + 1.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
 
 
-                        spo.x as f32 + 1.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32, spo.y as f32, spo.z as f32 + 1.0,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32, spo.y as f32 + 128.0, spo.z as f32 + 1.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
 
-                        spo.x as f32, spo.y as f32 + 128.0, spo.z as f32 + 1.0,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 + 1.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 + 1.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
+
+
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
+
+                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
 
                     ]);
 
                     
                     uvdata.extend_from_slice(&[
                         face.blx, face.bly, 0.0, 0.0,
-                        face.brx, face.bry, 0.0, 0.0,
-                        face.brx, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
-                        face.brx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bry, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
                         face.blx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
                         face.blx, face.bly, 0.0, 0.0,
 
                         face.blx, face.bly, 0.0, 0.0,
-                        face.brx, face.bry, 0.0, 0.0,
-                        face.brx, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
-                        face.brx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bry, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
                         face.blx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
                         face.blx, face.bly, 0.0, 0.0,
 
                         face.blx, face.bly, 0.0, 0.0,
-                        face.brx, face.bry, 0.0, 0.0,
-                        face.brx, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
-                        face.brx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bry, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
                         face.blx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
                         face.blx, face.bly, 0.0, 0.0,
 
                         face.blx, face.bly, 0.0, 0.0,
-                        face.brx, face.bry, 0.0, 0.0,
-                        face.brx, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
-                        face.brx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bry, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
                         face.blx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
                         face.blx, face.bly, 0.0, 0.0,
                     ]);

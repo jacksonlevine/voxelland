@@ -16,7 +16,7 @@ uniform float sunset;
 uniform float sunrise;
 
 uniform float time;
-//uniform float weathertype;
+uniform float weathertype;
 
 in vec3 blockColor;
 
@@ -27,7 +27,7 @@ void main()
 {   
     const float ruvh = 3.7647058823529411764705882352947;
 
-
+    const float texw = 0.03308823529411764705882352941176;
 
 
 
@@ -48,8 +48,15 @@ void main()
 
     if (TexCoord.x >= rainx){
 
-        FragColor = vec4(1.0 ,0.0, 0.0, 1.0);    
-        RealTexCoord += vec2(0.0, time * -0.8);
+        if (weathertype == 1.0 ){
+            RealTexCoord += vec2(texw * 3.0, 0.0); 
+
+            RealTexCoord += vec2(0.0, time * -0.2  );
+        } else {
+            RealTexCoord += vec2(0.0, time * -0.8);
+        }
+
+        
     }
 
 

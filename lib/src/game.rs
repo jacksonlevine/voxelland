@@ -53,7 +53,7 @@ use crate::shader::Shader;
 use crate::specialblocks::door::{self, DoorInfo};
 use crate::statics::MY_MULTIPLAYER_UUID;
 use crate::texture::Texture;
-use crate::textureface::TextureFace;
+use crate::textureface::{TextureFace, ONE_OVER_16};
 use crate::tools::{get_block_material, get_tools_target_material, Material};
 use crate::vec::{self, IVec2, IVec3};
 use crate::voxmodel::JVoxModel;
@@ -3540,10 +3540,15 @@ impl Game {
                 cam_lock.direction.z,
             );
 
+
             
             gl::Uniform1f(
                 gl::GetUniformLocation(self.oldshader.shader_id, b"time\0".as_ptr() as *const i8),
                 glfwGetTime() as f32
+            );
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.oldshader.shader_id, b"weathertype\0".as_ptr() as *const i8),
+                1.0 as f32
             );
     
             gl::Uniform1f(SUNSET_LOC, self.sunset_factor);

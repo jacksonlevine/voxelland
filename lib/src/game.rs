@@ -57,6 +57,7 @@ use crate::textureface::{TextureFace, ONE_OVER_16};
 use crate::tools::{get_block_material, get_tools_target_material, Material};
 use crate::vec::{self, IVec2, IVec3};
 use crate::voxmodel::JVoxModel;
+use crate::windowandkey::uncapkb;
 use crate::worldgeometry::WorldGeometry;
 use crate::inventory::*;
 use std::sync::RwLock;
@@ -1071,6 +1072,23 @@ impl Game {
             }
             "closemenu" => {
                 self.vars.menu_open = false;
+                self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+                self.set_mouse_focused(true);
+            }
+            "escapemenu" => {
+                self.currentbuttons = vec![
+                            ("Close Menu", "closemenu"),
+                            ("Settings", "settingsmenu"),
+                            ("Quit Game", "quittomainmenu"),
+                        ];
+                self.vars.menu_open = true;
+            }
+            "settingsmenu" => {
+                self.currentbuttons = vec![
+                            ("Back to Previous Menu", "escapemenu"),
+                            ("SliderMouse Sensitivity", "test")
+                        ];
+                self.vars.menu_open = true;
             }
             _ => {
                 info!("Unknown button command given");
@@ -4839,25 +4857,33 @@ impl Game {
                 if action == Action::Press {
                     if !self.vars.menu_open && !self.hud.chest_open && !self.crafting_open {
 
-                        self.currentbuttons = vec![
-                            ("Quit Game", "quittomainmenu")
-                        ];
-                        self.vars.menu_open = true;
+                        self.button_command("escapemenu");
     
                     } else {
                         self.vars.menu_open = false;
+                        self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+                        self.set_mouse_focused(true);
+                        unsafe {
+                            uncapkb.store(true, Ordering::Relaxed);
+                        }
                     }
 
                     if self.crafting_open {
                         self.crafting_open = false;
                         self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
                         self.set_mouse_focused(true);
+                        unsafe {
+                            uncapkb.store(true, Ordering::Relaxed);
+                        }
                     }
 
                     if self.hud.chest_open {
                         self.hud.chest_open = false;
                         self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
                         self.set_mouse_focused(true);
+                        unsafe {
+                            uncapkb.store(true, Ordering::Relaxed);
+                        }
                     }
                 }
                 

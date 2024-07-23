@@ -2209,9 +2209,9 @@ impl ChunkSystem {
                             * 10.0,
                     0.0,
                 ),
-        );
+        ) * 2.0;
 
-        y += 60;
+        y += 100;
 
         let noise2 = f64::max(
             0.0,
@@ -2243,9 +2243,9 @@ impl ChunkSystem {
         let noise3 = f64::max(
             0.0,
             50.0 + self.perlin.get([
-                spot.x as f64 / 25.35,
-                y as f64 / 25.35,
-                spot.z as f64 / 25.35,
+                spot.x as f64 / 7.35,
+                y as f64 / 7.35,
+                spot.z as f64 / 7.35,
             ]) * 10.0
                 + self.perlin.get([
                     spot.x as f64 / 60.35,
@@ -2256,15 +2256,15 @@ impl ChunkSystem {
         );
 
         let mut p2 = self.perlin.get([
-            (spot.x as f64 + 4500.0) / 250.0,
-            (spot.y as f64 + 5000.0) / 250.0,
-            (spot.z as f64 - 5000.0) / 250.0,
-        ]) * 10.0;
+            (spot.x as f64 + 4500.0) / 150.0,
+            (spot.y as f64 + 5000.0) / 150.0,
+            (spot.z as f64 - 5000.0) / 150.0,
+        ]) * 1.0;
 
         p2 = f64::max(p2, 0.0);
         p2 = f64::min(p2, 1.0);
 
-        ChunkSystem::mix(noisemix, noise3, p2)
+        ChunkSystem::mix(noisemix, noise3, p2.clamp(0.0, 1.0))
     }
 
     pub fn noise_func2(&self, spot: vec::IVec3) -> f64 {
@@ -2371,22 +2371,20 @@ impl ChunkSystem {
             return 15;
         }
 
-        if self.cave_noise(spot) > 0.5 {
-            return 0;
-        }
-        match self.planet_type {
+        
+        let ret = match self.planet_type {
             1 => {
                 if self.noise_func2(spot) > 10.0 {
                     if self.noise_func2(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {
-                        return 14;
+                        return 14
                     }
-                    return 1;
+                    1
                 } else {
-                    return 0;
+                    0
                 }
             }
             _ => {
-                static WL: f32 = 60.0;
+                static WL: f32 = 40.0;
 
                 let biomenum = self.biome_noise(IVec2 {
                     x: spot.x,
@@ -2418,29 +2416,35 @@ impl ChunkSystem {
                 if self.noise_func(spot) > 10.0 {
                     if self.noise_func(spot + vec::IVec3 { x: 0, y: 10, z: 0 }) > 10.0 {
                         if self.ore_noise(spot) > 1.0 {
-                            return 35;
+                            return 35
                         } else {
-                            return underdirt;
+                            return underdirt
                         }
                     }
                     if spot.y > (WL + 2.0) as i32
                         || self.noise_func(spot + vec::IVec3 { x: 0, y: 5, z: 0 }) > 10.0
                     {
                         if self.noise_func(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {
-                            return surface;
+                            return surface
                         }
-                        return undersurface;
+                        undersurface
                     } else {
-                        return beach;
+                        beach
                     }
                 } else {
                     if spot.y < WL as i32 {
-                        return liquid;
+                        liquid
                     } else {
-                        return 0;
+                        0
                     }
                 }
             }
+        };
+        if ret != 2 {
+            if self.cave_noise(spot) > 0.5 {
+                return 0;
+            }
         }
+        ret
     }
 }

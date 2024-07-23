@@ -398,7 +398,7 @@ impl NetworkConnector {
                                                 info!("Receiving Udm:");
                                                 shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
                                                 
-                                                stream_lock.set_nonblocking(false).unwrap();
+                                                //stream_lock.set_nonblocking(false).unwrap();
                                                 
 
 
@@ -424,7 +424,7 @@ impl NetworkConnector {
 
                                                 }
 
-                                                stream_lock.set_nonblocking(true).unwrap();
+                                                //stream_lock.set_nonblocking(true).unwrap();
                                             },
                                             MessageType::Seed => {
                                                 //info!("Receiving Seed:");

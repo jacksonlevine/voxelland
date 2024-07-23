@@ -3145,6 +3145,7 @@ impl Game {
                 cmemlock.memories[ready.geo_index].length = ready.newlength;
                 cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
                 cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
+                cmemlock.memories[ready.geo_index].wvlength = ready.newwvlength;
                 cmemlock.memories[ready.geo_index].pos = ready.newpos;
                 cmemlock.memories[ready.geo_index].used = true;
 
@@ -3167,6 +3168,9 @@ impl Game {
                 let vv = cmemlock.memories[ready.geo_index].vvbo;
                 let uvv = cmemlock.memories[ready.geo_index].uvvbo;
 
+                let wvv = cmemlock.memories[ready.geo_index].wvvbo;
+                let wuvv = cmemlock.memories[ready.geo_index].wuvvbo;
+
                 let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
                 let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
 
@@ -3181,6 +3185,7 @@ impl Game {
                 );
 
                 WorldGeometry::bind_old_geometry(vv, uvv, &bankarc.vdata.lock().unwrap(), &bankarc.uvdata.lock().unwrap(), &self.oldshader);
+                WorldGeometry::bind_old_geometry(wvv, wuvv, &bankarc.wvdata.lock().unwrap(), &bankarc.wuvdata.lock().unwrap(), &self.oldshader);
             }
             None => {}
         }
@@ -3201,6 +3206,7 @@ impl Game {
                 cmemlock.memories[ready.geo_index].length = ready.newlength;
                 cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
                 cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
+                cmemlock.memories[ready.geo_index].wvlength = ready.newwvlength;
                 cmemlock.memories[ready.geo_index].pos = ready.newpos;
                 cmemlock.memories[ready.geo_index].used = true;
 
@@ -3224,6 +3230,9 @@ impl Game {
                 let vv = cmemlock.memories[ready.geo_index].vvbo;
                 let uvv = cmemlock.memories[ready.geo_index].uvvbo;
 
+                let wvv = cmemlock.memories[ready.geo_index].wvvbo;
+                let wuvv = cmemlock.memories[ready.geo_index].wuvvbo;
+
                 let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
                 let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
 
@@ -3238,6 +3247,7 @@ impl Game {
                 );
 
                 WorldGeometry::bind_old_geometry(vv, uvv, &bankarc.vdata.lock().unwrap(), &bankarc.uvdata.lock().unwrap(), &self.oldshader);
+                WorldGeometry::bind_old_geometry(wvv, wuvv, &bankarc.wvdata.lock().unwrap(), &bankarc.wuvdata.lock().unwrap(), &self.oldshader);
 
                 let mut userstuff = true;
                 while userstuff {
@@ -3254,6 +3264,7 @@ impl Game {
                                 cmemlock.memories[ready.geo_index].length = ready.newlength;
                                 cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
                                 cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
+                                cmemlock.memories[ready.geo_index].wvlength = ready.newwvlength;
                                 cmemlock.memories[ready.geo_index].pos = ready.newpos;
                                 cmemlock.memories[ready.geo_index].used = true;
                 
@@ -3276,6 +3287,9 @@ impl Game {
                                 let vv = cmemlock.memories[ready.geo_index].vvbo;
                                 let uvv = cmemlock.memories[ready.geo_index].uvvbo;
 
+                                let wvv = cmemlock.memories[ready.geo_index].wvvbo;
+                                let wuvv = cmemlock.memories[ready.geo_index].wuvvbo;
+
                                 let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
                                 let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
                 
@@ -3290,7 +3304,7 @@ impl Game {
                                 );
                             
                                 WorldGeometry::bind_old_geometry(vv, uvv, &bankarc.vdata.lock().unwrap(), &bankarc.uvdata.lock().unwrap(), &self.oldshader);
-                        
+                                WorldGeometry::bind_old_geometry(wvv, wuvv, &bankarc.wvdata.lock().unwrap(), &bankarc.wuvdata.lock().unwrap(), &self.oldshader);
                         }
                         None => { userstuff = false; }
                     }
@@ -3615,9 +3629,24 @@ impl Game {
             // info!("Chunk rending!");
         }
 
+        if self.weathertype != 0.0 {
+            WorldGeometry::bind_old_geometry_no_upload(cfl.wvvbo, cfl.wuvvbo, &self.oldshader);
 
 
+        
+            unsafe {
+                //gl::Disable(gl::CULL_FACE);
+                gl::DrawArrays(gl::TRIANGLES, 0, cfl.wvlength as i32 / 5);
+                let error = gl::GetError();
+                if error != gl::NO_ERROR {
+                    info!("OpenGL Error after drawing arrays: {}", error);
+                }
+                //gl::Enable(gl::CULL_FACE);
+                // info!("Chunk rending!");
+            }
 
+        }
+        
 
 
 

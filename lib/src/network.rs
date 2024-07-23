@@ -398,14 +398,14 @@ impl NetworkConnector {
                                                 info!("Receiving Udm:");
                                                 shouldsend.store(false, std::sync::atomic::Ordering::Relaxed);
                                                 
-                                                //stream_lock.set_nonblocking(false).unwrap();
+                                                stream_lock.set_nonblocking(false).unwrap();
                                                 
 
 
 
                                                 let mut buff = vec![0 as u8; comm.info as usize];
 
-                                                stream_lock.set_read_timeout(Some(Duration::from_secs(2)));
+                                                stream_lock.set_read_timeout(Some(Duration::from_secs(5)));
 
                                                 match stream_lock.read_exact(&mut buff) {
 
@@ -417,14 +417,15 @@ impl NetworkConnector {
 
                                                         NetworkConnector::sendtolocked(&reqseed, &mut stream_lock);
                                                     }
-                                                    Err(_e) => {
-                                                        info!("Error receiving, trying again...");
+                                                    Err(e) => {
+                                                        info!("Error receiving, trying again... {e}");
+                                                        thread::sleep(Duration::from_millis(1000));
                                                         NetworkConnector::sendtolocked(&requdm, &mut stream_lock);
                                                     }
 
                                                 }
 
-                                                //stream_lock.set_nonblocking(true).unwrap();
+                                                stream_lock.set_nonblocking(true).unwrap();
                                             },
                                             MessageType::Seed => {
                                                 //info!("Receiving Seed:");

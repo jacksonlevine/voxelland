@@ -6,7 +6,7 @@ use tracing_appender::non_blocking::{self, WorkerGuard};
 use tracing::{error, info};
 use std::fs::File;
 
-use voxelland::windowandkey::WindowAndKeyContext;
+use voxelland::windowandkey::{uncapkb, WindowAndKeyContext};
 
 use voxelland::game::{Game, DECIDEDSPORMP, SHOULDRUN};
 
@@ -116,6 +116,10 @@ fn main() {
     wak_context.game.as_mut().unwrap().start_world();
     wak_context.game.as_mut().unwrap().set_mouse_focused(true);
     wak_context.game.as_mut().unwrap().window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+    unsafe {
+        uncapkb.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+    
     while !wak_context.window.read().unwrap().should_close() {
         wak_context.run();
     }

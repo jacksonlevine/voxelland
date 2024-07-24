@@ -17,7 +17,7 @@ use std::time::Duration;
 use uuid::Uuid;
 use glam::Vec3;
 use voxelland::chunk::ChunkSystem;
-use voxelland::game::{Game, STARTINGITEMS};
+use voxelland::game::{Game, STARTINGITEMS, WEATHERTYPE};
 use voxelland::vec::{self, IVec3};
 use voxelland::server_types::{self, *};
 use dashmap::DashMap;
@@ -263,7 +263,7 @@ fn handle_client(
                 let mobmsgs = {
                     knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
 
-                    let mut timeupdate = Message::new(MessageType::TimeUpdate, Vec3::ZERO, 0.0, 0);
+                    let mut timeupdate = Message::new(MessageType::TimeUpdate, Vec3::ZERO, unsafe { WEATHERTYPE }, 0);
                     let t = *tod.lock().unwrap();
                     timeupdate.infof = t;
 

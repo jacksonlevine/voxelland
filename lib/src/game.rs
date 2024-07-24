@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use std::f32::consts::{self};
 use std::io::{Write};
 
+use once_cell::sync::Lazy;
 use tracing::info;
 
 
@@ -81,9 +82,13 @@ pub static mut MOVING: bool = false;
 
 pub static mut SHOULDRUN: bool = false;
 
+pub static mut WEATHERTYPE: f32 = 0.0;
+pub static mut WEATHERTIMER: f32 = 0.0;
+pub const WEATHERINTERVAL: f32 = 120.0;
 
 
-pub static mut ROOFOVERHEAD: bool = false;
+
+pub static mut ROOFOVERHEAD: Lazy<AtomicBool> = Lazy::new(|| AtomicBool::new(false));
 
 pub fn wait_for_decide_singleplayer() {
     unsafe {
@@ -460,33 +465,47 @@ impl Game {
         let csysclone = chunksys.clone();
         if !headless {
             thread::spawn(move || {
-                while unsafe {SHOULDRUN} {
+                while unsafe { SHOULDRUN } {
                     let mut pos = Vec3::ZERO;
                     let mut hitblock = false;
+            
                     match camclone.try_lock() {
                         Ok(camlock) => {
                             pos = camlock.position.clone();
                         }
                         Err(e) => {
+                            //println!("Failed to lock camera: {:?}", e);
                         }
                     }
-    
-                    while !hitblock && pos.y < 128.0 {
-                        let ppos = vec::IVec3::new(pos.x as i32, pos.y as i32, pos.z as i32);
-                        if csysclone.read().unwrap().blockat(ppos) != 0 {
-                            hitblock = true;
-                            break;
-                        }
-                        pos.y += 1.0;
+
+                    if pos != Vec3::ZERO {
+                        match csysclone.read() {
+                            Ok(r) => {
+                                while !hitblock && pos.y < 128.0 {
+                                    let ppos = vec::IVec3::new(pos.x.floor() as i32, pos.y.round() as i32, pos.z.floor() as i32);
+                                    if r.blockat(ppos) != 0 {
+                                        hitblock = true;
+                                        break;
+                                    }
+                                    pos.y += 1.0;
+                                }
+                                unsafe {
+                                    if hitblock {
+                                        ROOFOVERHEAD.store(true, Ordering::Relaxed)
+                                    } else {
+                                        ROOFOVERHEAD.store(false, Ordering::Relaxed)
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                //println!("Failed to read csysclone: {:?}", e);
+                            }
+                        };
                     }
-                    unsafe {
-                        if hitblock {
-                            ROOFOVERHEAD = true;
-                        } else {
-                            ROOFOVERHEAD = false;
-                        }
-                    }
+            
                     
+            
+                    thread::sleep(Duration::from_millis(250));
                 }
             });
         }
@@ -1095,8 +1114,105 @@ impl Game {
             }
         }
     }
-    
+    pub fn play_weather_sound(&mut self) {
+        static mut TIMER: f32 = 0.0;
+        static mut OUTSIDE_RAIN_PLAYING: bool = false;
+        static mut INSIDE_RAIN_PLAYING: bool = false;
+        static mut OUTSIDE_SNOW_PLAYING: bool = false;
+        static mut INSIDE_SNOW_PLAYING: bool = false;
+        unsafe {
+            TIMER += self.delta_time;
+            //println!("TIMER: {}, DELTA_TIME: {}", TYMER, self.delta_time);
 
+            if TIMER >= 14.0 {
+                OUTSIDE_RAIN_PLAYING = false;
+                INSIDE_RAIN_PLAYING = false;
+                OUTSIDE_SNOW_PLAYING = false;
+                INSIDE_SNOW_PLAYING = false;
+                TIMER = 0.0;
+            }
+
+            match WEATHERTYPE {
+                2.0 => {
+                    if ROOFOVERHEAD.load(Ordering::Relaxed) {
+                        if !INSIDE_RAIN_PLAYING {
+                            let mut w = self.audiop.write().unwrap();
+                            w.stop_sound("assets/sfx/rainoutside.mp3");
+                    //w.stop_sound("assets/sfx/raininside.mp3");
+                    w.stop_sound("assets/sfx/snowoutside.mp3");
+                    w.stop_sound("assets/sfx/snowinside.mp3");
+                            w.play_in_head("assets/sfx/raininside.mp3");
+                            TIMER = 0.0;
+                            INSIDE_RAIN_PLAYING = true;
+                            OUTSIDE_RAIN_PLAYING = false;
+                            OUTSIDE_SNOW_PLAYING = false;
+                            INSIDE_SNOW_PLAYING = false;
+                        }
+                    } else {
+                        if !OUTSIDE_RAIN_PLAYING {
+                            let mut w = self.audiop.write().unwrap();
+                            //w.stop_sound("assets/sfx/rainoutside.mp3");
+                    w.stop_sound("assets/sfx/raininside.mp3");
+                    w.stop_sound("assets/sfx/snowoutside.mp3");
+                    w.stop_sound("assets/sfx/snowinside.mp3");
+                            w.play_in_head("assets/sfx/rainoutside.mp3");
+                            TIMER = 0.0;
+                            OUTSIDE_RAIN_PLAYING = true;
+                            INSIDE_RAIN_PLAYING = false;
+                            OUTSIDE_SNOW_PLAYING = false;
+                            INSIDE_SNOW_PLAYING = false;
+                            //println!("playing outside rain");
+                        }
+                    }
+                }
+                1.0 => {
+                    if ROOFOVERHEAD.load(Ordering::Relaxed) {
+                        if !INSIDE_SNOW_PLAYING {
+                            let mut w = self.audiop.write().unwrap();
+                            w.stop_sound("assets/sfx/rainoutside.mp3");
+                    w.stop_sound("assets/sfx/raininside.mp3");
+                    w.stop_sound("assets/sfx/snowoutside.mp3");
+                   // w.stop_sound("assets/sfx/snowinside.mp3");
+                            w.play_in_head("assets/sfx/snowinside.mp3");
+                            TIMER = 0.0;
+                            INSIDE_SNOW_PLAYING = true;
+                            OUTSIDE_SNOW_PLAYING = false;
+                            OUTSIDE_RAIN_PLAYING = false;
+                            INSIDE_RAIN_PLAYING = false;
+                        }
+                    } else {
+                        if !OUTSIDE_SNOW_PLAYING {
+                            let mut w = self.audiop.write().unwrap();
+                            w.stop_sound("assets/sfx/rainoutside.mp3");
+                    w.stop_sound("assets/sfx/raininside.mp3");
+                    //w.stop_sound("assets/sfx/snowoutside.mp3");
+                    w.stop_sound("assets/sfx/snowinside.mp3");
+
+                            w.play_in_head("assets/sfx/snowoutside.mp3");
+                            TIMER = 0.0;
+                            OUTSIDE_SNOW_PLAYING = true;
+                            INSIDE_SNOW_PLAYING = false;
+                            OUTSIDE_RAIN_PLAYING = false;
+                            INSIDE_RAIN_PLAYING = false;
+                        }
+                    }
+                }
+                _ => {
+                    let mut w = self.audiop.write().unwrap();
+                    w.stop_sound("assets/sfx/rainoutside.mp3");
+                    w.stop_sound("assets/sfx/raininside.mp3");
+                    w.stop_sound("assets/sfx/snowoutside.mp3");
+                    w.stop_sound("assets/sfx/snowinside.mp3");
+                    OUTSIDE_RAIN_PLAYING = false;
+                    INSIDE_RAIN_PLAYING = false;
+                    OUTSIDE_SNOW_PLAYING = false;
+                    INSIDE_SNOW_PLAYING = false;
+                    //println!("Stopping");
+                }
+            }
+        }
+    }
+    
 
     pub fn initialize_being_in_world(&mut self) -> JoinHandle<()> {
         let mut ship_pos = vec::IVec3::new(20,200,0);
@@ -2123,6 +2239,28 @@ impl Game {
             self.vars.walkbobtimer = self.vars.walkbobtimer + self.delta_time * 10.0;
             self.vars.walkbobtimer %= 2.0 * consts::PI;
         }
+
+        
+
+
+
+
+        if !self.vars.in_multiplayer || self.headless {
+            unsafe {
+                WEATHERTIMER += self.delta_time;
+                if WEATHERTIMER >= WEATHERINTERVAL {
+                    let mut rand = StdRng::from_entropy();
+                    let randint: usize = rand.gen_range(0..=2);
+                    WEATHERTYPE = randint as f32;
+                    WEATHERTIMER = 0.0;
+                    
+                }
+            }
+
+            if !self.headless {
+                self.play_weather_sound();
+            }
+        }
             
 
         unsafe {
@@ -2445,6 +2583,10 @@ impl Game {
                             MessageType::TimeUpdate => {
                                 let mut todlock = self.timeofday.lock().unwrap();
                                 *todlock = comm.infof;
+                                unsafe {
+                                    WEATHERTYPE = comm.rot;
+                                }
+                                
                             }
                             MessageType::BlockSet => {
                                 if comm.info == 0 {
@@ -3582,7 +3724,7 @@ impl Game {
             );
             gl::Uniform1f(
                 gl::GetUniformLocation(self.oldshader.shader_id, b"weathertype\0".as_ptr() as *const i8),
-                self.weathertype
+                WEATHERTYPE
             );
     
             gl::Uniform1f(SUNSET_LOC, self.sunset_factor);
@@ -3629,7 +3771,7 @@ impl Game {
             // info!("Chunk rending!");
         }
 
-        if self.weathertype != 0.0 {
+        if unsafe { WEATHERTYPE } != 0.0 {
             WorldGeometry::bind_old_geometry_no_upload(cfl.wvvbo, cfl.wuvvbo, &self.oldshader);
 
 
@@ -4986,9 +5128,9 @@ impl Game {
             }
             Key::M => {
                 if action == Action::Press {
-                    self.weathertype = self.weathertype + 1.0;
-                    if self.weathertype > 2.0 {
-                        self.weathertype = 0.0;
+                    unsafe { WEATHERTYPE = WEATHERTYPE + 1.0 };
+                    if unsafe { WEATHERTYPE } > 2.0 {
+                        unsafe { WEATHERTYPE = 0.0 };
                     }
                 }
             }

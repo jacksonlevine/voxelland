@@ -1,6 +1,7 @@
 use crate::{blockinfo::Blocks, game::{Game, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, SINGLEPLAYER}, recipes::{RecipeEntry, RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, texture::Texture};
 
 use glfw::{Action, Context, Glfw, GlfwReceiver, Key, Modifiers, PWindow, WindowEvent};
+use once_cell::sync::Lazy;
 
 
 use std::{sync::{atomic::AtomicBool, Arc, Mutex, RwLock}, time::{Duration, Instant}};
@@ -11,6 +12,7 @@ use imgui_opengl_renderer::Renderer;
 pub static mut WINDOWWIDTH: i32 = 0;
 pub static mut WINDOWHEIGHT: i32 = 0;
 
+pub static mut uncapkb: Lazy<Arc<AtomicBool>> = Lazy::new(|| Arc::new(AtomicBool::new(false)));
 
 
 
@@ -407,13 +409,23 @@ impl WindowAndKeyContext {
             
             
                                 }
+
+                                self.imgui.io_mut().update_delta_time(Duration::from_secs_f32(self.delta_time));
+
+                                if uncapkb.load(std::sync::atomic::Ordering::Relaxed) {
+                                    self.imgui.io_mut().want_capture_keyboard = false;
+                                    self.imgui.io_mut().want_text_input = false;
+                                    self.imgui.io_mut().want_capture_mouse = false;
+                                    unsafe {
+                                        uncapkb.store(false, std::sync::atomic::Ordering::Relaxed);
+                                    } 
+                                }
             
                                 if gmenuopen {
             
-                                    let cb = g.currentbuttons.clone();
+                                    let gamecurrentbuttons = g.currentbuttons.clone();
             
-                                    self.imgui.io_mut().update_delta_time(Duration::from_secs_f32(self.delta_time));
-            
+                                    
                                     let (width, height) = self.window.read().unwrap().get_framebuffer_size();
                                     self.imgui.io_mut().display_size = [width as f32, height as f32];
                                     
@@ -430,7 +442,11 @@ impl WindowAndKeyContext {
                                     let window_size = (700.0, 700.0);
             
                                     let window_pos = [width as f32 / 2.0 - (window_size.0/2.0), height as f32 / 2.0 - (window_size.1/2.0)];
-            
+                                    
+                                    
+                                    // unsafe {
+                                    //     uncapkb.store(false, std::sync::atomic::Ordering::Relaxed);
+                                    // } 
                                     ui.window("Transparent Window")
                                         .size([window_size.0, window_size.1], Condition::Always)
                                         .position(window_pos, Condition::Always)
@@ -444,16 +460,29 @@ impl WindowAndKeyContext {
                                             let available_height = window_size[1];
             
                                             let pos_x = (available_width - button_width) / 2.0;
-                                            let mut pos_y = (available_height - (cb.len() as f32 * button_height) - 10.0 * (cb.len() as f32 - 1.0)) / 2.0;
+                                            let mut pos_y = (available_height - (gamecurrentbuttons.len() as f32 * button_height) - 10.0 * (gamecurrentbuttons.len() as f32 - 1.0)) / 2.0;
             
-                                            for (buttonname, command) in cb {
+                                            for (buttonname, command) in gamecurrentbuttons {
                                                 ui.set_cursor_pos([pos_x, pos_y]);
-                                                if ui.button_with_size(buttonname, [button_width, button_height]) {
-                                                    g.button_command(command);
+                                                if buttonname.starts_with("Slider") {
+                                                    let truncated_name = buttonname.split_at(6).1;
+                                                    if ui.slider(truncated_name, 0.1, 3.0, &mut g.vars.sensitivity) {
+                                                        //g.button_command(command);
+                                                    }
+                                                } else {
+                                                    if ui.button_with_size(buttonname, [button_width, button_height]) {
+                                                        g.button_command(command);
+                                                        unsafe {
+                                                            uncapkb.store(true, std::sync::atomic::Ordering::Relaxed);
+                                                        } 
+                                                    }
                                                 }
-                                                pos_y += button_height + 10.0; // Add some spacing between buttons
+                                                
+                                                pos_y += button_height + 10.0; 
                                             }
                                         });
+
+                                        
             
                                     // Render the ImGui frame
                                     self.guirenderer.render(&mut self.imgui);
@@ -465,8 +494,7 @@ impl WindowAndKeyContext {
             
                                         let cb = g.currentbuttons.clone();
             
-                                        self.imgui.io_mut().update_delta_time(Duration::from_secs_f32(self.delta_time));
-            
+                                        
                                         let (width, height) = self.window.read().unwrap().get_framebuffer_size();
                                         self.imgui.io_mut().display_size = [width as f32, height as f32];
                                         
@@ -610,12 +638,20 @@ impl WindowAndKeyContext {
                                                 _ => return,
                                             };
                                             io.mouse_down[index] = action == glfw::Action::Press;
+
+                                            // println!("Got a m.o.u.s.e. event");
+                                            //         println!("io.want_capture_mouse: {}, gmenuopen: {}", 
+                                            //         io.want_capture_mouse,
+                                            //         gmenuopen);
             
-                                            if !io.want_capture_mouse || !gmenuopen {
+                                            if !io.want_capture_mouse && !gmenuopen {
                                                 if mousebutton == glfw::MouseButtonLeft {
+
+                                                    
+
                                                     
                                                     if !io.want_capture_mouse {
-
+                                                        
                                                         
                                                         if !gmenuopen && !gchestopen {
                                                             self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
@@ -653,8 +689,13 @@ impl WindowAndKeyContext {
             
                                             let pressed = action == glfw::Action::Press || action == glfw::Action::Repeat;
                                             io.keys_down[scancode as usize] = pressed;
-            
-                                            if (!io.want_capture_keyboard && !io.want_text_input  ) || gmenuopen {
+                                            // println!("Got a kb event");
+                                            // println!("io.want_capture_keyboard: {}, io.want_text_input: {}, gmenuopen: {}", 
+                                            // io.want_capture_keyboard,
+                                            // io.want_text_input,
+                                            // gmenuopen);
+
+                                            if (!io.want_capture_keyboard && !io.want_text_input  ) && !gmenuopen {
                                                 
                                                 self.game.as_mut().unwrap().keyboard(key, action);
             
@@ -671,6 +712,8 @@ impl WindowAndKeyContext {
                                                     
                                                 }
             
+                                            } else {
+                                                //println!()
                                             }
             
                                             match key {

@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use std::f32::consts::{self};
 use std::io::{Write};
 
+use once_cell::sync::Lazy;
 use tracing::info;
 
 
@@ -53,10 +54,11 @@ use crate::shader::Shader;
 use crate::specialblocks::door::{self, DoorInfo};
 use crate::statics::MY_MULTIPLAYER_UUID;
 use crate::texture::Texture;
-use crate::textureface::TextureFace;
+use crate::textureface::{TextureFace, ONE_OVER_16};
 use crate::tools::{get_block_material, get_tools_target_material, Material};
 use crate::vec::{self, IVec2, IVec3};
 use crate::voxmodel::JVoxModel;
+use crate::windowandkey::uncapkb;
 use crate::worldgeometry::WorldGeometry;
 use crate::inventory::*;
 use std::sync::RwLock;
@@ -77,6 +79,16 @@ pub static mut SINGLEPLAYER: bool = false;
 pub static mut DECIDEDSPORMP: bool = false;
 
 pub static mut MOVING: bool = false;
+
+pub static mut SHOULDRUN: bool = false;
+
+pub static mut WEATHERTYPE: f32 = 0.0;
+pub static mut WEATHERTIMER: f32 = 0.0;
+pub const WEATHERINTERVAL: f32 = 120.0;
+
+
+
+pub static mut ROOFOVERHEAD: Lazy<AtomicBool> = Lazy::new(|| AtomicBool::new(false));
 
 pub fn wait_for_decide_singleplayer() {
     unsafe {
@@ -314,7 +326,8 @@ pub struct Game {
 
     pub health: Arc<AtomicI8>,
     pub crafting_open: bool,
-    pub stamina: Arc<AtomicI32>
+    pub stamina: Arc<AtomicI32>,
+    pub weathertype: f32
 }
 
 enum FaderNames {
@@ -324,7 +337,9 @@ enum FaderNames {
 
 impl Game {
     pub fn new(window: &Arc<RwLock<PWindow>>, connectonstart: bool, headless: bool, addressentered: &Arc<AtomicBool>, address: &Arc<Mutex<Option<String>>>) -> JoinHandle<Game> {
-
+        unsafe {
+            SHOULDRUN =  true;
+        }
         let mut connectonstart = connectonstart;
         //wait_for_decide_singleplayer();
 
@@ -359,6 +374,10 @@ impl Game {
         }
         let tex = Texture::new("assets/world.png").unwrap();
         tex.add_to_unit(0);
+
+        let weathertex = Texture::new("assets/weather.png").unwrap();
+        weathertex.add_to_unit(2);
+
 
         let audiop = Arc::new(RwLock::new(AudioPlayer::new().unwrap()));
 
@@ -441,6 +460,56 @@ impl Game {
 
         let health = Arc::new(AtomicI8::new(20));
 
+        
+        let camclone = cam.clone();
+        let csysclone = chunksys.clone();
+        if !headless {
+            thread::spawn(move || {
+                while unsafe { SHOULDRUN } {
+                    let mut pos = Vec3::ZERO;
+                    let mut hitblock = false;
+            
+                    match camclone.try_lock() {
+                        Ok(camlock) => {
+                            pos = camlock.position.clone();
+                        }
+                        Err(e) => {
+                            //println!("Failed to lock camera: {:?}", e);
+                        }
+                    }
+
+                    if pos != Vec3::ZERO {
+                        match csysclone.read() {
+                            Ok(r) => {
+                                while !hitblock && pos.y < 128.0 {
+                                    let ppos = vec::IVec3::new(pos.x.floor() as i32, pos.y.round() as i32, pos.z.floor() as i32);
+                                    if r.blockat(ppos) != 0 {
+                                        hitblock = true;
+                                        break;
+                                    }
+                                    pos.y += 1.0;
+                                }
+                                unsafe {
+                                    if hitblock {
+                                        ROOFOVERHEAD.store(true, Ordering::Relaxed)
+                                    } else {
+                                        ROOFOVERHEAD.store(false, Ordering::Relaxed)
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                //println!("Failed to read csysclone: {:?}", e);
+                            }
+                        };
+                    }
+            
+                    
+            
+                    thread::sleep(Duration::from_millis(250));
+                }
+            });
+        }
+        
 
 
 
@@ -805,7 +874,8 @@ impl Game {
             needtosend,
             health,
             crafting_open: false,
-            stamina
+            stamina,
+            weathertype: 0.0
         };
         if !headless {
             g.load_model("assets/models/car/scene.gltf");
@@ -1021,14 +1091,128 @@ impl Game {
             }
             "closemenu" => {
                 self.vars.menu_open = false;
+                self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+                self.set_mouse_focused(true);
+            }
+            "escapemenu" => {
+                self.currentbuttons = vec![
+                            ("Close Menu", "closemenu"),
+                            ("Settings", "settingsmenu"),
+                            ("Quit Game", "quittomainmenu"),
+                        ];
+                self.vars.menu_open = true;
+            }
+            "settingsmenu" => {
+                self.currentbuttons = vec![
+                            ("Back to Previous Menu", "escapemenu"),
+                            ("SliderMouse Sensitivity", "test")
+                        ];
+                self.vars.menu_open = true;
             }
             _ => {
                 info!("Unknown button command given");
             }
         }
     }
-    
+    pub fn play_weather_sound(&mut self) {
+        static mut TIMER: f32 = 0.0;
+        static mut OUTSIDE_RAIN_PLAYING: bool = false;
+        static mut INSIDE_RAIN_PLAYING: bool = false;
+        static mut OUTSIDE_SNOW_PLAYING: bool = false;
+        static mut INSIDE_SNOW_PLAYING: bool = false;
+        unsafe {
+            TIMER += self.delta_time;
+            //println!("TIMER: {}, DELTA_TIME: {}", TYMER, self.delta_time);
 
+            if TIMER >= 14.0 {
+                OUTSIDE_RAIN_PLAYING = false;
+                INSIDE_RAIN_PLAYING = false;
+                OUTSIDE_SNOW_PLAYING = false;
+                INSIDE_SNOW_PLAYING = false;
+                TIMER = 0.0;
+            }
+
+            match WEATHERTYPE {
+                2.0 => {
+                    if ROOFOVERHEAD.load(Ordering::Relaxed) {
+                        if !INSIDE_RAIN_PLAYING {
+                            let mut w = self.audiop.write().unwrap();
+                            w.stop_sound("assets/sfx/rainoutside.mp3");
+                    //w.stop_sound("assets/sfx/raininside.mp3");
+                    w.stop_sound("assets/sfx/snowoutside.mp3");
+                    w.stop_sound("assets/sfx/snowinside.mp3");
+                            w.play_in_head("assets/sfx/raininside.mp3");
+                            TIMER = 0.0;
+                            INSIDE_RAIN_PLAYING = true;
+                            OUTSIDE_RAIN_PLAYING = false;
+                            OUTSIDE_SNOW_PLAYING = false;
+                            INSIDE_SNOW_PLAYING = false;
+                        }
+                    } else {
+                        if !OUTSIDE_RAIN_PLAYING {
+                            let mut w = self.audiop.write().unwrap();
+                            //w.stop_sound("assets/sfx/rainoutside.mp3");
+                    w.stop_sound("assets/sfx/raininside.mp3");
+                    w.stop_sound("assets/sfx/snowoutside.mp3");
+                    w.stop_sound("assets/sfx/snowinside.mp3");
+                            w.play_in_head("assets/sfx/rainoutside.mp3");
+                            TIMER = 0.0;
+                            OUTSIDE_RAIN_PLAYING = true;
+                            INSIDE_RAIN_PLAYING = false;
+                            OUTSIDE_SNOW_PLAYING = false;
+                            INSIDE_SNOW_PLAYING = false;
+                            //println!("playing outside rain");
+                        }
+                    }
+                }
+                1.0 => {
+                    if ROOFOVERHEAD.load(Ordering::Relaxed) {
+                        if !INSIDE_SNOW_PLAYING {
+                            let mut w = self.audiop.write().unwrap();
+                            w.stop_sound("assets/sfx/rainoutside.mp3");
+                    w.stop_sound("assets/sfx/raininside.mp3");
+                    w.stop_sound("assets/sfx/snowoutside.mp3");
+                   // w.stop_sound("assets/sfx/snowinside.mp3");
+                            w.play_in_head("assets/sfx/snowinside.mp3");
+                            TIMER = 0.0;
+                            INSIDE_SNOW_PLAYING = true;
+                            OUTSIDE_SNOW_PLAYING = false;
+                            OUTSIDE_RAIN_PLAYING = false;
+                            INSIDE_RAIN_PLAYING = false;
+                        }
+                    } else {
+                        if !OUTSIDE_SNOW_PLAYING {
+                            let mut w = self.audiop.write().unwrap();
+                            w.stop_sound("assets/sfx/rainoutside.mp3");
+                    w.stop_sound("assets/sfx/raininside.mp3");
+                    //w.stop_sound("assets/sfx/snowoutside.mp3");
+                    w.stop_sound("assets/sfx/snowinside.mp3");
+
+                            w.play_in_head("assets/sfx/snowoutside.mp3");
+                            TIMER = 0.0;
+                            OUTSIDE_SNOW_PLAYING = true;
+                            INSIDE_SNOW_PLAYING = false;
+                            OUTSIDE_RAIN_PLAYING = false;
+                            INSIDE_RAIN_PLAYING = false;
+                        }
+                    }
+                }
+                _ => {
+                    let mut w = self.audiop.write().unwrap();
+                    w.stop_sound("assets/sfx/rainoutside.mp3");
+                    w.stop_sound("assets/sfx/raininside.mp3");
+                    w.stop_sound("assets/sfx/snowoutside.mp3");
+                    w.stop_sound("assets/sfx/snowinside.mp3");
+                    OUTSIDE_RAIN_PLAYING = false;
+                    INSIDE_RAIN_PLAYING = false;
+                    OUTSIDE_SNOW_PLAYING = false;
+                    INSIDE_SNOW_PLAYING = false;
+                    //println!("Stopping");
+                }
+            }
+        }
+    }
+    
 
     pub fn initialize_being_in_world(&mut self) -> JoinHandle<()> {
         let mut ship_pos = vec::IVec3::new(20,200,0);
@@ -2055,6 +2239,30 @@ impl Game {
             self.vars.walkbobtimer = self.vars.walkbobtimer + self.delta_time * 10.0;
             self.vars.walkbobtimer %= 2.0 * consts::PI;
         }
+
+        
+
+
+
+
+        if !self.vars.in_multiplayer || self.headless {
+            unsafe {
+                WEATHERTIMER += self.delta_time;
+                if WEATHERTIMER >= WEATHERINTERVAL {
+                    let mut rand = StdRng::from_entropy();
+                    let randint: usize = rand.gen_range(0..=2);
+                    WEATHERTYPE = randint as f32;
+                    WEATHERTIMER = 0.0;
+                    
+                }
+            }
+
+            
+        }
+
+        if !self.headless {
+            self.play_weather_sound();
+        }
             
 
         unsafe {
@@ -2377,6 +2585,10 @@ impl Game {
                             MessageType::TimeUpdate => {
                                 let mut todlock = self.timeofday.lock().unwrap();
                                 *todlock = comm.infof;
+                                unsafe {
+                                    WEATHERTYPE = comm.rot;
+                                }
+                                
                             }
                             MessageType::BlockSet => {
                                 if comm.info == 0 {
@@ -3077,6 +3289,7 @@ impl Game {
                 cmemlock.memories[ready.geo_index].length = ready.newlength;
                 cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
                 cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
+                cmemlock.memories[ready.geo_index].wvlength = ready.newwvlength;
                 cmemlock.memories[ready.geo_index].pos = ready.newpos;
                 cmemlock.memories[ready.geo_index].used = true;
 
@@ -3099,6 +3312,9 @@ impl Game {
                 let vv = cmemlock.memories[ready.geo_index].vvbo;
                 let uvv = cmemlock.memories[ready.geo_index].uvvbo;
 
+                let wvv = cmemlock.memories[ready.geo_index].wvvbo;
+                let wuvv = cmemlock.memories[ready.geo_index].wuvvbo;
+
                 let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
                 let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
 
@@ -3113,6 +3329,7 @@ impl Game {
                 );
 
                 WorldGeometry::bind_old_geometry(vv, uvv, &bankarc.vdata.lock().unwrap(), &bankarc.uvdata.lock().unwrap(), &self.oldshader);
+                WorldGeometry::bind_old_geometry(wvv, wuvv, &bankarc.wvdata.lock().unwrap(), &bankarc.wuvdata.lock().unwrap(), &self.oldshader);
             }
             None => {}
         }
@@ -3133,6 +3350,7 @@ impl Game {
                 cmemlock.memories[ready.geo_index].length = ready.newlength;
                 cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
                 cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
+                cmemlock.memories[ready.geo_index].wvlength = ready.newwvlength;
                 cmemlock.memories[ready.geo_index].pos = ready.newpos;
                 cmemlock.memories[ready.geo_index].used = true;
 
@@ -3156,6 +3374,9 @@ impl Game {
                 let vv = cmemlock.memories[ready.geo_index].vvbo;
                 let uvv = cmemlock.memories[ready.geo_index].uvvbo;
 
+                let wvv = cmemlock.memories[ready.geo_index].wvvbo;
+                let wuvv = cmemlock.memories[ready.geo_index].wuvvbo;
+
                 let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
                 let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
 
@@ -3170,6 +3391,7 @@ impl Game {
                 );
 
                 WorldGeometry::bind_old_geometry(vv, uvv, &bankarc.vdata.lock().unwrap(), &bankarc.uvdata.lock().unwrap(), &self.oldshader);
+                WorldGeometry::bind_old_geometry(wvv, wuvv, &bankarc.wvdata.lock().unwrap(), &bankarc.wuvdata.lock().unwrap(), &self.oldshader);
 
                 let mut userstuff = true;
                 while userstuff {
@@ -3186,6 +3408,7 @@ impl Game {
                                 cmemlock.memories[ready.geo_index].length = ready.newlength;
                                 cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
                                 cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
+                                cmemlock.memories[ready.geo_index].wvlength = ready.newwvlength;
                                 cmemlock.memories[ready.geo_index].pos = ready.newpos;
                                 cmemlock.memories[ready.geo_index].used = true;
                 
@@ -3208,6 +3431,9 @@ impl Game {
                                 let vv = cmemlock.memories[ready.geo_index].vvbo;
                                 let uvv = cmemlock.memories[ready.geo_index].uvvbo;
 
+                                let wvv = cmemlock.memories[ready.geo_index].wvvbo;
+                                let wuvv = cmemlock.memories[ready.geo_index].wuvvbo;
+
                                 let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
                                 let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
                 
@@ -3222,7 +3448,7 @@ impl Game {
                                 );
                             
                                 WorldGeometry::bind_old_geometry(vv, uvv, &bankarc.vdata.lock().unwrap(), &bankarc.uvdata.lock().unwrap(), &self.oldshader);
-                        
+                                WorldGeometry::bind_old_geometry(wvv, wuvv, &bankarc.wvdata.lock().unwrap(), &bankarc.wuvdata.lock().unwrap(), &self.oldshader);
                         }
                         None => { userstuff = false; }
                     }
@@ -3491,6 +3717,18 @@ impl Game {
                 cam_lock.direction.y,
                 cam_lock.direction.z,
             );
+
+
+            
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.oldshader.shader_id, b"time\0".as_ptr() as *const i8),
+                glfwGetTime() as f32
+            );
+            gl::Uniform1f(
+                gl::GetUniformLocation(self.oldshader.shader_id, b"weathertype\0".as_ptr() as *const i8),
+                WEATHERTYPE
+            );
+    
             gl::Uniform1f(SUNSET_LOC, self.sunset_factor);
             gl::Uniform1f(WALKBOB_LOC, self.vars.walkbobtimer);
             gl::Uniform1f(SUNRISE_LOC, self.sunrise_factor);
@@ -3500,6 +3738,13 @@ impl Game {
                     b"ourTexture\0".as_ptr() as *const i8,
                 ),
                 0,
+            );
+            gl::Uniform1i(
+                gl::GetUniformLocation(
+                    self.oldshader.shader_id,
+                    b"weatherTexture\0".as_ptr() as *const i8,
+                ),
+                2,
             );
             // let fc = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
             // gl::Uniform4f(
@@ -3528,9 +3773,24 @@ impl Game {
             // info!("Chunk rending!");
         }
 
+        if unsafe { WEATHERTYPE } != 0.0 {
+            WorldGeometry::bind_old_geometry_no_upload(cfl.wvvbo, cfl.wuvvbo, &self.oldshader);
 
 
+        
+            unsafe {
+                //gl::Disable(gl::CULL_FACE);
+                gl::DrawArrays(gl::TRIANGLES, 0, cfl.wvlength as i32 / 5);
+                let error = gl::GetError();
+                if error != gl::NO_ERROR {
+                    info!("OpenGL Error after drawing arrays: {}", error);
+                }
+                //gl::Enable(gl::CULL_FACE);
+                // info!("Chunk rending!");
+            }
 
+        }
+        
 
 
 
@@ -4770,25 +5030,33 @@ impl Game {
                 if action == Action::Press {
                     if !self.vars.menu_open && !self.hud.chest_open && !self.crafting_open {
 
-                        self.currentbuttons = vec![
-                            ("Quit Game", "quittomainmenu")
-                        ];
-                        self.vars.menu_open = true;
+                        self.button_command("escapemenu");
     
                     } else {
                         self.vars.menu_open = false;
+                        self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+                        self.set_mouse_focused(true);
+                        unsafe {
+                            uncapkb.store(true, Ordering::Relaxed);
+                        }
                     }
 
                     if self.crafting_open {
                         self.crafting_open = false;
                         self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
                         self.set_mouse_focused(true);
+                        unsafe {
+                            uncapkb.store(true, Ordering::Relaxed);
+                        }
                     }
 
                     if self.hud.chest_open {
                         self.hud.chest_open = false;
                         self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
                         self.set_mouse_focused(true);
+                        unsafe {
+                            uncapkb.store(true, Ordering::Relaxed);
+                        }
                     }
                 }
                 
@@ -4860,6 +5128,14 @@ impl Game {
                 }
                 
             }
+            // Key::M => {
+            //     if action == Action::Press {
+            //         unsafe { WEATHERTYPE = WEATHERTYPE + 1.0 };
+            //         if unsafe { WEATHERTYPE } > 2.0 {
+            //             unsafe { WEATHERTYPE = 0.0 };
+            //         }
+            //     }
+            // }
             // Key::M => {
             //     if action == Action::Press {
             //         if self.vars.in_multiplayer {

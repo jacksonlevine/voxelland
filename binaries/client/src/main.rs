@@ -3,12 +3,12 @@ use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::fmt::writer::BoxMakeWriter;
 use tracing_subscriber::fmt::Subscriber;
 use tracing_appender::non_blocking::{self, WorkerGuard};
-use tracing::info;
+use tracing::{error, info};
 use std::fs::File;
 
-use voxelland::windowandkey::WindowAndKeyContext;
+use voxelland::windowandkey::{uncapkb, WindowAndKeyContext};
 
-use voxelland::game::{Game, DECIDEDSPORMP};
+use voxelland::game::{Game, DECIDEDSPORMP, SHOULDRUN};
 
 
 
@@ -27,6 +27,29 @@ fn main() {
     tracing::subscriber::set_global_default(subscriber)
         .expect("setting default subscriber failed");
 
+    // Capture the default panic hook
+    let default_hook = std::panic::take_hook();
+
+    // Set a custom panic hook
+    std::panic::set_hook(Box::new(move |panic_info| {
+        // Call the default hook to print the panic message to stderr
+        default_hook(panic_info);
+
+        // Log the panic message
+        if let Some(location) = panic_info.location() {
+            error!(
+                "Panic occurred at {}:{}:{} -- {}",
+                location.file(),
+                location.line(),
+                location.column(),
+                panic_info
+            );
+        } else {
+            error!("Panic occurred: {}", panic_info);
+        }
+    }));
+
+    
 
     let mut wak_context = WindowAndKeyContext::new("Distant Garden", 1280, 720);
 
@@ -91,7 +114,15 @@ fn main() {
     wak_context.game.as_mut().unwrap().vars.menu_open = false;
     
     wak_context.game.as_mut().unwrap().start_world();
+    wak_context.game.as_mut().unwrap().set_mouse_focused(true);
+    wak_context.game.as_mut().unwrap().window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+    unsafe {
+        uncapkb.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+    
     while !wak_context.window.read().unwrap().should_close() {
         wak_context.run();
     }
+
+    unsafe { SHOULDRUN = false; }
 }

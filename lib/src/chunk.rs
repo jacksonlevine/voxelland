@@ -11,6 +11,7 @@ use std::sync::RwLock;
 use dashmap::DashMap;
 
 use gl::types::GLuint;
+use glam::Vec2;
 use glam::Vec3;
 use num_enum::FromPrimitive;
 use rand::rngs::StdRng;
@@ -39,6 +40,8 @@ use crate::specialblocks::door::DoorInfo;
 use crate::specialblocks::ladder::LadderInfo;
 use crate::specialblocks::tallgrass::TallGrassInfo;
 use crate::textureface::TextureFace;
+use crate::textureface::ONE_OVER_16;
+use crate::textureface::TEXTURE_WIDTH;
 use crate::vec::IVec3;
 use crate::vec::{self, IVec2};
 
@@ -93,8 +96,14 @@ pub struct ChunkGeo {
     pub vvbo: GLuint,
     pub uvvbo: GLuint,
 
+    pub wvvbo: GLuint,
+    pub wuvvbo: GLuint,
+
     pub vdata: Mutex<Vec<f32>>,
     pub uvdata: Mutex<Vec<f32>>,
+
+    pub wvdata: Mutex<Vec<f32>>,
+    pub wuvdata: Mutex<Vec<f32>>,
 }
 impl ChunkGeo {
     pub fn new() -> ChunkGeo {
@@ -108,6 +117,9 @@ impl ChunkGeo {
         let mut vvbo: gl::types::GLuint = 0;
         let mut uvvbo: gl::types::GLuint = 0;
 
+        let mut wvvbo: gl::types::GLuint = 0;
+        let mut wuvvbo: gl::types::GLuint = 0;
+
         unsafe {
             gl::CreateBuffers(1, &mut vbo32);
             gl::CreateBuffers(1, &mut vbo8);
@@ -116,6 +128,9 @@ impl ChunkGeo {
 
             gl::CreateBuffers(1, &mut vvbo);
             gl::CreateBuffers(1, &mut uvvbo);
+
+            gl::CreateBuffers(1, &mut wvvbo);
+            gl::CreateBuffers(1, &mut wuvvbo);
 
             gl::CreateBuffers(1, &mut vbo8rgb);
             gl::CreateBuffers(1, &mut tvbo8rgb);
@@ -149,8 +164,15 @@ impl ChunkGeo {
 
             vvbo,
             uvvbo,
+
+            wvvbo,
+            wuvvbo,
+
             vdata: Mutex::new(Vec::new()),
             uvdata: Mutex::new(Vec::new()),
+
+            wvdata: Mutex::new(Vec::new()),
+            wuvdata: Mutex::new(Vec::new()),
         }
     }
 
@@ -190,6 +212,7 @@ pub struct ReadyMesh {
     pub newlength: i32,
     pub newtlength: i32,
     pub newvlength: i32,
+    pub newwvlength: i32
 }
 
 impl ReadyMesh {
@@ -199,6 +222,7 @@ impl ReadyMesh {
         newlength: i32,
         newtlength: i32,
         newvlength: i32,
+        newwvlength: i32
     ) -> ReadyMesh {
         ReadyMesh {
             geo_index: index,
@@ -206,6 +230,7 @@ impl ReadyMesh {
             newlength,
             newtlength,
             newvlength,
+            newwvlength
         }
     }
 }
@@ -1264,9 +1289,14 @@ impl ChunkSystem {
         let mut vdata = geobankarc.vdata.lock().unwrap();
         let mut uvdata = geobankarc.uvdata.lock().unwrap();
 
+
+        let mut wvdata = geobankarc.wvdata.lock().unwrap();
+        let mut wuvdata = geobankarc.wuvdata.lock().unwrap();
+
         let mut data8rgb = geobankarc.data8rgb.lock().unwrap();
         let mut tdata8rgb = geobankarc.tdata8rgb.lock().unwrap();
 
+        let mut weatherstoptops: HashMap<vec::IVec2, i32> = HashMap::new();
         let mut tops: HashMap<vec::IVec2, i32> = HashMap::new();
 
         for i in 0..CW {
@@ -1329,6 +1359,20 @@ impl ChunkSystem {
                     //     }
                     // }
                     if block != 0 {
+                        if !weatherstoptops.contains_key(&vec::IVec2 {
+                            x: i,
+                            y: k,
+                        }) {
+                            weatherstoptops.insert(
+                                vec::IVec2 {
+                                    x: i,
+                                    y: k,
+                                },
+                                spot.y,
+                            );
+                        }
+                        
+
                         if block == 19 {
                             let direction = Blocks::get_direction_bits(flags);
                             let open = DoorInfo::get_door_open_bit(flags);
@@ -1731,6 +1775,181 @@ impl ChunkSystem {
                         }
                     }
                 }
+
+                //BEGIN ADD WEATHER PANES FOR RAIN/SNOW/ETC, nOT EVERY BLOCK
+                
+                if ((i * CW) + k) % 17 == 0  {
+                    let topy = match weatherstoptops.get(&vec::IVec2 {
+                        x: i,
+                        y: k,
+                    }) {
+                        Some(top) => {
+                            //println!("Found top {}", *top);
+                            *top
+                        }
+                        None => {
+                            0
+                        }
+                    };
+
+                    let mut rng = StdRng::from_entropy();
+                    
+                    let xzoff = Vec2::new(rng.gen_range(0.0..1.7), rng.gen_range(0.0..1.7));
+
+
+
+                    //spot xz top
+                    let spoint: IVec3 = vec::IVec3 {
+                        x: (chunklock.pos.x * CW) + i,
+                        y: topy,
+                        z: (chunklock.pos.y * CW) + k,
+                    };
+
+                    //spot xz top
+                    let spo = Vec3 {
+                        x: (chunklock.pos.x * CW) as f32 + i as f32+ xzoff.x,
+                        y: topy as f32,
+                        z: (chunklock.pos.y * CW) as f32 + k as f32 + xzoff.y,
+                    };
+
+
+
+                    //LET BLOCKLIGHT AT TOP 
+                    //FADE BLOCKLIGHT WITH HIGHER Y IN SHADER 
+                    //OR JUST SET TO <AMB> AT TOP SO IT FADES UP NATURALLY FROM VERTEX SHADING
+
+
+
+                    let lmlock = self.lightmap.lock().unwrap();
+                    let blocklighthere = match lmlock.get(&(spoint + IVec3::new(0, 1, 0))) {
+                        Some(k) => k.sum(),
+                        None => LightColor::ZERO,
+                    };
+
+                    let packedrgb = PackedVertex::pack_rgb(
+                        blocklighthere.x,
+                        blocklighthere.y,
+                        blocklighthere.z,
+                    );
+
+                    let prgb: u32 =
+                        0b0000_0000_0000_0000_0000_0000_0000_0000 | (packedrgb) as u32;
+                    drop(lmlock);
+
+                  
+                    let lightf32 =  f32::from_bits(prgb);
+                   
+
+                    
+
+                    let face = TextureFace::new(15, 0);
+
+                    
+
+                    wvdata.extend_from_slice(&[
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32 + 2.0,   lightf32 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
+
+                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
+
+
+
+
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32 + 2.0,   lightf32 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
+
+                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32 + 2.0,   lightf32 /*BLOCKLIGHT */, 14.0,
+
+
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32 + 2.0,              lightf32 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+
+                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32 + 2.0,              lightf32 /*BLOCKLIGHT */, 14.0,
+
+
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32 + 2.0,              lightf32 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
+
+                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
+
+                    ]);
+
+                    
+                    wuvdata.extend_from_slice(&[
+                        face.blx, face.bly, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bry, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.blx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.blx, face.bly, 0.0, 0.0,
+
+                        face.blx, face.bly, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bry, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.blx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.blx, face.bly, 0.0, 0.0,
+
+                        face.blx, face.bly, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bry, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.blx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.blx, face.bly, 0.0, 0.0,
+
+                        face.blx, face.bly, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bry, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.blx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
+                        face.blx, face.bly, 0.0, 0.0,
+                    ]);
+
+                    //println!("{}", face.blx);
+
+                    // if texcoord.x  >= face.blx
+
+                    // // Define your temporary slice
+                    // let temp_slice = &[
+                    //     face.blx, face.bly, 0.0, 0.0,
+                    //     face.brx, face.bry, 0.0, 0.0,
+                    //     face.brx, face.bly   , 0.0, 0.0,
+                    //     face.brx, face.bly   , 0.0, 0.0,
+                    //     face.blx, face.bly   , 0.0, 0.0,
+                    //     face.blx, face.bly, 0.0, 0.0,
+                    // ];
+
+                    // // Print the values in the temporary slice as a GLSL array of vec2
+                    // println!("vec2 uvdata[] = vec2[](");
+                    // for (i, value) in temp_slice.iter().enumerate() {
+                    //     if i % 4 == 0 {
+                    //         if i != 0 {
+                    //             println!("), ");
+                    //         }
+                    //         print!("vec2(");
+                    //     }
+                    //     if i % 4 == 2 || i % 4 == 3 {
+                    //         continue; // Skip the 0.0, 0.0 values
+                    //     }
+                    //     print!("{:.6}", value);
+                    //     if i % 4 == 0 {
+                    //         print!(", ");
+                    //     }
+                    // }
+                    // println!("));");
+                }
             }
         }
 
@@ -1740,6 +1959,7 @@ impl ChunkSystem {
             data32.len() as i32,
             tdata32.len() as i32,
             vdata.len() as i32,
+            wvdata.len() as i32
         );
         let ugqarc = self.finished_user_geo_queue.clone();
         let gqarc = self.finished_geo_queue.clone();
@@ -2013,9 +2233,9 @@ impl ChunkSystem {
                             * 10.0,
                     0.0,
                 ),
-        );
+        ) * 2.0;
 
-        y += 60;
+        y += 100;
 
         let noise2 = f64::max(
             0.0,
@@ -2047,9 +2267,9 @@ impl ChunkSystem {
         let noise3 = f64::max(
             0.0,
             50.0 + self.perlin.get([
-                spot.x as f64 / 25.35,
-                y as f64 / 25.35,
-                spot.z as f64 / 25.35,
+                spot.x as f64 / 7.35,
+                y as f64 / 7.35,
+                spot.z as f64 / 7.35,
             ]) * 10.0
                 + self.perlin.get([
                     spot.x as f64 / 60.35,
@@ -2060,15 +2280,15 @@ impl ChunkSystem {
         );
 
         let mut p2 = self.perlin.get([
-            (spot.x as f64 + 4500.0) / 250.0,
-            (spot.y as f64 + 5000.0) / 250.0,
-            (spot.z as f64 - 5000.0) / 250.0,
-        ]) * 10.0;
+            (spot.x as f64 + 4500.0) / 150.0,
+            (spot.y as f64 + 5000.0) / 150.0,
+            (spot.z as f64 - 5000.0) / 150.0,
+        ]) * 1.0;
 
         p2 = f64::max(p2, 0.0);
         p2 = f64::min(p2, 1.0);
 
-        ChunkSystem::mix(noisemix, noise3, p2)
+        ChunkSystem::mix(noisemix, noise3, p2.clamp(0.0, 1.0))
     }
 
     pub fn noise_func2(&self, spot: vec::IVec3) -> f64 {
@@ -2175,22 +2395,20 @@ impl ChunkSystem {
             return 15;
         }
 
-        if self.cave_noise(spot) > 0.5 {
-            return 0;
-        }
-        match self.planet_type {
+        
+        let ret = match self.planet_type {
             1 => {
                 if self.noise_func2(spot) > 10.0 {
                     if self.noise_func2(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {
-                        return 14;
+                        return 14
                     }
-                    return 1;
+                    1
                 } else {
-                    return 0;
+                    0
                 }
             }
             _ => {
-                static WL: f32 = 60.0;
+                static WL: f32 = 40.0;
 
                 let biomenum = self.biome_noise(IVec2 {
                     x: spot.x,
@@ -2222,29 +2440,35 @@ impl ChunkSystem {
                 if self.noise_func(spot) > 10.0 {
                     if self.noise_func(spot + vec::IVec3 { x: 0, y: 10, z: 0 }) > 10.0 {
                         if self.ore_noise(spot) > 1.0 {
-                            return 35;
+                            return 35
                         } else {
-                            return underdirt;
+                            return underdirt
                         }
                     }
                     if spot.y > (WL + 2.0) as i32
                         || self.noise_func(spot + vec::IVec3 { x: 0, y: 5, z: 0 }) > 10.0
                     {
                         if self.noise_func(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {
-                            return surface;
+                            return surface
                         }
-                        return undersurface;
+                        undersurface
                     } else {
-                        return beach;
+                        beach
                     }
                 } else {
                     if spot.y < WL as i32 {
-                        return liquid;
+                        liquid
                     } else {
-                        return 0;
+                        0
                     }
                 }
             }
+        };
+        if ret != 2 {
+            if self.cave_noise(spot) > 0.5 {
+                return 0;
+            }
         }
+        ret
     }
 }

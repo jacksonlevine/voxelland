@@ -185,6 +185,9 @@ impl ChunkGeo {
         self.vdata.lock().unwrap().clear();
         self.uvdata.lock().unwrap().clear();
 
+        self.wvdata.lock().unwrap().clear();
+        self.wuvdata.lock().unwrap().clear();
+
         self.data8rgb.lock().unwrap().clear();
         self.tdata8rgb.lock().unwrap().clear();
     }

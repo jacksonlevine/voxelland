@@ -1818,47 +1818,71 @@ impl ChunkSystem {
                     //FADE BLOCKLIGHT WITH HIGHER Y IN SHADER 
                     //OR JUST SET TO <AMB> AT TOP SO IT FADES UP NATURALLY FROM VERTEX SHADING
 
+
+
+                    let lmlock = self.lightmap.lock().unwrap();
+                    let blocklighthere = match lmlock.get(&(spoint + IVec3::new(0, 1, 0))) {
+                        Some(k) => k.sum(),
+                        None => LightColor::ZERO,
+                    };
+
+                    let packedrgb = PackedVertex::pack_rgb(
+                        blocklighthere.x,
+                        blocklighthere.y,
+                        blocklighthere.z,
+                    );
+
+                    let prgb: u32 =
+                        0b0000_0000_0000_0000_0000_0000_0000_0000 | (packedrgb) as u32;
+                    drop(lmlock);
+
+                  
+                    let lightf32 =  f32::from_bits(prgb);
+                   
+
+                    
+
                     let face = TextureFace::new(15, 0);
 
                     
 
                     wvdata.extend_from_slice(&[
-                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32 + 2.0,   lightf32 /*BLOCKLIGHT */, 14.0,
                         spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
 
                         spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
                         spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
 
 
 
 
-                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32 + 2.0,   lightf32 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
                         spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
 
                         spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
                         spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32 + 2.0,   lightf32 /*BLOCKLIGHT */, 14.0,
 
 
-                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32 + 2.0,              lightf32 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
                         spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
 
                         spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
                         spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32 + 2.0,              lightf32 /*BLOCKLIGHT */, 14.0,
 
 
-                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, spo.y as f32, spo.z as f32 + 2.0,              lightf32 /*BLOCKLIGHT */, 14.0,
                         spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
 
                         spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
                         spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
 
                     ]);
 

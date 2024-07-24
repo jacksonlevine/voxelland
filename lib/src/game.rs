@@ -2257,9 +2257,11 @@ impl Game {
                 }
             }
 
-            if !self.headless {
-                self.play_weather_sound();
-            }
+            
+        }
+
+        if !self.headless {
+            self.play_weather_sound();
         }
             
 
@@ -5126,14 +5128,14 @@ impl Game {
                 }
                 
             }
-            Key::M => {
-                if action == Action::Press {
-                    unsafe { WEATHERTYPE = WEATHERTYPE + 1.0 };
-                    if unsafe { WEATHERTYPE } > 2.0 {
-                        unsafe { WEATHERTYPE = 0.0 };
-                    }
-                }
-            }
+            // Key::M => {
+            //     if action == Action::Press {
+            //         unsafe { WEATHERTYPE = WEATHERTYPE + 1.0 };
+            //         if unsafe { WEATHERTYPE } > 2.0 {
+            //             unsafe { WEATHERTYPE = 0.0 };
+            //         }
+            //     }
+            // }
             // Key::M => {
             //     if action == Action::Press {
             //         if self.vars.in_multiplayer {

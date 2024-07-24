@@ -33,6 +33,7 @@ void main()
 
     float bright = min(16.0f, ambBright);
 
+
     blockColor = vec3(float(r)/16.0f, float(g)/16.0f, float(b)/16.0f);
 
     

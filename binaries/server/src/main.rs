@@ -44,7 +44,8 @@ pub struct Client {
     stream: Arc<Mutex<TcpStream>>,
     inv: Inventory,
     errorstrikes: i8,
-    saveposcounter: i32
+    saveposcounter: i32,
+    ready_for_player_messages: bool
 }
 
 
@@ -73,340 +74,367 @@ fn handle_client(
 
         let stream = {
             let clients = clients.lock().unwrap();
-            clients[&client_id].stream.clone()
+            match clients.get(&client_id) {
+                Some(c) => {
+                    Some(c.stream.clone())
+                }
+                None => {
+                    None
+                }
+            }
+            
         };
 
-        let mut numbytes2 = 0;
+        match stream {
+            Some(stream) => {
+                let mut numbytes2 = 0;
 
-        let mut message = {
-            let mut mystream = stream.lock().unwrap();
-
-            match mystream.read(&mut buffer) {
-                Ok(numbytes) => {
-                    numbytes2 = numbytes;
-                    if numbytes > 0 {
-                        let mut message: Message = match bincode::deserialize(&buffer[..numbytes]) {
-                            Ok(m) => m,
-                            Err(_) => {
-                                println!("Erroneous message received!");
+                let mut message = {
+                    let mut mystream = stream.lock().unwrap();
+        
+                    match mystream.read(&mut buffer) {
+                        Ok(numbytes) => {
+                            numbytes2 = numbytes;
+                            if numbytes > 0 {
+                                let mut message: Message = match bincode::deserialize(&buffer[..numbytes]) {
+                                    Ok(m) => m,
+                                    Err(_) => {
+                                        println!("Erroneous message received!");
+                                        Message::new(MessageType::None, Vec3::ZERO, 0.0, 0)
+                                    }
+                                };
+                                let pair = client_id.as_u64_pair();
+                                message.goose = pair;
+        
+                                message
+                            } else {
+                                should_break = true;
                                 Message::new(MessageType::None, Vec3::ZERO, 0.0, 0)
                             }
-                        };
-                        let pair = client_id.as_u64_pair();
-                        message.goose = pair;
-
-                        message
-                    } else {
-                        should_break = true;
-                        Message::new(MessageType::None, Vec3::ZERO, 0.0, 0)
+                        }
+                        Err(e) => {
+                            if e.kind() == std::io::ErrorKind::WouldBlock {
+                            } else {
+                                should_break = true;
+                            }
+        
+                            Message::new(MessageType::None, Vec3::ZERO, 0.0, 0)
+                        }
                     }
-                }
-                Err(e) => {
-                    if e.kind() == std::io::ErrorKind::WouldBlock {
-                    } else {
-                        should_break = true;
-                    }
-
-                    Message::new(MessageType::None, Vec3::ZERO, 0.0, 0)
-                }
-            }
-        };
-
-        match message.message_type {
-            MessageType::ShutUpMobMsgs => {
-                shutupmobmsgs.store(true, std::sync::atomic::Ordering::Relaxed);
-            }
-            MessageType::RequestUdm => {
-                println!("Recvd req world");
-
-                thread::sleep(Duration::from_millis(50));
-
-                let buffer = {
-                    let mut file = File::open("db").unwrap();
-                    println!("Opened the db file");
-                    let mut buffer = Vec::new();
-                    file.read_to_end(&mut buffer).unwrap();
-                    println!("Read the file to end");
-                    buffer
                 };
-
-                let udmmsg = Message::new(MessageType::Udm, Vec3::ZERO, 0.0, buffer.len() as u32);
-
-                {
-                    let mut mystream = stream.lock().unwrap();
-                    mystream.set_nonblocking(false);
-                    mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
-                    println!("Wrote the header");
-                    thread::sleep(Duration::from_millis(10));
-                    mystream.write_all(&buffer).unwrap();
-                    println!("Wrote the file buffer");
-                    mystream.set_nonblocking(true);
-                }
-            }
-            MessageType::ReqChestReg => {
-                println!("Recvd req chest reg");
-
-                let buffer = {
-                    let mut buffer = Vec::new();
-                    match File::open("chestdb") {
-                        Ok(mut file) => {
+        
+                match message.message_type {
+                    MessageType::ShutUpMobMsgs => {
+                        shutupmobmsgs.store(true, std::sync::atomic::Ordering::Relaxed);
+                    }
+                    MessageType::RequestUdm => {
+                        println!("Recvd req world");
+        
+                        thread::sleep(Duration::from_millis(50));
+        
+                        let buffer = {
+                            let mut file = File::open("db").unwrap();
                             println!("Opened the db file");
+                            let mut buffer = Vec::new();
                             file.read_to_end(&mut buffer).unwrap();
-                        }
-                        Err(_) => {}
-                    };
-                    println!("Read the file to end");
-                    buffer
-                };
-
-                let chestmsg = Message::new(MessageType::ChestReg, Vec3::ZERO, 0.0, buffer.len() as u32);
-
-                {
-                    {
-                        let mut mystream = stream.lock().unwrap();
-                        mystream.write_all(&bincode::serialize(&chestmsg).unwrap());
-                    }
-                    println!("Wrote the chest header");
-
-                    thread::sleep(Duration::from_millis(20));
-
-                    if buffer.len() > 0 {
-                        let mut mystream = stream.lock().unwrap();
-                        mystream.write_all(&buffer);
-                        println!("Wrote the chest file buffer");
-                    }
-                }
-            }
-            MessageType::RequestSeed => {
-                println!("Recvd req seed");
-
-                let currseed = {
-                    let csys = csys.read().unwrap();
-                    let s = csys.currentseed.read().unwrap().clone();
-                    s
-                };
-
-                let seedmsg = Message::new(MessageType::Seed, Vec3::ZERO, 0.0, currseed);
-
-                thread::sleep(Duration::from_millis(100));
-
-                {
-                    let mut mystream = stream.lock().unwrap();
-                    mystream.write_all(&bincode::serialize(&seedmsg).unwrap()).unwrap();
-                }
-            }
-            MessageType::ChestInvUpdate => {
-                let currchest = message.otherpos;
-                let destslot = message.info;
-
-                let slotindextype = match message.info2 {
-                    0 => SlotIndexType::ChestSlot(destslot as i32),
-                    1 => SlotIndexType::InvSlot(destslot as i32),
-                    _ => SlotIndexType::None,
-                };
-
-                match slotindextype {
-                    SlotIndexType::ChestSlot(e) => {
-                        let mut chestinv = chest_reg.entry(currchest).or_insert(ChestInventory {
-                            dirty: false,
-                            inv: [(0, 0); 20],
-                        });
-
-                        let slot = &mut chestinv.inv[e as usize];
-                        let wasthere = slot.clone();
-
-                        slot.0 = message.rot as u32;
-                        slot.1 = message.infof as u32;
-
-                        message.x = wasthere.0 as f32;
-                        message.y = wasthere.1 as f32;
-
-                        let currseed = (*csys.read().unwrap().currentseed.read().unwrap()).clone();
-
-                        queued_sql.push(QueuedSqlType::ChestInventoryUpdate(currchest, chestinv.inv.clone(), currseed));
-                    }
-                    SlotIndexType::InvSlot(e) => {
-                        let mut clientlock = clients.lock().unwrap();
-                        if let Some(cli) = clientlock.get_mut(&client_id) {
-                            let slot = &mut cli.inv.inv[e as usize];
-                            let wasthere = slot.clone();
-
-                            slot.0 = message.rot as u32;
-                            slot.1 = message.infof as u32;
-
-                            message.x = wasthere.0 as f32;
-                            message.y = wasthere.1 as f32;
-                        }
-                        queued_sql.push(QueuedSqlType::InventoryInventoryUpdate(client_id, clientlock.get(&client_id).unwrap().inv.inv));
-                    }
-                    SlotIndexType::None => {}
-                }
-            }
-            MessageType::PlayerUpdate => {
-
-                {
-                    let mut clients = clients.lock().unwrap();
-
-                    let client = clients.get_mut(&client_id).unwrap();
-                    
-                    if client.saveposcounter > 10 {
-                        client.saveposcounter = 0;
-                        queued_sql.push(QueuedSqlType::PlayerPositionUpdate(client_id, 
-                            Vec3::new(message.x, message.y, message.z),
-                            message.infof,
-                            message.info2 as f32
-                        ));
-                    } else {
-                        client.saveposcounter += 1;
-                    }
-                }
-                let mobmsgs = {
-                    knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
-
-                    let mut timeupdate = Message::new(MessageType::TimeUpdate, Vec3::ZERO, unsafe { WEATHERTYPE }, 0);
-                    let t = *tod.lock().unwrap();
-                    timeupdate.infof = t;
-
-                    {
-                        let mut mystream = stream.lock().unwrap();
-                        mystream.write_all(&bincode::serialize(&timeupdate).unwrap());
-                    }
-
-                    let nlock = nsmes.lock().unwrap();
-                    let mobmsgs: Vec<Message> = nlock.iter().map(|nsme| {
-                        let mut mobmsg = Message::new(MessageType::MobUpdate, nsme.1, nsme.2, nsme.0);
-                        mobmsg.info2 = nsme.3 as u32;
-                        mobmsg.infof = nsme.4;
-                        mobmsg.bo = nsme.5;
-                        mobmsg.hostile = nsme.6;
-
-                        
-                        mobmsg
-                    }).collect();
-
-                    drop(nlock);
-                    mobmsgs
-                };
-
-                for chunk in mobmsgs.chunks(server_types::MOB_BATCH_SIZE) {
-
-                    let mut mobmsg = Message::new(MessageType::MobUpdateBatch, Vec3::ZERO, 0.0, 0);
-                    mobmsg.inoculate_with_mobupdates(chunk.len(), chunk);
-
-                    {
-                        let mut mystream = stream.lock().unwrap();
-                        match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
-                            Ok(_) => {
-                                //println!("Sent mob header");
-                            },
-                            Err(e) => {
-                                println!("Mob err {e}");
-                            },
+                            println!("Read the file to end");
+                            buffer
                         };
-                    thread::sleep(Duration::from_millis(10));
+        
+                        let udmmsg = Message::new(MessageType::Udm, Vec3::ZERO, 0.0, buffer.len() as u32);
+        
+                        {
+                            let mut mystream = stream.lock().unwrap();
+                            mystream.set_nonblocking(false);
+                            mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
+                            println!("Wrote the header");
+                            thread::sleep(Duration::from_millis(10));
+                            mystream.write_all(&buffer).unwrap();
+                            println!("Wrote the file buffer");
+                            mystream.set_nonblocking(true);
+                        }
+                    }
+                    MessageType::ReqChestReg => {
+                        println!("Recvd req chest reg");
+        
+                        let buffer = {
+                            let mut buffer = Vec::new();
+                            match File::open("chestdb") {
+                                Ok(mut file) => {
+                                    println!("Opened the db file");
+                                    file.read_to_end(&mut buffer).unwrap();
+                                }
+                                Err(_) => {}
+                            };
+                            println!("Read the file to end");
+                            buffer
+                        };
+        
+                        let chestmsg = Message::new(MessageType::ChestReg, Vec3::ZERO, 0.0, buffer.len() as u32);
+        
+                        {
+                            {
+                                let mut mystream = stream.lock().unwrap();
+                                mystream.write_all(&bincode::serialize(&chestmsg).unwrap());
+                            }
+                            println!("Wrote the chest header");
+        
+                            thread::sleep(Duration::from_millis(20));
+        
+                            if buffer.len() > 0 {
+                                let mut mystream = stream.lock().unwrap();
+                                mystream.write_all(&buffer);
+                                println!("Wrote the chest file buffer");
+                            }
+                        }
+                    }
+                    MessageType::RequestSeed => {
+                        println!("Recvd req seed");
+        
+                        let currseed = {
+                            let csys = csys.read().unwrap();
+                            let s = csys.currentseed.read().unwrap().clone();
+                            s
+                        };
+        
+                        let seedmsg = Message::new(MessageType::Seed, Vec3::ZERO, 0.0, currseed);
+        
+                        thread::sleep(Duration::from_millis(100));
+        
+                        {
+                            let mut mystream = stream.lock().unwrap();
+                            mystream.write_all(&bincode::serialize(&seedmsg).unwrap()).unwrap();
+                        }
+                    }
+                    MessageType::ChestInvUpdate => {
+                        let currchest = message.otherpos;
+                        let destslot = message.info;
+        
+                        let slotindextype = match message.info2 {
+                            0 => SlotIndexType::ChestSlot(destslot as i32),
+                            1 => SlotIndexType::InvSlot(destslot as i32),
+                            _ => SlotIndexType::None,
+                        };
+        
+                        match slotindextype {
+                            SlotIndexType::ChestSlot(e) => {
+                                let mut chestinv = chest_reg.entry(currchest).or_insert(ChestInventory {
+                                    dirty: false,
+                                    inv: [(0, 0); 20],
+                                });
+        
+                                let slot = &mut chestinv.inv[e as usize];
+                                let wasthere = slot.clone();
+        
+                                slot.0 = message.rot as u32;
+                                slot.1 = message.infof as u32;
+        
+                                message.x = wasthere.0 as f32;
+                                message.y = wasthere.1 as f32;
+        
+                                let currseed = (*csys.read().unwrap().currentseed.read().unwrap()).clone();
+        
+                                queued_sql.push(QueuedSqlType::ChestInventoryUpdate(currchest, chestinv.inv.clone(), currseed));
+                            }
+                            SlotIndexType::InvSlot(e) => {
+                                let mut clientlock = clients.lock().unwrap();
+                                if let Some(cli) = clientlock.get_mut(&client_id) {
+                                    let slot = &mut cli.inv.inv[e as usize];
+                                    let wasthere = slot.clone();
+        
+                                    slot.0 = message.rot as u32;
+                                    slot.1 = message.infof as u32;
+        
+                                    message.x = wasthere.0 as f32;
+                                    message.y = wasthere.1 as f32;
+                                }
+                                queued_sql.push(QueuedSqlType::InventoryInventoryUpdate(client_id, clientlock.get(&client_id).unwrap().inv.inv));
+                            }
+                            SlotIndexType::None => {}
+                        }
+                    }
+                    MessageType::PlayerUpdate => {
+        
+                        {
+                            let mut clients = clients.lock().unwrap();
+        
+                            let client = clients.get_mut(&client_id).unwrap();
+                            client.ready_for_player_messages = true;
+                            
+                            if client.saveposcounter > 10 {
+                                client.saveposcounter = 0;
+                                queued_sql.push(QueuedSqlType::PlayerPositionUpdate(client_id, 
+                                    Vec3::new(message.x, message.y, message.z),
+                                    message.infof,
+                                    message.info2 as f32
+                                ));
+                            } else {
+                                client.saveposcounter += 1;
+                            }
+                        }
 
+                        let mut timeupdate = Message::new(MessageType::TimeUpdate, Vec3::ZERO, unsafe { WEATHERTYPE }, 0);
+                        let t = *tod.lock().unwrap();
+                        timeupdate.infof = t;
+    
+                        {
+                            let mut mystream = stream.lock().unwrap();
+                            mystream.write_all(&bincode::serialize(&timeupdate).unwrap());
+                        }
+                        thread::sleep(Duration::from_millis(10));
+
+
+                        let mobmsgs = {
+                            knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
+        
+
+                            let nlock = nsmes.lock().unwrap();
+                            let mobmsgs: Vec<Message> = nlock.iter().map(|nsme| {
+                                let mut mobmsg = Message::new(MessageType::MobUpdate, nsme.1, nsme.2, nsme.0);
+                                mobmsg.info2 = nsme.3 as u32;
+                                mobmsg.infof = nsme.4;
+                                mobmsg.bo = nsme.5;
+                                mobmsg.hostile = nsme.6;
+        
+                                
+                                mobmsg
+                            }).collect();
+        
+                            drop(nlock);
+                            mobmsgs
+                        };
+        
+                        for chunk in mobmsgs.chunks(server_types::MOB_BATCH_SIZE) {
+        
+                            let mut mobmsg = Message::new(MessageType::MobUpdateBatch, Vec3::ZERO, 0.0, 0);
+                            mobmsg.inoculate_with_mobupdates(chunk.len(), chunk);
+        
+                            {
+                                let mut mystream = stream.lock().unwrap();
+                                match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
+                                    Ok(_) => {
+                                        //println!("Sent mob header");
+                                    },
+                                    Err(e) => {
+                                        println!("Mob err {e}");
+                                    },
+                                };
+                            thread::sleep(Duration::from_millis(10));
+        
+                                
+                            }
+        
+                        }
+                    }
+                    MessageType::BlockSet => {
+                        println!("Recvd block set");
+                        let spot = IVec3::new(message.x as i32, message.y as i32, message.z as i32);
+                        let block = message.info;
+        
+                        let csys = csys.write().unwrap();
+                        csys.set_block(spot, block, true);
+                        let currseed = (*csys.currentseed.read().unwrap()).clone();
+                        queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot, block));
+                    }
+                    MessageType::MultiBlockSet => {
+                        println!("Recvd multi block set");
+        
+                        let spot = IVec3::new(message.x as i32, message.y as i32, message.z as i32);
+                        let spot2 = message.otherpos;
+        
+                        let block = message.info;
+                        let block2 = message.info2;
+        
+                        let csys = csys.write().unwrap();
+                        csys.set_block(spot, block, true);
+                        csys.set_block(spot2, block2, true);
+        
+                        let currseed = (*csys.currentseed.read().unwrap()).clone();
+                        queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot, block));
+                        queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot2, block2));
+                    }
+                    MessageType::RequestTakeoff => {
+                        println!("Recvd req takeoff");
+                        let mut rng = StdRng::from_entropy();
+                        let newseed: u32 = rng.gen();
+                        let mut csys = csys.write().unwrap();
+        
+                        let pt = csys.planet_type.clone();
+                        csys.reset(0, newseed, (pt + 1) as usize % 2);
+                        csys.save_current_world_to_file(format!("world/{}", newseed));
+                        mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
+                    }
+                    MessageType::TellYouMyID => {
+                        // println!("Telling someone their id is: {client_id}");
+        
+                        // let mut idmsg = Message::new(MessageType::YourId, Vec3::ZERO, 0.0, bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32);
+                        // idmsg.goose = client_id.as_u64_pair();
+        
+                        // {
+                        //     let mut mystream = stream.lock().unwrap();
+                        //     mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
+                        // }
+                    }
+                    MessageType::Disconnect => {
+                        should_break = true;
+                    }
+                    MessageType::RequestPt => {
+                        let currpt = {
+                            let csys = csys.read().unwrap();
+                            csys.planet_type
+                        };
+        
+                        thread::sleep(Duration::from_millis(100));
+        
+                        {
+                            let ptmsg = Message::new(MessageType::Pt, Vec3::ZERO, 0.0, currpt as u32);
+                            let mut mystream = stream.lock().unwrap();
+                            mystream.write_all(&bincode::serialize(&ptmsg).unwrap());
+                        }
+        
+                        thread::sleep(Duration::from_millis(100));
+        
+                        {
+                            println!("Telling someone their id is: {client_id}");
+                            let mut idmsg = Message::new(MessageType::YourId, Vec3::ZERO, 0.0, bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32);
+                            idmsg.goose = client_id.as_u64_pair();
+        
+                            let mut mystream = stream.lock().unwrap();
+                            mystream.write_all(&bincode::serialize(&idmsg).unwrap());
+                        }
+        
+                        thread::sleep(Duration::from_millis(100));
+        
+                        shutupmobmsgs.store(false, std::sync::atomic::Ordering::Relaxed);
+                    }
+                    _ => {}
+                }
+
+                {   
+                    let clients = clients.lock().unwrap();
+                    let newmessageserial = bincode::serialize(&message).unwrap();
+                    for (id, client) in clients.iter() {
+                        if client.ready_for_player_messages {
+                            if *id != client_id {
+                                let mut stream = client.stream.lock().unwrap();
+                                let _ = stream.write_all(&newmessageserial);
+                            } else if message.message_type != MessageType::PlayerUpdate {
+                                let mut mystream = stream.lock().unwrap();
+                                let _ = mystream.write_all(&newmessageserial[..numbytes2]);
+                            }
+                        }
                         
                     }
-
                 }
+                
             }
-            MessageType::BlockSet => {
-                println!("Recvd block set");
-                let spot = IVec3::new(message.x as i32, message.y as i32, message.z as i32);
-                let block = message.info;
+            None => {
 
-                let csys = csys.write().unwrap();
-                csys.set_block(spot, block, true);
-                let currseed = (*csys.currentseed.read().unwrap()).clone();
-                queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot, block));
             }
-            MessageType::MultiBlockSet => {
-                println!("Recvd multi block set");
-
-                let spot = IVec3::new(message.x as i32, message.y as i32, message.z as i32);
-                let spot2 = message.otherpos;
-
-                let block = message.info;
-                let block2 = message.info2;
-
-                let csys = csys.write().unwrap();
-                csys.set_block(spot, block, true);
-                csys.set_block(spot2, block2, true);
-
-                let currseed = (*csys.currentseed.read().unwrap()).clone();
-                queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot, block));
-                queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot2, block2));
-            }
-            MessageType::RequestTakeoff => {
-                println!("Recvd req takeoff");
-                let mut rng = StdRng::from_entropy();
-                let newseed: u32 = rng.gen();
-                let mut csys = csys.write().unwrap();
-
-                let pt = csys.planet_type.clone();
-                csys.reset(0, newseed, (pt + 1) as usize % 2);
-                csys.save_current_world_to_file(format!("world/{}", newseed));
-                mobspawnqueued.store(true, std::sync::atomic::Ordering::Relaxed);
-            }
-            MessageType::TellYouMyID => {
-                // println!("Telling someone their id is: {client_id}");
-
-                // let mut idmsg = Message::new(MessageType::YourId, Vec3::ZERO, 0.0, bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32);
-                // idmsg.goose = client_id.as_u64_pair();
-
-                // {
-                //     let mut mystream = stream.lock().unwrap();
-                //     mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
-                // }
-            }
-            MessageType::Disconnect => {
-                should_break = true;
-            }
-            MessageType::RequestPt => {
-                let currpt = {
-                    let csys = csys.read().unwrap();
-                    csys.planet_type
-                };
-
-                thread::sleep(Duration::from_millis(100));
-
-                {
-                    let ptmsg = Message::new(MessageType::Pt, Vec3::ZERO, 0.0, currpt as u32);
-                    let mut mystream = stream.lock().unwrap();
-                    mystream.write_all(&bincode::serialize(&ptmsg).unwrap());
-                }
-
-                thread::sleep(Duration::from_millis(100));
-
-                {
-                    println!("Telling someone their id is: {client_id}");
-                    let mut idmsg = Message::new(MessageType::YourId, Vec3::ZERO, 0.0, bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32);
-                    idmsg.goose = client_id.as_u64_pair();
-
-                    let mut mystream = stream.lock().unwrap();
-                    mystream.write_all(&bincode::serialize(&idmsg).unwrap());
-                }
-
-                thread::sleep(Duration::from_millis(100));
-
-                shutupmobmsgs.store(false, std::sync::atomic::Ordering::Relaxed);
-            }
-            _ => {}
         }
 
-        {   
-            let clients = clients.lock().unwrap();
-            let newmessageserial = bincode::serialize(&message).unwrap();
-            for (id, client) in clients.iter() {
-                if *id != client_id {
-                    let mut stream = client.stream.lock().unwrap();
-                    let _ = stream.write_all(&newmessageserial);
-                } else if message.message_type != MessageType::PlayerUpdate {
-                    let mut mystream = stream.lock().unwrap();
-                    let _ = mystream.write_all(&newmessageserial[..numbytes2]);
-                }
-            }
-        }
+
+       
         if should_break {
             println!("Removed {}", client_id);
             knowncams.remove(&client_id);
@@ -837,7 +865,8 @@ fn main() {
                                             inv: inventory::Inventory{
                                                 dirty: false, inv: previously_loaded_inv
                                             },
-                                            saveposcounter: 0
+                                            saveposcounter: 0,
+                                            ready_for_player_messages: false
                                         },
                                     );
                                     gotlock = true;

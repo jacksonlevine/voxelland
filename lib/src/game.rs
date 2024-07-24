@@ -2571,11 +2571,11 @@ impl Game {
                     }
                 }
             }
-            //let mut morestuff = true;
+            let mut morestuff = true;
             //while morestuff {
 
 
-            for _v in 0..5{
+            while morestuff{
                 match self.server_command_queue.pop() {
                     Some(comm) => {
                         match comm.message_type {
@@ -2680,7 +2680,7 @@ impl Game {
                         }
                     }
                     None => {
-                        //morestuff = false;
+                        morestuff = false;
                     }
                 }
             }

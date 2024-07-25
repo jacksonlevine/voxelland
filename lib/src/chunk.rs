@@ -905,6 +905,52 @@ impl ChunkSystem {
         }
     }
 
+
+
+
+
+
+
+    pub fn set_block_and_queue_rerender_no_sound(
+        &self,
+        spot: vec::IVec3,
+        block: u32,
+        neighbors: bool,
+        user_power: bool,
+    ) {
+        let existingblock = self.blockat(spot);
+
+        self.set_block_no_sound(spot, block, user_power);
+
+        let blockislight = Blocks::is_light(block);
+        let blockwaslight = Blocks::is_light(existingblock);
+
+        let light = blockislight || blockwaslight;
+
+        if !light {
+            check_for_intercepting.push(spot);
+        }
+
+        if neighbors {
+            let mut neighbs: HashSet<vec::IVec2> = HashSet::new();
+
+            for i in Cube::get_neighbors() {
+                let thisspot = spot + *i;
+                neighbs.insert(ChunkSystem::spot_to_chunk_pos(&thisspot));
+            }
+            for i in neighbs {
+                let here = i;
+                self.queue_rerender_with_key(here, user_power, light);
+            }
+        } else {
+            self.queue_rerender(spot, user_power, light);
+        }
+    }
+
+
+
+    
+
     pub fn set_block(&self, spot: vec::IVec3, block: u32, user_power: bool) {
         match user_power {
             true => {

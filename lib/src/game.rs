@@ -524,29 +524,29 @@ impl Game {
             let csysclone = chunksys.clone();
             let camclone = cam.clone();
 
-            thread::spawn(move || {
-                while unsafe { SHOULDRUN } {
+            // thread::spawn(move || {
+            //     while unsafe { SHOULDRUN } {
                     
-                    match csysclone.try_read() {
-                        Ok(csys) => {
-                            match QUEUE_THESE.pop() {
-                                Some(spot) => {
-                                    csys.queue_rerender_with_key(spot, true, true);
-                                }
-                                None => {
+            //         match csysclone.try_read() {
+            //             Ok(csys) => {
+            //                 match QUEUE_THESE.pop() {
+            //                     Some(spot) => {
+            //                         csys.queue_rerender_with_key(spot, true, true);
+            //                     }
+            //                     None => {
 
-                                }
-                            }
-                        }
-                        Err(e) => {
+            //                     }
+            //                 }
+            //             }
+            //             Err(e) => {
 
-                        }
-                    }
+            //             }
+            //         }
                     
             
-                    thread::sleep(Duration::from_millis(250));
-                }
-            });
+            //         thread::sleep(Duration::from_millis(250));
+            //     }
+            // });
         }
         
 
@@ -2162,6 +2162,62 @@ impl Game {
         
     }
 
+
+    pub fn activate_jump_block(&mut self, position: Vec3) {
+        let campos = position;
+        let camfootpos = campos - Vec3::new(0.0, 2.0, 0.0);
+        let spot = IVec3::new(camfootpos.x.floor() as i32, camfootpos.y.floor() as i32, camfootpos.z.floor() as i32);
+        let blockat = self.chunksys.read().unwrap().blockat(spot);
+        let blockat = blockat & Blocks::block_id_bits();
+        // if blockat != 0 {
+        //     self.audiop.write().unwrap().play_next_in_series(&Blocks::get_walk_series(blockat), &(camfootpos), &Vec3::new(0.0, 0.0, 0.0), 0.5);
+        // }
+
+        match blockat {
+            40 => {
+                if !self.vars.in_multiplayer {
+                    self.chunksys.read().unwrap().set_block_and_queue_rerender_no_sound(spot, 41, false, true);
+                } else {
+                    let message = Message::new(
+                        MessageType::BlockSet, 
+                        Vec3::new(
+                            spot.x as f32, 
+                            spot.y as f32, 
+                            spot.z as f32), 
+                        0.0, 
+                        41);
+
+                    self.netconn.sendqueue.push(message);
+                }
+                
+            }
+            41 => {
+                if !self.vars.in_multiplayer {
+                    self.chunksys.read().unwrap().set_block_and_queue_rerender_no_sound(spot, 40, false, true);
+                } else {
+
+                    let message = Message::new(
+                        MessageType::BlockSet, 
+                        Vec3::new(
+                            spot.x as f32, 
+                            spot.y as f32, 
+                            spot.z as f32), 
+                        0.0, 
+                        40);
+
+                    self.netconn.sendqueue.push(message);
+                }
+            }
+            42 => {
+                self.camera.lock().unwrap().velocity += Vec3::new(0.0, 20.0, 0.0);
+            }
+            _ => {
+                
+            }
+        }
+        
+    }
+
     pub fn takeoff_ship(&mut self) {
         if !self.vars.ship_taken_off {
             self.audiop.write().unwrap().play("assets/sfx/shiptakeoff.mp3", &self.ship_pos, &Vec3::ZERO, 1.0);
@@ -3129,6 +3185,7 @@ impl Game {
         let mut corr_made: Vec<Vec3> = Vec::new();
 
         let mut stepsoundqueued = false;
+        let mut activate_jump_queued = false;
 
         if self.coll_cage.colliding.len() > 0 {
             for side in &self.coll_cage.colliding {
@@ -3141,6 +3198,7 @@ impl Game {
                     self.grounded = true;
                     unsafe
                     {if wasngrounded {
+                        activate_jump_queued = true;
                         stepsoundqueued = true;
                         wasngrounded = false; 
                     }}
@@ -3169,6 +3227,9 @@ impl Game {
 
         if stepsoundqueued {
             self.do_step_sound_now(pos);
+        }
+        if activate_jump_queued {
+            self.activate_jump_block(pos);
         }
 
     }
@@ -4094,12 +4155,12 @@ impl Game {
                         }
                     }
                         
-
+                    //TEMPORARILY DISABLED UNTIL WE CAN DO A LIGHT UPDATE WITHOUT STUTTERING THE MAIN FUCKING THREAD DUMBASS
                     //let c = csys_arc.read().unwrap();
-                    for i in implicated {
-                        QUEUE_THESE.push(i);
-                        //c.queue_rerender_with_key(i, true, true);
-                    }
+                    // for i in implicated {
+                    //     QUEUE_THESE.push(i);
+                    //     //c.queue_rerender_with_key(i, true, true);
+                    // }
                 },
                 None => {
                     lightcheckstuff = false;

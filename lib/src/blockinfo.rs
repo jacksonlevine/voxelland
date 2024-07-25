@@ -4,7 +4,7 @@ pub const BLOCK_DIRECTION_BITS: u32 = 0b0000_0000_0000_0011_0000_0000_0000_0000;
 pub struct Blocks {}
 
 
-static BREAKTIMES: [f32; 40] = [
+static BREAKTIMES: [f32; 43] = [
     0.1,
     0.5,
     0.7,
@@ -48,9 +48,12 @@ static BREAKTIMES: [f32; 40] = [
     1.0,
     1.0,
 
+    1.0,
+    1.0,
+    1.0
 ];
 
-static TEXS: [[(u8, u8); 3]; 40] = [
+static TEXS: [[(u8, u8); 3]; 43] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],  // 0
             [(1, 0), (1, 0), (1, 0)],  // 1 sand
@@ -100,6 +103,11 @@ static TEXS: [[(u8, u8); 3]; 40] = [
             [(3,5),(3,5),(3,5)], // 37 crude pick
             [(4,5),(4,5),(4,5)], // 38 crude mattock
             [(5,5),(5,5),(5,5)], // 39 crude axe
+
+
+            [(10,4),(10,4),(10,4)], // 40 jumper blue
+            [(11,4),(11,4),(11,4)], // 41 jumper yellow
+            [(10,5),(10,5),(10,5)], // 42 trampoline block
         ];
 
 
@@ -148,6 +156,11 @@ impl Blocks {
             37 => {"Crude Pick"}
             38 => {"Crude Mattock"}
             39 => {"Crude Axe"}
+
+            40 => {"Jump Switcher Block"}
+            41 => {"Jump Switcher Block"}
+            42 => {"Trampoline Block"}
+
             _ => {
                 "Unknown Item"
             }

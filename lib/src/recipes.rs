@@ -39,7 +39,7 @@ impl RecipeEntry {
 
 
 
-pub static RECIPES: Lazy<[Recipe; 19]> = Lazy::new(|| [
+pub static RECIPES: Lazy<[Recipe; 21]> = Lazy::new(|| [
     (vec![(6, 1)], (10, 4), true),
     (vec![(10, 4)], (19, 2), false),
     (vec![(10, 2)], (20, 10), false),
@@ -59,5 +59,8 @@ pub static RECIPES: Lazy<[Recipe; 19]> = Lazy::new(|| [
 
     (vec![(10, 1), (35, 17)], (37, 1), true),
     (vec![(10, 1), (35, 8)], (38, 1), true),
-    (vec![(10, 1), (35, 14)], (39, 1), true)
+    (vec![(10, 1), (35, 14)], (39, 1), true),
+
+    (vec![(24, 1), (26, 1)], (40, 1), true),
+    (vec![(10, 1), (22, 1)], (42, 1), true)
 ]);

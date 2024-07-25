@@ -187,11 +187,22 @@ impl AudioPlayer {
     ) -> Result<(), libfmod::Error> {
         let vol = vol * 3.0;
         let index = *self.series_indexes.get(series_name).unwrap_or(&0);
-        let file_path = self.series.get(series_name).unwrap()[index];
+        match self.series.get(series_name) {
+            Some(file_paths) => {
+                let len = file_paths.len();
+                let file_path = file_paths[index];
+                self.play(file_path, pos, vel, vol);
+                let next_index = (index + 1) % len;
+                self.series_indexes.insert(series_name, next_index);
+            },
+            None => {
 
-        self.play(file_path, pos, vel, vol);
-        let next_index = (index + 1) % self.series.get(series_name).unwrap().len();
-        self.series_indexes.insert(series_name, next_index);
+            },
+        }
+        
+        
+
+        
 
         Ok(())
     }

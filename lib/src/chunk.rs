@@ -908,29 +908,41 @@ impl ChunkSystem {
         if !self.headless {
             if block == 0 {
                 let wastherebits = self.blockat(spot) & Blocks::block_id_bits();
-                self.audiop
-                    .as_ref()
-                    .unwrap()
-                    .write()
-                    .unwrap()
-                    .play_next_in_series(
-                        Blocks::get_place_series(wastherebits),
-                        &Vec3::new(spot.x as f32, spot.y as f32, spot.z as f32),
-                        &Vec3::ZERO,
-                        0.5,
-                    );
+                if let Some(audiop) = self.audiop.as_ref() {
+                    match audiop.write() {
+                        Ok(mut audiop) => {
+                            let _ = audiop.play_next_in_series(
+                                Blocks::get_place_series(wastherebits),
+                                &Vec3::new(spot.x as f32, spot.y as f32, spot.z as f32),
+                                &Vec3::ZERO,
+                                0.5,
+                            );
+                        }
+                        Err(err) => {
+                            info!("Failed to acquire write lock on audiop: {:?}", err);
+                        }
+                    }
+                } else {
+                    info!("audiop is None");
+                }
             } else {
-                self.audiop
-                    .as_ref()
-                    .unwrap()
-                    .write()
-                    .unwrap()
-                    .play_next_in_series(
-                        Blocks::get_place_series(block & Blocks::block_id_bits()),
-                        &Vec3::new(spot.x as f32, spot.y as f32, spot.z as f32),
-                        &Vec3::ZERO,
-                        0.5,
-                    );
+                if let Some(audiop) = self.audiop.as_ref() {
+                    match audiop.write() {
+                        Ok(mut audiop) => {
+                            let _ = audiop.play_next_in_series(
+                                Blocks::get_place_series(block & Blocks::block_id_bits()),
+                                &Vec3::new(spot.x as f32, spot.y as f32, spot.z as f32),
+                                &Vec3::ZERO,
+                                0.5,
+                            );
+                        }
+                        Err(err) => {
+                            info!("Failed to acquire write lock on audiop: {:?}", err);
+                        }
+                    }
+                } else {
+                    info!("audiop is None");
+                }
             }
         }
     }

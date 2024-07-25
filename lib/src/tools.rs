@@ -17,7 +17,7 @@ pub fn get_block_material(block: u32) -> Material {
         4 | 3 | 34 | 1 => {
             Material::Dirt
         }
-        6 | 10 | 19 | 20 | 21 | 22 | 31 => {
+        6 | 10 | 19 | 20 | 21 | 22 | 31 | 43 | 44 => {
             Material::Wood
         }
         _ => {

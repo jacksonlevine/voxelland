@@ -4,7 +4,7 @@ pub const BLOCK_DIRECTION_BITS: u32 = 0b0000_0000_0000_0011_0000_0000_0000_0000;
 pub struct Blocks {}
 
 
-static BREAKTIMES: [f32; 43] = [
+static BREAKTIMES: [f32; 45] = [
     0.1,
     0.5,
     0.7,
@@ -50,10 +50,12 @@ static BREAKTIMES: [f32; 43] = [
 
     1.0,
     1.0,
+    1.0,
+    1.0,
     1.0
 ];
 
-static TEXS: [[(u8, u8); 3]; 43] = [
+static TEXS: [[(u8, u8); 3]; 45] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],  // 0
             [(1, 0), (1, 0), (1, 0)],  // 1 sand
@@ -108,6 +110,9 @@ static TEXS: [[(u8, u8); 3]; 43] = [
             [(10,4),(10,4),(10,4)], // 40 jumper blue
             [(11,4),(11,4),(11,4)], // 41 jumper yellow
             [(10,5),(10,5),(10,5)], // 42 trampoline block
+
+            [(0,8),(2,8),(2,8)], // 43 rubber tree wood
+            [(1,8),(1,8),(1,8)], // 44 rubber tree leaves
         ];
 
 
@@ -160,6 +165,9 @@ impl Blocks {
             40 => {"Jump Switcher Block"}
             41 => {"Jump Switcher Block"}
             42 => {"Trampoline Block"}
+
+            43 => {"Rubber Tree Wood"}
+            44 => {"Rubber Tree Leaves"}
 
             _ => {
                 "Unknown Item"
@@ -232,8 +240,8 @@ impl Blocks {
         return CLIMBABLES.contains(&id);
     }
     pub fn is_semi_transparent(id: u32) -> bool {
-        static SEMI_TRANSPARENTS: [u32; 8] = [
-            7, 11, 19, 20, 21, 22, 23, 31
+        static SEMI_TRANSPARENTS: [u32; 9] = [
+            7, 11, 19, 20, 21, 22, 23, 31, 44
         ];
         return SEMI_TRANSPARENTS.contains(&id);
     }

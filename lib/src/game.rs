@@ -419,18 +419,19 @@ impl Game {
             JVoxModel::new("assets/voxelmodels/tallgrass1.vox"),
             JVoxModel::new("assets/voxelmodels/tallgrass2.vox"), 
             JVoxModel::new("assets/voxelmodels/tallgrass3.vox"),
+            JVoxModel::new("assets/voxelmodels/rubbertree.vox"),
             
             
             
             
-            //0-12
+            //0-13
 
 
 
 
             JVoxModel::new("assets/voxelmodels/ptree.vox"),
             JVoxModel::new("assets/voxelmodels/redrock.vox"),
-            JVoxModel::new("assets/voxelmodels/crystal1.vox"), //13 - 15
+            JVoxModel::new("assets/voxelmodels/crystal1.vox"), //14 - 16
         ];
 
         

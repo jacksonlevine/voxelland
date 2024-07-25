@@ -45,7 +45,8 @@ pub struct Client {
     inv: Inventory,
     errorstrikes: i8,
     saveposcounter: i32,
-    ready_for_player_messages: bool
+    ready_for_player_messages: bool,
+    sendmobcounter: i32
 }
 
 
@@ -254,12 +255,20 @@ fn handle_client(
                         }
                     }
                     MessageType::PlayerUpdate => {
+
+                        let mut sendmobs = false;
         
                         {
                             let mut clients = clients.lock().unwrap();
         
                             let client = clients.get_mut(&client_id).unwrap();
                             client.ready_for_player_messages = true;
+                            client.sendmobcounter += 1;
+
+                            if client.sendmobcounter >= 4 {
+                                sendmobs = true;
+                                client.sendmobcounter = 0;
+                            }
                             
                             if client.saveposcounter > 10 {
                                 client.saveposcounter = 0;
@@ -282,49 +291,53 @@ fn handle_client(
                             let mut mystream = stream.lock().unwrap();
                             mystream.write_all(&bincode::serialize(&timeupdate).unwrap());
                         }
+
+
                         thread::sleep(Duration::from_millis(10));
 
+                        if sendmobs
+                        {
+                            let mobmsgs = {
+                                knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
+            
 
-                        let mobmsgs = {
-                            knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
-        
-
-                            let nlock = nsmes.lock().unwrap();
-                            let mobmsgs: Vec<Message> = nlock.iter().map(|nsme| {
-                                let mut mobmsg = Message::new(MessageType::MobUpdate, nsme.1, nsme.2, nsme.0);
-                                mobmsg.info2 = nsme.3 as u32;
-                                mobmsg.infof = nsme.4;
-                                mobmsg.bo = nsme.5;
-                                mobmsg.hostile = nsme.6;
-        
-                                
-                                mobmsg
-                            }).collect();
-        
-                            drop(nlock);
-                            mobmsgs
-                        };
-        
-                        for chunk in mobmsgs.chunks(server_types::MOB_BATCH_SIZE) {
-        
-                            let mut mobmsg = Message::new(MessageType::MobUpdateBatch, Vec3::ZERO, 0.0, 0);
-                            mobmsg.inoculate_with_mobupdates(chunk.len(), chunk);
-        
-                            {
-                                let mut mystream = stream.lock().unwrap();
-                                match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
-                                    Ok(_) => {
-                                        //println!("Sent mob header");
-                                    },
-                                    Err(e) => {
-                                        println!("Mob err {e}");
-                                    },
-                                };
-                            thread::sleep(Duration::from_millis(10));
-        
-                                
+                                let nlock = nsmes.lock().unwrap();
+                                let mobmsgs: Vec<Message> = nlock.iter().map(|nsme| {
+                                    let mut mobmsg = Message::new(MessageType::MobUpdate, nsme.1, nsme.2, nsme.0);
+                                    mobmsg.info2 = nsme.3 as u32;
+                                    mobmsg.infof = nsme.4;
+                                    mobmsg.bo = nsme.5;
+                                    mobmsg.hostile = nsme.6;
+            
+                                    
+                                    mobmsg
+                                }).collect();
+            
+                                drop(nlock);
+                                mobmsgs
+                            };
+            
+                            for chunk in mobmsgs.chunks(server_types::MOB_BATCH_SIZE) {
+            
+                                let mut mobmsg = Message::new(MessageType::MobUpdateBatch, Vec3::ZERO, 0.0, 0);
+                                mobmsg.inoculate_with_mobupdates(chunk.len(), chunk);
+            
+                                {
+                                    let mut mystream = stream.lock().unwrap();
+                                    match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
+                                        Ok(_) => {
+                                            //println!("Sent mob header");
+                                        },
+                                        Err(e) => {
+                                            println!("Mob err {e}");
+                                        },
+                                    };
+                                thread::sleep(Duration::from_millis(10));
+            
+                                    
+                                }
+            
                             }
-        
                         }
                     }
                     MessageType::BlockSet => {
@@ -867,7 +880,8 @@ fn main() {
                                                 dirty: false, inv: previously_loaded_inv
                                             },
                                             saveposcounter: 0,
-                                            ready_for_player_messages: false
+                                            ready_for_player_messages: false,
+                                            sendmobcounter: 0
                                         },
                                     );
                                     gotlock = true;

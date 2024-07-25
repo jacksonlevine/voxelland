@@ -2624,7 +2624,7 @@ impl Game {
             //while morestuff {
 
 
-            while morestuff{
+            for _ in 0..10{
                 match self.server_command_queue.pop() {
                     Some(comm) => {
                         match comm.message_type {

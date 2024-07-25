@@ -46,7 +46,7 @@ mat4 getRotationMatrix(float xrot, float yrot, float zrot) {
 
 void main() {
 
-    vec3 mixedrots = mix(lastrot, vec3(xrot, yrot, zrot), min(interp_time*4.0, 1.0));
+    vec3 mixedrots = mix(lastrot, vec3(xrot, yrot, zrot), min(interp_time, 1.0));
 
     mat4 rotationMatrix = getRotationMatrix(mixedrots.x, mixedrots.y, mixedrots.z);
     vec4 rotatedPosition = rotationMatrix * vec4(aPos * scale, 1.0);
@@ -55,5 +55,5 @@ void main() {
 
     vec3 bob = vec3(0.0, ((sin(walkbob) )/20.0), 0.0) + vec3(0.0, 0.3, 0.0);
     
-    gl_Position = mvp * (rotatedPosition + vec4(mix(lastpos, pos, min(interp_time*4.0, 1.0)), 0.0) + vec4(bob * -1.0, 0.0));
+    gl_Position = mvp * (rotatedPosition + vec4(mix(lastpos, pos, min(interp_time, 1.0)), 0.0) + vec4(bob * -1.0, 0.0));
 }

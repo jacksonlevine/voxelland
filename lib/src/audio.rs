@@ -185,7 +185,7 @@ impl AudioPlayer {
         vel: &Vec3,
         vol: f32
     ) -> Result<(), libfmod::Error> {
-        let vol = vol * 3.0;
+        let vol = vol;
         let index = *self.series_indexes.get(series_name).unwrap_or(&0);
         match self.series.get(series_name) {
             Some(file_paths) => {
@@ -255,7 +255,7 @@ impl AudioPlayer {
                 Some(Vector::new(vel.x, vel.y, vel.z)),
             ).unwrap();
             channel.set_volume(vol).unwrap();
-            channel.set_3d_min_max_distance(1.0, 30.0).unwrap();  // Set min and max distances
+            channel.set_3d_min_max_distance(1.0, 20.0).unwrap();  // Set min and max distances
             self.channels
                 .entry(id)
                 .or_insert_with(Vec::new)
@@ -270,7 +270,7 @@ impl AudioPlayer {
                     Some(Vector::new(vel.x, vel.y, vel.z)),
                 ).unwrap();
                 channel.set_volume(vol).unwrap();
-                channel.set_3d_min_max_distance(1.0, 30.0).unwrap();  // Set min and max distances
+                channel.set_3d_min_max_distance(1.0, 20.0).unwrap();  // Set min and max distances
                 self.channels
                     .entry(id)
                     .or_insert_with(Vec::new)

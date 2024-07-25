@@ -905,10 +905,14 @@ impl WindowAndKeyContext {
                                 glfw::WindowEvent::Key(key, scancode, action, modifiers) => {
                              
                                     let pressed = action == glfw::Action::Press || action == glfw::Action::Repeat;
-                                    io.keys_down[key as usize] = pressed;
 
-                                    Self::set_mod(io, modifiers);
-                                    io.keys_down[key as usize] = action != Action::Release;
+                                    if (key as usize) < 512 {
+                                        io.keys_down[key as usize] = pressed;
+
+                                        Self::set_mod(io, modifiers);
+                                        io.keys_down[key as usize] = action != Action::Release;
+                                    }
+                                    
 
             
                                 if action == glfw::Action::Press {

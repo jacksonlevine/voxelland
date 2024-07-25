@@ -13,7 +13,9 @@ use dashmap::DashMap;
 use gl::types::GLuint;
 use glam::Vec2;
 use glam::Vec3;
+use lockfree::queue::Queue;
 use num_enum::FromPrimitive;
+use once_cell::sync::Lazy;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
@@ -54,6 +56,11 @@ use std::io::Write;
 
 pub type LightColor = glam::U16Vec3;
 
+
+
+pub static check_for_intercepting: Lazy<Queue<vec::IVec3>> = Lazy::new(|| Queue::new());
+
+#[derive(Clone)]
 pub struct LightRay {
     pub value: LightColor,
     pub origin: vec::IVec3,
@@ -850,33 +857,37 @@ impl ChunkSystem {
         let light = blockislight || blockwaslight;
 
         if !light {
-            //If not light still check if it intercepts any lights, we will need to update.
-
-            let mut implicated = HashSet::new();
-            for i in Cube::get_neighbors() {
-                match self.lightmap.lock().unwrap().get(&(*i + spot)) {
-                    Some(k) => {
-                        for ray in &k.rays {
-                            let chunkofthisraysorigin = ChunkSystem::spot_to_chunk_pos(&ray.origin);
-                            // match self.takencare.get(&chunkofthisraysorigin) {
-                            //     Some(chunk) => {
-                            //         implicated.insert(chunk.geo_index);
-                            //     }
-                            //     None => {
-
-                            //     }
-                            // }
-                            implicated.insert(chunkofthisraysorigin);
-                        }
-                    }
-                    None => {}
-                }
-            }
-
-            for i in implicated {
-                self.queue_rerender_with_key(i, true, true);
-            }
+            check_for_intercepting.push(spot);
         }
+
+        // if !light {
+        //     //If not light still check if it intercepts any lights, we will need to update.
+
+        //     let mut implicated = HashSet::new();
+        //     for i in Cube::get_neighbors() {
+        //         match self.lightmap.lock().unwrap().get(&(*i + spot)) {
+        //             Some(k) => {
+        //                 for ray in &k.rays {
+        //                     let chunkofthisraysorigin = ChunkSystem::spot_to_chunk_pos(&ray.origin);
+        //                     // match self.takencare.get(&chunkofthisraysorigin) {
+        //                     //     Some(chunk) => {
+        //                     //         implicated.insert(chunk.geo_index);
+        //                     //     }
+        //                     //     None => {
+
+        //                     //     }
+        //                     // }
+        //                     implicated.insert(chunkofthisraysorigin);
+        //                 }
+        //             }
+        //             None => {}
+        //         }
+        //     }
+
+        //     for i in implicated {
+        //         self.queue_rerender_with_key(i, true, true);
+        //     }
+        // }
 
         if neighbors {
             let mut neighbs: HashSet<vec::IVec2> = HashSet::new();

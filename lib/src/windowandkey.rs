@@ -431,7 +431,8 @@ impl WindowAndKeyContext {
                                         | WindowFlags::NO_MOVE
                                         | WindowFlags::NO_RESIZE
                                         | WindowFlags::NO_SCROLLBAR
-                                        | WindowFlags::NO_TITLE_BAR;
+                                        | WindowFlags::NO_TITLE_BAR
+                                        | WindowFlags::NO_INPUTS;
                                     
                                     if SHOWTOOLTIP {
                                         ui.window("Mouse Tooltip Window")

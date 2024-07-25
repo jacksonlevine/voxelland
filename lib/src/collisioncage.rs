@@ -112,7 +112,7 @@ impl BoundBox {
 
 impl CollCage {
     pub fn new(solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> ) -> CollCage {
-        let num_boxes = 18;
+        let num_boxes = 19;
         let colliding: Vec<Side> = Vec::new();
         let solid: Vec<Side> = Vec::new();
         let position = glam::IVec3::new(0, 0, 0);

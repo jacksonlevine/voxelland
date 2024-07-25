@@ -32,7 +32,7 @@ use std::thread::{self, JoinHandle};
 use crate::audio::{AudioPlayer};
 use crate::blockinfo::Blocks;
 use crate::blockoverlay::BlockOverlay;
-use crate::chunk::{ChunkFacade, ChunkSystem};
+use crate::chunk::{check_for_intercepting, ChunkFacade, ChunkSystem};
 
 use crate::camera::Camera;
 use crate::collisioncage::*;
@@ -91,6 +91,9 @@ pub static mut SHOULDRUN: bool = false;
 pub static mut WEATHERTYPE: f32 = 0.0;
 pub static mut WEATHERTIMER: f32 = 0.0;
 pub const WEATHERINTERVAL: f32 = 120.0;
+
+
+pub static QUEUE_THESE: Lazy<Queue<IVec2>> = Lazy::new(||Queue::new());
 
 
 
@@ -2623,7 +2626,7 @@ impl Game {
             let mut morestuff = true;
             //while morestuff {
 
-
+            
             for _ in 0..10{
                 match self.server_command_queue.pop() {
                     Some(comm) => {
@@ -2738,7 +2741,7 @@ impl Game {
                         }
                     }
                     None => {
-                        morestuff = false;
+                       break;
                     }
                 }
             }
@@ -3331,6 +3334,9 @@ impl Game {
             gl::BindVertexArray(self.shader0.vao);
             gl::UseProgram(self.shader0.shader_id);
         }
+
+        
+
         let ugqarc = self.chunksys.read().unwrap().finished_user_geo_queue.clone();
 
         match ugqarc.pop() {
@@ -4010,6 +4016,95 @@ impl Game {
     pub fn chunk_thread_inner_function(cam_arc: &Arc<Mutex<Camera>>, csys_arc: &Arc<RwLock<ChunkSystem>>, last_user_c_pos: &mut vec::IVec2) {
         //info!("Starting over the CTIF");
         let _rng = StdRng::from_entropy();
+
+        // let mut lightcheckstuff = true;
+
+        // while lightcheckstuff {
+        //     match check_for_intercepting.pop() {
+        //         Some(spot) => {
+        //             let mut implicated = HashSet::new();
+
+        //             let mut lightraylistlist = Vec::new();
+
+
+        //             match csys_arc.read() {
+        //                 Ok(csys) => {
+        //                     match csys.lightmap.lock() {
+        //                         Ok(lightmap) => {
+        //                             for i in Cube::get_neighbors() {
+        //                                 let lightseg = match lightmap.get(&(*i + spot)) {
+        //                                     Some(lightseg) => {
+        //                                         lightraylistlist.push(lightseg.rays.clone());
+        //                                     },
+        //                                     None => {
+
+        //                                     },
+        //                                 };
+
+        //                             }
+        //                         }
+        //                         Err(_) => {
+
+        //                         }
+        //                     }
+        //                 },
+        //                 Err(_) => {
+
+        //                 },
+        //             }
+
+        //             for raylist in lightraylistlist {
+        //                 for ray in &raylist {
+        //                     let chunkofthisraysorigin = ChunkSystem::spot_to_chunk_pos(&ray.origin);
+        //                     // match self.takencare.get(&chunkofthisraysorigin) {
+        //                     //     Some(chunk) => {
+        //                     //         implicated.insert(chunk.geo_index);
+        //                     //     }
+        //                     //     None => {
+
+        //                     //     }
+        //                     // }
+        //                     implicated.insert(chunkofthisraysorigin);
+        //                 }
+        //             }
+                        
+
+        //             //let c = csys_arc.read().unwrap();
+        //             // for i in implicated {
+        //             //     QUEUE_THESE.push(i);
+        //             //     //c.queue_rerender_with_key(i, true, true);
+        //             // }
+        //         },
+        //         None => {
+        //             lightcheckstuff = false;
+        //         },
+        //     }
+        // }
+
+                //     let mut implicated = HashSet::new();
+        //     for i in Cube::get_neighbors() {
+        //         match self.lightmap.lock().unwrap().get(&(*i + spot)) {
+        //             Some(k) => {
+        //                 for ray in &k.rays {
+        //                     let chunkofthisraysorigin = ChunkSystem::spot_to_chunk_pos(&ray.origin);
+        //                     // match self.takencare.get(&chunkofthisraysorigin) {
+        //                     //     Some(chunk) => {
+        //                     //         implicated.insert(chunk.geo_index);
+        //                     //     }
+        //                     //     None => {
+
+        //                     //     }
+        //                     // }
+        //                     implicated.insert(chunkofthisraysorigin);
+        //                 }
+        //             }
+        //             None => {}
+        //         }
+        //     }
+
+        //     for i in implicated {
+        //         self.queue_rerender_with_key(i, true, true);
+        //     }
 
         let mut lightstuff = true;
         while lightstuff {

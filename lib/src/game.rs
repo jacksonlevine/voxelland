@@ -520,6 +520,33 @@ impl Game {
                     thread::sleep(Duration::from_millis(250));
                 }
             });
+
+            let csysclone = chunksys.clone();
+            let camclone = cam.clone();
+
+            thread::spawn(move || {
+                while unsafe { SHOULDRUN } {
+                    
+                    match csysclone.try_read() {
+                        Ok(csys) => {
+                            match QUEUE_THESE.pop() {
+                                Some(spot) => {
+                                    csys.queue_rerender_with_key(spot, true, true);
+                                }
+                                None => {
+
+                                }
+                            }
+                        }
+                        Err(e) => {
+
+                        }
+                    }
+                    
+            
+                    thread::sleep(Duration::from_millis(250));
+                }
+            });
         }
         
 
@@ -4017,94 +4044,69 @@ impl Game {
         //info!("Starting over the CTIF");
         let _rng = StdRng::from_entropy();
 
-        // let mut lightcheckstuff = true;
+        let mut lightcheckstuff = true;
 
-        // while lightcheckstuff {
-        //     match check_for_intercepting.pop() {
-        //         Some(spot) => {
-        //             let mut implicated = HashSet::new();
+        while lightcheckstuff {
+            match check_for_intercepting.pop() {
+                Some(spot) => {
+                    let mut implicated = HashSet::new();
 
-        //             let mut lightraylistlist = Vec::new();
+                    let mut lightraylistlist = Vec::new();
 
 
-        //             match csys_arc.read() {
-        //                 Ok(csys) => {
-        //                     match csys.lightmap.lock() {
-        //                         Ok(lightmap) => {
-        //                             for i in Cube::get_neighbors() {
-        //                                 let lightseg = match lightmap.get(&(*i + spot)) {
-        //                                     Some(lightseg) => {
-        //                                         lightraylistlist.push(lightseg.rays.clone());
-        //                                     },
-        //                                     None => {
+                    match csys_arc.read() {
+                        Ok(csys) => {
+                            match csys.lightmap.lock() {
+                                Ok(lightmap) => {
 
-        //                                     },
-        //                                 };
+                                        match lightmap.get(&spot) {
+                                            Some(lightseg) => {
+                                                lightraylistlist.push(lightseg.rays.clone());
+                                            },
+                                            None => {
 
-        //                             }
-        //                         }
-        //                         Err(_) => {
+                                            },
+                                        };
 
-        //                         }
-        //                     }
-        //                 },
-        //                 Err(_) => {
+                                }
+                                Err(_) => {
 
-        //                 },
-        //             }
+                                }
+                            }
+                        },
+                        Err(_) => {
 
-        //             for raylist in lightraylistlist {
-        //                 for ray in &raylist {
-        //                     let chunkofthisraysorigin = ChunkSystem::spot_to_chunk_pos(&ray.origin);
-        //                     // match self.takencare.get(&chunkofthisraysorigin) {
-        //                     //     Some(chunk) => {
-        //                     //         implicated.insert(chunk.geo_index);
-        //                     //     }
-        //                     //     None => {
+                        },
+                    }
 
-        //                     //     }
-        //                     // }
-        //                     implicated.insert(chunkofthisraysorigin);
-        //                 }
-        //             }
+                    for raylist in lightraylistlist {
+                        for ray in &raylist {
+                            let chunkofthisraysorigin = ChunkSystem::spot_to_chunk_pos(&ray.origin);
+                            // match self.takencare.get(&chunkofthisraysorigin) {
+                            //     Some(chunk) => {
+                            //         implicated.insert(chunk.geo_index);
+                            //     }
+                            //     None => {
+
+                            //     }
+                            // }
+                            implicated.insert(chunkofthisraysorigin);
+                        }
+                    }
                         
 
-        //             //let c = csys_arc.read().unwrap();
-        //             // for i in implicated {
-        //             //     QUEUE_THESE.push(i);
-        //             //     //c.queue_rerender_with_key(i, true, true);
-        //             // }
-        //         },
-        //         None => {
-        //             lightcheckstuff = false;
-        //         },
-        //     }
-        // }
+                    //let c = csys_arc.read().unwrap();
+                    for i in implicated {
+                        QUEUE_THESE.push(i);
+                        //c.queue_rerender_with_key(i, true, true);
+                    }
+                },
+                None => {
+                    lightcheckstuff = false;
+                },
+            }
+        }
 
-                //     let mut implicated = HashSet::new();
-        //     for i in Cube::get_neighbors() {
-        //         match self.lightmap.lock().unwrap().get(&(*i + spot)) {
-        //             Some(k) => {
-        //                 for ray in &k.rays {
-        //                     let chunkofthisraysorigin = ChunkSystem::spot_to_chunk_pos(&ray.origin);
-        //                     // match self.takencare.get(&chunkofthisraysorigin) {
-        //                     //     Some(chunk) => {
-        //                     //         implicated.insert(chunk.geo_index);
-        //                     //     }
-        //                     //     None => {
-
-        //                     //     }
-        //                     // }
-        //                     implicated.insert(chunkofthisraysorigin);
-        //                 }
-        //             }
-        //             None => {}
-        //         }
-        //     }
-
-        //     for i in implicated {
-        //         self.queue_rerender_with_key(i, true, true);
-        //     }
 
         let mut lightstuff = true;
         while lightstuff {

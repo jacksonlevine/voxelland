@@ -1097,8 +1097,44 @@ impl ChunkSystem {
                 || n.1 == origin;
 
             //info!("Goinghere: {}", goinghere);
+            if !goinghere {
+                let inner_light_seg;
 
-            if goinghere {
+                match lmlock.get_mut(&n.1) {
+                    Some(k2) => inner_light_seg = k2,
+                    None => {
+                        lmlock.insert(n.1, LightSegment { rays: Vec::new() });
+                        inner_light_seg = lmlock.get_mut(&n.1).unwrap();
+                    }
+                }
+
+                let my_ray_here = match inner_light_seg.rays.iter_mut().find(|r| r.origin == origin)
+                {
+                    Some(k) => {
+                        if k.value.x < n.0.x {
+                            k.value.x = n.0.x;
+                        }
+                        if k.value.y < n.0.y {
+                            k.value.y = n.0.y;
+                        }
+                        if k.value.z < n.0.z {
+                            k.value.z = n.0.z;
+                        }
+                        k
+                    }
+                    None => {
+                        inner_light_seg.rays.push(LightRay {
+                            value: n.0,
+                            origin,
+                            directions: Vec::new(),
+                        });
+                        inner_light_seg.rays.last_mut().unwrap()
+                    }
+                };
+                drop(my_ray_here);
+                drop(inner_light_seg);
+            }
+            else {
                 let chunkcoordoforigin = Self::spot_to_chunk_pos(&origin);
                 let chunkcoordhere = Self::spot_to_chunk_pos(&n.1);
 
@@ -1226,6 +1262,8 @@ impl ChunkSystem {
         let mut existingsources: HashSet<vec::IVec3> = HashSet::new();
 
         let lmarc = self.lightmap.clone();
+
+
         for x in 0..CW {
             for z in 0..CW {
                 for y in 0..CH {
@@ -1290,12 +1328,15 @@ impl ChunkSystem {
         //info!("Rebuilding!");
         let chunkarc = self.chunks[index].clone();
         let mut chunklock = chunkarc.lock().unwrap();
+        chunklock.used = true;
+
+        let chunklock = chunklock.clone();
 
         if light {
             self.lightpass_on_chunk(chunklock.pos);
         }
 
-        chunklock.used = true;
+        
 
         let doorbottomuvs = DoorInfo::get_door_uvs(TextureFace::new(11, 0));
         let doortopuvs = DoorInfo::get_door_uvs(TextureFace::new(11, 1));
@@ -2002,7 +2043,7 @@ impl ChunkSystem {
         let tc = self.takencare.clone();
 
         if !tc.contains_key(&chunklock.pos) {
-            tc.insert(chunklock.pos, *chunklock);
+            tc.insert(chunklock.pos, chunklock);
         }
     }
 

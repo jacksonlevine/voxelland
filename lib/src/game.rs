@@ -2178,7 +2178,7 @@ impl Game {
                 if !self.vars.in_multiplayer {
                     self.chunksys.read().unwrap().set_block_and_queue_rerender_no_sound(spot, 41, false, true);
                 } else {
-                    let message = Message::new(
+                    let mut message = Message::new(
                         MessageType::BlockSet, 
                         Vec3::new(
                             spot.x as f32, 
@@ -2186,6 +2186,7 @@ impl Game {
                             spot.z as f32), 
                         0.0, 
                         41);
+                        message.infof = 0.0;
 
                     self.netconn.sendqueue.push(message);
                 }
@@ -2196,7 +2197,7 @@ impl Game {
                     self.chunksys.read().unwrap().set_block_and_queue_rerender_no_sound(spot, 40, false, true);
                 } else {
 
-                    let message = Message::new(
+                    let mut message = Message::new(
                         MessageType::BlockSet, 
                         Vec3::new(
                             spot.x as f32, 
@@ -2204,12 +2205,14 @@ impl Game {
                             spot.z as f32), 
                         0.0, 
                         40);
+                        message.infof = 0.0;
 
                     self.netconn.sendqueue.push(message);
                 }
             }
             42 => {
                 self.camera.lock().unwrap().velocity += Vec3::new(0.0, 20.0, 0.0);
+                self.audiop.write().unwrap().play("assets/sfx/boing.mp3", &(camfootpos), &Vec3::new(0.0, 0.0, 0.0), 0.5);
             }
             _ => {
                 
@@ -2557,13 +2560,28 @@ impl Game {
                     Some(comm) => {
                         match comm.message_type {
                             MessageType::BlockSet => {
-                                if comm.info == 0 {
+
+                                if comm.infof == 1.0 {
+                                    if comm.info == 0 {
                                         self.chunksys.read().unwrap().set_block_and_queue_rerender(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
                                         comm.info, true, true);
                                     } else {
                                         self.chunksys.read().unwrap().set_block_and_queue_rerender(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
                                         comm.info, false, true);
                                     }
+                                } else {
+                                    if comm.info == 0 {
+                                        self.chunksys.read().unwrap().set_block_and_queue_rerender_no_sound(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
+                                        comm.info, true, true);
+                                    } else {
+                                        self.chunksys.read().unwrap().set_block_and_queue_rerender_no_sound(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
+                                        comm.info, false, true);
+                                    }
+                                }
+                                
+                                
+
+
                                     unsafe {
                                         UPDATE_THE_BLOCK_OVERLAY = true;
                                     }

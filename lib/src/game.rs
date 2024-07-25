@@ -64,6 +64,12 @@ use crate::inventory::*;
 use std::sync::RwLock;
 
 
+pub static mut MOUSEX: f64 = 0.0;
+pub static mut MOUSEY: f64 = 0.0;
+
+pub static mut SHOWTOOLTIP: bool = false;
+pub static mut TOOLTIPNAME: &'static str = "";
+
 pub static mut SPRINTING: bool = false;
 
 pub static mut STAMINA: i32 = 0;
@@ -2328,19 +2334,25 @@ impl Game {
             STAMINA = self.stamina.load(Ordering::Relaxed);
         }
 
-        if !self.headless {
+        
             let mut rng = StdRng::from_entropy();
-            unsafe {
-                if SONGTIMER < SONGINTERVAL {
-                    SONGTIMER += self.delta_time;
-                } else {
-                    SONGTIMER = 0.0;
-                    self.audiop.write().unwrap().play_in_head(SONGS[SONGINDEX]);
-                    SONGINDEX = (SONGINDEX + rng.gen_range(1..SONGS.len())) % SONGS.len();
-                    
+            if !self.vars.in_multiplayer {
+                unsafe {
+                    if SONGTIMER < SONGINTERVAL {
+                        SONGTIMER += self.delta_time;
+                    } else {
+                        SONGTIMER = 0.0;
+                        if !self.headless {
+                            self.audiop.write().unwrap().play_in_head(SONGS[SONGINDEX]);
+                        }
+                        
+                        SONGINDEX = (SONGINDEX + rng.gen_range(1..SONGS.len())) % SONGS.len();
+                        
+                    }
                 }
             }
-        }
+                
+
 
         unsafe {
             AMBIENTBRIGHTNESS = self.ambient_bright_mult;
@@ -2369,6 +2381,11 @@ impl Game {
 
             let (x,y) = self.window.read().unwrap().get_cursor_pos();
 
+            unsafe {
+                MOUSEX = x;
+                MOUSEY = y;
+            }
+
             self.hud.mousetrans = HudElement::xytondc(x, y);
             if self.hud.chest_open {
                 let mut isoverlappingany = false;
@@ -2378,6 +2395,16 @@ impl Game {
                     if hudel.overlaps(x, y) {
                         unsafe {
                             MOUSED_SLOT = SlotIndexType::InvSlot(i as i32);
+                            match self.inventory.read() {
+                                Ok(inv) => {
+                                    TOOLTIPNAME = Blocks::get_name(inv.inv[i].0);
+                                },
+                                Err(_) => {
+
+                                },
+                            }
+                            
+                            SHOWTOOLTIP = true;
                             isoverlappingany = true;
                         }
                     }
@@ -2389,13 +2416,32 @@ impl Game {
                     if hudel.overlaps(x, y) {
                         unsafe {
                             MOUSED_SLOT = SlotIndexType::ChestSlot(i as i32);
+
+                            match self.chunksys.try_read() {
+                                Ok(csys) => {
+                                    match csys.chest_registry.get(&self.hud.current_chest) {
+                                        Some(chest) => {
+                                            TOOLTIPNAME = Blocks::get_name(chest.value().inv[i].0);
+                                        },
+                                        None => {},
+                                    }
+                                }
+                                Err(_) => {},
+                            }
+
+                            
+                            
+                            SHOWTOOLTIP = true;
                             isoverlappingany = true;
                         }
                     }
                 }
                 if !isoverlappingany {
                     unsafe 
-                    {MOUSED_SLOT = SlotIndexType::None;}
+                    {
+                        SHOWTOOLTIP = false;
+                        MOUSED_SLOT = SlotIndexType::None;
+                    }
                 }
                 // unsafe {
                 //     match MOUSED_SLOT {
@@ -2586,10 +2632,19 @@ impl Game {
                                 self.takeoff_ship();
                             }
                             MessageType::TimeUpdate => {
+                                //println!("Songindex: {}", unsafe { SONGINDEX });
                                 let mut todlock = self.timeofday.lock().unwrap();
                                 *todlock = comm.infof;
                                 unsafe {
                                     WEATHERTYPE = comm.rot;
+                                }
+                                unsafe {
+                                    let newsongindex= comm.info;
+
+                                    if SONGINDEX as u32 != newsongindex {
+                                        SONGINDEX = newsongindex as usize;
+                                        self.audiop.write().unwrap().play_in_head(SONGS[SONGINDEX]);
+                                    }
                                 }
                                 
                             }

@@ -1,4 +1,4 @@
-use crate::{blockinfo::Blocks, game::{Game, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, SINGLEPLAYER}, recipes::{RecipeEntry, RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, texture::Texture};
+use crate::{blockinfo::Blocks, game::{Game, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, MOUSEX, MOUSEY, SHOWTOOLTIP, SINGLEPLAYER, TOOLTIPNAME}, recipes::{RecipeEntry, RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, texture::Texture};
 
 use glfw::{Action, Context, Glfw, GlfwReceiver, Key, Modifiers, PWindow, WindowEvent};
 use once_cell::sync::Lazy;
@@ -367,6 +367,8 @@ impl WindowAndKeyContext {
             
                             let gcraftopen = g.crafting_open;
                             let gchestopen = g.hud.chest_open;
+
+                            
             
                             if g.vars.main_menu {
                                 main_menu = true;
@@ -420,11 +422,35 @@ impl WindowAndKeyContext {
                                         uncapkb.store(false, std::sync::atomic::Ordering::Relaxed);
                                     } 
                                 }
+
+                                if gchestopen {
+
+                                    let ui = self.imgui.frame();
+
+                                    let window_flags = WindowFlags::NO_DECORATION
+                                        | WindowFlags::NO_MOVE
+                                        | WindowFlags::NO_RESIZE
+                                        | WindowFlags::NO_SCROLLBAR
+                                        | WindowFlags::NO_TITLE_BAR
+                                        | WindowFlags::NO_BACKGROUND;
+                                    
+                                    if SHOWTOOLTIP {
+                                        ui.window("Mouse Tooltip Window")
+                                        .size([300.0, 50.0], Condition::Always)
+                                        .position([MOUSEX as f32, MOUSEY as f32], Condition::Always)
+                                        .flags(window_flags)
+                                        .build(|| {
+                                            ui.text(TOOLTIPNAME);
+                                        });
+                                    }
+
+                                    self.guirenderer.render(&mut self.imgui);
+                                }
             
                                 if gmenuopen {
             
                                     let gamecurrentbuttons = g.currentbuttons.clone();
-            
+                                    
                                     
                                     let (width, height) = self.window.read().unwrap().get_framebuffer_size();
                                     self.imgui.io_mut().display_size = [width as f32, height as f32];
@@ -447,6 +473,9 @@ impl WindowAndKeyContext {
                                     // unsafe {
                                     //     uncapkb.store(false, std::sync::atomic::Ordering::Relaxed);
                                     // } 
+
+                          
+
                                     ui.window("Transparent Window")
                                         .size([window_size.0, window_size.1], Condition::Always)
                                         .position(window_pos, Condition::Always)

@@ -17,7 +17,7 @@ use std::time::Duration;
 use uuid::Uuid;
 use glam::Vec3;
 use voxelland::chunk::ChunkSystem;
-use voxelland::game::{Game, STARTINGITEMS, WEATHERTYPE};
+use voxelland::game::{Game, SONGINDEX, STARTINGITEMS, WEATHERTYPE};
 use voxelland::vec::{self, IVec3};
 use voxelland::server_types::{self, *};
 use dashmap::DashMap;
@@ -273,7 +273,8 @@ fn handle_client(
                             }
                         }
 
-                        let mut timeupdate = Message::new(MessageType::TimeUpdate, Vec3::ZERO, unsafe { WEATHERTYPE }, 0);
+                        let mut timeupdate = Message::new(MessageType::TimeUpdate, Vec3::ZERO, unsafe { WEATHERTYPE }, unsafe { SONGINDEX } as u32);
+                        //println!("Songindex: {}", unsafe { SONGINDEX });
                         let t = *tod.lock().unwrap();
                         timeupdate.infof = t;
     
@@ -466,7 +467,7 @@ fn main() {
 
     gl::load_with(|s| window.get_proc_address(s) as *const _);
 
-    let initialseed: u32 = 23119232;
+    let initialseed: u32 = 783434;
 
     let gameh = Game::new(&Arc::new(RwLock::new(window)), false, true, &Arc::new(AtomicBool::new(false)), &Arc::new(Mutex::new(None)));
 

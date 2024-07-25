@@ -95,6 +95,7 @@ pub fn wait_for_decide_singleplayer() {
         while !DECIDEDSPORMP {
             thread::sleep(Duration::from_millis(250));
         }
+
     }
 }
 
@@ -391,7 +392,9 @@ impl Game {
             }
         };
 
-        let mut csys = ChunkSystem::new(10, 0, 0, headless, audiopoption);
+        let mut rng = StdRng::from_entropy();
+
+        let mut csys = ChunkSystem::new(10, rng.gen_range(0..72731273), 0, headless, audiopoption);
         let voxel_models = vec![
             JVoxModel::new("assets/voxelmodels/bush.vox"),
             JVoxModel::new("assets/voxelmodels/tree1.vox"),
@@ -4996,7 +4999,7 @@ impl Game {
             let mut rng = StdRng::from_entropy();
 
             let seed: u32 = rng.gen_range(0..2232328);
-
+            println!("This called");
 
             static mut CURR_NT: usize = 0;
             self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);

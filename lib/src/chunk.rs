@@ -658,7 +658,7 @@ impl ChunkSystem {
                 memories: Vec::new(),
             }),
             planet_type: noisetype as u8,
-            currentseed: RwLock::new(0),
+            currentseed: RwLock::new(5654545),
             headless,
             hashadinitiallightpass: Arc::new(Mutex::new(HashMap::new())),
             lightmap: Arc::new(Mutex::new(HashMap::new())),
@@ -2217,19 +2217,19 @@ impl ChunkSystem {
 
     pub fn noise_func(&self, spot: vec::IVec3) -> f64 {
         let xzdivisor1 = 600.35 * 4.0;
-        let _xzdivisor2 = 1000.35 * 4.0;
+        let xzdivisor2 = 1000.35 * 4.0;
 
         let mut y = spot.y - 20;
 
         let noise1 = f64::max(
             0.0,
             20.0 + self.perlin.get([
-                spot.x as f64 / xzdivisor1,
-                y as f64 / 200.35,
-                spot.z as f64 / xzdivisor1,
+                spot.x as f64 / xzdivisor2,
+                y as f64 / xzdivisor2,
+                spot.z as f64 / xzdivisor2,
             ]) * 5.0
                 - f64::max(
-                    y as f64 / 2.0
+                    y as f64 / 1.7
                         + self
                             .perlin
                             .get([spot.x as f64 / 65.0, spot.z as f64 / 65.0])
@@ -2258,7 +2258,7 @@ impl ChunkSystem {
         let mut p = self
             .perlin
             .get([spot.x as f64 / 500.0, spot.z as f64 / 500.0])
-            * 10.0;
+            * 2.0;
 
         p = f64::max(p, 0.0);
         p = f64::min(p, 1.0);
@@ -2267,12 +2267,18 @@ impl ChunkSystem {
         // Rust doesn't have a direct `mix` function, but you can create one or use a linear interpolation
         let noisemix = ChunkSystem::mix(noise1, noise2, p);
 
+        let texture = self.perlin.get([
+            spot.x as f64 / 12.35,
+            y as f64 / 12.35,
+            spot.z as f64 / 12.35,
+        ]) * 1.0;
+
         let noise3 = f64::max(
             0.0,
             50.0 + self.perlin.get([
-                spot.x as f64 / 7.35,
-                y as f64 / 7.35,
-                spot.z as f64 / 7.35,
+                spot.x as f64 / 25.35,
+                y as f64 / 25.35,
+                spot.z as f64 / 25.35,
             ]) * 10.0
                 + self.perlin.get([
                     spot.x as f64 / 60.35,
@@ -2282,16 +2288,23 @@ impl ChunkSystem {
                 - f64::max(y as f64 / 3.0, 0.0),
         );
 
-        let mut p2 = self.perlin.get([
+        let mut p2 = 0.5 + self.perlin.get([
             (spot.x as f64 + 4500.0) / 150.0,
             (spot.y as f64 + 5000.0) / 150.0,
             (spot.z as f64 - 5000.0) / 150.0,
         ]) * 1.0;
 
+        let p3 = (self.perlin.get([
+            (spot.x as f64 - 1500.0) / 3500.0,
+            (spot.z as f64 + 1000.0) / 3500.0,
+        ]) * 10.0).min(9.0);
+
+    
+
         p2 = f64::max(p2, 0.0);
         p2 = f64::min(p2, 1.0);
 
-        ChunkSystem::mix(noisemix, noise3, p2.clamp(0.0, 1.0))
+        ChunkSystem::mix(noisemix + texture, noise3, p2.clamp(0.0, 1.0)).min(20.0) + p3
     }
 
     pub fn noise_func2(&self, spot: vec::IVec3) -> f64 {
@@ -2334,7 +2347,7 @@ impl ChunkSystem {
         let mut p = self
             .perlin
             .get([spot.x as f64 / 500.0, spot.z as f64 / 500.0])
-            * 10.0;
+            * 5.0;
 
         p = f64::max(p, 0.0);
         p = f64::min(p, 1.0);
@@ -2403,9 +2416,11 @@ impl ChunkSystem {
             1 => {
                 if self.noise_func2(spot) > 10.0 {
                     if self.noise_func2(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {
-                        return 14
+                        14
+                    } else {
+                        1
                     }
-                    1
+
                 } else {
                     0
                 }
@@ -2443,21 +2458,29 @@ impl ChunkSystem {
                 if self.noise_func(spot) > 10.0 {
                     if self.noise_func(spot + vec::IVec3 { x: 0, y: 10, z: 0 }) > 10.0 {
                         if self.ore_noise(spot) > 1.0 {
-                            return 35
+                            35
                         } else {
-                            return underdirt
+                            underdirt
                         }
-                    }
-                    if spot.y > (WL + 2.0) as i32
-                        || self.noise_func(spot + vec::IVec3 { x: 0, y: 5, z: 0 }) > 10.0
-                    {
-                        if self.noise_func(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {
-                            return surface
-                        }
-                        undersurface
                     } else {
-                        beach
+
+
+                        if spot.y > (WL + 2.0) as i32
+                        || self.noise_func(spot + vec::IVec3 { x: 0, y: 5, z: 0 }) > 10.0
+                        {
+                            if self.noise_func(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {
+                                surface
+                            } else {
+                                undersurface
+                            }
+                            
+                        } else {
+                            beach
+                        }
                     }
+
+
+                    
                 } else {
                     if spot.y < WL as i32 {
                         liquid

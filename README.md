@@ -11,7 +11,7 @@ Client:
 `cargo build -p voxelland-client`
 
 Server 
-`cargo build -p voxelland-client`
+`cargo build -p voxelland-server`
 
 
 ### Dependencies

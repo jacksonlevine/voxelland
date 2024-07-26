@@ -1,13 +1,14 @@
 use glam::Vec3;
 
-#[cfg(feature = "audio")]
+#[cfg(windows)]
 use libfmod::ffi::FMOD_DSP_STATE;
-#[cfg(feature = "audio")]
+#[cfg(windows)]
 use libfmod::{Channel, ChannelGroup, Sound, System, Vector};
 
 
+#[cfg(windows)]
 use std::f32::consts::PI;
-
+#[cfg(windows)]
 use std::{collections::HashMap, sync::atomic::AtomicBool};
 
 static mut SINE_WAVE_STATE: Option<SineWaveState> = None;
@@ -18,7 +19,7 @@ struct SineWaveState {
     sample_rate: f32,
 }
 
-#[cfg(feature = "audio")]
+#[cfg(windows)]
 extern "C" fn dsp_callback(
     _dsp_state: *mut FMOD_DSP_STATE,
     _inbuffer: *mut f32,
@@ -52,7 +53,7 @@ extern "C" fn dsp_callback(
     }
 }
 
-#[cfg(feature = "audio")]
+#[cfg(windows)]
 pub struct AudioPlayer {
     system: System,
     sounds: HashMap<&'static str, Sound>,
@@ -65,10 +66,10 @@ pub struct AudioPlayer {
     voicechannelsplaying: AtomicBool,
 }
 
-#[cfg(not(feature = "audio"))]
+#[cfg(unix)]
 pub struct AudioPlayer {}
 
-#[cfg(feature = "audio")]
+#[cfg(windows)]
 impl AudioPlayer {
 
     fn create_channel_groups(system: &libfmod::System) -> (libfmod::ChannelGroup, libfmod::ChannelGroup, ChannelGroup) {
@@ -320,12 +321,12 @@ impl AudioPlayer {
     }
 }
 
-#[cfg(not(feature = "audio"))]
+#[cfg(unix)]
 #[derive(Debug)]
 pub struct AudioError {} 
 
 
-#[cfg(not(feature = "audio"))]
+#[cfg(unix)]
 impl AudioPlayer {
     pub fn new() -> Result<Self, AudioError> {
         Ok(AudioPlayer {
@@ -336,32 +337,32 @@ impl AudioPlayer {
 
     pub fn preload(
         &mut self,
-        id: &'static str,
-        file_path: &'static str,
+        _id: &'static str,
+        _file_path: &'static str,
     ) -> Result<(), AudioError> {
         Ok(())
     }
 
-    pub fn preload_series(&mut self, series_name: &'static str, paths: Vec<&'static str>) {
+    pub fn preload_series(&mut self, _series_name: &'static str, _paths: Vec<&'static str>) {
     }
 
     pub fn play_next_in_series(
         &mut self,
-        series_name: &'static str,
-        pos: &Vec3,
-        vel: &Vec3,
-        vol: f32
+        _series_name: &'static str,
+        _pos: &Vec3,
+        _vel: &Vec3,
+        _vol: f32
     ) -> Result<(), AudioError> {
         Ok(())
     }
 
-    pub fn play_in_head(&mut self, id: &'static str) {
+    pub fn play_in_head(&mut self, _id: &'static str) {
     }
 
-    pub fn stop_sound(&mut self, id: &'static str) {
+    pub fn stop_sound(&mut self, _id: &'static str) {
     }
 
-    pub fn play(&mut self, id: &'static str, pos: &Vec3, vel: &Vec3, vol: f32) {
+    pub fn play(&mut self, _id: &'static str, _pos: &Vec3, _vel: &Vec3, _vol: f32) {
     }
 
     pub fn cleanup_channels(&mut self) {

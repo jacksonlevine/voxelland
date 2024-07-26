@@ -3017,7 +3017,7 @@ impl Game {
             let vel = camlock.velocity;
             let up = camlock.up;
             drop(camlock);
-            #[cfg(feature = "audio")]
+            #[cfg(windows)]
             self.audiop.write().unwrap().set_listener_attributes(libfmod::Vector { x: pos.x, y: pos.y, z: pos.z }, libfmod::Vector { x: vel.x, y: vel.y, z: vel.z }, libfmod::Vector { x: forward.x, y: forward.y, z: forward.z }, libfmod::Vector { x: up.x, y: up.y, z: up.z });
             self.do_step_sounds();
             if self.inventory.read().unwrap().dirty {

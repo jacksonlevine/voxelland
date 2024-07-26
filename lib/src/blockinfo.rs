@@ -4,7 +4,7 @@ pub const BLOCK_DIRECTION_BITS: u32 = 0b0000_0000_0000_0011_0000_0000_0000_0000;
 pub struct Blocks {}
 
 
-static BREAKTIMES: [f32; 45] = [
+static BREAKTIMES: [f32; 47] = [
     0.1,
     0.5,
     0.7,
@@ -52,10 +52,12 @@ static BREAKTIMES: [f32; 45] = [
     1.0,
     1.0,
     1.0,
-    1.0
+    1.0,
+    0.5,
+    0.5
 ];
 
-static TEXS: [[(u8, u8); 3]; 45] = [
+static TEXS: [[(u8, u8); 3]; 47] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],  // 0
             [(1, 0), (1, 0), (1, 0)],  // 1 sand
@@ -113,6 +115,8 @@ static TEXS: [[(u8, u8); 3]; 45] = [
 
             [(0,8),(2,8),(2,8)], // 43 rubber tree wood
             [(1,8),(1,8),(1,8)], // 44 rubber tree leaves
+            [(10,6),(10,6),(10,6)], // 45 conveyor/highway
+            [(11,5),(11,5),(11,5)], // 46 auto trampoline block
         ];
 
 
@@ -168,7 +172,8 @@ impl Blocks {
 
             43 => {"Rubber Tree Wood"}
             44 => {"Rubber Tree Leaves"}
-
+            45 => {"Conveyor"}
+            46 => {"Auto Trampoline"}
             _ => {
                 "Unknown Item"
             }

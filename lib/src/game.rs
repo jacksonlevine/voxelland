@@ -92,8 +92,15 @@ pub static mut WEATHERTYPE: f32 = 0.0;
 pub static mut WEATHERTIMER: f32 = 0.0;
 pub const WEATHERINTERVAL: f32 = 120.0;
 
+pub static mut TRAMPOLINE: bool = false;
+pub static mut TRAMP_TIMER: f32 = 0.0;
+
 
 pub static QUEUE_THESE: Lazy<Queue<IVec2>> = Lazy::new(||Queue::new());
+
+
+pub static mut ON_CONVEYORS: bool = false;
+pub static mut TIME_ON_CONVEYORS: f32 = 0.0;
 
 
 
@@ -2212,7 +2219,9 @@ impl Game {
                 }
             }
             42 => {
-                self.camera.lock().unwrap().velocity += Vec3::new(0.0, 20.0, 0.0);
+                let d = self.camera.lock().unwrap().direction.clone();
+
+                self.camera.lock().unwrap().velocity += Vec3::new(0.0, 20.0, 0.0) + d;
                 self.audiop.write().unwrap().play("assets/sfx/boing.mp3", &(camfootpos), &Vec3::new(0.0, 0.0, 0.0), 0.5);
             }
             _ => {
@@ -2339,7 +2348,21 @@ impl Game {
             self.vars.walkbobtimer %= 2.0 * consts::PI;
         }
 
-        
+        unsafe {
+            if TRAMPOLINE {
+                TRAMP_TIMER += self.delta_time;
+            }
+            if TRAMP_TIMER > 0.5 {
+                TRAMPOLINE = false;
+                TRAMP_TIMER = 0.0;
+            }
+        }
+
+        unsafe {
+            if ON_CONVEYORS {
+                TIME_ON_CONVEYORS += self.delta_time;
+            }
+        }
 
 
 
@@ -3060,14 +3083,86 @@ impl Game {
 
         let feetpos = camlock.position - Vec3::new(0.0, 1.0, 0.0);
 
+        let underfeetpos = feetpos - Vec3::new(0.0, 1.0, 0.0);
+
         let feetposi = vec::IVec3::new(feetpos.x.floor() as i32, feetpos.y.floor() as i32, feetpos.z.floor() as i32);
         let headposi = vec::IVec3::new(camlock.position.x.floor() as i32, camlock.position.y.floor() as i32, camlock.position.z.floor() as i32);
         let feetposi2 = vec::IVec3::new(feetpos.x.floor() as i32, (feetpos.y-0.25).floor() as i32, feetpos.z.floor() as i32);
 
+        let underfeetposi = vec::IVec3::new(underfeetpos.x.floor() as i32, underfeetpos.y.floor() as i32, underfeetpos.z.floor() as i32);
+
         let blockfeetin = self.chunksys.read().unwrap().blockat(feetposi) & Blocks::block_id_bits();
         let blockfeetinlower = self.chunksys.read().unwrap().blockat(feetposi2) & Blocks::block_id_bits();
-        
+        let blockbitsunderfeet = self.chunksys.read().unwrap().blockat(underfeetposi);
+        let blockunderfeet = blockbitsunderfeet & Blocks::block_id_bits();
+
         let blockheadin = self.chunksys.read().unwrap().blockat(headposi) & Blocks::block_id_bits();
+
+        if blockheadin == 2 {
+            self.headinwater = true;
+        } else {
+            self.headinwater = false;
+        }
+
+        static mut wasconveyor: bool = false;
+
+        let mut conveyor = false;
+
+        match blockunderfeet {
+            46 => {
+
+                unsafe {
+                    if !TRAMPOLINE {
+                        TRAMPOLINE = true;
+                        let d = camlock.direction;
+                        camlock.velocity += Vec3::new(0.0, 20.0, 0.0) + d;
+                        self.audiop.write().unwrap().play("assets/sfx/boing.mp3", &(feetpos), &Vec3::new(0.0, 0.0, 0.0), 0.5);
+                    }
+                    
+                }
+                
+             
+            }
+            45 => { //Conveyor
+
+
+                conveyor = true;
+                static DIRS: [Vec3; 4] = [
+                    Vec3{x: 0.0,y: 0.0,z: -1.0},
+                    Vec3{x: 1.0,y: 0.0,z: 0.0},
+                    Vec3{x: 0.0,y: 0.0,z: 1.0},
+                    Vec3{x: -1.0,y: 0.0,z: 0.0},
+                ];
+                let dir = Blocks::get_direction_bits(blockbitsunderfeet);
+
+                let multiplier = (unsafe {TIME_ON_CONVEYORS}.min(1.0) / 0.5).max(0.9);
+                //println!("MUltiplier: {}", multiplier);
+
+                camlock.velocity += (DIRS[dir as usize] * 10.0 * multiplier) * self.delta_time;
+            }
+            _ => {
+
+            }
+        }
+
+        if conveyor {
+            unsafe {
+                ON_CONVEYORS = true;
+                if !wasconveyor {
+                    TIME_ON_CONVEYORS = 0.0;
+                }
+            }
+
+            
+        } else {
+            unsafe {
+                ON_CONVEYORS = false;
+
+            }
+        }
+        unsafe {
+            wasconveyor = conveyor;
+        }
 
         let feetinwater = blockfeetin == 2;
         let feetinwaterlower = blockfeetinlower == 2;
@@ -4861,7 +4956,39 @@ impl Game {
 
                         }
 
-                        } else if id == 20 { //ladder shit
+                        } else if id == 45 { //conveyor shit
+
+                            let mut conveyor_id = id;
+
+                            let diffx = cl.position.x - place_point.x as f32;
+                            let diffz = cl.position.z - place_point.z as f32;
+
+                            let mut direction = 0;
+
+                            if diffx.abs() > diffz.abs() {
+                                direction = if diffx > 0.0 { 1 } else { 3 };
+                            } else {
+                                direction = if diffz > 0.0 { 2 } else { 0 };
+                            }
+
+                            Blocks::set_direction_bits(&mut conveyor_id, direction);
+
+                            if self.vars.in_multiplayer {
+                                let message = Message::new(
+                                    MessageType::BlockSet, 
+                                    Vec3::new(
+                                        place_point.x as f32, 
+                                        place_point.y as f32, 
+                                        place_point.z as f32), 
+                                    0.0, 
+                                    conveyor_id);
+
+                                self.netconn.send(&message);
+                            } else {
+                                self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, conveyor_id, false, true);
+                            }
+
+                        }else if id == 20 { //ladder shit
 
                             let mut ladder_id = id;
 

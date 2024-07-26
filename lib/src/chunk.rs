@@ -37,6 +37,7 @@ use crate::packedvertex::PackedVertex;
 use crate::planetinfo::Planets;
 use crate::shader::Shader;
 use crate::specialblocks::chest::ChestInfo;
+use crate::specialblocks::conveyor::ConveyorInfo;
 use crate::specialblocks::crafttable::CraftTableInfo;
 use crate::specialblocks::door::DoorInfo;
 use crate::specialblocks::ladder::LadderInfo;
@@ -949,7 +950,7 @@ impl ChunkSystem {
 
 
 
-    
+
 
     pub fn set_block(&self, spot: vec::IVec3, block: u32, user_power: bool) {
         match user_power {
@@ -1574,6 +1575,42 @@ impl ChunkSystem {
                             }
 
                             uvdata.extend_from_slice(&LadderInfo::get_ladder_uvs());
+                        } else if block == 45 { 
+                            let direction = Blocks::get_direction_bits(flags);
+
+                            let modelindex: i32 = direction as i32;
+
+                            let _blocklightval = 0.0;
+
+                            let lmlock = self.lightmap.lock().unwrap();
+                            let blocklighthere = match lmlock.get(&spot) {
+                                Some(k) => k.sum(),
+                                None => LightColor::ZERO,
+                            };
+
+                            let packedrgb = PackedVertex::pack_rgb(
+                                blocklighthere.x,
+                                blocklighthere.y,
+                                blocklighthere.z,
+                            );
+
+                            let prgb: u32 =
+                                0b0000_0000_0000_0000_0000_0000_0000_0000 | (packedrgb) as u32;
+                            drop(lmlock);
+
+                            for vert in
+                                ConveyorInfo::conveyor_model_from_index(modelindex as usize).chunks(5)
+                            {
+                                vdata.extend_from_slice(&[
+                                    vert[0] + spot.x as f32,
+                                    vert[1] + spot.y as f32,
+                                    vert[2] + spot.z as f32,
+                                    f32::from_bits(prgb),
+                                    vert[4],
+                                ])
+                            }
+
+                            uvdata.extend_from_slice(&ConveyorInfo::get_conveyor_uvs());
                         } else if block == 21 {
                             let direction = Blocks::get_direction_bits(flags);
 

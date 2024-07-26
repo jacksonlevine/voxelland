@@ -42,6 +42,7 @@ void main()
     vertexColor = vec3(min(1.0, vertexColor.r), min(1.0, vertexColor.g), min(1.0, vertexColor.b));
     TexCoord = uv;
     
+    
     pos = position;
 
     

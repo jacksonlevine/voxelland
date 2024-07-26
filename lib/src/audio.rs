@@ -1,5 +1,8 @@
 use glam::Vec3;
+
+#[cfg(feature = "audio")]
 use libfmod::ffi::FMOD_DSP_STATE;
+#[cfg(feature = "audio")]
 use libfmod::{Channel, ChannelGroup, Sound, System, Vector};
 
 
@@ -15,6 +18,7 @@ struct SineWaveState {
     sample_rate: f32,
 }
 
+#[cfg(feature = "audio")]
 extern "C" fn dsp_callback(
     _dsp_state: *mut FMOD_DSP_STATE,
     _inbuffer: *mut f32,
@@ -47,6 +51,8 @@ extern "C" fn dsp_callback(
         libfmod::FmodResult::Ok as i32
     }
 }
+
+#[cfg(feature = "audio")]
 pub struct AudioPlayer {
     system: System,
     sounds: HashMap<&'static str, Sound>,
@@ -59,6 +65,10 @@ pub struct AudioPlayer {
     voicechannelsplaying: AtomicBool,
 }
 
+#[cfg(not(feature = "audio"))]
+pub struct AudioPlayer {}
+
+#[cfg(feature = "audio")]
 impl AudioPlayer {
 
     fn create_channel_groups(system: &libfmod::System) -> (libfmod::ChannelGroup, libfmod::ChannelGroup, ChannelGroup) {
@@ -307,5 +317,53 @@ impl AudioPlayer {
         self.system
             .set_3d_listener_attributes(0, Some(position), Some(velocity), Some(forward), Some(up))
             .unwrap();
+    }
+}
+
+#[cfg(not(feature = "audio"))]
+#[derive(Debug)]
+pub struct AudioError {} 
+
+
+#[cfg(not(feature = "audio"))]
+impl AudioPlayer {
+    pub fn new() -> Result<Self, AudioError> {
+        Ok(AudioPlayer {
+        })
+    }
+    pub fn update(&mut self) {
+    }
+
+    pub fn preload(
+        &mut self,
+        id: &'static str,
+        file_path: &'static str,
+    ) -> Result<(), AudioError> {
+        Ok(())
+    }
+
+    pub fn preload_series(&mut self, series_name: &'static str, paths: Vec<&'static str>) {
+    }
+
+    pub fn play_next_in_series(
+        &mut self,
+        series_name: &'static str,
+        pos: &Vec3,
+        vel: &Vec3,
+        vol: f32
+    ) -> Result<(), AudioError> {
+        Ok(())
+    }
+
+    pub fn play_in_head(&mut self, id: &'static str) {
+    }
+
+    pub fn stop_sound(&mut self, id: &'static str) {
+    }
+
+    pub fn play(&mut self, id: &'static str, pos: &Vec3, vel: &Vec3, vol: f32) {
+    }
+
+    pub fn cleanup_channels(&mut self) {
     }
 }

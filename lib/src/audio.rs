@@ -1,10 +1,14 @@
 use glam::Vec3;
+
+#[cfg(windows)]
 use libfmod::ffi::FMOD_DSP_STATE;
+#[cfg(windows)]
 use libfmod::{Channel, ChannelGroup, Sound, System, Vector};
 
 
+#[cfg(windows)]
 use std::f32::consts::PI;
-
+#[cfg(windows)]
 use std::{collections::HashMap, sync::atomic::AtomicBool};
 
 static mut SINE_WAVE_STATE: Option<SineWaveState> = None;
@@ -15,6 +19,7 @@ struct SineWaveState {
     sample_rate: f32,
 }
 
+#[cfg(windows)]
 extern "C" fn dsp_callback(
     _dsp_state: *mut FMOD_DSP_STATE,
     _inbuffer: *mut f32,
@@ -47,6 +52,8 @@ extern "C" fn dsp_callback(
         libfmod::FmodResult::Ok as i32
     }
 }
+
+#[cfg(windows)]
 pub struct AudioPlayer {
     system: System,
     sounds: HashMap<&'static str, Sound>,
@@ -59,6 +66,10 @@ pub struct AudioPlayer {
     voicechannelsplaying: AtomicBool,
 }
 
+#[cfg(unix)]
+pub struct AudioPlayer {}
+
+#[cfg(windows)]
 impl AudioPlayer {
 
     fn create_channel_groups(system: &libfmod::System) -> (libfmod::ChannelGroup, libfmod::ChannelGroup, ChannelGroup) {
@@ -307,5 +318,53 @@ impl AudioPlayer {
         self.system
             .set_3d_listener_attributes(0, Some(position), Some(velocity), Some(forward), Some(up))
             .unwrap();
+    }
+}
+
+#[cfg(unix)]
+#[derive(Debug)]
+pub struct AudioError {} 
+
+
+#[cfg(unix)]
+impl AudioPlayer {
+    pub fn new() -> Result<Self, AudioError> {
+        Ok(AudioPlayer {
+        })
+    }
+    pub fn update(&mut self) {
+    }
+
+    pub fn preload(
+        &mut self,
+        _id: &'static str,
+        _file_path: &'static str,
+    ) -> Result<(), AudioError> {
+        Ok(())
+    }
+
+    pub fn preload_series(&mut self, _series_name: &'static str, _paths: Vec<&'static str>) {
+    }
+
+    pub fn play_next_in_series(
+        &mut self,
+        _series_name: &'static str,
+        _pos: &Vec3,
+        _vel: &Vec3,
+        _vol: f32
+    ) -> Result<(), AudioError> {
+        Ok(())
+    }
+
+    pub fn play_in_head(&mut self, _id: &'static str) {
+    }
+
+    pub fn stop_sound(&mut self, _id: &'static str) {
+    }
+
+    pub fn play(&mut self, _id: &'static str, _pos: &Vec3, _vel: &Vec3, _vol: f32) {
+    }
+
+    pub fn cleanup_channels(&mut self) {
     }
 }

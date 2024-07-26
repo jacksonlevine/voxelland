@@ -65,6 +65,8 @@ use std::sync::RwLock;
 
 static mut CONVEYOR_SOUND_TIMER: f32 = 0.0;
 
+pub static TRAMPOLINE_VELOCITY_FIGURE: f32 = 10.0;
+
 pub static mut MOUSEX: f64 = 0.0;
 pub static mut MOUSEY: f64 = 0.0;
 
@@ -2282,7 +2284,7 @@ impl Game {
             42 => {
                 let d = self.camera.lock().unwrap().direction.clone();
 
-                self.camera.lock().unwrap().velocity += Vec3::new(0.0, 20.0, 0.0) + d;
+                self.camera.lock().unwrap().velocity += Vec3::new(0.0, TRAMPOLINE_VELOCITY_FIGURE, 0.0) + d;
                 self.audiop.write().unwrap().play("assets/sfx/boing.mp3", &(camfootpos), &Vec3::new(0.0, 0.0, 0.0), 0.5);
             }
             _ => {
@@ -3018,7 +3020,7 @@ impl Game {
             let up = camlock.up;
             drop(camlock);
             #[cfg(windows)]
-            self.audiop.write().unwrap().set_listener_attributes(libfmod::Vector { x: pos.x, y: pos.y, z: pos.z }, libfmod::Vector { x: vel.x, y: vel.y, z: vel.z }, libfmod::Vector { x: forward.x, y: forward.y, z: forward.z }, libfmod::Vector { x: up.x, y: up.y, z: up.z });
+            self.audiop.write().unwrap().set_listener_attributes([pos.x,  pos.y, pos.z ].into(), [vel.x,  vel.y, vel.z ].into(), [forward.x,  forward.y, forward.z ].into(), [up.x,  up.y, up.z ].into());
             self.do_step_sounds();
             if self.inventory.read().unwrap().dirty {
                 self.update_inventory();
@@ -3185,7 +3187,7 @@ impl Game {
                     if !TRAMPOLINE {
                         TRAMPOLINE = true;
                         let d = camlock.direction;
-                        camlock.velocity += Vec3::new(0.0, 20.0, 0.0) + d;
+                        camlock.velocity += Vec3::new(0.0, TRAMPOLINE_VELOCITY_FIGURE, 0.0) + d;
                         self.audiop.write().unwrap().play("assets/sfx/boing.mp3", &(feetpos), &Vec3::new(0.0, 0.0, 0.0), 0.5);
                     }
                     

@@ -481,17 +481,34 @@ impl WindowAndKeyContext {
                                         .position(window_pos, Condition::Always)
                                         .flags(window_flags)
                                         .build(|| {
-                                            let button_width = 200.0;
+
+                                            let len = gamecurrentbuttons.len();
+
                                             let button_height = 20.0;
                                             let window_size = ui.window_size();
-            
                                             let available_width = window_size[0];
                                             let available_height = window_size[1];
+                                            let mut pos_y = (available_height - (len as f32 * button_height) - 10.0 * (len as f32 - 1.0)) / 2.0;
+            
+
+
+                                            
+                                            for (buttonname, command) in gamecurrentbuttons {
+
+
+
+
+
+
+                                                let button_width = buttonname.len() as f32 * 20.0;
+                                            
+                                            
+            
+                                            
             
                                             let pos_x = (available_width - button_width) / 2.0;
-                                            let mut pos_y = (available_height - (gamecurrentbuttons.len() as f32 * button_height) - 10.0 * (gamecurrentbuttons.len() as f32 - 1.0)) / 2.0;
-            
-                                            for (buttonname, command) in gamecurrentbuttons {
+
+
                                                 ui.set_cursor_pos([pos_x, pos_y]);
                                                 if buttonname.starts_with("Slider") {
                                                     let truncated_name = buttonname.split_at(6).1;
@@ -760,10 +777,14 @@ impl WindowAndKeyContext {
                                             
                                         }
                                         glfw::WindowEvent::Scroll(x, y) => {
+                                            
                                             io.mouse_wheel_h += x as f32;
                                             io.mouse_wheel += y as f32;
-            
-                                            self.game.as_mut().unwrap().scroll(y);
+                                            
+                                            if !gmenuopen {
+                                                self.game.as_mut().unwrap().scroll(y);
+                                            }
+                                            
                                         }
                                         _ => {}
                                     }

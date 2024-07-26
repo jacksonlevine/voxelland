@@ -63,6 +63,7 @@ use crate::worldgeometry::WorldGeometry;
 use crate::inventory::*;
 use std::sync::RwLock;
 
+static mut CONVEYOR_SOUND_TIMER: f32 = 0.0;
 
 pub static mut MOUSEX: f64 = 0.0;
 pub static mut MOUSEY: f64 = 0.0;
@@ -332,7 +333,7 @@ pub struct Game {
     pub inwater: bool,
     pub headinwater: bool,
 
-    pub currentbuttons: Vec<(&'static str, &'static str)>,
+    pub currentbuttons: Vec<(String, String)>,
     pub loadedworld: AtomicBool,
     pub addressentered: Arc<AtomicBool>,
     pub address: Arc<Mutex<Option<String>>>,
@@ -910,8 +911,8 @@ impl Game {
             inwater: false,
             headinwater: false,
             currentbuttons: vec![
-                ("Test", "Yoo"),
-                ("Test22", "22"),
+                ("Test".to_string(), "Yoo".to_string()),
+                ("Test22".to_string(), "22".to_string()),
             ],
             loadedworld: AtomicBool::new(false),
             addressentered: addressentered.clone(),
@@ -1021,6 +1022,13 @@ impl Game {
                     "assets/sfx/water4.mp3",
                     "assets/sfx/water5.mp3"
                 ]);
+
+                audiop.preload_series("clickseries", vec![
+                    "assets/sfx/click1.mp3",
+                    "assets/sfx/click2.mp3",
+                    "assets/sfx/click3.mp3",
+                    "assets/sfx/click4.mp3",
+                ]);
     
                 audiop.preload_series("stonestepseries", vec![
                     "assets/sfx/stonestep1.mp3",
@@ -1127,8 +1135,8 @@ impl Game {
             
         }
     }
-    pub fn button_command(&mut self, str: &'static str) {
-        match str {
+    pub fn button_command(&mut self, str: String) {
+        match str.as_str() {
             "quittomainmenu" => {
                 self.exit();
                 if self.vars.in_multiplayer {
@@ -1143,17 +1151,62 @@ impl Game {
             }
             "escapemenu" => {
                 self.currentbuttons = vec![
-                            ("Close Menu", "closemenu"),
-                            ("Settings", "settingsmenu"),
-                            ("Quit Game", "quittomainmenu"),
+                            ("Close Menu".to_string(), "closemenu".to_string()),
+                            ("Recipe Book".to_string(), "recipemenu".to_string()),
+                            ("Settings".to_string(), "settingsmenu".to_string()),
+                            ("Quit Game".to_string(), "quittomainmenu".to_string()),
                         ];
                 self.vars.menu_open = true;
             }
             "settingsmenu" => {
                 self.currentbuttons = vec![
-                            ("Back to Previous Menu", "escapemenu"),
-                            ("SliderMouse Sensitivity", "test")
+                            ("Back to Previous Menu".to_string(), "escapemenu".to_string()),
+                            ("SliderMouse Sensitivity".to_string(), "test".to_string())
                         ];
+                self.vars.menu_open = true;
+            }
+            "recipemenu" => {
+                self.currentbuttons = vec![
+                        ("Back to Previous Menu".to_string(), "escapemenu".to_string()),
+                    ];
+                for recipe in RECIPES.iter() {
+                    let mut recipestring = String::new();
+                    let mut tableneeded = String::new();
+
+                    if recipe.2 {
+                        tableneeded += " ";
+                    } else {
+                        tableneeded += "T";
+                    }
+
+                    recipestring += "From ";
+
+                    for (index, requirement) in recipe.0.iter().enumerate() {
+                        let name = Blocks::get_name(requirement.0);
+                        let count = requirement.1;
+                        recipestring += format!("{} {}", count, name).as_str();
+
+                        if count > 1 {
+                            recipestring += "s";
+                        }
+
+                        if index < recipe.0.len() - 2 || index == recipe.0.len() - 1 {
+                            recipestring += ", ";
+                        } else {
+                            recipestring += ", and ";
+                        }
+                    }
+
+                    recipestring += "create ";
+                    recipestring += format!("{} {}", recipe.1.1, Blocks::get_name(recipe.1.0)).as_str();
+
+                    if recipe.1.1 > 1 {
+                        recipestring += "s.";
+                    } else {
+                        recipestring += ".";
+                    }
+                    self.currentbuttons.push((recipestring, tableneeded))
+                }
                 self.vars.menu_open = true;
             }
             _ => {
@@ -1324,7 +1377,7 @@ impl Game {
         //self.update_model_collisions(0);
 
         self.currentbuttons = vec![
-            ("Loading...", "loading")
+            ("Loading...".to_string(), "loading".to_string())
         ];
         self.vars.menu_open = true;
 
@@ -2165,7 +2218,7 @@ impl Game {
         let blockat = self.chunksys.read().unwrap().blockat(IVec3::new(camfootpos.x.floor() as i32, camfootpos.y.floor() as i32, camfootpos.z.floor() as i32));
         let blockat = blockat & Blocks::block_id_bits();
         if blockat != 0 {
-            self.audiop.write().unwrap().play_next_in_series(&Blocks::get_walk_series(blockat), &(camfootpos), &Vec3::new(0.0, 0.0, 0.0), 0.5);
+            self.audiop.write().unwrap().play_next_in_series(&Blocks::get_walk_series(blockat), &(camfootpos), &Vec3::new(0.0, 0.0, 0.0), 0.1);
         }
         
     }
@@ -2198,6 +2251,10 @@ impl Game {
 
                     self.netconn.sendqueue.push(message);
                 }
+                self.audiop.write().unwrap().play_next_in_series("clickseries", &Vec3::new(
+                            spot.x as f32, 
+                            spot.y as f32, 
+                            spot.z as f32), &Vec3::ZERO, 0.5);
                 
             }
             41 => {
@@ -2217,6 +2274,10 @@ impl Game {
 
                     self.netconn.sendqueue.push(message);
                 }
+                self.audiop.write().unwrap().play_next_in_series("clickseries", &Vec3::new(
+                    spot.x as f32, 
+                    spot.y as f32, 
+                    spot.z as f32), &Vec3::ZERO, 0.5);
             }
             42 => {
                 let d = self.camera.lock().unwrap().direction.clone();
@@ -2359,7 +2420,15 @@ impl Game {
         }
 
         unsafe {
+
+            
             if ON_CONVEYORS {
+                if CONVEYOR_SOUND_TIMER <= 0.0 {
+                    self.audiop.write().unwrap().play_in_head("assets/sfx/onconveyor.mp3");
+                    CONVEYOR_SOUND_TIMER = 2.5;
+                } else {
+                    CONVEYOR_SOUND_TIMER -= self.delta_time;
+                }
                 TIME_ON_CONVEYORS += self.delta_time;
             }
         }
@@ -3135,7 +3204,7 @@ impl Game {
                 ];
                 let dir = Blocks::get_direction_bits(blockbitsunderfeet);
 
-                let multiplier = (unsafe {TIME_ON_CONVEYORS}.min(1.0) / 0.5).max(0.9);
+                let multiplier = 2.4;
                 //println!("MUltiplier: {}", multiplier);
 
                 camlock.velocity += (DIRS[dir as usize] * 10.0 * multiplier) * self.delta_time;
@@ -3149,6 +3218,7 @@ impl Game {
             unsafe {
                 ON_CONVEYORS = true;
                 if !wasconveyor {
+                    CONVEYOR_SOUND_TIMER = 0.0;
                     TIME_ON_CONVEYORS = 0.0;
                 }
             }
@@ -3170,7 +3240,7 @@ impl Game {
         unsafe {
             if feetinwater != wasinwater {
                 if !wasinwater {
-                    self.audiop.write().unwrap().play("assets/sfx/water1.mp3", &feetpos, &vel, 0.6);
+                    self.audiop.write().unwrap().play_next_in_series("waterstepseries", &feetpos, &vel, 0.6);
                 }
                 wasinwater = feetinwater;
             } 
@@ -5392,7 +5462,7 @@ impl Game {
                 if action == Action::Press {
                     if !self.vars.menu_open && !self.hud.chest_open && !self.crafting_open {
 
-                        self.button_command("escapemenu");
+                        self.button_command("escapemenu".to_string());
     
                     } else {
                         self.vars.menu_open = false;

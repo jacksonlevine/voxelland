@@ -73,17 +73,14 @@ void main() {
 
 
 
-    float distance = gl_FragCoord.z;
-    FragColor = mix(FragColor, fogColor, min(1, max(distance, 0)));
+ 
 
 
-
-    vec4 texColor = texture(ourTexture, TexCoord);
-    FragColor = texColor  * vec4(ambientBrightMult, ambientBrightMult, ambientBrightMult, 1.0);
-    FragColor = mix(FragColor, fogColor, min(1, max(distance, 0)));
 
     FragColor = vec4(FragColor.xyz, FragColor.w*opacity);
 
     float pn = pNoise(TexCoord + (vec2(0.0005, 0.0005) * time), 10) * 25.0;
     FragColor = vec4(ambientBrightMult, ambientBrightMult, ambientBrightMult, pn * 0.3);
+
+
 }

@@ -1545,8 +1545,11 @@ impl Game {
     pub fn draw_stars(&self) {
         static mut HASUPLOADED: bool = false;
         static mut VBO: GLuint = 0;
+        static mut hasmulted: bool = false;
+
+
     
-        let vdata: [f32; 120] = [
+        let mut vdata: [f32; 120] = [
             200.0, -2.9, 0.0, 1.0, 0.5,
             0.0, -10.6, 200.0, 0.5, 0.0,
             0.0, 200.0, 0.0, 0.5, 0.5,
@@ -1573,7 +1576,19 @@ impl Game {
             200.0, -2.9, 0.0, 1.0, 0.5,
 
         ];
-    
+        unsafe {
+            if !hasmulted {
+                let mult = 2.0;
+                for chunk in vdata.chunks_mut(5) {
+                    chunk[0] = chunk[0] * mult;
+                    chunk[2] = chunk[2] * mult;
+                    chunk[1] = chunk[1] * mult;
+                }
+                hasmulted = true;
+            }
+            
+        }
+        
         unsafe {
             gl::BindVertexArray(self.starshader.vao);
             gl::UseProgram(self.starshader.shader_id);
@@ -2839,7 +2854,6 @@ impl Game {
 
                                 if updateinv {
                                     self.update_inventory();
-                                    Game::update_avail_recipes(&self.inventory);
                                 }
 
                                 
@@ -4140,6 +4154,16 @@ impl Game {
             drop(cam_lock);
         }
 
+        unsafe {
+            gl::Uniform1f(
+                gl::GetUniformLocation(
+                    self.oldshader.shader_id,
+                    b"renderingweather\0".as_ptr() as *const i8,
+                ),
+                0.0,
+            );
+        }
+
         WorldGeometry::bind_old_geometry_no_upload(cfl.vvbo, cfl.uvvbo, &self.oldshader);
 
 
@@ -4157,8 +4181,16 @@ impl Game {
 
         if unsafe { WEATHERTYPE } != 0.0 {
             WorldGeometry::bind_old_geometry_no_upload(cfl.wvvbo, cfl.wuvvbo, &self.oldshader);
-
-
+            unsafe {
+                gl::Uniform1f(
+                    gl::GetUniformLocation(
+                        self.oldshader.shader_id,
+                        b"renderingweather\0".as_ptr() as *const i8,
+                    ),
+                    1.0,
+                );
+            }
+            
         
             unsafe {
                 //gl::Disable(gl::CULL_FACE);

@@ -18,6 +18,8 @@ uniform float sunrise;
 uniform float time;
 uniform float weathertype;
 
+uniform float renderingweather;
+
 in vec3 blockColor;
 
 float similarity(vec3 dir1, vec3 dir2) {
@@ -55,7 +57,7 @@ void main()
         } else if (weathertype == 2.0 ) {
             RealTexCoord += vec2(0.0, time * -0.8);
         } else {
-            discard;
+
         }
 
         
@@ -83,10 +85,11 @@ void main()
         distance = distance * 10.0;
     }
 
+        if(FragColor.a < 0.4) {
+            discard;
+        }
 
-    if(FragColor.a < 0.4) {
-        discard;
-    }
+    
 
     if(FragColor.a < 1.0) {
         FragColor.a += distance*2.5f;

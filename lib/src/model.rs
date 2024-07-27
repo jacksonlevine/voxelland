@@ -272,8 +272,10 @@ impl Game {
                         Some(str) => {
 
                             //info!("Playing at {}, while player pos is {}", model.position, self.camera.lock().unwrap().position);
-
-                            self.audiop.write().unwrap().play(str, &model.position, &model.velocity, Planets::get_mob_volume(model.model_index));
+                            unsafe {
+                                                           AUDIOPLAYER.play(str, &model.position, &model.velocity, Planets::get_mob_volume(model.model_index));
+ 
+                            }
                         }
                         None => {
 
@@ -408,7 +410,10 @@ impl Game {
 
                     match model.sound {
                         Some(str) => {
-                            self.audiop.write().unwrap().play(str, &makebelievepos, &model.velocity, 1.0);
+                            unsafe {
+                                                            AUDIOPLAYER.play(str, &makebelievepos, &model.velocity, 1.0);
+
+                            }
                         }   
                         None => {
 
@@ -471,7 +476,10 @@ impl Game {
                     if *side == Side::FLOOR {
                         if !self.headless {
                             if !model.was_grounded && model.model_index == 2 {
-                                self.audiop.write().unwrap().play("assets/sfx/slam.mp3", &makebelievepos, &model.velocity, 1.0);
+                                unsafe {
+                                    AUDIOPLAYER.play("assets/sfx/slam.mp3", &makebelievepos, &model.velocity, 1.0);
+                                }
+                                
                             }
                         }
                         

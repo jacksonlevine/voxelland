@@ -31,6 +31,7 @@ use crate::chunkregistry::ChunkMemory;
 use crate::chunkregistry::ChunkRegistry;
 use crate::cube::Cube;
 use crate::cube::CubeSide;
+use crate::game::AUDIOPLAYER;
 use crate::inventory::ChestInventory;
 
 use crate::packedvertex::PackedVertex;
@@ -268,7 +269,6 @@ pub struct ChunkSystem {
     pub headless: bool,
     pub hashadinitiallightpass: Arc<Mutex<HashMap<vec::IVec2, bool>>>,
     pub lightmap: Arc<Mutex<HashMap<vec::IVec3, LightSegment>>>,
-    pub audiop: Option<Arc<RwLock<AudioPlayer>>>,
     pub chest_registry: Arc<DashMap<vec::IVec3, ChestInventory>>,
     pub generated_chunks: Arc<DashMap<vec::IVec2, bool>>,
 }
@@ -643,8 +643,7 @@ impl ChunkSystem {
         radius: u8,
         seed: u32,
         noisetype: usize,
-        headless: bool,
-        audiop: Option<Arc<RwLock<AudioPlayer>>>,
+        headless: bool
     ) -> ChunkSystem {
         let mut cs = ChunkSystem {
             chunks: Vec::new(),
@@ -670,7 +669,6 @@ impl ChunkSystem {
             headless,
             hashadinitiallightpass: Arc::new(Mutex::new(HashMap::new())),
             lightmap: Arc::new(Mutex::new(HashMap::new())),
-            audiop,
             chest_registry: Arc::new(DashMap::new()),
             generated_chunks: Arc::new(DashMap::new()),
         };
@@ -966,41 +964,29 @@ impl ChunkSystem {
         if !self.headless {
             if block == 0 {
                 let wastherebits = self.blockat(spot) & Blocks::block_id_bits();
-                if let Some(audiop) = self.audiop.as_ref() {
-                    match audiop.write() {
-                        Ok(mut audiop) => {
-                            let _ = audiop.play_next_in_series(
+unsafe {
+    let _ = AUDIOPLAYER.play_next_in_series(
                                 Blocks::get_place_series(wastherebits),
                                 &Vec3::new(spot.x as f32, spot.y as f32, spot.z as f32),
                                 &Vec3::ZERO,
                                 0.5,
                             );
-                        }
-                        Err(err) => {
-                            info!("Failed to acquire write lock on audiop: {:?}", err);
-                        }
-                    }
-                } else {
-                    info!("audiop is None");
-                }
+}
+       
+                            
+
+
             } else {
-                if let Some(audiop) = self.audiop.as_ref() {
-                    match audiop.write() {
-                        Ok(mut audiop) => {
-                            let _ = audiop.play_next_in_series(
+            unsafe {
+                 let _ = AUDIOPLAYER.play_next_in_series(
                                 Blocks::get_place_series(block & Blocks::block_id_bits()),
                                 &Vec3::new(spot.x as f32, spot.y as f32, spot.z as f32),
                                 &Vec3::ZERO,
                                 0.5,
                             );
-                        }
-                        Err(err) => {
-                            info!("Failed to acquire write lock on audiop: {:?}", err);
-                        }
-                    }
-                } else {
-                    info!("audiop is None");
-                }
+            }
+                           
+
             }
         }
     }

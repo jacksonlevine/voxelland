@@ -1,349 +1,138 @@
+use std::{collections::HashMap, fs::File, io::{BufReader, Cursor, Read}, thread};
+use dashmap::DashMap;
 use glam::Vec3;
+use lockfree::queue::Queue;
+use once_cell::sync::Lazy;
+use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, SpatialSink};
+use tracing::info;
 
-#[cfg(windows)]
-use libfmod::ffi::FMOD_DSP_STATE;
-#[cfg(windows)]
-use libfmod::{Channel, ChannelGroup, Sound, System, Vector};
+use crate::game::{AUDIOPLAYER, SHOULDRUN};
 
+pub static mut FUNC_QUEUE: Lazy<Queue<FuncQueue>> = Lazy::new(|| Queue::new());
 
-#[cfg(windows)]
-use std::f32::consts::PI;
-#[cfg(windows)]
-use std::{collections::HashMap, sync::atomic::AtomicBool};
-
-static mut SINE_WAVE_STATE: Option<SineWaveState> = None;
-
-struct SineWaveState {
-    frequency: f32,
-    phase: f32,
-    sample_rate: f32,
+enum FuncQueue {
+    play_in_head(String),
+    play(String, Vec3, Vec3, f32)
 }
 
-#[cfg(windows)]
-extern "C" fn dsp_callback(
-    _dsp_state: *mut FMOD_DSP_STATE,
-    _inbuffer: *mut f32,
-    outbuffer: *mut f32,
-    length: u32,
-    _inchannels: i32,
-    outchannels: *mut i32,
-) -> i32 {
-    unsafe {
-        if let Some(state) = &mut SINE_WAVE_STATE {
-            let sample_rate = state.sample_rate;
-            let frequency = state.frequency;
-            let mut phase = state.phase;
-
-            let samples = length * *outchannels as u32;
-            for i in 0..samples {
-                let sample_index = i as usize;
-                let sample = (2.0 * PI * frequency * phase / sample_rate).sin();
-                *outbuffer.add(sample_index) = sample as f32;
-
-                phase += 1.0;
-                if phase >= sample_rate {
-                    phase -= sample_rate;
-                }
-            }
-
-            state.phase = phase;
-        }
-
-        libfmod::FmodResult::Ok as i32
-    }
-}
-
-#[cfg(windows)]
-pub struct AudioPlayer {
-    system: System,
-    sounds: HashMap<&'static str, Sound>,
-    series: HashMap<&'static str, Vec<&'static str>>,
-    series_indexes: HashMap<&'static str, usize>,
-    channels: HashMap<&'static str, Vec<Channel>>, // Store channels to manage sound playback
-    head_group: ChannelGroup,
-    spatial_group: ChannelGroup,
-    dsp_group: ChannelGroup,
-    voicechannelsplaying: AtomicBool,
-}
-
-#[cfg(unix)]
-pub struct AudioPlayer {}
-
-#[cfg(windows)]
-impl AudioPlayer {
-
-    fn create_channel_groups(system: &libfmod::System) -> (libfmod::ChannelGroup, libfmod::ChannelGroup, ChannelGroup) {
-        let master_group = system.get_master_channel_group().unwrap();
-        let dsp_group = system.create_channel_group(Some(String::from("dsp"))).unwrap();
-        let head_group = system.create_channel_group(Some(String::from("head"))).unwrap();
-        let spatial_group = system.create_channel_group(Some(String::from("spatial"))).unwrap();
-        
-
-        let reverb_dsp = system.create_dsp_by_type(libfmod::DspType::Sfxreverb).unwrap();
-
-        reverb_dsp.set_parameter_float(libfmod::DspSfxReverb::DecayTime as i32, 1500.0).unwrap(); // Decay time in ms
-        reverb_dsp.set_parameter_float(libfmod::DspSfxReverb::EarlyDelay as i32, 7.0).unwrap(); // Early reflections delay
-        reverb_dsp.set_parameter_float(libfmod::DspSfxReverb::LateDelay as i32, 11.0).unwrap(); // Late reverberation delay
-        reverb_dsp.set_parameter_float(libfmod::DspSfxReverb::WetLevel as i32, -8.0).unwrap(); // Wet level (dB)
-        reverb_dsp.set_parameter_float(libfmod::DspSfxReverb::DryLevel as i32, 0.0).unwrap(); // Dry level (dB)
-
-
-        master_group.add_dsp(0, reverb_dsp).unwrap();
-        master_group.add_group(head_group, false).unwrap();
-        master_group.add_group(spatial_group, false).unwrap();
-        
-        (head_group, spatial_group, dsp_group)
-    }
-
-
-    pub fn new() -> Result<Self, libfmod::Error> {
-        let system = System::create().unwrap();
-        system.init(512, libfmod::Init::NORMAL, None)?; // Initialize system with 32 channels
-        let (head_group, spatial_group, dsp_group) = Self::create_channel_groups(&system);
-
-        let _name: [i8; 32] = [b'f'.try_into().unwrap(), b'u'.try_into().unwrap(), b's'.try_into().unwrap(), b't'.try_into().unwrap(), b'o'.try_into().unwrap(), b'm'.try_into().unwrap(), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // DSP name
-    
-        // let dsp = system
-        //     .create_dsp(libfmod::DspDescription {
-        //         pluginsdkversion: 110,
-        //         name,
-        //         version: 0x00010000, // Version number
-        //         numinputbuffers: 1,  // Number of input buffers
-        //         numoutputbuffers: 1, // Number of output buffers
-        //         read: Some(dsp_callback), // Set the DSP callback function
-        //         // Set other callbacks to None or default as needed
-        //         create: None,
-        //         release: None,
-        //         reset: None,
-        //         process: None,
-        //         setposition: None,
-        //         paramdesc: Vec::new(),
-        //         setparameterfloat: None,
-        //         setparameterint: None,
-        //         setparameterbool: None,
-        //         setparameterdata: None,
-        //         getparameterfloat: None,
-        //         getparameterint: None,
-        //         getparameterbool: None,
-        //         getparameterdata: None,
-        //         shouldiprocess: None,
-        //         userdata: std::ptr::null_mut(),
-        //         sys_register: None,
-        //         sys_deregister: None,
-        //         sys_mix: None,
-        //     })
-        //     .expect("Failed to create DSP");
-
-        // // Initialize the sine wave state
-        // unsafe {
-        //     SINE_WAVE_STATE = Some(SineWaveState {
-        //         frequency: 440.0, // A4 note
-        //         phase: 0.0,
-        //         sample_rate: 44100.0,
-        //     });
-        // }
-
-
-        // dsp_group.add_dsp(0, dsp).expect("Heyoo! It didn't work!");
-
-        
-
-
-        Ok(AudioPlayer {
-            system,
-            sounds: HashMap::new(),
-            series: HashMap::new(),
-            series_indexes: HashMap::new(),
-            channels: HashMap::new(),
-            head_group,
-            spatial_group,
-            dsp_group,
-            voicechannelsplaying: AtomicBool::new(true),
-        })
-    }
-    pub fn update(&mut self) {
-        self.system.update();
-        self.cleanup_channels();
-    }
-
-    pub fn preload(
-        &mut self,
-        id: &'static str,
-        file_path: &'static str,
-    ) -> Result<(), libfmod::Error> {
-        let sound = self
-            .system
-            .create_sound(file_path, libfmod::Mode::FMOD_3D, None).unwrap();
-
-        self.sounds.insert(id, sound);
-        Ok(())
-    }
-
-    pub fn preload_series(&mut self, series_name: &'static str, paths: Vec<&'static str>) {
-        self.series.insert(series_name, paths.clone());
-        self.series_indexes.insert(series_name, 0);
-        for path in paths {
-            if !self.sounds.contains_key(path) {
-                self.preload(path, path).unwrap(); // Simplified error handling
-            }
-        }
-    }
-
-    pub fn play_next_in_series(
-        &mut self,
-        series_name: &'static str,
-        pos: &Vec3,
-        vel: &Vec3,
-        vol: f32
-    ) -> Result<(), libfmod::Error> {
-        let vol = vol;
-        let index = *self.series_indexes.get(series_name).unwrap_or(&0);
-        match self.series.get(series_name) {
-            Some(file_paths) => {
-                let len = file_paths.len();
-                let file_path = file_paths[index];
-                self.play(file_path, pos, vel, vol);
-                let next_index = (index + 1) % len;
-                self.series_indexes.insert(series_name, next_index);
-            },
-            None => {
-
-            },
-        }
-        
-        
-
-        
-
-        Ok(())
-    }
-
-    pub fn play_in_head(&mut self, id: &'static str) {
-        if let Some(sound) = self.sounds.get(id) {
-            let channel = self.system.play_sound(*sound, Some(self.head_group), false).unwrap();
-            channel.set_mode(libfmod::Mode::FMOD_2D).unwrap();  // Ensure the sound is 2D
-            channel.set_volume(0.6).unwrap();  // Ensure the volume is set
-            self.channels
-                .entry(id)
-                .or_insert_with(Vec::new)
-                .push(channel);
-        } else {
-            self.preload(id, id).unwrap();
-            if let Some(sound) = self.sounds.get(id) {
-                let channel = self.system.play_sound(*sound, Some(self.head_group), false).unwrap();
-                channel.set_mode(libfmod::Mode::FMOD_2D).unwrap();  // Ensure the sound is 2D
-                channel.set_volume(0.6).unwrap();  // Ensure the volume is set
-                self.channels
-                    .entry(id)
-                    .or_insert_with(Vec::new)
-                    .push(channel);
-            }
-        }
-    }
-
-    pub fn stop_sound(&mut self, id: &'static str) {
-        if let Some(channel) = self.channels.get(&id) {
-            for chan in channel {
-                match chan.stop() {
-                    Ok(e) => {
-
-                    },
-                    Err(e) => {
-                        
-                    },
-                };
-            }
-        }
-    }
-
-    pub fn play(&mut self, id: &'static str, pos: &Vec3, vel: &Vec3, vol: f32) {
-        let vol = vol * 3.0;
-        if let Some(sound) = self.sounds.get(id) {
-            let channel = self.system.play_sound(*sound, Some(self.spatial_group), false).unwrap();
-            channel.set_mode(libfmod::Mode::FMOD_3D).unwrap();  // Ensure the sound is 3D
-            channel.set_3d_attributes(
-                Some(Vector::new(pos.x, pos.y, pos.z)),
-                Some(Vector::new(vel.x, vel.y, vel.z)),
-            ).unwrap();
-            channel.set_volume(vol).unwrap();
-            channel.set_3d_min_max_distance(1.0, 20.0).unwrap();  // Set min and max distances
-            self.channels
-                .entry(id)
-                .or_insert_with(Vec::new)
-                .push(channel);
-        } else {
-            self.preload(id, id).unwrap();
-            if let Some(sound) = self.sounds.get(id) {
-                let channel = self.system.play_sound(*sound, Some(self.spatial_group), false).unwrap();
-                channel.set_mode(libfmod::Mode::FMOD_3D).unwrap();  // Ensure the sound is 3D
-                channel.set_3d_attributes(
-                    Some(Vector::new(pos.x, pos.y, pos.z)),
-                    Some(Vector::new(vel.x, vel.y, vel.z)),
-                ).unwrap();
-                channel.set_volume(vol).unwrap();
-                channel.set_3d_min_max_distance(1.0, 20.0).unwrap();  // Set min and max distances
-                self.channels
-                    .entry(id)
-                    .or_insert_with(Vec::new)
-                    .push(channel);
-            }
-        }
-    }
-
-    pub fn cleanup_channels(&mut self) {
-        for (_name, channels) in &mut self.channels {
-            // Collect the indices of channels that are not playing
-            let mut chanstoremove = Vec::new();
-            for (index, channel) in channels.iter().enumerate() {
-                if !channel.is_playing().unwrap_or(true) {
-                    chanstoremove.push(index);
-                    //info!("Cleaned up channel {index}");
-                }
-            }
-    
-            // Remove channels that are not playing, in reverse order
-            for index in chanstoremove.iter().rev() {
-                channels.remove(*index);
-            }
-        }
-    }
-
-    pub fn set_listener_attributes(
-        &mut self,
-        position: Vector,
-        velocity: Vector,
-        forward: Vector,
-        up: Vector,
-    ) {
-        self.system
-            .set_3d_listener_attributes(0, Some(position), Some(velocity), Some(forward), Some(up))
-            .unwrap();
-    }
-}
-
-#[cfg(unix)]
 #[derive(Debug)]
-pub struct AudioError {} 
+pub struct AudioError {
+
+}
 
 
-#[cfg(unix)]
+pub struct SoundSeries {
+    pub sounds: Vec<String>,
+    pub index: usize
+}
+
+impl SoundSeries {
+    pub fn new(ids: Vec<String>) -> Self {
+        Self {
+            sounds: ids,
+            index: 0
+        }
+    }
+
+    pub fn increment(&mut self) {
+        self.index = (self.index + 1) % self.sounds.len();
+    }
+}
+
+pub struct SoundSink {
+    sink: SpatialSink,
+    worldpos: Vec3
+}
+
+impl SoundSink {
+    pub fn new(stream: &OutputStreamHandle, worldpos: Vec3, camerapos: Vec3, cameraright: Vec3) -> Self {
+        Self {
+            sink: SpatialSink::try_new(stream, 
+                worldpos.into(), 
+                (camerapos - cameraright).into(), 
+                (camerapos + cameraright).into()).unwrap(),
+            worldpos
+        }
+    }
+}
+
+pub fn spawn_audio_thread() {
+    thread::spawn(|| {
+        unsafe {
+            while SHOULDRUN {
+                match FUNC_QUEUE.pop() {
+                    Some(f) => {
+                        match f {
+                            FuncQueue::play_in_head(f) => {
+                                AUDIOPLAYER._play_in_head(f);
+                            },
+                            FuncQueue::play(id, pos, vel, vol) => {
+                                AUDIOPLAYER._play(id, &pos, &vel, vol)
+                            },
+                        }
+                        
+                    }
+                    None => {
+
+                    }
+                }
+            }
+        }
+    });
+    
+    
+}
+
+pub struct AudioPlayer {
+    output: OutputStreamHandle,
+    _stream: OutputStream,
+    sounds: HashMap<String, Vec<u8>>,
+    sinks: HashMap<String, SoundSink>,
+    headsinks: HashMap<String, Sink>,
+    serieslist: HashMap<String, SoundSeries>
+}
+
 impl AudioPlayer {
     pub fn new() -> Result<Self, AudioError> {
+        let(stream, handle ) = OutputStream::try_default().unwrap();
+
         Ok(AudioPlayer {
+            output: handle,
+            _stream: stream,
+            sounds: HashMap::new(),
+            sinks: HashMap::new(),
+            headsinks: HashMap::new(),
+            serieslist: HashMap::new()
         })
     }
+
     pub fn update(&mut self) {
+
     }
 
-    pub fn preload(
-        &mut self,
-        _id: &'static str,
-        _file_path: &'static str,
-    ) -> Result<(), AudioError> {
+    pub fn preload(&mut self, id: &'static str, file_path: &'static str) -> Result<(), AudioError> {
+        self._preload(id.to_string(), file_path.to_string())
+    }
+
+    pub fn _preload(&mut self, id: String, file_path: String) -> Result<(), AudioError> {
+        let mut file = File::open(&file_path).unwrap();
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).unwrap();
+        self.sounds.insert(file_path.clone(), buffer);
+        self.sinks.insert(file_path.clone(), SoundSink::new(&self.output, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO));
+        self.headsinks.insert(file_path.to_string(), Sink::try_new(&self.output).unwrap());
+
         Ok(())
     }
 
     pub fn preload_series(&mut self, _series_name: &'static str, _paths: Vec<&'static str>) {
+        let mut paths = Vec::new();
+        for path in _paths {
+            paths.push(path.to_string());
+            let _ = self._preload(path.to_string(), path.to_string());
+        }
+        let ss = SoundSeries::new(paths);
+        self.serieslist.insert(_series_name.to_string(), ss);
     }
 
     pub fn play_next_in_series(
@@ -351,20 +140,151 @@ impl AudioPlayer {
         _series_name: &'static str,
         _pos: &Vec3,
         _vel: &Vec3,
-        _vol: f32
+        _vol: f32,
     ) -> Result<(), AudioError> {
+
+        let soundname = match self.serieslist.get_mut(_series_name) {
+            Some(mut series) => {
+
+                let ret = series.sounds[series.index].clone();
+                series.increment();
+                ret
+            }   
+            None => {
+                info!("Sound series tried to play that we don't know, {}", _series_name);
+                String::new()
+            }
+        };
+
+        self.play_stringname(soundname, _pos, _vel, _vol);
+
         Ok(())
     }
 
-    pub fn play_in_head(&mut self, _id: &'static str) {
+
+    pub fn play_in_head(&mut self, id: &'static str) {
+        unsafe { FUNC_QUEUE.push(FuncQueue::play_in_head(id.to_string())) };
+    }
+
+    pub fn _play_in_head(&mut self, id: String) {
+        let mut needtopreload = false;
+        match self.sounds.get(&id.to_string()) {
+            Some(sound) => {
+
+
+                match self.headsinks.get(&id.to_string()) {
+                    Some(sink) => {
+
+        
+                        let cursor = Cursor::new(sound.clone());
+                        let reader = BufReader::new(cursor);
+                        let source = Decoder::new(reader).unwrap();
+
+                        sink.stop();
+        
+                        sink.append(source);
+                        sink.set_volume(0.5);
+                    },
+                    None => {
+                        println!("There was a sound but no sink. This shouldn't happen");
+                    },
+                }
+
+
+
+            },
+            None => {
+                needtopreload = true;
+            },
+        }
+
+        if needtopreload {
+            match self._preload(id.clone(), id.clone()) {
+                Ok(_) => {
+                    self._play_in_head(id.clone());
+                }
+                Err(e) => {
+                    println!("Couldn't play or preload {}", id);
+                }
+            }
+            
+        }
     }
 
     pub fn stop_sound(&mut self, _id: &'static str) {
+
     }
 
-    pub fn play(&mut self, _id: &'static str, _pos: &Vec3, _vel: &Vec3, _vol: f32) {
+    pub fn play_stringname(&mut self, id: String, pos: &Vec3, vel: &Vec3, vol: f32) {
+        unsafe { FUNC_QUEUE.push(FuncQueue::play(id, *pos, *vel, vol)) };
+    }
+
+    pub fn play(&mut self, id: &'static str, pos: &Vec3, vel: &Vec3, vol: f32) {
+        unsafe { FUNC_QUEUE.push(FuncQueue::play(id.to_string(), *pos, *vel, vol)) };
+    }
+
+    pub fn _play(&mut self, id: String, pos: &Vec3, vel: &Vec3, vol: f32) {
+        let vol = vol * 5.0;
+        let mut needtopreload = false;
+        match self.sounds.get(&id.to_string()) {
+            Some(sound) => {
+
+
+                match self.sinks.get(&id.to_string()) {
+                    Some(sink) => {
+
+                        let sink = &sink.sink;
+        
+                        let cursor = Cursor::new(sound.clone());
+                        let reader = BufReader::new(cursor);
+                        let source = Decoder::new(reader).unwrap();
+
+                        //sink.stop();
+        
+                        sink.append(source);
+                        sink.set_emitter_position((*pos).into());
+                        sink.set_volume(vol);
+                    },
+                    None => {
+                        println!("There was a sound but no sink. This shouldn't happen");
+                    },
+                }
+
+
+
+            },
+            None => {
+                needtopreload = true;
+            },
+        }
+
+        if needtopreload {
+            match self._preload(id.clone(), id.clone()) {
+                Ok(_) => {
+                    self._play(id, pos, vel, vol);
+                }
+                Err(e) => {
+                    println!("Couldn't play or preload {}", id);
+                }
+            }
+            
+        }
+        
     }
 
     pub fn cleanup_channels(&mut self) {
+
+    }
+
+    pub fn set_listener_attributes(
+        &mut self,
+        position: glam::Vec3,
+        right: glam::Vec3
+    ) {
+        for entry in &self.sinks {
+            let sink = entry.1;
+            sink.sink.set_left_ear_position((position - right).into());
+            sink.sink.set_right_ear_position((position + right).into());
+        }
     }
 }

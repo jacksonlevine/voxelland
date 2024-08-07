@@ -134,6 +134,7 @@ impl Hud {
         let shader = Shader::new("assets/menuvert.glsl", "assets/menufrag.glsl");
         let mut chestvao: GLuint = 0;
         let mut healthvao: GLuint = 0;
+        #[cfg(feature = "glfw")]
         unsafe {
             gl::BindVertexArray(shader.vao);
             gl::CreateVertexArrays(1, &mut chestvao);
@@ -204,7 +205,7 @@ impl Hud {
                     ]);
                 }
                 
-
+                #[cfg(feature = "glfw")]
                 unsafe {
                     gl::BindVertexArray(vao);
                     gl::NamedBufferData(vbo, (allgeo.len() * std::mem::size_of::<f32>()) as isize, allgeo.as_ptr() as *const GLvoid, gl::STATIC_DRAW);
@@ -255,7 +256,7 @@ impl Hud {
         let blackface = TextureFace::new(0, 6);
 
         let wwf = unsafe { WINDOWWIDTH } as f32 / 100.0;
-
+        #[cfg(feature = "glfw")]
         unsafe {
 
             let height = (20.0 / WINDOWHEIGHT as f32) as f32;
@@ -372,6 +373,7 @@ impl Hud {
         }
         
     }
+    #[cfg(feature = "glfw")]
     pub fn draw(&self) {
         unsafe {
 

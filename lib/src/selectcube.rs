@@ -17,7 +17,7 @@ pub struct SelectCube {
 impl SelectCube {
     pub fn new() -> SelectCube {
         let shader = Shader::new("assets/wfvert.glsl", "assets/wffrag.glsl");
-
+        #[cfg(feature = "glfw")]
         unsafe {
             gl::BindVertexArray(shader.vao);
         }
@@ -41,7 +41,7 @@ impl SelectCube {
             -0.501, -0.501,  0.501, -0.501,  0.501,  0.501
     
         ];
-
+        #[cfg(feature = "glfw")]
         unsafe {
             gl::CreateBuffers(1, &mut vbo);
             gl::NamedBufferData(vbo, (faces.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
@@ -59,7 +59,7 @@ impl SelectCube {
             vbo
         }
     }
-
+    #[cfg(feature = "glfw")]
     pub fn draw_at(&self, pos: Vec3, mvp: &Mat4, walkbob: f32) {
         unsafe {
             gl::BindVertexArray(self.shader.vao);

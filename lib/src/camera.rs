@@ -26,7 +26,7 @@ impl Camera {
         let direction = Vec3::new(0.0, 0.0, 1.0);
         let position = Vec3::new(0.0, 100.0, 0.0);
         let right = Vec3::new(0.0, 1.0, 0.0).cross(direction).normalize();
-        let fov: f32 = 90.0;
+        let fov: f32 = 80.0;
         let far = 560.0;
         let near = 0.001;
         let up = direction.cross(right);

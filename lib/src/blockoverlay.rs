@@ -17,7 +17,7 @@ pub struct BlockOverlay {
 impl BlockOverlay {
     pub fn new(texture: GLuint) -> BlockOverlay {
         let shader = Shader::new("assets/bovert.glsl", "assets/bofrag.glsl");
-
+        #[cfg(feature = "glfw")]
         unsafe {
             gl::BindVertexArray(shader.vao);
             gl::BindTextureUnit(0, texture);
@@ -76,7 +76,7 @@ impl BlockOverlay {
                 0.5, -0.55, -0.5,5.0,
     
         ];
-
+        #[cfg(feature = "glfw")]
         unsafe {
             gl::CreateBuffers(1, &mut vbo);
             gl::NamedBufferData(vbo, (faces.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
@@ -102,6 +102,7 @@ impl BlockOverlay {
     }
 
     pub fn draw_at(&self, pos: Vec3, breakprogress: i8, mvp: &Mat4, walkbob: f32) {
+        #[cfg(feature = "glfw")]
         unsafe {
             gl::Disable(gl::CULL_FACE);
             gl::BindVertexArray(self.shader.vao);

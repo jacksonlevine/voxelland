@@ -70,6 +70,7 @@ impl Drops {
 
         let shader = Shader::new("assets/dropvert.glsl", "assets/dropfrag.glsl");
         let mut vbo: GLuint = 0;
+        #[cfg(feature = "glfw")]
         unsafe {
             gl::BindVertexArray(shader.vao);
             gl::CreateBuffers(1, &mut vbo);
@@ -164,9 +165,10 @@ impl Drops {
     }
     pub fn update_and_draw_drops(&mut self, delta_time: &f32, mvp: &Mat4) {
         self.update_drops(delta_time);
+        #[cfg(feature = "glfw")]
         self.draw_drops(mvp);
     }
-
+    #[cfg(feature = "glfw")]
     pub fn draw_drops(&self, mvp: &Mat4) {
         unsafe {
             gl::Disable(gl::CULL_FACE);

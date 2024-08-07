@@ -473,16 +473,19 @@ fn main() {
 
     let width = 10;
     let height = 10;
+
+    #[cfg(target_feature="glfw")]
     let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
+    #[cfg(target_feature="glfw")]
     let (mut window, _events) = glfw
         .create_window(width, height, "VoxellandServer", glfw::WindowMode::Windowed)
         .expect("Failed to create GLFW window.");
-
+    #[cfg(target_feature="glfw")]
     gl::load_with(|s| window.get_proc_address(s) as *const _);
 
-    let initialseed: u32 = 783434;
+    let initialseed: u32 = 39979235;
 
-    let gameh = Game::new(&Arc::new(RwLock::new(window)), false, true, &Arc::new(AtomicBool::new(false)), &Arc::new(Mutex::new(None)));
+    let gameh = Game::new(false, true, &Arc::new(AtomicBool::new(false)), &Arc::new(Mutex::new(None)));
 
     while !gameh.is_finished() {
         thread::sleep(Duration::from_millis(100));
@@ -509,9 +512,16 @@ fn main() {
     let chestreg = csys.chest_registry.clone();
 
     csys.load_world_from_file(format!("world/{}", initialseed));
+
+    *(csys.currentseed.write().unwrap()) = initialseed;
+
+    
     csys.load_chests_from_file();
 
     csys.save_current_world_to_file(format!("world/{}", initialseed));
+
+
+    
 
     drop(csys);
 
@@ -937,6 +947,7 @@ fn main() {
 
 
         //println!("Running this");
+        #[cfg(feature = "glfw")]
         glfw.poll_events();
         gamearc.write().unwrap().update();
         let mut nblock = nsme_bare_arc.lock().unwrap();
@@ -946,7 +957,7 @@ fn main() {
 
         drop(nblock);
 
-        thread::sleep(Duration::from_millis(50));
+        // thread::sleep(Duration::from_millis(50));
             // if !shutupmobmsgs.load(std::sync::atomic::Ordering::Relaxed) {
 
             //     for nsme in nsme_bare.iter() {

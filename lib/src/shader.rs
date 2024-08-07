@@ -12,16 +12,20 @@ pub struct Shader {
 
 impl Shader {
     pub fn new(vertpath: &str, fragpath: &str) -> Shader {
+        #[cfg(feature = "glfw")]
         let vertex_shader = Self::compile_shader(vertpath, gl::VERTEX_SHADER);
+        #[cfg(feature = "glfw")]
         let fragment_shader = Self::compile_shader(fragpath, gl::FRAGMENT_SHADER);
+        #[cfg(feature = "glfw")]
         let shader_prog = Self::link_shader_program(vertex_shader, fragment_shader);
-
+        #[cfg(feature = "glfw")]
         unsafe {
             gl::DeleteShader(vertex_shader);
             gl::DeleteShader(fragment_shader);
         }
 
         let mut vao: u32 = 0;
+        #[cfg(feature = "glfw")]
         unsafe {
             gl::CreateVertexArrays(1, &mut vao);
             let error = gl::GetError();
@@ -29,13 +33,21 @@ impl Shader {
                 info!("OpenGL Error after creating vertex array: {}", error);
             }
         }
-
+        {
+            #[cfg(feature = "glfw")]
+            Shader {
+                shader_id: shader_prog,
+                vao,
+            }
+        }
+        #[cfg(not(feature = "glfw"))]
         Shader {
-            shader_id: shader_prog,
+            shader_id: 0,
             vao,
         }
-    }
 
+    }
+    #[cfg(feature = "glfw")]
     fn compile_shader(path: &str, shader_type: gl::types::GLenum) -> gl::types::GLuint {
         let mut file = File::open(path).unwrap();
         let mut shader_source = String::new();
@@ -67,7 +79,7 @@ impl Shader {
 
         shader
     }
-
+    #[cfg(feature = "glfw")]
     fn link_shader_program(
         vertex_shader: gl::types::GLuint,
         fragment_shader: gl::types::GLuint,

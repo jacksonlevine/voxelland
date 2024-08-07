@@ -28,8 +28,9 @@ use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI8, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
-
+#[cfg(feature = "audio")]
 use crate::audio::{spawn_audio_thread, AudioPlayer};
+
 use crate::blockinfo::Blocks;
 use crate::blockoverlay::BlockOverlay;
 use crate::chunk::{check_for_intercepting, ChunkFacade, ChunkSystem};
@@ -62,6 +63,7 @@ use crate::windowandkey::uncapkb;
 use crate::worldgeometry::WorldGeometry;
 use crate::inventory::*;
 use std::sync::RwLock;
+
 
 static mut CONVEYOR_SOUND_TIMER: f32 = 0.0;
 
@@ -110,11 +112,11 @@ pub static mut TIME_ON_CONVEYORS: f32 = 0.0;
 pub static mut ROOFOVERHEAD: Lazy<AtomicBool> = Lazy::new(|| AtomicBool::new(false));
 
 
+pub static mut HEADLESS: bool = false;
 
 
 
-
-
+#[cfg(feature = "audio")]
 pub static mut AUDIOPLAYER: Lazy<AudioPlayer> = Lazy::new(|| AudioPlayer::new().unwrap());
 
 
@@ -168,7 +170,8 @@ pub static mut MOUSED_SLOT: SlotIndexType = SlotIndexType::None;
 pub static mut CROUCHING: bool = false;
 
 
-pub static mut SONGS: [&'static str; 10] = [
+pub static mut SONGS: [&'static str; 11] = [
+    "assets/music/bee.mp3",
     "assets/music/qv2.mp3",
     "assets/music/song.mp3",
     "assets/music/Farfromhome.mp3",
@@ -327,12 +330,17 @@ pub struct Game {
     pub static_model_entities: Vec<ModelEntity>,
     pub non_static_model_entities: Arc<DashMap<u32, ModelEntity>>,
     pub select_cube: SelectCube,
+    #[cfg(feature = "glfw")]
     pub block_overlay: BlockOverlay,
     pub ship_pos: Vec3,
     pub planet_y_offset: f32,
+    #[cfg(feature = "glfw")]
     pub window: Arc<RwLock<PWindow>>,
+    #[cfg(feature = "glfw")]
     pub guisys: GuiSystem,
+    #[cfg(feature = "glfw")]
     pub hud: Hud,
+    #[cfg(feature = "glfw")]
     pub drops: Drops,
     pub inventory: Arc<RwLock<Inventory>>,
     pub animations: Vec<Vec<Animation>>,
@@ -353,6 +361,7 @@ pub struct Game {
     pub visions_timer: f32,
     pub visions_camera: Camera,
     pub current_vision: Option<VisionType>,
+    #[cfg(feature = "glfw")]
     pub tex: Texture,
     pub inwater: bool,
     pub headinwater: bool,
@@ -378,7 +387,26 @@ enum FaderNames {
 }
 
 impl Game {
+
+    #[cfg(feature = "glfw")]
     pub fn new(window: &Arc<RwLock<PWindow>>, connectonstart: bool, headless: bool, addressentered: &Arc<AtomicBool>, address: &Arc<Mutex<Option<String>>>) -> JoinHandle<Game> {
+        Self::newold(&Some(window.clone()), connectonstart, headless, addressentered, address)
+    }
+
+    #[cfg(not(feature = "glfw"))]
+    pub fn new(connectonstart: bool, headless: bool, addressentered: &Arc<AtomicBool>, address: &Arc<Mutex<Option<String>>>) -> JoinHandle<Game> {
+        Self::newold(&None, connectonstart, headless, addressentered, address)
+    }
+    
+    pub fn newold(window: &Option<Arc<RwLock<PWindow>>>, connectonstart: bool, headless: bool, addressentered: &Arc<AtomicBool>, address: &Arc<Mutex<Option<String>>>) -> JoinHandle<Game> {
+
+
+        
+        unsafe {
+            if headless {
+                HEADLESS = true;
+            }
+        }
         unsafe {
             SHOULDRUN =  true;
         }
@@ -400,6 +428,7 @@ impl Game {
         let stamina = Arc::new(AtomicI32::new(100));
 
         if !headless {
+            #[cfg(feature = "audio")]
             spawn_audio_thread();
         }
         
@@ -407,10 +436,11 @@ impl Game {
             .write()
             .unwrap()
             .extend(vec![
-                Fader::new(92.0, 90.0, 30.0, false), //FOV fader for moving
+                Fader::new(83.0, 80.0, 30.0, false), //FOV fader for moving
                 Fader::new(1.0, 0.0, 5.0, false)    //"Visions" fader for overlay
                 ]);
 
+        #[cfg(feature = "glfw")]
         unsafe {
             gl::BindVertexArray(shader0.vao);
             let error = gl::GetError();
@@ -418,28 +448,35 @@ impl Game {
                 info!("OpenGL Error after binding vertex array: {}", error);
             }
         }
+
+        #[cfg(feature = "glfw")]
         let tex = Texture::new("assets/world.png").unwrap();
+        #[cfg(feature = "glfw")]
+        let weathertex = Texture::new("assets/weather.png").unwrap();
+
+        #[cfg(feature = "glfw")]
+        {
         tex.add_to_unit(0);
 
-        let weathertex = Texture::new("assets/weather.png").unwrap();
+        
         weathertex.add_to_unit(2);
 
 
-        let audiop = Arc::new(RwLock::new(AudioPlayer::new().unwrap()));
+        }
+        let randseed = if !headless {
+            let mut rng = StdRng::from_entropy();
 
+            let randseed: u32 = rng.gen_range(0..72731273);
 
-        let audiopoption = match headless {
-            true => {
-                None
-            }
-            false => {
-                Some(audiop.clone())
-            }
+            println!("Rand seed: {}", randseed);
+            randseed
+        } else {
+            println!("Headless, giving seed generation duty to servero.");
+            0
         };
+        
 
-        let mut rng = StdRng::from_entropy();
-
-        let mut csys = ChunkSystem::new(10, rng.gen_range(0..72731273), 0, headless);
+        let mut csys = ChunkSystem::new(10, randseed, 0, headless);
         let voxel_models = vec![
             JVoxModel::new("assets/voxelmodels/bush.vox"),
             JVoxModel::new("assets/voxelmodels/tree1.vox"),
@@ -558,8 +595,8 @@ impl Game {
                 }
             });
 
-            let csysclone = chunksys.clone();
-            let camclone = cam.clone();
+           //  let csysclone = chunksys.clone();
+           // let camclone = cam.clone();
 
             // thread::spawn(move || {
             //     while unsafe { SHOULDRUN } {
@@ -589,8 +626,8 @@ impl Game {
 
 
 
-
-        let mut hud = Hud::new(&window.clone(), tex.id, health.clone(), stamina.clone());
+        #[cfg(feature = "glfw")]
+        let mut hud = Hud::new(&window.as_ref().unwrap().clone(), tex.id, health.clone(), stamina.clone());
 
         fn add_inventory_rows(elements: &mut Vec<HudElement>, yoffset: f32, rows: i32, start_slot: SlotIndexType) {
               
@@ -696,17 +733,17 @@ impl Game {
         }
     }
         }
-
+        #[cfg(feature = "glfw")]
         add_inventory_rows(&mut hud.elements, -0.9, 1, SlotIndexType::InvSlot(0));
 
-
+        #[cfg(feature = "glfw")]
         add_inventory_rows(&mut hud.chestelements, 0.4, 4, SlotIndexType::ChestSlot(0));
 
 
         //Crosshair
         let tf = TextureFace::new(0, 13);
         
-
+        #[cfg(feature = "glfw")]
         hud.elements.push(HudElement::new(Vec2::new(0.0, 0.0), Vec2::new(0.08, 0.08), [
                 tf.blx, tf.bly,
                 tf.brx, tf.bry,
@@ -744,7 +781,7 @@ impl Game {
                     tf.tlx, tf.tly,
                     tf.blx, tf.bly
                 ], SlotIndexType::InvSlot(221));
-    
+                #[cfg(feature = "glfw")]
                 hud.chestelements.push(invrowel);
 
     
@@ -761,6 +798,7 @@ impl Game {
                     tf.tlx, tf.tly,
                     tf.blx, tf.bly
                 ], SlotIndexType::InvSlot(221));
+                #[cfg(feature = "glfw")]
                 hud.chestelements.push(invrowel);
     
                 let invrowel = HudElement::new(Vec2::new(0.0  + 0.02, 0.0), Vec2::new(0.05, 0.05), [
@@ -772,7 +810,7 @@ impl Game {
                     tf.tlx, tf.tly,
                     tf.blx, tf.bly
                 ], SlotIndexType::InvSlot(221));
-    
+                #[cfg(feature = "glfw")]
                 hud.chestelements.push(invrowel);
    
 
@@ -850,6 +888,9 @@ impl Game {
             SONGINDEX = (SONGINDEX + rng.gen_range(1..SONGS.len())) % SONGS.len();
         }
 
+        #[cfg(feature = "glfw")]
+        let window = &window.as_ref().unwrap().clone();
+
         let mut g = Game {
             chunksys: chunksys.clone(),
             shader0,
@@ -908,12 +949,17 @@ impl Game {
             static_model_entities: Vec::new(),
             non_static_model_entities: nsme.clone(),
             select_cube: SelectCube::new(),
+            #[cfg(feature = "glfw")]
             block_overlay: BlockOverlay::new(tex.id),
             ship_pos: Vec3::new(0.0,0.0,0.0),
             planet_y_offset: 0.0,
+            #[cfg(feature = "glfw")]
             window: window.clone(),
+            #[cfg(feature = "glfw")]
             guisys: GuiSystem::new(&window.clone(), &tex),
+            #[cfg(feature = "glfw")]
             hud,
+            #[cfg(feature = "glfw")]
             drops: Drops::new(tex.id, &cam, &chunksys, &inv, connectonstart, &needtosend.clone()),
             inventory: inv,
             animations: Vec::new(),
@@ -934,6 +980,7 @@ impl Game {
             visions_timer : 0.0,
             visions_camera,
             current_vision: Some(VisionType::Model(0)),
+            #[cfg(feature = "glfw")]
             tex,
             inwater: false,
             headinwater: false,
@@ -952,6 +999,7 @@ impl Game {
             stamina,
             weathertype: 0.0
         };
+        #[cfg(feature = "glfw")]
         if !headless {
             g.load_model("assets/models/car/scene.gltf");
                 g.load_model("assets/models/car/scene.gltf");
@@ -977,11 +1025,13 @@ impl Game {
          
         unsafe {
             for string in SONGS {
+                #[cfg(feature = "audio")]
                 AUDIOPLAYER.preload(string, string);
             }
         }
         
-        
+        #[cfg(feature = "audio")]
+        {
         unsafe {
             AUDIOPLAYER.preload_series("grassstepseries", vec![
                 "assets/sfx/grassstep1.mp3",
@@ -1072,7 +1122,7 @@ impl Game {
             ]);
 
             AUDIOPLAYER.preload("assets/sfx/cricket1.mp3", "assets/sfx/cricket1.mp3");
-        }
+        }}
         thread::spawn(move || {
 
             if !headless {
@@ -1170,10 +1220,12 @@ impl Game {
                 if self.vars.in_multiplayer {
                     self.netconn.send(&Message::new(MessageType::Disconnect, Vec3::ZERO, 0.0, 0))
                 }
+                #[cfg(feature = "glfw")]
                 self.window.write().unwrap().set_should_close(true);
             }
             "closemenu" => {
                 self.vars.menu_open = false;
+                #[cfg(feature = "glfw")]
                 self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
                 self.set_mouse_focused(true);
             }
@@ -1242,6 +1294,7 @@ impl Game {
             }
         }
     }
+    #[cfg(feature = "audio")]
     pub fn play_weather_sound(&mut self) {
         static mut TIMER: f32 = 0.0;
         static mut OUTSIDE_RAIN_PLAYING: bool = false;
@@ -1264,7 +1317,7 @@ impl Game {
                 2.0 => {
                     if ROOFOVERHEAD.load(Ordering::Relaxed) {
                         if !INSIDE_RAIN_PLAYING {
-                       
+                            
                             AUDIOPLAYER.stop_sound("assets/sfx/rainoutside.mp3");
                     //w.stop_sound("assets/sfx/raininside.mp3");
                     AUDIOPLAYER.stop_sound("assets/sfx/snowoutside.mp3");
@@ -1416,19 +1469,19 @@ impl Game {
         
     }
 
-
+    #[cfg(feature = "glfw")]
     pub fn draw_clouds(&self) {
         static mut HASUPLOADED: bool = false;
         static mut VBO: GLuint = 0;
     
         let vdata: [f32; 30] = [
-            -100.0, 100.5, -100.0,    0.0, 1.0, 
-            -100.0, 100.5, 100.0,     0.0, 0.0, 
-            100.0, 100.5, 100.0,      1.0, 0.0, 
+            -100.0, 100.5-10.0, -100.0,    0.0, 1.0, 
+            -100.0, 100.5-10.0, 100.0,     0.0, 0.0, 
+            100.0, 100.5-10.0, 100.0,      1.0, 0.0, 
     
-            100.0, 100.5, 100.0,      1.0, 0.0, 
-            100.0, 100.5, -100.0,     1.0, 1.0, 
-            -100.0, 100.5, -100.0,    0.0, 1.0
+            100.0, 100.5-10.0, 100.0,      1.0, 0.0, 
+            100.0, 100.5-10.0, -100.0,     1.0, 1.0, 
+            -100.0, 100.5-10.0, -100.0,    0.0, 1.0
         ];
     
         unsafe {
@@ -1524,6 +1577,14 @@ impl Game {
                 gl::GetUniformLocation(self.cloudshader.shader_id, b"fogCol\0".as_ptr() as *const i8),
                 fogcol.0, fogcol.1, fogcol.2, fogcol.3
             );
+
+            gl::Uniform1f(
+                gl::GetUniformLocation(
+                    self.shader0.shader_id,
+                    b"walkbob\0".as_ptr() as *const i8,
+                ),
+                self.vars.walkbobtimer
+            );
     
             gl::Uniform1f(
                 gl::GetUniformLocation(self.cloudshader.shader_id, b"sunset\0".as_ptr() as *const i8),
@@ -1541,7 +1602,7 @@ impl Game {
             gl::Enable(gl::CULL_FACE);
         }
     }
-
+    #[cfg(feature = "glfw")]
     pub fn draw_stars(&self) {
         static mut HASUPLOADED: bool = false;
         static mut VBO: GLuint = 0;
@@ -1699,7 +1760,7 @@ impl Game {
             gl::Enable(gl::CULL_FACE);
         }
     }
-    
+    #[cfg(feature = "glfw")]
     pub fn update_inventory(&mut self) {
         for i in 20..40 {
             let realslotind = i - 20;
@@ -2227,7 +2288,7 @@ impl Game {
 
         }
     }
-
+    #[cfg(feature = "audio")]
     pub fn do_step_sounds(&mut self) {
         static mut TIMER: f32 = 0.0;
         static mut LAST_CAM_POS: Vec3 = Vec3{x: 0.0, y: 0.0, z: 0.0};
@@ -2254,7 +2315,7 @@ impl Game {
         }
         
     }
-
+    #[cfg(feature = "audio")]
     pub fn do_step_sound_now(&mut self, position: Vec3) {
         let campos = position;
         let camfootpos = campos - Vec3::new(0.0, 2.0, 0.0);
@@ -2262,6 +2323,7 @@ impl Game {
         let blockat = blockat & Blocks::block_id_bits();
         if blockat != 0 { 
             unsafe {
+                
                 AUDIOPLAYER.play_next_in_series(&Blocks::get_walk_series(blockat), &(camfootpos), &Vec3::new(0.0, 0.0, 0.0), 0.3);
             }
         }
@@ -2296,6 +2358,8 @@ impl Game {
 
                     self.netconn.sendqueue.push(message);
                 }
+
+                #[cfg(feature = "audio")]
                 unsafe {
                     AUDIOPLAYER.play_next_in_series("clickseries", &Vec3::new(
                             spot.x as f32, 
@@ -2322,6 +2386,7 @@ impl Game {
 
                     self.netconn.sendqueue.push(message);
                 }
+                #[cfg(feature = "audio")]
                 unsafe {
                     AUDIOPLAYER.play_next_in_series("clickseries", &Vec3::new(
                     spot.x as f32, 
@@ -2334,6 +2399,7 @@ impl Game {
                 let d = self.camera.lock().unwrap().direction.clone();
 
                 self.camera.lock().unwrap().velocity += Vec3::new(0.0, TRAMPOLINE_VELOCITY_FIGURE, 0.0) + d;
+                #[cfg(feature = "audio")]
                 unsafe {
                     AUDIOPLAYER.play("assets/sfx/boing.mp3", &(camfootpos), &Vec3::new(0.0, 0.0, 0.0), 0.5);
                 }
@@ -2348,6 +2414,7 @@ impl Game {
 
     pub fn takeoff_ship(&mut self) {
         if !self.vars.ship_taken_off {
+            #[cfg(feature = "audio")]
             unsafe {
                 AUDIOPLAYER.play("assets/sfx/shiptakeoff.mp3", &self.ship_pos, &Vec3::ZERO, 1.0);
             }
@@ -2481,7 +2548,9 @@ impl Game {
             
             if ON_CONVEYORS {
                 if CONVEYOR_SOUND_TIMER <= 0.0 {
+                    #[cfg(feature = "audio")]
                     AUDIOPLAYER.play_in_head("assets/sfx/onconveyor.mp3");
+
                     CONVEYOR_SOUND_TIMER = 2.5;
                 } else {
                     CONVEYOR_SOUND_TIMER -= self.delta_time;
@@ -2509,6 +2578,7 @@ impl Game {
         }
 
         if !self.headless {
+            #[cfg(feature = "audio")]
             self.play_weather_sound();
         }
             
@@ -2582,6 +2652,7 @@ impl Game {
                     } else {
                         SONGTIMER = 0.0;
                         if !self.headless {
+                            #[cfg(feature = "audio")]
                             AUDIOPLAYER.play_in_head(SONGS[SONGINDEX]);
                         }
                         
@@ -2615,7 +2686,7 @@ impl Game {
         let overlayfade = fadersread[FaderNames::VisionsFader as usize].value.clone();
 
         drop(fadersread);
-
+        #[cfg(feature = "glfw")]
         if !self.headless {
 
             let (x,y) = self.window.read().unwrap().get_cursor_pos();
@@ -2896,6 +2967,7 @@ impl Game {
 
                                     if SONGINDEX as u32 != newsongindex {
                                         SONGINDEX = newsongindex as usize;
+                                        #[cfg(feature = "audio")]
                                         AUDIOPLAYER.play_in_head(SONGS[SONGINDEX]);
                                     }
                                 }
@@ -3064,6 +3136,7 @@ impl Game {
             
 
             unsafe{ 
+                #[cfg(feature = "audio")]
                 AUDIOPLAYER.update();
             }
             
@@ -3074,11 +3147,13 @@ impl Game {
             let right = camlock.right;
 
             drop(camlock);
+            #[cfg(feature = "audio")]
             unsafe {
                 AUDIOPLAYER.set_listener_attributes(pos, right);
             }
-            
+            #[cfg(feature = "audio")]
             self.do_step_sounds();
+
             if self.inventory.read().unwrap().dirty {
                 self.update_inventory();
             }
@@ -3245,6 +3320,7 @@ impl Game {
                         TRAMPOLINE = true;
                         let d = camlock.direction;
                         camlock.velocity += Vec3::new(0.0, TRAMPOLINE_VELOCITY_FIGURE, 0.0) + d;
+                        #[cfg(feature = "audio")]
                         AUDIOPLAYER.play("assets/sfx/boing.mp3", &(feetpos), &Vec3::new(0.0, 0.0, 0.0), 0.5);
                     }
                     
@@ -3299,6 +3375,7 @@ impl Game {
 
         unsafe {
             if feetinwater != wasinwater {
+                #[cfg(feature = "audio")]
                 if !wasinwater {
                     AUDIOPLAYER.play_next_in_series("waterstepseries", &feetpos, &vel, 0.6);
                 }
@@ -3469,15 +3546,18 @@ impl Game {
         let pos = camlock.position.clone();
         drop(camlock);
 
+        #[cfg(feature = "audio")]
         if stepsoundqueued {
             self.do_step_sound_now(pos);
         }
+
         if activate_jump_queued {
             self.activate_jump_block(pos);
         }
 
     }
 
+    #[cfg(feature = "glfw")]
     pub fn draw_sky(&self, top: Vec4, bot: Vec4, amb: f32, pitch: f32) {
         //Sky
         unsafe {
@@ -3554,7 +3634,7 @@ impl Game {
             gl::Enable(gl::DEPTH_TEST);
         }
     }
-
+    #[cfg(feature = "glfw")]
     pub fn draw_select_cube(&mut self) {
 
         static mut LAST_CAM_POS: Vec3 = Vec3{x:0.0, y:0.0, z:0.0};
@@ -3645,12 +3725,14 @@ impl Game {
         }
     }
 
+    #[cfg(feature = "glfw")]
     pub fn draw(&self) {
         
 
         let campitch = self.camera.lock().unwrap().pitch;
 
         //Sky
+        #[cfg(feature = "glfw")]
         match self.vars.hostile_world {
             true => {
                 self.draw_sky(self.vars.hostile_world_sky_color, self.vars.hostile_world_sky_bottom, self.ambient_bright_mult, campitch);
@@ -3995,8 +4077,7 @@ impl Game {
             gl::Disable(gl::CULL_FACE);
         }
         self.draw_models();
-        self.draw_stars();
-        self.draw_clouds();
+        
         
         for (_index, cfl) in cmem.memories.iter().enumerate() {
             if cfl.used {
@@ -4234,7 +4315,10 @@ impl Game {
 
             }
         }
-        
+        #[cfg(feature = "glfw")]
+        self.draw_stars();
+        #[cfg(feature = "glfw")]
+        self.draw_clouds();
 
 
     }
@@ -4272,8 +4356,9 @@ impl Game {
         } else {
             info!("No thread to join or already joined.");
         }
-
+        #[cfg(feature = "glfw")]
         self.drops.drops.clear();
+
         self.non_static_model_entities.clear();
         self.chunksys.write().unwrap().exit();
     }
@@ -4293,7 +4378,7 @@ impl Game {
         
 
 
-
+    #[cfg(feature = "glfw")]
         self.drops.drops.clear();
         self.non_static_model_entities.clear();
 
@@ -4779,6 +4864,7 @@ impl Game {
                     for key in set {
                         self.chunksys.read().unwrap().queue_rerender_with_key(key, true, false);
                     }
+                    #[cfg(feature = "glfw")]
                     self.drops.add_drop(tip, 17, 1);
                 } else if blockat == 19 { //Door stuff
                     let top = DoorInfo::get_door_top_bit(blockbits);
@@ -4808,6 +4894,7 @@ impl Game {
 
                 } else {
                     if blockat != 0 {
+                        #[cfg(feature = "glfw")]
                         self.drops.add_drop(tip, blockat, 1);
                     }
                     
@@ -4825,6 +4912,7 @@ impl Game {
             None => {}
         }
     }
+    #[cfg(feature = "glfw")]
     pub fn scroll(&mut self, y: f64) {
         let mut invrowchange = 0;
         if y > 0.0 {
@@ -4841,7 +4929,7 @@ impl Game {
         self.hud.dirty = true;
         self.hud.update();
     }
-
+    #[cfg(feature = "glfw")]
     pub fn cast_place_ray(&mut self) {
         
 
@@ -5331,6 +5419,7 @@ impl Game {
         
 
     }
+    #[cfg(feature = "glfw")]
     pub fn mouse_button(&mut self, mb: MouseButton, a: Action) {
         if self.hud.chest_open {
 
@@ -5533,7 +5622,7 @@ impl Game {
 
     }
 
-
+    #[cfg(feature = "glfw")]
     pub fn keyboard(&mut self, key: Key, action: Action) {
         match key {
             Key::Escape => {
@@ -5698,13 +5787,11 @@ impl Game {
                     self.current_vision = Some(VisionType::Model(rng.gen_range(2..self.gltf_models.len())));
                     self.visions_timer = 0.0;
                     self.faders.write().unwrap()[FaderNames::VisionsFader as usize].up();
+                    #[cfg(feature = "audio")]
                     unsafe {
                         AUDIOPLAYER.play_in_head("assets/sfx/dreambell.mp3");
                     }
-                    
                 }
-                
-
             }
 
             // Key::L => {

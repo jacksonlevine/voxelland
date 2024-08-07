@@ -26,12 +26,17 @@ use std::sync::{Arc, Mutex};
 
 use noise::{NoiseFn, Perlin};
 
+#[cfg(feature = "audio")]
 use crate::audio::AudioPlayer;
+
 use crate::chunkregistry::ChunkMemory;
 use crate::chunkregistry::ChunkRegistry;
 use crate::cube::Cube;
 use crate::cube::CubeSide;
+
+#[cfg(feature = "audio")]
 use crate::game::AUDIOPLAYER;
+
 use crate::inventory::ChestInventory;
 
 use crate::packedvertex::PackedVertex;
@@ -128,7 +133,7 @@ impl ChunkGeo {
 
         let mut wvvbo: gl::types::GLuint = 0;
         let mut wuvvbo: gl::types::GLuint = 0;
-
+        #[cfg(feature = "glfw")]
         unsafe {
             gl::CreateBuffers(1, &mut vbo32);
             gl::CreateBuffers(1, &mut vbo8);
@@ -216,7 +221,7 @@ pub struct ChunkFacade {
 }
 
 static CW: i32 = 15;
-static CH: i32 = 128;
+static CH: i32 = 256;
 
 pub struct ReadyMesh {
     pub geo_index: usize,
@@ -574,6 +579,7 @@ impl ChunkSystem {
     pub fn exit(&mut self) {
         if !self.headless {
             for cg in &self.geobank {
+                #[cfg(feature = "glfw")]
                 unsafe {
                     gl::DeleteBuffers(1, &cg.vbo32);
                     gl::DeleteBuffers(1, &cg.tvbo32);
@@ -964,6 +970,7 @@ impl ChunkSystem {
         if !self.headless {
             if block == 0 {
                 let wastherebits = self.blockat(spot) & Blocks::block_id_bits();
+                #[cfg(feature = "audio")]
 unsafe {
     let _ = AUDIOPLAYER.play_next_in_series(
                                 Blocks::get_place_series(wastherebits),
@@ -977,6 +984,7 @@ unsafe {
 
 
             } else {
+                #[cfg(feature = "audio")]
             unsafe {
                  let _ = AUDIOPLAYER.play_next_in_series(
                                 Blocks::get_place_series(block & Blocks::block_id_bits()),
@@ -2349,10 +2357,13 @@ unsafe {
     }
 
     pub fn noise_func(&self, spot: vec::IVec3) -> f64 {
+
+        let spot = spot;
+        let spot = (Vec3::new(spot.x as f32, spot.y as f32, spot.z as f32) / 3.0) + Vec3::new(0.0, 10.0, 0.0);
         let xzdivisor1 = 600.35 * 4.0;
         let xzdivisor2 = 1000.35 * 4.0;
 
-        let mut y = spot.y - 20;
+        let mut y = spot.y - 20.0;
 
         let noise1 = f64::max(
             0.0,
@@ -2371,7 +2382,7 @@ unsafe {
                 ),
         ) * 2.0;
 
-        y += 100;
+        y += 100.0;
 
         let noise2 = f64::max(
             0.0,
@@ -2559,7 +2570,7 @@ unsafe {
                 }
             }
             _ => {
-                static WL: f32 = 40.0;
+                static WL: f32 = 30.0;
 
                 let biomenum = self.biome_noise(IVec2 {
                     x: spot.x,
@@ -2597,8 +2608,8 @@ unsafe {
                         }
                     } else {
 
-
-                        if spot.y > (WL + 2.0) as i32
+                        let beachnoise = self.perlin.get([spot.y as f64/7.5, spot.z as f64/7.5, spot.x as f64/7.5]);
+                        if spot.y > (WL + beachnoise as f32) as i32
                         || self.noise_func(spot + vec::IVec3 { x: 0, y: 5, z: 0 }) > 10.0
                         {
                             if self.noise_func(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {

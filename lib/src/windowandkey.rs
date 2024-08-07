@@ -186,6 +186,8 @@ impl WindowAndKeyContext {
     
 
     pub fn run(&mut self) {
+        
+        #[cfg(feature = "glfw")]
         self.glfw.poll_events();
 
         let current_time = Instant::now();
@@ -366,8 +368,12 @@ impl WindowAndKeyContext {
                             let gmenuopen = g.vars.menu_open;
             
                             let gcraftopen = g.crafting_open;
+
+                            #[cfg(feature = "glfw")]
                             let gchestopen = g.hud.chest_open;
 
+                            #[cfg(not(feature = "glfw"))]
+                            let gchestopen = false;
                             
             
                             if g.vars.main_menu {
@@ -646,10 +652,12 @@ impl WindowAndKeyContext {
                                                         RECIPES_DISABLED = false;
                                                         RECIPE_COOLDOWN_TIMER = 0.0;
                                                     }
+
                                                 }
                                                 
                                             }
 
+                                            #[cfg(feature = "glfw")]
                                             g.update_inventory();
 
 
@@ -707,6 +715,7 @@ impl WindowAndKeyContext {
                                                     }
                                                     
                                                 }
+                                                #[cfg(feature = "glfw")]
                                                 self.game
                                                     .as_mut()
                                                     .unwrap()
@@ -743,6 +752,7 @@ impl WindowAndKeyContext {
 
                                             if (!io.want_capture_keyboard && !io.want_text_input  ) && !gmenuopen {
                                                 
+                                                #[cfg(feature = "glfw")]
                                                 self.game.as_mut().unwrap().keyboard(key, action);
             
                                                 if key == Key::Escape {
@@ -782,6 +792,7 @@ impl WindowAndKeyContext {
                                             io.mouse_wheel += y as f32;
                                             
                                             if !gmenuopen {
+                                                #[cfg(feature = "glfw")]
                                                 self.game.as_mut().unwrap().scroll(y);
                                             }
                                             

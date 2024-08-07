@@ -6,6 +6,7 @@ use once_cell::sync::Lazy;
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, SpatialSink};
 use tracing::info;
 
+#[cfg(feature = "audio")]
 use crate::game::{AUDIOPLAYER, SHOULDRUN};
 
 pub static mut FUNC_QUEUE: Lazy<Queue<FuncQueue>> = Lazy::new(|| Queue::new());
@@ -56,6 +57,7 @@ impl SoundSink {
     }
 }
 
+#[cfg(feature = "audio")]
 pub fn spawn_audio_thread() {
     thread::spawn(|| {
         unsafe {
@@ -84,16 +86,17 @@ pub fn spawn_audio_thread() {
 }
 
 pub struct AudioPlayer {
-    output: OutputStreamHandle,
-    _stream: OutputStream,
-    sounds: HashMap<String, Vec<u8>>,
-    sinks: HashMap<String, SoundSink>,
-    headsinks: HashMap<String, Sink>,
-    serieslist: HashMap<String, SoundSeries>
+    pub output: OutputStreamHandle,
+    pub _stream: OutputStream,
+    pub sounds: HashMap<String, Vec<u8>>,
+    pub sinks: HashMap<String, SoundSink>,
+    pub headsinks: HashMap<String, Sink>,
+    pub serieslist: HashMap<String, SoundSeries>
 }
 
 impl AudioPlayer {
     pub fn new() -> Result<Self, AudioError> {
+
         let(stream, handle ) = OutputStream::try_default().unwrap();
 
         Ok(AudioPlayer {
@@ -104,6 +107,7 @@ impl AudioPlayer {
             headsinks: HashMap::new(),
             serieslist: HashMap::new()
         })
+
     }
 
     pub fn update(&mut self) {

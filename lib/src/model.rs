@@ -66,6 +66,7 @@ fn load_document_textures(document: &gltf::Document, buffers: &[gltf::buffer::Da
         let dimensions = img.dimensions();
 
         let mut texture: GLuint = 0;
+        #[cfg(feature = "glfw")]
         unsafe {
             gl::CreateTextures(gl::TEXTURE_2D, 1, &mut texture);
             gl::TextureStorage2D(texture, 1, gl::RGBA8, dimensions.0 as i32, dimensions.1 as i32);
@@ -95,6 +96,7 @@ fn load_textures(images: &[gltf::image::Data]) -> Vec<GLuint> {
         let dimensions = img.dimensions();
 
         let mut texture: GLuint = 0;
+        #[cfg(feature = "glfw")]
         unsafe {
             gl::CreateTextures(gl::TEXTURE_2D, 1, &mut texture);
             gl::TextureStorage2D(texture, 1, gl::RGBA8, dimensions.0 as i32, dimensions.1 as i32);
@@ -128,7 +130,7 @@ fn get_rotation_matrix(xrot: f32, yrot: f32, zrot: f32) -> Mat4 {
     rz * ry * rx
 }
 fn rasterize_triangle(triangle: [Vec3; 3], collision_map: &DashMap<vec::IVec3, u8>) {
-
+    
     let min_x = triangle.iter().map(|v| v.x.floor() as i32).min().unwrap_or(0);
     let max_x = triangle.iter().map(|v| v.x.ceil() as i32).max().unwrap_or(0);
     let min_y = triangle.iter().map(|v| v.y.floor() as i32).min().unwrap_or(0);
@@ -272,6 +274,7 @@ impl Game {
                         Some(str) => {
 
                             //info!("Playing at {}, while player pos is {}", model.position, self.camera.lock().unwrap().position);
+                            #[cfg(feature = "audio")]
                             unsafe {
                                                            AUDIOPLAYER.play(str, &model.position, &model.velocity, Planets::get_mob_volume(model.model_index));
  
@@ -322,7 +325,7 @@ impl Game {
             let mut inv = self.inventory.write().unwrap();
             for i in 0..5 {
                 let amt = inv.inv[i].1;
-
+                #[cfg(feature = "glfw")]
                 self.drops.add_drop(campos + Vec3::new(0.0, 2.0, 0.0), inv.inv[i].0, amt);
                 
                 
@@ -410,6 +413,7 @@ impl Game {
 
                     match model.sound {
                         Some(str) => {
+                            #[cfg(feature = "audio")]
                             unsafe {
                                                             AUDIOPLAYER.play(str, &makebelievepos, &model.velocity, 1.0);
 
@@ -476,6 +480,7 @@ impl Game {
                     if *side == Side::FLOOR {
                         if !self.headless {
                             if !model.was_grounded && model.model_index == 2 {
+                                #[cfg(feature = "audio")]
                                 unsafe {
                                     AUDIOPLAYER.play("assets/sfx/slam.mp3", &makebelievepos, &model.velocity, 1.0);
                                 }
@@ -501,7 +506,7 @@ impl Game {
     pub fn draw_models(&self) {
 
 
-
+        #[cfg(feature = "glfw")]
         unsafe {
 
 
@@ -792,6 +797,7 @@ impl Game {
 
         }
     }
+    #[cfg(feature = "glfw")]
     pub fn load_model(&mut self, path: &'static str) {
         let (document, buffers, images) = gltf::import(path).expect("Failed to load model");
         self.gltf_models.push((document.clone(), buffers.clone(), images.clone()));
@@ -877,7 +883,7 @@ impl Game {
             },
         }
     }
-
+    #[cfg(feature = "glfw")]
     pub fn create_model_vbos(&mut self) {
         for (index, (document, buffers, _images)) in self.gltf_models.iter().enumerate() {
             self.gltf_counts.push(Vec::new());

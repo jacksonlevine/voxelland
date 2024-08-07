@@ -5,7 +5,7 @@ edition = "2021"
 resolver = "2"
 
 [dependencies]
-voxelland = { path = "../../lib" }
+voxelland = { path = "../../lib", features = ["audio", "glfw"] }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 vox-format = "0.1.0"

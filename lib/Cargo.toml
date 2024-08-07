@@ -43,6 +43,8 @@ bytes = "1.6.1"
 default = []
 show_cam_pos = []
 one_chunk = []
+audio = []
+glfw = []
 
 [dependencies.rusqlite]
 version = "0.31.0"

@@ -493,7 +493,7 @@ impl WindowAndKeyContext {
                                             let button_height = 20.0;
                                             let window_size = ui.window_size();
                                             let available_width = window_size[0];
-                                            let available_height = window_size[1];
+                                            let available_height = window_size[1] + 200.0;
                                             let mut pos_y = (available_height - (len as f32 * button_height) - 10.0 * (len as f32 - 1.0)) / 2.0;
             
 

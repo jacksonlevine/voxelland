@@ -1288,6 +1288,7 @@ impl Game {
                     self.currentbuttons.push((recipestring, tableneeded))
                 }
                 self.vars.menu_open = true;
+                self.currentbuttons.push(("Back to Previous Menu".to_string(), "escapemenu".to_string()));
             }
             _ => {
                 info!("Unknown button command given");
@@ -1580,7 +1581,7 @@ impl Game {
 
             gl::Uniform1f(
                 gl::GetUniformLocation(
-                    self.shader0.shader_id,
+                    self.cloudshader.shader_id,
                     b"walkbob\0".as_ptr() as *const i8,
                 ),
                 self.vars.walkbobtimer

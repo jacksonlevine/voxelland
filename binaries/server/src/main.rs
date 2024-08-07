@@ -483,7 +483,7 @@ fn main() {
     #[cfg(target_feature="glfw")]
     gl::load_with(|s| window.get_proc_address(s) as *const _);
 
-    let initialseed: u32 = 39979235;
+    let initialseed: u32 = 92927777;
 
     let gameh = Game::new(false, true, &Arc::new(AtomicBool::new(false)), &Arc::new(Mutex::new(None)));
 

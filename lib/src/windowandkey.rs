@@ -646,7 +646,7 @@ impl WindowAndKeyContext {
 
                                             unsafe {
                                                 if RECIPES_DISABLED {
-                                                    if RECIPE_COOLDOWN_TIMER < 1.0 {
+                                                    if RECIPE_COOLDOWN_TIMER < 0.5 {
                                                         RECIPE_COOLDOWN_TIMER += self.delta_time;
                                                     } else {
                                                         RECIPES_DISABLED = false;

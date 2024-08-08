@@ -1,4 +1,4 @@
-use crate::{blockinfo::Blocks, game::{Game, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, MOUSEX, MOUSEY, SHOWTOOLTIP, SINGLEPLAYER, TOOLTIPNAME}, recipes::{RecipeEntry, RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, texture::Texture};
+use crate::{blockinfo::Blocks, game::{Game, CROUCHING, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, MOUSEX, MOUSEY, SHOWTOOLTIP, SINGLEPLAYER, TOOLTIPNAME}, recipes::{RecipeEntry, RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, texture::Texture};
 
 use glfw::{Action, Context, Glfw, GlfwReceiver, Key, Modifiers, PWindow, WindowEvent};
 use once_cell::sync::Lazy;
@@ -587,7 +587,10 @@ impl WindowAndKeyContext {
                                                 // }
                                                 unsafe {
 
-
+                                                    ui.text_colored([1.0, 1.0, 0.0, 1.0], "Hold ctrl to craft all of a recipe");
+                                                    if CROUCHING {
+                                                        ui.text_colored([1.0, 1.0, 0.0, 1.0], "Ctrl pressed.");
+                                                    }
                                                     for (index, recipeent) in CURRENT_AVAIL_RECIPES.lock().unwrap().iter_mut().enumerate() {
       
                                                         let recipe = recipeent.recipe.clone();
@@ -640,7 +643,7 @@ impl WindowAndKeyContext {
                                             
 
                                             for recipe in recipeindexscrafted {
-                                                g.craft_recipe_index(recipe);
+                                                g.craft_recipe_index(recipe, CROUCHING);
                                             }
                                             Game::update_avail_recipes(&g.inventory.clone());
 

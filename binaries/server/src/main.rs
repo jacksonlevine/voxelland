@@ -226,12 +226,18 @@ fn handle_client(
         
                                 let slot = &mut chestinv.inv[e as usize];
                                 let wasthere = slot.clone();
-        
+                                
                                 slot.0 = message.rot as u32;
                                 slot.1 = message.infof as u32;
-        
-                                message.x = wasthere.0 as f32;
-                                message.y = wasthere.1 as f32;
+                                
+                                if message.bo {
+                                    //We decide what to displace to the mouse-zone
+                                    message.x = wasthere.0 as f32;
+                                    message.y = wasthere.1 as f32;
+                                } else {
+                                    //They decide (i.e. theyre adding to a stack and clear their mouse)
+                                }
+                               
         
                                 let currseed = (*csys.read().unwrap().currentseed.read().unwrap()).clone();
         
@@ -245,9 +251,10 @@ fn handle_client(
         
                                     slot.0 = message.rot as u32;
                                     slot.1 = message.infof as u32;
-        
-                                    message.x = wasthere.0 as f32;
-                                    message.y = wasthere.1 as f32;
+                                    if message.bo {
+                                        message.x = wasthere.0 as f32;
+                                        message.y = wasthere.1 as f32;
+                                    }
                                 }
                                 queued_sql.push(QueuedSqlType::InventoryInventoryUpdate(client_id, clientlock.get(&client_id).unwrap().inv.inv));
                             }

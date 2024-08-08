@@ -2131,7 +2131,7 @@ impl Game {
         return result;
     }
 
-    pub fn craft_recipe_index(&mut self, index: usize) {
+    pub fn craft_recipe_index(&mut self, index: usize, all: bool) {
         unsafe {
             let recipe = {
                 let r = CURRENT_AVAIL_RECIPES.lock().unwrap();
@@ -2141,79 +2141,188 @@ impl Game {
             let mut hasreqs = true;
             let invlock = self.inventory.write().unwrap();
 
+            let originalinvinv = invlock.clone();
             let originalinv = invlock.inv.clone();
 
-            for req in &recipe.0 {
-                let mut amt = 0;
 
-                for i in 0..ROWLENGTH as usize {
-                    let typehere = invlock.inv[i].0;
-                    if typehere == req.0 {
-                        amt += invlock.inv[i].1;
-                    }
-                }
 
-                if amt < req.1 {
-                    hasreqs = false;
-                }
-            }
-
-            if hasreqs {
-                //Find an empty spot OR MATCHING RESULT ITEM SPOT in their imaginary inv that would exist if we were to subtract the necessary ingredients:
-                //Make an imaginary clone of their inventory:
-                let mut invclone = invlock.inv.clone();
-
-                //Subtract the ingredients
+            let mut morepossible = true;
+            fn craft_in_local_inv(recipe: &Recipe, mut inven: &mut Inventory, mut morepossible: &mut bool) {
+                let mut hasreqs = true;
                 for req in &recipe.0 {
                     let mut amt = 0;
-
+    
                     for i in 0..ROWLENGTH as usize {
-                        let typehere = invclone[i].0;
+                        let typehere = inven.inv[i].0;
                         if typehere == req.0 {
-                            while invclone[i].1 > 0 && amt < req.1 {
-                                amt += 1;
-                                invclone[i].1 -= 1;
-
-                                if invclone[i].1 == 0 {
-                                    invclone[i].0 = 0;
+                            amt += inven.inv[i].1;
+                        }
+                    }
+    
+                    if amt < req.1 {
+                        hasreqs = false;
+                        (*morepossible) = false;
+                    }
+                }
+    
+                if hasreqs {
+                    //Find an empty spot OR MATCHING RESULT ITEM SPOT in their imaginary inv that would exist if we were to subtract the necessary ingredients:
+                    //Make an imaginary clone of their inventory:
+                    let mut invclone = &mut inven.inv;
+    
+                    //Subtract the ingredients
+                    for req in &recipe.0 {
+                        let mut amt = 0;
+    
+                        for i in 0..ROWLENGTH as usize {
+                            let typehere = invclone[i].0;
+                            if typehere == req.0 {
+                                while invclone[i].1 > 0 && amt < req.1 {
+                                    amt += 1;
+                                    invclone[i].1 -= 1;
+    
+                                    if invclone[i].1 == 0 {
+                                        invclone[i].0 = 0;
+                                    }
+                                }
+                                if amt >= req.1 {
+                                    break;
                                 }
                             }
-                            if amt >= req.1 {
+                        }
+                    }
+    
+                    //Find the predicted empty spot or matching item slot
+                    let resultslot = {
+                        let mut slot = None;
+    
+                        for i in 0..ROWLENGTH as usize {
+                            let typehere = invclone[i].0;
+                            if (typehere == 0 || typehere == recipe.1 .0)
+                                && (invclone[i].1 + recipe.1 .1) <= 999
+                            {
+                                slot = Some(i);
                                 break;
                             }
                         }
+    
+                        slot
+                    };
+
+                    match resultslot {
+                        Some(slot) => {
+                            invclone[slot].0 = recipe.1.0;
+                            invclone[slot].1 = invclone[slot].1 + recipe.1.1;
+                        },
+                        None => {
+                            (*morepossible) = false;
+                        },
+                    }
+                }
+            }
+
+            
+
+            if all {
+
+                let mut newinv = invlock.clone();
+
+
+                while morepossible {
+                    craft_in_local_inv(recipe, &mut newinv, &mut morepossible);
+                }
+
+
+                if newinv != originalinvinv {
+                    for i in 0..ROWLENGTH as usize {
+                        //Turning their inventory into the invclone
+
+                        if newinv.inv[i] != originalinv[i] {
+                            Game::set_in_inventory(
+                                &self.inventory.clone(),
+                                i,
+                                newinv.inv[i].0,
+                                newinv.inv[i].1,
+                                self.vars.in_multiplayer,
+                                &self.needtosend,
+                            );
+                        }
+                        
                     }
                 }
 
-                //Find the predicted empty spot or matching item slot
-                let resultslot = {
-                    let mut slot = None;
 
+
+            } else {
+                for req in &recipe.0 {
+                    let mut amt = 0;
+    
                     for i in 0..ROWLENGTH as usize {
-                        let typehere = invclone[i].0;
-                        if (typehere == 0 || typehere == recipe.1 .0)
-                            && (invclone[i].1 + recipe.1 .1) <= 999
-                        {
-                            slot = Some(i);
-                            break;
+                        let typehere = invlock.inv[i].0;
+                        if typehere == req.0 {
+                            amt += invlock.inv[i].1;
                         }
                     }
-
-                    slot
-                };
-
-                drop(invlock);
-
-                //Only execute the subtraction and addition of items if they will have that result slot available
-                match resultslot {
-                    None => {}
-                    Some(slot) => {
-                        //Take the reqs away from their real inventory
-                        for _req in &recipe.0 {
-                            let _amt = 0;
+    
+                    if amt < req.1 {
+                        hasreqs = false;
+                    }
+                }
+    
+                if hasreqs {
+                    //Find an empty spot OR MATCHING RESULT ITEM SPOT in their imaginary inv that would exist if we were to subtract the necessary ingredients:
+                    //Make an imaginary clone of their inventory:
+                    let mut invclone = invlock.inv.clone();
+    
+                    //Subtract the ingredients
+                    for req in &recipe.0 {
+                        let mut amt = 0;
+    
+                        for i in 0..ROWLENGTH as usize {
+                            let typehere = invclone[i].0;
+                            if typehere == req.0 {
+                                while invclone[i].1 > 0 && amt < req.1 {
+                                    amt += 1;
+                                    invclone[i].1 -= 1;
+    
+                                    if invclone[i].1 == 0 {
+                                        invclone[i].0 = 0;
+                                    }
+                                }
+                                if amt >= req.1 {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+    
+                    //Find the predicted empty spot or matching item slot
+                    let resultslot = {
+                        let mut slot = None;
+    
+                        for i in 0..ROWLENGTH as usize {
+                            let typehere = invclone[i].0;
+                            if (typehere == 0 || typehere == recipe.1 .0)
+                                && (invclone[i].1 + recipe.1 .1) <= 999
+                            {
+                                slot = Some(i);
+                                break;
+                            }
+                        }
+    
+                        slot
+                    };
+    
+                    drop(invlock);
+    
+                    //Only execute the subtraction and addition of items if they will have that result slot available
+                    match resultslot {
+                        None => {}
+                        Some(slot) => {
+                            //Take the reqs away from their real inventory by...
 
                             for i in 0..ROWLENGTH as usize {
-                                //Turn their inventory into the invclone
+                                //Turning their inventory into the invclone
 
                                 if invclone[i] != originalinv[i] {
                                     Game::set_in_inventory(
@@ -2227,20 +2336,26 @@ impl Game {
                                 }
                                 
                             }
-                        }
 
-                        //Give them the resulting item
-                        Game::set_in_inventory(
-                            &self.inventory.clone(),
-                            slot,
-                            recipe.1 .0,
-                            invclone[slot].1 + recipe.1 .1,
-                            self.vars.in_multiplayer,
-                            &self.needtosend,
-                        );
+    
+                            //Give them the resulting item
+                            Game::set_in_inventory(
+                                &self.inventory.clone(),
+                                slot,
+                                recipe.1 .0,
+                                invclone[slot].1 + recipe.1 .1,
+                                self.vars.in_multiplayer,
+                                &self.needtosend,
+                            );
+                        }
                     }
                 }
             }
+
+            
+
+
+            
         }
     }
     #[cfg(feature = "audio")]
@@ -5588,6 +5703,7 @@ impl Game {
                                                         /*INFOF: COUNT */
                                                         /*X, Y:   SLOT MOVED TO MOUSE OF <GOOSE> PLAYER */
                                                         /*Z: IF MOUSE_SLOT IS REPLACED */
+                                                        /*BO: IF WE WANT SERVER-SIDE CHEST-TO-MOUSE DISPLACEMENT (NO if this is adding to a stack, it will put the previous stack in our hand) */
                                                         let mut msg = Message::new(
                                                             MessageType::ChestInvUpdate,
                                                             Vec3::new(0 as f32, 0 as f32, 1.0),
@@ -5598,7 +5714,7 @@ impl Game {
                                                         msg.info2 = /*0 = CHEST, 1 = INV, 2 = NONE */0;
                                                         msg.infof =
                                                             (slot.1 + self.mouse_slot.1) as f32;
-
+                                                            msg.bo = false;
                                                         self.netconn.send(&msg);
                                                     } else {
                                                         slot.1 = slot.1 + self.mouse_slot.1;
@@ -5617,6 +5733,7 @@ impl Game {
                                                         /*INFOF: COUNT */
                                                         /*X, Y:   SLOT MOVED TO MOUSE OF <GOOSE> PLAYER */
                                                         /*Z: IF MOUSE_SLOT IS REPLACED */
+                                                        /*BO: IF WE WANT SERVER-SIDE CHEST-TO-MOUSE DISPLACEMENT (NO if this is adding to a stack, it will put the previous stack in our hand) */
                                                         let mut msg = Message::new(
                                                             MessageType::ChestInvUpdate,
                                                             Vec3::new(
@@ -5630,7 +5747,7 @@ impl Game {
                                                         msg.otherpos = self.hud.current_chest;
                                                         msg.info2 = /*0 = CHEST, 1 = INV, 2 = NONE */0;
                                                         msg.infof = self.mouse_slot.1 as f32;
-
+                                                        msg.bo = true;
                                                         self.netconn.send(&msg);
                                                     } else {
                                                         slot.0 = self.mouse_slot.0;
@@ -5659,6 +5776,7 @@ impl Game {
                                                 /*INFOF: COUNT */
                                                 /*X, Y:   SLOT MOVED TO MOUSE OF <GOOSE> PLAYER */
                                                 /*Z: IF MOUSE_SLOT IS REPLACED */
+                                                /*BO: IF WE WANT SERVER-SIDE CHEST-TO-MOUSE DISPLACEMENT (NO if this is adding to a stack, it will put the previous stack in our hand) */
                                                 let mut msg = Message::new(
                                                     MessageType::ChestInvUpdate,
                                                     Vec3::new(0 as f32, 0 as f32, 1.0),
@@ -5668,7 +5786,7 @@ impl Game {
                                                 msg.otherpos = self.hud.current_chest;
                                                 msg.info2 = /*0 = CHEST, 1 = INV, 2 = NONE */1;
                                                 msg.infof = (slot.1 + self.mouse_slot.1) as f32;
-
+                                                msg.bo = false;
                                                 self.netconn.send(&msg);
                                             } else {
                                                 slot.1 = slot.1 + self.mouse_slot.1;
@@ -5688,6 +5806,7 @@ impl Game {
                                                 /*INFOF: COUNT */
                                                 /*X, Y:   SLOT MOVED TO MOUSE OF <GOOSE> PLAYER */
                                                 /*Z: IF MOUSE_SLOT IS REPLACED */
+                                                /*BO: IF WE WANT SERVER-SIDE CHEST-TO-MOUSE DISPLACEMENT (NO if this is adding to a stack, it will put the previous stack in our hand) */
                                                 let mut msg = Message::new(
                                                     MessageType::ChestInvUpdate,
                                                     Vec3::new(buff.0 as f32, buff.1 as f32, 1.0),
@@ -5697,6 +5816,7 @@ impl Game {
                                                 msg.otherpos = self.hud.current_chest;
                                                 msg.info2 = /*0 = CHEST, 1 = INV, 2 = NONE */ 1;
                                                 msg.infof = self.mouse_slot.1 as f32;
+                                                msg.bo = true;
                                                 self.netconn.send(&msg);
                                             } else {
                                                 slot.0 = self.mouse_slot.0;

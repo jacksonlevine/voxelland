@@ -17,7 +17,7 @@ use std::time::Duration;
 use uuid::Uuid;
 use glam::Vec3;
 use voxelland::chunk::ChunkSystem;
-use voxelland::game::{Game, SONGINDEX, STARTINGITEMS, WEATHERTYPE};
+use voxelland::game::{Game, ROWLENGTH, SONGINDEX, STARTINGITEMS, WEATHERTYPE};
 use voxelland::vec::{self, IVec3};
 use voxelland::server_types::{self, *};
 use dashmap::DashMap;
@@ -34,8 +34,8 @@ type Nsme = (u32, Vec3, f32, usize, f32, bool, bool);
 
 pub enum QueuedSqlType {
     UserDataMap(u32, IVec3, u32),
-    ChestInventoryUpdate(IVec3, [(u32, u32); 20], u32),
-    InventoryInventoryUpdate(Uuid, [(u32, u32); 5]),
+    ChestInventoryUpdate(IVec3, [(u32, u32); ROWLENGTH as usize * 4], u32),
+    InventoryInventoryUpdate(Uuid, [(u32, u32); ROWLENGTH as usize]),
     PlayerPositionUpdate(Uuid, Vec3, f32, f32),
     None
 }
@@ -221,7 +221,7 @@ fn handle_client(
                             SlotIndexType::ChestSlot(e) => {
                                 let mut chestinv = chest_reg.entry(currchest).or_insert(ChestInventory {
                                     dirty: false,
-                                    inv: [(0, 0); 20],
+                                    inv: [(0, 0); ROWLENGTH as usize * 4],
                                 });
         
                                 let slot = &mut chestinv.inv[e as usize];
@@ -858,7 +858,7 @@ fn main() {
                         if let Some(row) = rows.next().unwrap() {
                             let inventory: Vec<u8> = row.get(0).unwrap();
 
-                            match bincode::deserialize::<[(u32, u32); 5]>(&inventory) {
+                            match bincode::deserialize::<[(u32, u32); ROWLENGTH as usize]>(&inventory) {
                                 Ok(inv) => {
                                     previously_loaded_inv = inv.clone();
                                 }

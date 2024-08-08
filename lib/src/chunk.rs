@@ -37,6 +37,7 @@ use crate::cube::CubeSide;
 #[cfg(feature = "audio")]
 use crate::game::AUDIOPLAYER;
 
+use crate::game::ROWLENGTH;
 use crate::inventory::ChestInventory;
 
 use crate::packedvertex::PackedVertex;
@@ -467,7 +468,7 @@ impl ChunkSystem {
                 let z: i32 = row.get(2)?;
                 let dirty: bool = row.get(3)?;
                 let inventory: Vec<u8> = row.get(4)?;
-                let inv: [(u32, u32); 20] = bincode::deserialize(&inventory).unwrap();
+                let inv: [(u32, u32); ROWLENGTH as usize * 4] = bincode::deserialize(&inventory).unwrap();
                 Ok((IVec3 { x, y, z }, ChestInventory { dirty, inv }))
             })
             .unwrap();
@@ -1249,9 +1250,9 @@ unsafe {
                         }
 
                         let reducedvalue = LightColor::new(
-                            (n.0.x as i32 - 1).max(0) as u16,
-                            (n.0.y as i32 - 1).max(0) as u16,
-                            (n.0.z as i32 - 1).max(0) as u16,
+                            (n.0.x as i32 - 2).max(0) as u16,
+                            (n.0.y as i32 - 2).max(0) as u16,
+                            (n.0.z as i32 - 2).max(0) as u16,
                         );
 
                         if !visited.contains(&next)

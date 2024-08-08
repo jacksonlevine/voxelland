@@ -1,28 +1,23 @@
-
-
 use std::cmp::max;
 use std::collections::HashSet;
 use std::f32::consts::{self};
-use std::io::{Write};
+use std::io::Write;
 
 use once_cell::sync::Lazy;
 use tracing::info;
 
-
-
-use std::time::Duration;
 use dashmap::DashMap;
 use gl::types::{GLenum, GLsizei, GLsizeiptr, GLuint, GLvoid};
 use glam::{Mat4, Vec2, Vec3, Vec4};
-use glfw::ffi::{glfwGetTime};
+use glfw::ffi::glfwGetTime;
 use glfw::{Action, Key, MouseButton, PWindow};
+use std::time::Duration;
 
-use lockfree::queue::{Queue};
+use lockfree::queue::Queue;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use rusqlite::Connection;
 use uuid::Uuid;
-
 
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI8, Ordering};
 use std::sync::{Arc, Mutex};
@@ -43,6 +38,7 @@ use crate::fader::Fader;
 use crate::glyphface::GlyphFace;
 use crate::guisystem::GuiSystem;
 use crate::hud::{Hud, HudElement, SlotIndexType};
+use crate::inventory::*;
 use crate::modelentity::ModelEntity;
 use crate::network::NetworkConnector;
 use crate::planetinfo::Planets;
@@ -61,9 +57,7 @@ use crate::vec::{self, IVec2, IVec3};
 use crate::voxmodel::JVoxModel;
 use crate::windowandkey::uncapkb;
 use crate::worldgeometry::WorldGeometry;
-use crate::inventory::*;
 use std::sync::RwLock;
-
 
 static mut CONVEYOR_SOUND_TIMER: f32 = 0.0;
 
@@ -100,75 +94,42 @@ pub const WEATHERINTERVAL: f32 = 120.0;
 pub static mut TRAMPOLINE: bool = false;
 pub static mut TRAMP_TIMER: f32 = 0.0;
 
-
-pub static QUEUE_THESE: Lazy<Queue<IVec2>> = Lazy::new(||Queue::new());
-
+pub static QUEUE_THESE: Lazy<Queue<IVec2>> = Lazy::new(|| Queue::new());
 
 pub static mut ON_CONVEYORS: bool = false;
 pub static mut TIME_ON_CONVEYORS: f32 = 0.0;
 
-
-
 pub static mut ROOFOVERHEAD: Lazy<AtomicBool> = Lazy::new(|| AtomicBool::new(false));
-
 
 pub static mut HEADLESS: bool = false;
 
-
-
 #[cfg(feature = "audio")]
 pub static mut AUDIOPLAYER: Lazy<AudioPlayer> = Lazy::new(|| AudioPlayer::new().unwrap());
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 pub fn wait_for_decide_singleplayer() {
     unsafe {
         while !DECIDEDSPORMP {
             thread::sleep(Duration::from_millis(250));
         }
-
     }
 }
 
-
-
-
-pub static STARTINGITEMS: [(u32, u32); 5] = [
-    // (27, 99),
-    // (28, 99),
-    // (29, 99),
-    // (30, 99),
-    // (21, 2)
+pub static STARTINGITEMS: [(u32, u32); ROWLENGTH as usize] = [
     (31, 1),
     (0, 0),
     (0, 0),
     (0, 0),
-    (0, 0)
+    (0, 0),
+    (0, 0),
+    (0, 0),
+    (0, 0),
 ];
 
 pub static mut SPAWNPOINT: Vec3 = Vec3::ZERO;
 
-
 pub static mut MOUSED_SLOT: SlotIndexType = SlotIndexType::None;
 
-
-
-
 pub static mut CROUCHING: bool = false;
-
 
 pub static mut SONGS: [&'static str; 11] = [
     "assets/music/bee.mp3",
@@ -184,17 +145,15 @@ pub static mut SONGS: [&'static str; 11] = [
     "assets/music/empythree.mp3",
 ];
 
-pub static mut SONGTIMER: f32 = 299.0;
-pub static mut SONGINTERVAL: f32 = 150.0;
+pub static mut SONGTIMER: f32 = 150.0;
+pub static mut SONGINTERVAL: f32 = 300.0;
 pub static mut SONGINDEX: usize = 0;
-
 
 pub static mut AMBIENTBRIGHTNESS: f32 = 0.0;
 
 pub static mut CURRENT_AVAIL_RECIPES: Mutex<Vec<RecipeEntry>> = Mutex::new(Vec::new());
 
 pub static mut ATSMALLTABLE: bool = false;
-
 
 #[derive(Clone)]
 pub struct AnimationChannel {
@@ -223,9 +182,7 @@ pub struct Node {
     pub children: Vec<usize>,
 }
 
-
 static REQUIRED_SHIP_FLYAWAY_HEIGHT: f32 = 0.0;
-
 
 pub struct ControlsState {
     pub left: bool,
@@ -235,7 +192,7 @@ pub struct ControlsState {
     pub up: bool,
     pub lookingleft: bool,
     pub lookingright: bool,
-    pub shift: bool
+    pub shift: bool,
 }
 
 impl ControlsState {
@@ -283,16 +240,13 @@ pub struct GameVariables {
     pub menu_open: bool,
     pub main_menu: bool,
     pub in_climbable: bool,
-    pub walkbobtimer: f32
+    pub walkbobtimer: f32,
 }
 
 pub enum VisionType {
     Model(usize),
-    Vox(usize)
+    Vox(usize),
 }
-
-
-
 
 pub struct Game {
     pub chunksys: Arc<RwLock<ChunkSystem>>,
@@ -319,11 +273,15 @@ pub struct Game {
     pub allowable_jump_height: f32,
     pub initial_timer: f32,
     pub voxel_models: Arc<Vec<JVoxModel>>,
-    pub gltf_models: Vec<(gltf::Document, Vec<gltf::buffer::Data>, Vec<gltf::image::Data>)>,
+    pub gltf_models: Vec<(
+        gltf::Document,
+        Vec<gltf::buffer::Data>,
+        Vec<gltf::image::Data>,
+    )>,
     pub gltf_vbos: Vec<Vec<Vec<GLuint>>>,
     pub gltf_vaos: Vec<Vec<Vec<GLuint>>>,
     pub gltf_counts: Vec<Vec<Vec<usize>>>,
-    pub gltf_drawmodes:Vec<Vec<Vec<GLenum>>>,
+    pub gltf_drawmodes: Vec<Vec<Vec<GLenum>>>,
     pub gltf_ebos: Vec<Vec<Vec<GLuint>>>,
     pub gltf_textures: Vec<Vec<Vec<GLuint>>>,
     pub gltf_paths: Vec<String>,
@@ -378,37 +336,58 @@ pub struct Game {
     pub health: Arc<AtomicI8>,
     pub crafting_open: bool,
     pub stamina: Arc<AtomicI32>,
-    pub weathertype: f32
+    pub weathertype: f32,
 }
+
+pub const ROWLENGTH: i32 = 8;
 
 enum FaderNames {
     FovFader = 0,
-    VisionsFader = 1
+    VisionsFader = 1,
 }
 
 impl Game {
-
     #[cfg(feature = "glfw")]
-    pub fn new(window: &Arc<RwLock<PWindow>>, connectonstart: bool, headless: bool, addressentered: &Arc<AtomicBool>, address: &Arc<Mutex<Option<String>>>) -> JoinHandle<Game> {
-        Self::newold(&Some(window.clone()), connectonstart, headless, addressentered, address)
+    pub fn new(
+        window: &Arc<RwLock<PWindow>>,
+        connectonstart: bool,
+        headless: bool,
+        addressentered: &Arc<AtomicBool>,
+        address: &Arc<Mutex<Option<String>>>,
+    ) -> JoinHandle<Game> {
+        Self::newold(
+            &Some(window.clone()),
+            connectonstart,
+            headless,
+            addressentered,
+            address,
+        )
     }
 
     #[cfg(not(feature = "glfw"))]
-    pub fn new(connectonstart: bool, headless: bool, addressentered: &Arc<AtomicBool>, address: &Arc<Mutex<Option<String>>>) -> JoinHandle<Game> {
+    pub fn new(
+        connectonstart: bool,
+        headless: bool,
+        addressentered: &Arc<AtomicBool>,
+        address: &Arc<Mutex<Option<String>>>,
+    ) -> JoinHandle<Game> {
         Self::newold(&None, connectonstart, headless, addressentered, address)
     }
-    
-    pub fn newold(window: &Option<Arc<RwLock<PWindow>>>, connectonstart: bool, headless: bool, addressentered: &Arc<AtomicBool>, address: &Arc<Mutex<Option<String>>>) -> JoinHandle<Game> {
 
-
-        
+    pub fn newold(
+        window: &Option<Arc<RwLock<PWindow>>>,
+        connectonstart: bool,
+        headless: bool,
+        addressentered: &Arc<AtomicBool>,
+        address: &Arc<Mutex<Option<String>>>,
+    ) -> JoinHandle<Game> {
         unsafe {
             if headless {
                 HEADLESS = true;
             }
         }
         unsafe {
-            SHOULDRUN =  true;
+            SHOULDRUN = true;
         }
         let mut connectonstart = connectonstart;
         //wait_for_decide_singleplayer();
@@ -431,14 +410,11 @@ impl Game {
             #[cfg(feature = "audio")]
             spawn_audio_thread();
         }
-        
-        faders
-            .write()
-            .unwrap()
-            .extend(vec![
-                Fader::new(83.0, 80.0, 30.0, false), //FOV fader for moving
-                Fader::new(1.0, 0.0, 5.0, false)    //"Visions" fader for overlay
-                ]);
+
+        faders.write().unwrap().extend(vec![
+            Fader::new(83.0, 80.0, 30.0, false), //FOV fader for moving
+            Fader::new(1.0, 0.0, 5.0, false),    //"Visions" fader for overlay
+        ]);
 
         #[cfg(feature = "glfw")]
         unsafe {
@@ -456,12 +432,9 @@ impl Game {
 
         #[cfg(feature = "glfw")]
         {
-        tex.add_to_unit(0);
+            tex.add_to_unit(0);
 
-        
-        weathertex.add_to_unit(2);
-
-
+            weathertex.add_to_unit(2);
         }
         let randseed = if !headless {
             let mut rng = StdRng::from_entropy();
@@ -474,7 +447,6 @@ impl Game {
             println!("Headless, giving seed generation duty to servero.");
             0
         };
-        
 
         let mut csys = ChunkSystem::new(10, randseed, 0, headless);
         let voxel_models = vec![
@@ -487,38 +459,23 @@ impl Game {
             JVoxModel::new("assets/voxelmodels/tree4.vox"),
             JVoxModel::new("assets/voxelmodels/tree5.vox"),
             JVoxModel::new("assets/voxelmodels/bamboo1.vox"),
-            JVoxModel::new("assets/voxelmodels/bamboo2.vox"), 
-
+            JVoxModel::new("assets/voxelmodels/bamboo2.vox"),
             JVoxModel::new("assets/voxelmodels/tallgrass1.vox"),
-            JVoxModel::new("assets/voxelmodels/tallgrass2.vox"), 
+            JVoxModel::new("assets/voxelmodels/tallgrass2.vox"),
             JVoxModel::new("assets/voxelmodels/tallgrass3.vox"),
             JVoxModel::new("assets/voxelmodels/rubbertree.vox"),
-            
-            
-            
-            
             //0-13
-
-
-
-
             JVoxModel::new("assets/voxelmodels/ptree.vox"),
             JVoxModel::new("assets/voxelmodels/redrock.vox"),
             JVoxModel::new("assets/voxelmodels/crystal1.vox"), //14 - 16
         ];
 
-        
-        
-
         //csys.load_world_from_file(String::from("saves/world1"));
-
 
         //self.vars.hostile_world = false;
         //let seed = *csys.currentseed.read().unwrap();
         //self.start_chunks_with_radius(10, seed, 0);
         //self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
-
-
 
         let vmarc = Arc::new(voxel_models);
         let vmarc2 = vmarc.clone();
@@ -527,26 +484,26 @@ impl Game {
 
         let chunksys = Arc::new(RwLock::new(csys));
 
-        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
+        let solid_pred: Box<dyn Fn(vec::IVec3) -> bool + Send + Sync> = {
             let csys_arc = Arc::clone(&chunksys);
             Box::new(move |v: vec::IVec3| {
-
                 let csys = csys_arc.read().unwrap();
                 let bitshere = csys.blockat(v.clone());
 
-                
                 let isntopendoor = DoorInfo::get_door_open_bit(bitshere) != 1;
                 let isntladder = (bitshere & Blocks::block_id_bits()) != 20;
                 let isntbamboo = (bitshere & Blocks::block_id_bits()) != 22;
                 let isnttallgrass = (bitshere & Blocks::block_id_bits()) != 23;
-                return isntopendoor && isntladder && isntbamboo && isnttallgrass && csys_arc.read().unwrap().collision_predicate(v);
+                return isntopendoor
+                    && isntladder
+                    && isntbamboo
+                    && isnttallgrass
+                    && csys_arc.read().unwrap().collision_predicate(v);
             })
         };
 
-
         let health = Arc::new(AtomicI8::new(20));
 
-        
         let camclone = cam.clone();
         let csysclone = chunksys.clone();
         if !headless {
@@ -554,7 +511,7 @@ impl Game {
                 while unsafe { SHOULDRUN } {
                     let mut pos = Vec3::ZERO;
                     let mut hitblock = false;
-            
+
                     match camclone.try_lock() {
                         Ok(camlock) => {
                             pos = camlock.position.clone();
@@ -568,7 +525,11 @@ impl Game {
                         match csysclone.read() {
                             Ok(r) => {
                                 while !hitblock && pos.y < 128.0 {
-                                    let ppos = vec::IVec3::new(pos.x.floor() as i32, pos.y.round() as i32, pos.z.floor() as i32);
+                                    let ppos = vec::IVec3::new(
+                                        pos.x.floor() as i32,
+                                        pos.y.round() as i32,
+                                        pos.z.floor() as i32,
+                                    );
                                     if r.blockat(ppos) != 0 {
                                         hitblock = true;
                                         break;
@@ -588,19 +549,17 @@ impl Game {
                             }
                         };
                     }
-            
-                    
-            
+
                     thread::sleep(Duration::from_millis(250));
                 }
             });
 
-           //  let csysclone = chunksys.clone();
-           // let camclone = cam.clone();
+            //  let csysclone = chunksys.clone();
+            // let camclone = cam.clone();
 
             // thread::spawn(move || {
             //     while unsafe { SHOULDRUN } {
-                    
+
             //         match csysclone.try_read() {
             //             Ok(csys) => {
             //                 match QUEUE_THESE.pop() {
@@ -616,268 +575,246 @@ impl Game {
 
             //             }
             //         }
-                    
-            
+
             //         thread::sleep(Duration::from_millis(250));
             //     }
             // });
         }
-        
-
-
 
         #[cfg(feature = "glfw")]
-        let mut hud = Hud::new(&window.as_ref().unwrap().clone(), tex.id, health.clone(), stamina.clone());
+        let mut hud = Hud::new(
+            &window.as_ref().unwrap().clone(),
+            tex.id,
+            health.clone(),
+            stamina.clone(),
+        );
+        //IMPORTANT: Push the inv row slots first
+        fn add_inventory_rows(
+            elements: &mut Vec<HudElement>,
+            yoffset: f32,
+            rows: i32,
+            start_slot: SlotIndexType,
+            rowlength: i32
+        ) {
+            let tf = TextureFace::new(0, 14);
 
-        fn add_inventory_rows(elements: &mut Vec<HudElement>, yoffset: f32, rows: i32, start_slot: SlotIndexType) {
-              
-        let tf = TextureFace::new(0, 14);
+            let rh: f32 = 0.2;
 
-        let rh: f32 = 0.2;
-        //IMPORTANT: Push these first, the inv row slots
-        for y in 0..rows {
-            for i in 0..5 {
-                let newslot = match start_slot {
-                    SlotIndexType::ChestSlot(ind) => {
-                        SlotIndexType::ChestSlot(ind + i + (y*5))
-                    },
-                    SlotIndexType::InvSlot(ind) => {
-                        SlotIndexType::InvSlot(ind + i + (y*5))
-                    },
-                    SlotIndexType::None => {
-                        SlotIndexType::None
-                    },
-                };
-                let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + i as f32 * 0.10, yoffset - y as f32 * rh), Vec2::new(0.15, 0.15), [
-                    tf.blx, tf.bly,
-                    tf.brx, tf.bry,
-                    tf.trx, tf.tr_y,
-    
-                    tf.trx, tf.tr_y,
-                    tf.tlx, tf.tly,
-                    tf.blx, tf.bly
-                ], newslot);
-    
-                elements.push(invrowel);
+            for y in 0..rows {
+                for i in 0..rowlength {
+                    let newslot = match start_slot {
+                        SlotIndexType::ChestSlot(ind) => {
+                            SlotIndexType::ChestSlot(ind + i + (y * rowlength))
+                        }
+                        SlotIndexType::InvSlot(ind) => SlotIndexType::InvSlot(ind + i + (y * rowlength)),
+                        SlotIndexType::None => SlotIndexType::None,
+                    };
+                    let invrowel = HudElement::new(
+                        Vec2::new(-(0.10 * 3.5) + i as f32 * 0.10, yoffset - y as f32 * rh),
+                        Vec2::new(0.15, 0.15),
+                        [
+                            tf.blx, tf.bly, tf.brx, tf.bry, tf.trx, tf.tr_y, tf.trx, tf.tr_y,
+                            tf.tlx, tf.tly, tf.blx, tf.bly,
+                        ],
+                        newslot,
+                    );
+
+                    elements.push(invrowel);
+                }
+            }
+
+            let tf = TextureFace::new(0, 0);
+            //The item textures on top of them
+            for y in 0..rows {
+                for i in 0..rowlength {
+                    let newslot = match start_slot {
+                        SlotIndexType::ChestSlot(ind) => {
+                            SlotIndexType::ChestSlot(ind + i + (y * rowlength))
+                        }
+                        SlotIndexType::InvSlot(ind) => SlotIndexType::InvSlot(ind + i + (y * rowlength)),
+                        SlotIndexType::None => SlotIndexType::None,
+                    };
+                    let invrowel = HudElement::new(
+                        Vec2::new(-(0.10 * 3.5) + i as f32 * 0.10, yoffset - y as f32 * rh),
+                        Vec2::new(0.10, 0.10),
+                        [
+                            tf.blx, tf.bly, tf.brx, tf.bry, tf.trx, tf.tr_y, tf.trx, tf.tr_y,
+                            tf.tlx, tf.tly, tf.blx, tf.bly,
+                        ],
+                        newslot,
+                    );
+
+                    elements.push(invrowel);
+                }
+            }
+
+            let tf = TextureFace::new(0, 0);
+            //The number textures on top of them
+            for y in 0..rows {
+                for i in 0..rowlength {
+                    let newslot = match start_slot {
+                        SlotIndexType::ChestSlot(ind) => {
+                            SlotIndexType::ChestSlot(ind + i + (y * rowlength))
+                        }
+                        SlotIndexType::InvSlot(ind) => SlotIndexType::InvSlot(ind + i + (y * rowlength)),
+                        SlotIndexType::None => SlotIndexType::None,
+                    };
+
+                    // let invrowel = HudElement::new(
+                    //     Vec2::new(
+                    //         -(0.10 * 3.5) - 0.01 + i as f32 * 0.10,
+                    //         yoffset - y as f32 * rh - 0.03,
+                    //     ),
+                    //     Vec2::new(0.05, 0.05),
+                    //     [
+                    //         tf.blx, tf.bly, tf.brx, tf.bry, tf.trx, tf.tr_y, tf.trx, tf.tr_y,
+                    //         tf.tlx, tf.tly, tf.blx, tf.bly,
+                    //     ],
+                    //     newslot.clone(),
+                    // );
+                    // elements.push(invrowel);
+
+                    // let invrowel = HudElement::new(
+                    //     Vec2::new(
+                    //         -(0.10 * 3.5) + 0.00 + i as f32 * 0.10,
+                    //         yoffset - y as f32 * rh - 0.03,
+                    //     ),
+                    //     Vec2::new(0.05, 0.05),
+                    //     [
+                    //         tf.blx, tf.bly, tf.brx, tf.bry, tf.trx, tf.tr_y, tf.trx, tf.tr_y,
+                    //         tf.tlx, tf.tly, tf.blx, tf.bly,
+                    //     ],
+                    //     newslot.clone(),
+                    // );
+                    // elements.push(invrowel);
+
+                    let invrowel = HudElement::new(
+                        Vec2::new(
+                            -(0.10 * 3.5) + 0.01 + i as f32 * 0.10,
+                            yoffset - y as f32 * rh - 0.03,
+                        ),
+                        Vec2::new(0.05, 0.05),
+                        [
+                            tf.blx, tf.bly, tf.brx, tf.bry, tf.trx, tf.tr_y, tf.trx, tf.tr_y,
+                            tf.tlx, tf.tly, tf.blx, tf.bly,
+                        ],
+                        newslot.clone(),
+                    );
+                    elements.push(invrowel);
+
+                    let invrowel = HudElement::new(
+                        Vec2::new(
+                            -(0.10 * 3.5) + 0.02 + i as f32 * 0.10,
+                            yoffset - y as f32 * rh - 0.03,
+                        ),
+                        Vec2::new(0.05, 0.05),
+                        [
+                            tf.blx, tf.bly, tf.brx, tf.bry, tf.trx, tf.tr_y, tf.trx, tf.tr_y,
+                            tf.tlx, tf.tly, tf.blx, tf.bly,
+                        ],
+                        newslot,
+                    );
+
+                    elements.push(invrowel);
+                }
             }
         }
-        
 
-        let tf = TextureFace::new(0, 0);
-        //The item textures on top of them
-        for y in 0..rows {
-        for i in 0..5 {
-            let newslot = match start_slot {
-                SlotIndexType::ChestSlot(ind) => {
-                    SlotIndexType::ChestSlot(ind + i + (y*5))
-                },
-                SlotIndexType::InvSlot(ind) => {
-                    SlotIndexType::InvSlot(ind + i + (y*5))
-                },
-                SlotIndexType::None => {
-                    SlotIndexType::None
-                },
-            };
-            let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + i as f32 * 0.10, yoffset - y as f32 * rh), Vec2::new(0.10, 0.10), [
-                tf.blx, tf.bly,
-                tf.brx, tf.bry,
-                tf.trx, tf.tr_y,
-
-                tf.trx, tf.tr_y,
-                tf.tlx, tf.tly,
-                tf.blx, tf.bly
-            ], newslot);
-
-            elements.push(invrowel);
-        }
-    }
-
-
-        let tf = TextureFace::new(0, 0);
-        //The number textures on top of them
-        for y in 0..rows {
-        for i in 0..5 {
-            let newslot = match start_slot {
-                SlotIndexType::ChestSlot(ind) => {
-                    SlotIndexType::ChestSlot(ind + i + (y*5))
-                },
-                SlotIndexType::InvSlot(ind) => {
-                    SlotIndexType::InvSlot(ind + i + (y*5))
-                },
-                SlotIndexType::None => {
-                    SlotIndexType::None
-                },
-            };
-            let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + 0.01 + i as f32 * 0.10, yoffset  - y as f32 * rh - 0.03), Vec2::new(0.05, 0.05), [
-                tf.blx, tf.bly,
-                tf.brx, tf.bry,
-                tf.trx, tf.tr_y,
-
-                tf.trx, tf.tr_y,
-                tf.tlx, tf.tly,
-                tf.blx, tf.bly
-            ], newslot.clone());
-            elements.push(invrowel);
-
-            let invrowel = HudElement::new(Vec2::new(-(0.10*2.0) + 0.02 + i as f32 * 0.10, yoffset  - y as f32 * rh - 0.03), Vec2::new(0.05, 0.05), [
-                tf.blx, tf.bly,
-                tf.brx, tf.bry,
-                tf.trx, tf.tr_y,
-
-                tf.trx, tf.tr_y,
-                tf.tlx, tf.tly,
-                tf.blx, tf.bly
-            ], newslot);
-
-            elements.push(invrowel);
-        }
-    }
-        }
+        //Bottom inv
         #[cfg(feature = "glfw")]
-        add_inventory_rows(&mut hud.elements, -0.9, 1, SlotIndexType::InvSlot(0));
+        add_inventory_rows(&mut hud.elements, -0.9, 1, SlotIndexType::InvSlot(0), ROWLENGTH);
 
+
+        //Chest rows
         #[cfg(feature = "glfw")]
-        add_inventory_rows(&mut hud.chestelements, 0.4, 4, SlotIndexType::ChestSlot(0));
-
+        add_inventory_rows(&mut hud.chestelements, 0.4, 4, SlotIndexType::ChestSlot(0), ROWLENGTH);
 
         //Crosshair
         let tf = TextureFace::new(0, 13);
-        
+
         #[cfg(feature = "glfw")]
-        hud.elements.push(HudElement::new(Vec2::new(0.0, 0.0), Vec2::new(0.08, 0.08), [
+        hud.elements.push(HudElement::new(
+            Vec2::new(0.0, 0.0),
+            Vec2::new(0.08, 0.08),
+            [
+                tf.blx, tf.bly, tf.brx, tf.bry, tf.trx, tf.tr_y, tf.trx, tf.tr_y, tf.tlx, tf.tly,
                 tf.blx, tf.bly,
-                tf.brx, tf.bry,
-                tf.trx, tf.tr_y,
+            ],
+            SlotIndexType::None,
+        ));
 
-                tf.trx, tf.tr_y,
-                tf.tlx, tf.tly,
-                tf.blx, tf.bly
-            ], SlotIndexType::None));     
+        //HELD MOUSE ITEM SLOT
 
+        let tf = TextureFace::new(0, 0);
+        //The item texture of it
 
+        let invrowel = HudElement::new(
+            Vec2::new(0.0, 0.0),
+            Vec2::new(0.10, 0.10),
+            [
+                tf.blx, tf.bly, tf.brx, tf.bry, tf.trx, tf.tr_y, tf.trx, tf.tr_y, tf.tlx, tf.tly,
+                tf.blx, tf.bly,
+            ],
+            SlotIndexType::InvSlot(221),
+        );
+        #[cfg(feature = "glfw")]
+        hud.chestelements.push(invrowel);
 
+        let tf = TextureFace::new(0, 0);
+        //The number textures on top of it
 
+        let invrowel = HudElement::new(
+            Vec2::new(0.0 + 0.01, 0.0),
+            Vec2::new(0.05, 0.05),
+            [
+                tf.blx, tf.bly, tf.brx, tf.bry, tf.trx, tf.tr_y, tf.trx, tf.tr_y, tf.tlx, tf.tly,
+                tf.blx, tf.bly,
+            ],
+            SlotIndexType::InvSlot(221),
+        );
+        #[cfg(feature = "glfw")]
+        hud.chestelements.push(invrowel);
 
-
-
-
-            //HELD MOUSE ITEM SLOT
-
-
-
-
-            
-    
-            let tf = TextureFace::new(0, 0);
-            //The item texture of it
-
-
-                let invrowel = HudElement::new(Vec2::new(0.0, 0.0), Vec2::new(0.10, 0.10), [
-                    tf.blx, tf.bly,
-                    tf.brx, tf.bry,
-                    tf.trx, tf.tr_y,
-    
-                    tf.trx, tf.tr_y,
-                    tf.tlx, tf.tly,
-                    tf.blx, tf.bly
-                ], SlotIndexType::InvSlot(221));
-                #[cfg(feature = "glfw")]
-                hud.chestelements.push(invrowel);
-
-    
-            let tf = TextureFace::new(0, 0);
-            //The number textures on top of it
-
-
-                let invrowel = HudElement::new(Vec2::new(0.0  + 0.01, 0.0), Vec2::new(0.05, 0.05), [
-                    tf.blx, tf.bly,
-                    tf.brx, tf.bry,
-                    tf.trx, tf.tr_y,
-    
-                    tf.trx, tf.tr_y,
-                    tf.tlx, tf.tly,
-                    tf.blx, tf.bly
-                ], SlotIndexType::InvSlot(221));
-                #[cfg(feature = "glfw")]
-                hud.chestelements.push(invrowel);
-    
-                let invrowel = HudElement::new(Vec2::new(0.0  + 0.02, 0.0), Vec2::new(0.05, 0.05), [
-                    tf.blx, tf.bly,
-                    tf.brx, tf.bry,
-                    tf.trx, tf.tr_y,
-    
-                    tf.trx, tf.tr_y,
-                    tf.tlx, tf.tly,
-                    tf.blx, tf.bly
-                ], SlotIndexType::InvSlot(221));
-                #[cfg(feature = "glfw")]
-                hud.chestelements.push(invrowel);
-   
+        let invrowel = HudElement::new(
+            Vec2::new(0.0 + 0.02, 0.0),
+            Vec2::new(0.05, 0.05),
+            [
+                tf.blx, tf.bly, tf.brx, tf.bry, tf.trx, tf.tr_y, tf.trx, tf.tr_y, tf.tlx, tf.tly,
+                tf.blx, tf.bly,
+            ],
+            SlotIndexType::InvSlot(221),
+        );
+        #[cfg(feature = "glfw")]
+        hud.chestelements.push(invrowel);
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-
-        let inv = Arc::new(RwLock::new(Inventory{
+        let inv = Arc::new(RwLock::new(Inventory {
             dirty: true,
-            inv: STARTINGITEMS
+            inv: STARTINGITEMS,
         }));
 
-
-        
-
-        
-        
-
-        
         //let mut rng = StdRng::from_entropy();
         //let seed = rng.gen_range(0..229232);
-
 
         let server_command_queue = Arc::new(Queue::<Message>::new());
         let server_command_hp_queue = Arc::new(Queue::<Message>::new());
 
-
-
-
         let kc = Arc::new(DashMap::new());
-        
-        let my_uuid: Arc<RwLock<Option<Uuid>>> = Arc::new(RwLock::new(Some(unsafe { *MY_MULTIPLAYER_UUID })));
+
+        let my_uuid: Arc<RwLock<Option<Uuid>>> =
+            Arc::new(RwLock::new(Some(unsafe { *MY_MULTIPLAYER_UUID })));
 
         let nsme = Arc::new(DashMap::new());
 
         let mut visions_camera = Camera::new();
         visions_camera.position = Vec3::new(0.0, 3.0, -5.0);
         visions_camera.recalculate();
-        info!("Visions camera direction: {} {} {}", visions_camera.direction.x, visions_camera.direction.y, visions_camera.direction.z);
+        info!(
+            "Visions camera direction: {} {} {}",
+            visions_camera.direction.x, visions_camera.direction.y, visions_camera.direction.z
+        );
 
         let pme = Arc::new(DashMap::new());
 
@@ -923,7 +860,7 @@ impl Game {
                 menu_open: false,
                 main_menu: false,
                 in_climbable: false,
-                walkbobtimer: 0.0
+                walkbobtimer: 0.0,
             },
             controls: ControlsState::new(),
             faders: Arc::new(faders),
@@ -951,7 +888,7 @@ impl Game {
             select_cube: SelectCube::new(),
             #[cfg(feature = "glfw")]
             block_overlay: BlockOverlay::new(tex.id),
-            ship_pos: Vec3::new(0.0,0.0,0.0),
+            ship_pos: Vec3::new(0.0, 0.0, 0.0),
             planet_y_offset: 0.0,
             #[cfg(feature = "glfw")]
             window: window.clone(),
@@ -960,13 +897,29 @@ impl Game {
             #[cfg(feature = "glfw")]
             hud,
             #[cfg(feature = "glfw")]
-            drops: Drops::new(tex.id, &cam, &chunksys, &inv, connectonstart, &needtosend.clone()),
+            drops: Drops::new(
+                tex.id,
+                &cam,
+                &chunksys,
+                &inv,
+                connectonstart,
+                &needtosend.clone(),
+            ),
             inventory: inv,
             animations: Vec::new(),
             skins: Vec::new(),
             nodes: Vec::new(),
             current_time: 0.0,
-            netconn: NetworkConnector::new(&chunksys, &server_command_queue, &server_command_hp_queue, &kc, &my_uuid.clone(), &nsme, &cam.clone(), &pme.clone()),
+            netconn: NetworkConnector::new(
+                &chunksys,
+                &server_command_queue,
+                &server_command_hp_queue,
+                &kc,
+                &my_uuid.clone(),
+                &nsme,
+                &cam.clone(),
+                &pme.clone(),
+            ),
             server_command_queue: server_command_queue.clone(),
             hp_server_command_queue: server_command_hp_queue.clone(),
             headless,
@@ -977,7 +930,7 @@ impl Game {
             timeofday: Arc::new(Mutex::new(700.0)),
             sunrise_factor: 0.0,
             sunset_factor: 0.0,
-            visions_timer : 0.0,
+            visions_timer: 0.0,
             visions_camera,
             current_vision: Some(VisionType::Model(0)),
             #[cfg(feature = "glfw")]
@@ -992,160 +945,184 @@ impl Game {
             addressentered: addressentered.clone(),
             address: address.clone(),
             player_model_entities: pme,
-            mouse_slot: (0,0),
+            mouse_slot: (0, 0),
             needtosend,
             health,
             crafting_open: false,
             stamina,
-            weathertype: 0.0
+            weathertype: 0.0,
         };
         #[cfg(feature = "glfw")]
         if !headless {
             g.load_model("assets/models/car/scene.gltf");
-                g.load_model("assets/models/car/scene.gltf");
-                //g.load_model("assets/models/ship/scene.gltf");
-                g.load_model("assets/models/monster1/scene.gltf");
-                g.load_model("assets/models/monster2/scene.gltf");
-                g.load_model("assets/models/cow/scene.glb");
-                g.load_model("assets/models/mountain/scene.gltf");
+            g.load_model("assets/models/car/scene.gltf");
+            //g.load_model("assets/models/ship/scene.gltf");
+            g.load_model("assets/models/monster1/scene.gltf");
+            g.load_model("assets/models/monster2/scene.gltf");
+            g.load_model("assets/models/cow/scene.glb");
+            g.load_model("assets/models/mountain/scene.gltf");
 
-                g.load_model("assets/models/cricket/scene.gltf");
+            g.load_model("assets/models/cricket/scene.gltf");
 
-                info!("gltf model count: {}", g.gltf_models.len());
-    
-                g.create_model_vbos();
+            info!("gltf model count: {}", g.gltf_models.len());
+
+            g.create_model_vbos();
         }
-        
-                
-
 
         let _aeclone = g.addressentered.clone();
         let _aclone = g.address.clone();
 
-         
         unsafe {
             for string in SONGS {
                 #[cfg(feature = "audio")]
                 AUDIOPLAYER.preload(string, string);
             }
         }
-        
+
         #[cfg(feature = "audio")]
         {
-        unsafe {
-            AUDIOPLAYER.preload_series("grassstepseries", vec![
-                "assets/sfx/grassstep1.mp3",
-                "assets/sfx/grassstep2.mp3",
-                "assets/sfx/grassstep3.mp3",
-                "assets/sfx/grassstep4.mp3",
-                "assets/sfx/grassstep5.mp3",
-                "assets/sfx/grassstep6.mp3",
-            ]);
+            unsafe {
+                AUDIOPLAYER.preload_series(
+                    "grassstepseries",
+                    vec![
+                        "assets/sfx/grassstep1.mp3",
+                        "assets/sfx/grassstep2.mp3",
+                        "assets/sfx/grassstep3.mp3",
+                        "assets/sfx/grassstep4.mp3",
+                        "assets/sfx/grassstep5.mp3",
+                        "assets/sfx/grassstep6.mp3",
+                    ],
+                );
 
+                AUDIOPLAYER.preload_series(
+                    "woodstepseries",
+                    vec![
+                        "assets/sfx/woodstep1.mp3",
+                        "assets/sfx/woodstep2.mp3",
+                        "assets/sfx/woodstep3.mp3",
+                        "assets/sfx/woodstep4.mp3",
+                        "assets/sfx/woodstep5.mp3",
+                    ],
+                );
 
-            AUDIOPLAYER.preload_series("woodstepseries", vec![
-                "assets/sfx/woodstep1.mp3",
-                "assets/sfx/woodstep2.mp3",
-                "assets/sfx/woodstep3.mp3",
-                "assets/sfx/woodstep4.mp3",
-                "assets/sfx/woodstep5.mp3"
-            ]);
+                AUDIOPLAYER.preload_series(
+                    "mulchstepseries",
+                    vec![
+                        "assets/sfx/mulchstep1.mp3",
+                        "assets/sfx/mulchstep2.mp3",
+                        "assets/sfx/mulchstep3.mp3",
+                        "assets/sfx/mulchstep4.mp3",
+                    ],
+                );
 
-            AUDIOPLAYER.preload_series("mulchstepseries", vec![
-                "assets/sfx/mulchstep1.mp3",
-                "assets/sfx/mulchstep2.mp3",
-                "assets/sfx/mulchstep3.mp3",
-                "assets/sfx/mulchstep4.mp3"
-            ]);
+                AUDIOPLAYER.preload_series(
+                    "dirtstepseries",
+                    vec![
+                        "assets/sfx/dirtstep1.mp3",
+                        "assets/sfx/dirtstep2.mp3",
+                        "assets/sfx/dirtstep3.mp3",
+                        "assets/sfx/dirtstep4.mp3",
+                    ],
+                );
 
-            AUDIOPLAYER.preload_series("dirtstepseries", vec![
-                "assets/sfx/dirtstep1.mp3",
-                "assets/sfx/dirtstep2.mp3",
-                "assets/sfx/dirtstep3.mp3",
-                "assets/sfx/dirtstep4.mp3"
-            ]);
+                AUDIOPLAYER.preload_series(
+                    "sandstepseries",
+                    vec![
+                        "assets/sfx/sandstep1.mp3",
+                        "assets/sfx/sandstep2.mp3",
+                        "assets/sfx/sandstep3.mp3",
+                        "assets/sfx/sandstep4.mp3",
+                        "assets/sfx/sandstep5.mp3",
+                    ],
+                );
 
-            AUDIOPLAYER.preload_series("sandstepseries", vec![
-                "assets/sfx/sandstep1.mp3",
-                "assets/sfx/sandstep2.mp3",
-                "assets/sfx/sandstep3.mp3",
-                "assets/sfx/sandstep4.mp3",
-                "assets/sfx/sandstep5.mp3"
-            ]);
+                AUDIOPLAYER.preload_series(
+                    "doorseries",
+                    vec![
+                        "assets/sfx/door.mp3",
+                        "assets/sfx/door1.mp3",
+                        "assets/sfx/door2.mp3",
+                    ],
+                );
 
-            AUDIOPLAYER.preload_series("doorseries", vec![
-                "assets/sfx/door.mp3",
-                "assets/sfx/door1.mp3",
-                "assets/sfx/door2.mp3",
-            ]);
+                AUDIOPLAYER.preload_series(
+                    "waterstepseries",
+                    vec![
+                        "assets/sfx/water1.mp3",
+                        "assets/sfx/water2.mp3",
+                        "assets/sfx/water3.mp3",
+                        "assets/sfx/water4.mp3",
+                        "assets/sfx/water5.mp3",
+                    ],
+                );
 
-            AUDIOPLAYER.preload_series("waterstepseries", vec![
-                "assets/sfx/water1.mp3",
-                "assets/sfx/water2.mp3",
-                "assets/sfx/water3.mp3",
-                "assets/sfx/water4.mp3",
-                "assets/sfx/water5.mp3"
-            ]);
+                AUDIOPLAYER.preload_series(
+                    "clickseries",
+                    vec![
+                        "assets/sfx/click1.mp3",
+                        "assets/sfx/click2.mp3",
+                        "assets/sfx/click3.mp3",
+                        "assets/sfx/click4.mp3",
+                    ],
+                );
 
-            AUDIOPLAYER.preload_series("clickseries", vec![
-                "assets/sfx/click1.mp3",
-                "assets/sfx/click2.mp3",
-                "assets/sfx/click3.mp3",
-                "assets/sfx/click4.mp3",
-            ]);
+                AUDIOPLAYER.preload_series(
+                    "stonestepseries",
+                    vec![
+                        "assets/sfx/stonestep1.mp3",
+                        "assets/sfx/stonestep2.mp3",
+                        "assets/sfx/stonestep3.mp3",
+                        "assets/sfx/stonestep4.mp3",
+                    ],
+                );
 
-            AUDIOPLAYER.preload_series("stonestepseries", vec![
-                "assets/sfx/stonestep1.mp3",
-                "assets/sfx/stonestep2.mp3",
-                "assets/sfx/stonestep3.mp3",
-                "assets/sfx/stonestep4.mp3"
-            ]);
+                AUDIOPLAYER.preload_series(
+                    "stoneplaceseries",
+                    vec![
+                        "assets/sfx/stoneplace1.mp3",
+                        "assets/sfx/stoneplace2.mp3",
+                        "assets/sfx/stoneplace3.mp3",
+                    ],
+                );
 
-            AUDIOPLAYER.preload_series("stoneplaceseries", vec![
-                "assets/sfx/stoneplace1.mp3",
-                "assets/sfx/stoneplace2.mp3",
-                "assets/sfx/stoneplace3.mp3",
-            ]);
+                AUDIOPLAYER.preload_series(
+                    "plantplaceseries",
+                    vec![
+                        "assets/sfx/plantplace1.mp3",
+                        "assets/sfx/plantplace2.mp3",
+                        "assets/sfx/plantplace3.mp3",
+                    ],
+                );
 
+                AUDIOPLAYER.preload_series(
+                    "glassplaceseries",
+                    vec![
+                        "assets/sfx/glassplace1.mp3",
+                        "assets/sfx/glassplace2.mp3",
+                        "assets/sfx/glassplace3.mp3",
+                        "assets/sfx/glassplace4.mp3",
+                    ],
+                );
 
-            AUDIOPLAYER.preload_series("plantplaceseries", vec![
-                "assets/sfx/plantplace1.mp3",
-                "assets/sfx/plantplace2.mp3",
-                "assets/sfx/plantplace3.mp3"
-            ]);
-
-            AUDIOPLAYER.preload_series("glassplaceseries", vec![
-                "assets/sfx/glassplace1.mp3",
-                "assets/sfx/glassplace2.mp3",
-                "assets/sfx/glassplace3.mp3",
-                "assets/sfx/glassplace4.mp3"
-            ]);
-
-            AUDIOPLAYER.preload("assets/sfx/cricket1.mp3", "assets/sfx/cricket1.mp3");
-        }}
+                AUDIOPLAYER.preload("assets/sfx/cricket1.mp3", "assets/sfx/cricket1.mp3");
+            }
+        }
         thread::spawn(move || {
-
             if !headless {
-                
-            
                 // g.setup_vertex_attributes();
-    
+
                 //start coming down from the sky in ship
                 //g.vars.ship_going_down = true;
                 //g.vars.ship_going_up = false;
-    
+
                 g.wait_for_new_address();
-               
-    
+
                 // g.initialize_being_in_world();
-    
+
                 // g.add_ship_colliders();
             }
             g
         })
-
-        
-        
     }
 
     pub fn update_avail_recipes(inv: &Arc<RwLock<Inventory>>) {
@@ -1153,16 +1130,14 @@ impl Game {
             {
                 CURRENT_AVAIL_RECIPES.lock().unwrap().clear();
             }
-            
+
             let inv = inv.write().unwrap();
 
             for rec in RECIPES.iter() {
-
                 let requirements = rec.0.clone();
 
                 let mut able = true;
 
-                
                 for req in requirements {
                     let mut amt = 0;
 
@@ -1171,10 +1146,9 @@ impl Game {
                             amt += slot.1;
                         }
                     }
-                    
+
                     if req.1 > amt {
                         able = false;
-
                     }
                 }
 
@@ -1183,19 +1157,18 @@ impl Game {
                 }
 
                 if able {
-
-                    CURRENT_AVAIL_RECIPES.lock().unwrap().push(RecipeEntry::from_recipe(rec.clone()));
+                    CURRENT_AVAIL_RECIPES
+                        .lock()
+                        .unwrap()
+                        .push(RecipeEntry::from_recipe(rec.clone()));
                 }
                 //let result = rec.1;
             }
         }
-        
     }
-    
+
     pub fn wait_for_new_address(&mut self) {
         if self.vars.in_multiplayer {
-    
-    
             //print!("Enter server address (e.g., 127.0.0.1:4848): ");
             //io::stdout().flush().unwrap(); // Ensure the prompt is printed before reading input
 
@@ -1206,11 +1179,17 @@ impl Game {
                 thread::sleep(Duration::from_millis(500));
             }
 
-            let address = self.address.lock().unwrap().as_ref().unwrap().trim().to_string(); // Remove any trailing newline characters
+            let address = self
+                .address
+                .lock()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .trim()
+                .to_string(); // Remove any trailing newline characters
 
             self.netconn.connect(address); // Connect to the provided address
             info!("Connected to the server!");
-            
         }
     }
     pub fn button_command(&mut self, str: String) {
@@ -1218,7 +1197,8 @@ impl Game {
             "quittomainmenu" => {
                 self.exit();
                 if self.vars.in_multiplayer {
-                    self.netconn.send(&Message::new(MessageType::Disconnect, Vec3::ZERO, 0.0, 0))
+                    self.netconn
+                        .send(&Message::new(MessageType::Disconnect, Vec3::ZERO, 0.0, 0))
                 }
                 #[cfg(feature = "glfw")]
                 self.window.write().unwrap().set_should_close(true);
@@ -1226,29 +1206,36 @@ impl Game {
             "closemenu" => {
                 self.vars.menu_open = false;
                 #[cfg(feature = "glfw")]
-                self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+                self.window
+                    .write()
+                    .unwrap()
+                    .set_cursor_mode(glfw::CursorMode::Disabled);
                 self.set_mouse_focused(true);
             }
             "escapemenu" => {
                 self.currentbuttons = vec![
-                            ("Close Menu".to_string(), "closemenu".to_string()),
-                            ("Recipe Book".to_string(), "recipemenu".to_string()),
-                            ("Settings".to_string(), "settingsmenu".to_string()),
-                            ("Quit Game".to_string(), "quittomainmenu".to_string()),
-                        ];
+                    ("Close Menu".to_string(), "closemenu".to_string()),
+                    ("Recipe Book".to_string(), "recipemenu".to_string()),
+                    ("Settings".to_string(), "settingsmenu".to_string()),
+                    ("Quit Game".to_string(), "quittomainmenu".to_string()),
+                ];
                 self.vars.menu_open = true;
             }
             "settingsmenu" => {
                 self.currentbuttons = vec![
-                            ("Back to Previous Menu".to_string(), "escapemenu".to_string()),
-                            ("SliderMouse Sensitivity".to_string(), "test".to_string())
-                        ];
+                    (
+                        "Back to Previous Menu".to_string(),
+                        "escapemenu".to_string(),
+                    ),
+                    ("SliderMouse Sensitivity".to_string(), "test".to_string()),
+                ];
                 self.vars.menu_open = true;
             }
             "recipemenu" => {
-                self.currentbuttons = vec![
-                        ("Back to Previous Menu".to_string(), "escapemenu".to_string()),
-                    ];
+                self.currentbuttons = vec![(
+                    "Back to Previous Menu".to_string(),
+                    "escapemenu".to_string(),
+                )];
                 for recipe in RECIPES.iter() {
                     let mut recipestring = String::new();
                     let mut tableneeded = String::new();
@@ -1278,9 +1265,10 @@ impl Game {
                     }
 
                     recipestring += "create ";
-                    recipestring += format!("{} {}", recipe.1.1, Blocks::get_name(recipe.1.0)).as_str();
+                    recipestring +=
+                        format!("{} {}", recipe.1 .1, Blocks::get_name(recipe.1 .0)).as_str();
 
-                    if recipe.1.1 > 1 {
+                    if recipe.1 .1 > 1 {
                         recipestring += "s.";
                     } else {
                         recipestring += ".";
@@ -1288,7 +1276,10 @@ impl Game {
                     self.currentbuttons.push((recipestring, tableneeded))
                 }
                 self.vars.menu_open = true;
-                self.currentbuttons.push(("Back to Previous Menu".to_string(), "escapemenu".to_string()));
+                self.currentbuttons.push((
+                    "Back to Previous Menu".to_string(),
+                    "escapemenu".to_string(),
+                ));
             }
             _ => {
                 info!("Unknown button command given");
@@ -1318,12 +1309,11 @@ impl Game {
                 2.0 => {
                     if ROOFOVERHEAD.load(Ordering::Relaxed) {
                         if !INSIDE_RAIN_PLAYING {
-                            
                             AUDIOPLAYER.stop_sound("assets/sfx/rainoutside.mp3");
-                    //w.stop_sound("assets/sfx/raininside.mp3");
-                    AUDIOPLAYER.stop_sound("assets/sfx/snowoutside.mp3");
-                    AUDIOPLAYER.stop_sound("assets/sfx/snowinside.mp3");
-                    AUDIOPLAYER.play_in_head("assets/sfx/raininside.mp3");
+                            //w.stop_sound("assets/sfx/raininside.mp3");
+                            AUDIOPLAYER.stop_sound("assets/sfx/snowoutside.mp3");
+                            AUDIOPLAYER.stop_sound("assets/sfx/snowinside.mp3");
+                            AUDIOPLAYER.play_in_head("assets/sfx/raininside.mp3");
                             TIMER = 0.0;
                             INSIDE_RAIN_PLAYING = true;
                             OUTSIDE_RAIN_PLAYING = false;
@@ -1332,12 +1322,11 @@ impl Game {
                         }
                     } else {
                         if !OUTSIDE_RAIN_PLAYING {
-
                             //w.stop_sound("assets/sfx/rainoutside.mp3");
-                    AUDIOPLAYER.stop_sound("assets/sfx/raininside.mp3");
-                    AUDIOPLAYER.stop_sound("assets/sfx/snowoutside.mp3");
-                    AUDIOPLAYER.stop_sound("assets/sfx/snowinside.mp3");
-                    AUDIOPLAYER.play_in_head("assets/sfx/rainoutside.mp3");
+                            AUDIOPLAYER.stop_sound("assets/sfx/raininside.mp3");
+                            AUDIOPLAYER.stop_sound("assets/sfx/snowoutside.mp3");
+                            AUDIOPLAYER.stop_sound("assets/sfx/snowinside.mp3");
+                            AUDIOPLAYER.play_in_head("assets/sfx/rainoutside.mp3");
                             TIMER = 0.0;
                             OUTSIDE_RAIN_PLAYING = true;
                             INSIDE_RAIN_PLAYING = false;
@@ -1350,12 +1339,11 @@ impl Game {
                 1.0 => {
                     if ROOFOVERHEAD.load(Ordering::Relaxed) {
                         if !INSIDE_SNOW_PLAYING {
-                            
                             AUDIOPLAYER.stop_sound("assets/sfx/rainoutside.mp3");
                             AUDIOPLAYER.stop_sound("assets/sfx/raininside.mp3");
                             AUDIOPLAYER.stop_sound("assets/sfx/snowoutside.mp3");
-                   // w.stop_sound("assets/sfx/snowinside.mp3");
-                   AUDIOPLAYER.play_in_head("assets/sfx/snowinside.mp3");
+                            // w.stop_sound("assets/sfx/snowinside.mp3");
+                            AUDIOPLAYER.play_in_head("assets/sfx/snowinside.mp3");
                             TIMER = 0.0;
                             INSIDE_SNOW_PLAYING = true;
                             OUTSIDE_SNOW_PLAYING = false;
@@ -1364,13 +1352,12 @@ impl Game {
                         }
                     } else {
                         if !OUTSIDE_SNOW_PLAYING {
-
                             AUDIOPLAYER.stop_sound("assets/sfx/rainoutside.mp3");
                             AUDIOPLAYER.stop_sound("assets/sfx/raininside.mp3");
-                    //w.stop_sound("assets/sfx/snowoutside.mp3");
-                    AUDIOPLAYER.stop_sound("assets/sfx/snowinside.mp3");
+                            //w.stop_sound("assets/sfx/snowoutside.mp3");
+                            AUDIOPLAYER.stop_sound("assets/sfx/snowinside.mp3");
 
-                    AUDIOPLAYER.play_in_head("assets/sfx/snowoutside.mp3");
+                            AUDIOPLAYER.play_in_head("assets/sfx/snowoutside.mp3");
                             TIMER = 0.0;
                             OUTSIDE_SNOW_PLAYING = true;
                             INSIDE_SNOW_PLAYING = false;
@@ -1380,7 +1367,6 @@ impl Game {
                     }
                 }
                 _ => {
-
                     AUDIOPLAYER.stop_sound("assets/sfx/rainoutside.mp3");
                     AUDIOPLAYER.stop_sound("assets/sfx/raininside.mp3");
                     AUDIOPLAYER.stop_sound("assets/sfx/snowoutside.mp3");
@@ -1394,12 +1380,11 @@ impl Game {
             }
         }
     }
-    
 
     pub fn initialize_being_in_world(&mut self) -> JoinHandle<()> {
-        let mut ship_pos = vec::IVec3::new(20,200,0);
-        let mut ship_front = vec::IVec3::new(30,200,0);
-        let mut ship_back = vec::IVec3::new(10,200,0);
+        let mut ship_pos = vec::IVec3::new(20, 200, 0);
+        let mut ship_front = vec::IVec3::new(30, 200, 0);
+        let mut ship_back = vec::IVec3::new(10, 200, 0);
         // Function to decrement y until a block is found
         fn find_ground_y(position: &mut vec::IVec3, game: &Game) {
             while game.chunksys.read().unwrap().blockat(*position) == 0 {
@@ -1412,16 +1397,11 @@ impl Game {
         find_ground_y(&mut ship_front, &self);
         find_ground_y(&mut ship_back, &self);
 
-
-
         // Determine the highest y position found
         let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y) + 10;
 
         // Update the ship's position
         ship_pos.y = decided_pos_y;
-
-
-
 
         let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
 
@@ -1434,61 +1414,71 @@ impl Game {
 
         self.vars.hostile_world = (self.chunksys.read().unwrap().planet_type % 2) != 0;
 
-
-
         //self.audiop.play("assets/music/Farfromhome.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
         //self.audiop.play("assets/sfx/shipland28sec.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
-
-
 
         self.ship_pos = ship_float_pos;
         //self.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0), &self.chunksys, &self.camera));
         // self.static_model_entities.push(ModelEntity::new(4, ship_float_pos, 1.5, Vec3::new(0.0, 0.0, 0.0), &self.chunksys, &self.camera));
 
         unsafe {
-            SPAWNPOINT = ship_float_pos  + Vec3::new(5.0, 2.0, 0.0);
+            SPAWNPOINT = ship_float_pos + Vec3::new(5.0, 2.0, 0.0);
             self.camera.lock().unwrap().position = SPAWNPOINT;
         }
-        
-
-
-  
-
 
         //self.static_model_entities.push(ModelEntity::new(5, Vec3::new(0.0, 25.0, 200.0), 140.0, Vec3::new(0.0, 0.0, 0.0), &self.chunksys, &self.camera));
         //self.update_model_collisions(0);
 
-        self.currentbuttons = vec![
-            ("Loading...".to_string(), "loading".to_string())
-        ];
+        self.currentbuttons = vec![("Loading...".to_string(), "loading".to_string())];
         self.vars.menu_open = true;
 
         let handle = self.rebuild_whole_world_while_showing_loading_screen();
 
         handle
-
-        
     }
 
     #[cfg(feature = "glfw")]
     pub fn draw_clouds(&self) {
         static mut HASUPLOADED: bool = false;
         static mut VBO: GLuint = 0;
-    
+
         let vdata: [f32; 30] = [
-            -100.0, 100.5-10.0, -100.0,    0.0, 1.0, 
-            -100.0, 100.5-10.0, 100.0,     0.0, 0.0, 
-            100.0, 100.5-10.0, 100.0,      1.0, 0.0, 
-    
-            100.0, 100.5-10.0, 100.0,      1.0, 0.0, 
-            100.0, 100.5-10.0, -100.0,     1.0, 1.0, 
-            -100.0, 100.5-10.0, -100.0,    0.0, 1.0
+            -100.0,
+            100.5 - 10.0,
+            -100.0,
+            0.0,
+            1.0,
+            -100.0,
+            100.5 - 10.0,
+            100.0,
+            0.0,
+            0.0,
+            100.0,
+            100.5 - 10.0,
+            100.0,
+            1.0,
+            0.0,
+            100.0,
+            100.5 - 10.0,
+            100.0,
+            1.0,
+            0.0,
+            100.0,
+            100.5 - 10.0,
+            -100.0,
+            1.0,
+            1.0,
+            -100.0,
+            100.5 - 10.0,
+            -100.0,
+            0.0,
+            1.0,
         ];
-    
+
         unsafe {
             gl::BindVertexArray(self.cloudshader.vao);
             gl::UseProgram(self.cloudshader.shader_id);
-    
+
             if !HASUPLOADED {
                 gl::CreateBuffers(1, &mut VBO);
                 gl::NamedBufferData(
@@ -1497,12 +1487,21 @@ impl Game {
                     vdata.as_ptr() as *const GLvoid,
                     gl::STATIC_DRAW,
                 );
-    
+
                 // Bind vertex buffer to the vertex array object
-                gl::VertexArrayVertexBuffer(self.cloudshader.vao, 0, VBO, 0, (5 * std::mem::size_of::<f32>()) as GLsizei);
-    
+                gl::VertexArrayVertexBuffer(
+                    self.cloudshader.vao,
+                    0,
+                    VBO,
+                    0,
+                    (5 * std::mem::size_of::<f32>()) as GLsizei,
+                );
+
                 // Position attribute
-                let pos_attrib = gl::GetAttribLocation(self.cloudshader.shader_id, b"aPos\0".as_ptr() as *const i8);
+                let pos_attrib = gl::GetAttribLocation(
+                    self.cloudshader.shader_id,
+                    b"aPos\0".as_ptr() as *const i8,
+                );
                 gl::EnableVertexArrayAttrib(self.cloudshader.vao, pos_attrib as GLuint);
                 gl::VertexArrayAttribFormat(
                     self.cloudshader.vao,
@@ -1513,9 +1512,12 @@ impl Game {
                     0,
                 );
                 gl::VertexArrayAttribBinding(self.cloudshader.vao, pos_attrib as GLuint, 0);
-    
+
                 // UV attribute
-                let uv_attrib = gl::GetAttribLocation(self.cloudshader.shader_id, b"uv\0".as_ptr() as *const i8);
+                let uv_attrib = gl::GetAttribLocation(
+                    self.cloudshader.shader_id,
+                    b"uv\0".as_ptr() as *const i8,
+                );
                 gl::EnableVertexArrayAttrib(self.cloudshader.vao, uv_attrib as GLuint);
                 gl::VertexArrayAttribFormat(
                     self.cloudshader.vao,
@@ -1526,57 +1528,87 @@ impl Game {
                     (3 * std::mem::size_of::<f32>()) as GLuint,
                 );
                 gl::VertexArrayAttribBinding(self.cloudshader.vao, uv_attrib as GLuint, 0);
-    
+
                 HASUPLOADED = true;
             }
-    
+
             // Set uniforms
             let cam_lock = self.camera.lock().unwrap();
-            
+
             gl::UniformMatrix4fv(
                 gl::GetUniformLocation(self.cloudshader.shader_id, b"mvp\0".as_ptr() as *const i8),
-                1, gl::FALSE, cam_lock.mvp.to_cols_array().as_ptr()
+                1,
+                gl::FALSE,
+                cam_lock.mvp.to_cols_array().as_ptr(),
             );
-    
+
             gl::Uniform1f(
-                gl::GetUniformLocation(self.cloudshader.shader_id, b"opacity\0".as_ptr() as *const i8),
-                1.0
+                gl::GetUniformLocation(
+                    self.cloudshader.shader_id,
+                    b"opacity\0".as_ptr() as *const i8,
+                ),
+                1.0,
             );
 
             gl::Uniform1f(
                 gl::GetUniformLocation(self.cloudshader.shader_id, b"time\0".as_ptr() as *const i8),
-                glfwGetTime() as f32
+                glfwGetTime() as f32,
             );
-    
+
             gl::Uniform1f(
-                gl::GetUniformLocation(self.cloudshader.shader_id, b"scale\0".as_ptr() as *const i8),
-                1.0
+                gl::GetUniformLocation(
+                    self.cloudshader.shader_id,
+                    b"scale\0".as_ptr() as *const i8,
+                ),
+                1.0,
             );
-    
+
             gl::Uniform1f(
-                gl::GetUniformLocation(self.cloudshader.shader_id, b"ambientBrightMult\0".as_ptr() as *const i8),
-                self.ambient_bright_mult
-            );
-    
-            gl::Uniform3f(
-                gl::GetUniformLocation(self.cloudshader.shader_id, b"camDir\0".as_ptr() as *const i8),
-                cam_lock.direction.x, cam_lock.direction.y, cam_lock.direction.z
+                gl::GetUniformLocation(
+                    self.cloudshader.shader_id,
+                    b"ambientBrightMult\0".as_ptr() as *const i8,
+                ),
+                self.ambient_bright_mult,
             );
 
             gl::Uniform3f(
-                gl::GetUniformLocation(self.cloudshader.shader_id, b"camPos\0".as_ptr() as *const i8),
-                cam_lock.position.x, cam_lock.position.y, cam_lock.position.z
+                gl::GetUniformLocation(
+                    self.cloudshader.shader_id,
+                    b"camDir\0".as_ptr() as *const i8,
+                ),
+                cam_lock.direction.x,
+                cam_lock.direction.y,
+                cam_lock.direction.z,
             );
-    
+
+            gl::Uniform3f(
+                gl::GetUniformLocation(
+                    self.cloudshader.shader_id,
+                    b"camPos\0".as_ptr() as *const i8,
+                ),
+                cam_lock.position.x,
+                cam_lock.position.y,
+                cam_lock.position.z,
+            );
+
             gl::Uniform1f(
-                gl::GetUniformLocation(self.cloudshader.shader_id, b"viewDistance\0".as_ptr() as *const i8),
-                8.0
+                gl::GetUniformLocation(
+                    self.cloudshader.shader_id,
+                    b"viewDistance\0".as_ptr() as *const i8,
+                ),
+                8.0,
             );
-    
+
             let fogcol = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
             gl::Uniform4f(
-                gl::GetUniformLocation(self.cloudshader.shader_id, b"fogCol\0".as_ptr() as *const i8),
-                fogcol.0, fogcol.1, fogcol.2, fogcol.3
+                gl::GetUniformLocation(
+                    self.cloudshader.shader_id,
+                    b"fogCol\0".as_ptr() as *const i8,
+                ),
+                fogcol.0,
+                fogcol.1,
+                fogcol.2,
+                fogcol.3,
             );
 
             gl::Uniform1f(
@@ -1584,19 +1616,25 @@ impl Game {
                     self.cloudshader.shader_id,
                     b"walkbob\0".as_ptr() as *const i8,
                 ),
-                self.vars.walkbobtimer
+                self.vars.walkbobtimer,
             );
-    
+
             gl::Uniform1f(
-                gl::GetUniformLocation(self.cloudshader.shader_id, b"sunset\0".as_ptr() as *const i8),
-                self.sunset_factor
+                gl::GetUniformLocation(
+                    self.cloudshader.shader_id,
+                    b"sunset\0".as_ptr() as *const i8,
+                ),
+                self.sunset_factor,
             );
-    
+
             gl::Uniform1f(
-                gl::GetUniformLocation(self.cloudshader.shader_id, b"sunrise\0".as_ptr() as *const i8),
-                self.sunrise_factor
+                gl::GetUniformLocation(
+                    self.cloudshader.shader_id,
+                    b"sunrise\0".as_ptr() as *const i8,
+                ),
+                self.sunrise_factor,
             );
-    
+
             // Draw the clouds
             gl::Disable(gl::CULL_FACE);
             gl::DrawArrays(gl::TRIANGLES, 0, 6);
@@ -1609,34 +1647,16 @@ impl Game {
         static mut VBO: GLuint = 0;
         static mut hasmulted: bool = false;
 
-
-    
         let mut vdata: [f32; 120] = [
-            200.0, -2.9, 0.0, 1.0, 0.5,
-            0.0, -10.6, 200.0, 0.5, 0.0,
-            0.0, 200.0, 0.0, 0.5, 0.5,
-            -200.0, -5.9, 0.0, 0.0, 0.5,
-            0.0, -10.6, 200.0, 0.5, 0.0,
-            -200.0, -14.9, 200.0, 0.0, 0.0,
-            0.0, -4.8, -200.0, 0.5, 1.0,
-            -200.0, -5.9, 0.0, 0.0, 0.5,
-            -200.0, -0.8, -200.0, 0.0, 1.0,
-            0.0, -4.8, -200.0, 0.5, 1.0,
-            200.0, -2.9, 0.0, 1.0, 0.5,
-            0.0, 200.0, 0.0, 0.5, 0.5,
-            200.0, -2.9, 0.0, 1.0, 0.5,
-            200.0, -10.7, 200.0, 1.0, 0.0,
-            0.0, -10.6, 200.0, 0.5, 0.0,
-            -200.0, -5.9, 0.0, 0.0, 0.5,
-            0.0, 200.0, 0.0, 0.5, 0.5,
-            0.0, -10.6, 200.0, 0.5, 0.0,
-            0.0, -4.8, -200.0, 0.5, 1.0,
-            0.0, 200.0, 0.0, 0.5, 0.5,
-            -200.0, -5.9, 0.0, 0.0, 0.5,
-            0.0, -4.8, -200.0, 0.5, 1.0,
-            200.0, -7.2, -200.0, 1.0, 1.0,
-            200.0, -2.9, 0.0, 1.0, 0.5,
-
+            200.0, -2.9, 0.0, 1.0, 0.5, 0.0, -10.6, 200.0, 0.5, 0.0, 0.0, 200.0, 0.0, 0.5, 0.5,
+            -200.0, -5.9, 0.0, 0.0, 0.5, 0.0, -10.6, 200.0, 0.5, 0.0, -200.0, -14.9, 200.0, 0.0,
+            0.0, 0.0, -4.8, -200.0, 0.5, 1.0, -200.0, -5.9, 0.0, 0.0, 0.5, -200.0, -0.8, -200.0,
+            0.0, 1.0, 0.0, -4.8, -200.0, 0.5, 1.0, 200.0, -2.9, 0.0, 1.0, 0.5, 0.0, 200.0, 0.0,
+            0.5, 0.5, 200.0, -2.9, 0.0, 1.0, 0.5, 200.0, -10.7, 200.0, 1.0, 0.0, 0.0, -10.6, 200.0,
+            0.5, 0.0, -200.0, -5.9, 0.0, 0.0, 0.5, 0.0, 200.0, 0.0, 0.5, 0.5, 0.0, -10.6, 200.0,
+            0.5, 0.0, 0.0, -4.8, -200.0, 0.5, 1.0, 0.0, 200.0, 0.0, 0.5, 0.5, -200.0, -5.9, 0.0,
+            0.0, 0.5, 0.0, -4.8, -200.0, 0.5, 1.0, 200.0, -7.2, -200.0, 1.0, 1.0, 200.0, -2.9, 0.0,
+            1.0, 0.5,
         ];
         unsafe {
             if !hasmulted {
@@ -1648,13 +1668,12 @@ impl Game {
                 }
                 hasmulted = true;
             }
-            
         }
-        
+
         unsafe {
             gl::BindVertexArray(self.starshader.vao);
             gl::UseProgram(self.starshader.shader_id);
-    
+
             if !HASUPLOADED {
                 gl::CreateBuffers(1, &mut VBO);
                 gl::NamedBufferData(
@@ -1663,12 +1682,21 @@ impl Game {
                     vdata.as_ptr() as *const GLvoid,
                     gl::STATIC_DRAW,
                 );
-    
+
                 // Bind vertex buffer to the vertex array object
-                gl::VertexArrayVertexBuffer(self.starshader.vao, 0, VBO, 0, (5 * std::mem::size_of::<f32>()) as GLsizei);
-    
+                gl::VertexArrayVertexBuffer(
+                    self.starshader.vao,
+                    0,
+                    VBO,
+                    0,
+                    (5 * std::mem::size_of::<f32>()) as GLsizei,
+                );
+
                 // Position attribute
-                let pos_attrib = gl::GetAttribLocation(self.starshader.shader_id, b"aPos\0".as_ptr() as *const i8);
+                let pos_attrib = gl::GetAttribLocation(
+                    self.starshader.shader_id,
+                    b"aPos\0".as_ptr() as *const i8,
+                );
                 gl::EnableVertexArrayAttrib(self.starshader.vao, pos_attrib as GLuint);
                 gl::VertexArrayAttribFormat(
                     self.starshader.vao,
@@ -1679,9 +1707,10 @@ impl Game {
                     0,
                 );
                 gl::VertexArrayAttribBinding(self.starshader.vao, pos_attrib as GLuint, 0);
-    
+
                 // UV attribute
-                let uv_attrib = gl::GetAttribLocation(self.starshader.shader_id, b"uv\0".as_ptr() as *const i8);
+                let uv_attrib =
+                    gl::GetAttribLocation(self.starshader.shader_id, b"uv\0".as_ptr() as *const i8);
                 gl::EnableVertexArrayAttrib(self.starshader.vao, uv_attrib as GLuint);
                 gl::VertexArrayAttribFormat(
                     self.starshader.vao,
@@ -1692,69 +1721,102 @@ impl Game {
                     (3 * std::mem::size_of::<f32>()) as GLuint,
                 );
                 gl::VertexArrayAttribBinding(self.starshader.vao, uv_attrib as GLuint, 0);
-    
+
                 HASUPLOADED = true;
             }
-    
+
             // Set uniforms
             let cam_lock = self.camera.lock().unwrap();
-            
+
             gl::UniformMatrix4fv(
                 gl::GetUniformLocation(self.starshader.shader_id, b"mvp\0".as_ptr() as *const i8),
-                1, gl::FALSE, cam_lock.mvp.to_cols_array().as_ptr()
+                1,
+                gl::FALSE,
+                cam_lock.mvp.to_cols_array().as_ptr(),
             );
-    
+
             gl::Uniform1f(
-                gl::GetUniformLocation(self.starshader.shader_id, b"opacity\0".as_ptr() as *const i8),
-                1.0
+                gl::GetUniformLocation(
+                    self.starshader.shader_id,
+                    b"opacity\0".as_ptr() as *const i8,
+                ),
+                1.0,
             );
 
             gl::Uniform1f(
                 gl::GetUniformLocation(self.starshader.shader_id, b"time\0".as_ptr() as *const i8),
-                glfwGetTime() as f32
+                glfwGetTime() as f32,
             );
-    
+
             gl::Uniform1f(
                 gl::GetUniformLocation(self.starshader.shader_id, b"scale\0".as_ptr() as *const i8),
-                1.0
+                1.0,
             );
-    
+
             gl::Uniform1f(
-                gl::GetUniformLocation(self.starshader.shader_id, b"ambientBrightMult\0".as_ptr() as *const i8),
-                self.ambient_bright_mult
-            );
-    
-            gl::Uniform3f(
-                gl::GetUniformLocation(self.starshader.shader_id, b"camDir\0".as_ptr() as *const i8),
-                cam_lock.direction.x, cam_lock.direction.y, cam_lock.direction.z
+                gl::GetUniformLocation(
+                    self.starshader.shader_id,
+                    b"ambientBrightMult\0".as_ptr() as *const i8,
+                ),
+                self.ambient_bright_mult,
             );
 
             gl::Uniform3f(
-                gl::GetUniformLocation(self.starshader.shader_id, b"camPos\0".as_ptr() as *const i8),
-                cam_lock.position.x, cam_lock.position.y, cam_lock.position.z
+                gl::GetUniformLocation(
+                    self.starshader.shader_id,
+                    b"camDir\0".as_ptr() as *const i8,
+                ),
+                cam_lock.direction.x,
+                cam_lock.direction.y,
+                cam_lock.direction.z,
             );
-    
+
+            gl::Uniform3f(
+                gl::GetUniformLocation(
+                    self.starshader.shader_id,
+                    b"camPos\0".as_ptr() as *const i8,
+                ),
+                cam_lock.position.x,
+                cam_lock.position.y,
+                cam_lock.position.z,
+            );
+
             gl::Uniform1f(
-                gl::GetUniformLocation(self.starshader.shader_id, b"viewDistance\0".as_ptr() as *const i8),
-                8.0
+                gl::GetUniformLocation(
+                    self.starshader.shader_id,
+                    b"viewDistance\0".as_ptr() as *const i8,
+                ),
+                8.0,
             );
-    
+
             let fogcol = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
             gl::Uniform4f(
-                gl::GetUniformLocation(self.starshader.shader_id, b"fogCol\0".as_ptr() as *const i8),
-                fogcol.0, fogcol.1, fogcol.2, fogcol.3
+                gl::GetUniformLocation(
+                    self.starshader.shader_id,
+                    b"fogCol\0".as_ptr() as *const i8,
+                ),
+                fogcol.0,
+                fogcol.1,
+                fogcol.2,
+                fogcol.3,
             );
-    
+
             gl::Uniform1f(
-                gl::GetUniformLocation(self.starshader.shader_id, b"sunset\0".as_ptr() as *const i8),
-                self.sunset_factor
+                gl::GetUniformLocation(
+                    self.starshader.shader_id,
+                    b"sunset\0".as_ptr() as *const i8,
+                ),
+                self.sunset_factor,
             );
-    
+
             gl::Uniform1f(
-                gl::GetUniformLocation(self.starshader.shader_id, b"sunrise\0".as_ptr() as *const i8),
-                self.sunrise_factor
+                gl::GetUniformLocation(
+                    self.starshader.shader_id,
+                    b"sunrise\0".as_ptr() as *const i8,
+                ),
+                self.sunrise_factor,
             );
-    
+
             // Draw the stars
             gl::Disable(gl::CULL_FACE);
             gl::DrawArrays(gl::TRIANGLES, 0, 24);
@@ -1763,29 +1825,28 @@ impl Game {
     }
     #[cfg(feature = "glfw")]
     pub fn update_inventory(&mut self) {
-        for i in 20..40 {
-            let realslotind = i - 20;
-            let slot = self.chunksys.read().unwrap().chest_registry.entry(self.hud.current_chest).or_insert(
-                ChestInventory { 
-                    dirty: true, 
-                    inv: [(0, 0), (0,0), (0,0), (0,0), (0,0),
-                        (0,0), (0,0), (0,0), (0,0), (0,0),
-                        (0,0), (0,0), (0,0), (0,0), (0,0),
-                        (0,0), (0,0), (0,0), (0,0), (0,0)] 
-                }
-            ).inv[realslotind];
+        for i in ROWLENGTH*4..ROWLENGTH*8 {
+            let realslotind = i - ROWLENGTH*4;
+            let slot = self
+                .chunksys
+                .read()
+                .unwrap()
+                .chest_registry
+                .entry(self.hud.current_chest)
+                .or_insert(ChestInventory {
+                    dirty: true,
+                    inv: [(0,0); (ROWLENGTH * 4) as usize],
+                })
+                .inv[realslotind as usize];
+
+
             let idinslot = slot.0;
             let texcoords = Blocks::get_tex_coords(idinslot, crate::cube::CubeSide::LEFT);
             let tf = TextureFace::new(texcoords.0 as i8, texcoords.1 as i8);
-            let bf = TextureFace::new(0,0);
+            let bf = TextureFace::new(0, 0);
             self.hud.chestelements[i as usize].uvs = [
+                tf.blx, tf.bly, tf.brx, tf.bry, tf.trx, tf.tr_y, tf.trx, tf.tr_y, tf.tlx, tf.tly,
                 tf.blx, tf.bly,
-                tf.brx, tf.bry,
-                tf.trx, tf.tr_y,
-
-                tf.trx, tf.tr_y,
-                tf.tlx, tf.tly,
-                tf.blx, tf.bly
             ];
 
             if slot.1 > 0 {
@@ -1794,84 +1855,49 @@ impl Game {
                     let g1 = GlyphFace::new(count.as_bytes()[0]);
                     let g2 = GlyphFace::new(count.as_bytes()[1]);
 
-                    self.hud.chestelements[40 + realslotind * 2].uvs = [
-                        g1.blx, g1.bly,
-                        g1.brx, g1.bry,
-                        g1.trx, g1.tr_y,
-
-                        g1.trx, g1.tr_y,
-                        g1.tlx, g1.tly,
-                        g1.blx, g1.bly
+                    self.hud.chestelements[(ROWLENGTH*8 + realslotind * 2) as usize].uvs = [
+                        g1.blx, g1.bly, g1.brx, g1.bry, g1.trx, g1.tr_y, g1.trx, g1.tr_y, g1.tlx,
+                        g1.tly, g1.blx, g1.bly,
                     ];
-                    self.hud.chestelements[40 + realslotind * 2 + 1].uvs = [
-                        g2.blx, g2.bly,
-                        g2.brx, g2.bry,
-                        g2.trx, g2.tr_y,
-
-                        g2.trx, g2.tr_y,
-                        g2.tlx, g2.tly,
-                        g2.blx, g2.bly
+                    self.hud.chestelements[(ROWLENGTH*8 + realslotind * 2 + 1) as usize].uvs = [
+                        g2.blx, g2.bly, g2.brx, g2.bry, g2.trx, g2.tr_y, g2.trx, g2.tr_y, g2.tlx,
+                        g2.tly, g2.blx, g2.bly,
                     ];
                 }
 
                 if count.len() == 1 {
                     let g2 = GlyphFace::new(count.as_bytes()[0]);
-                    self.hud.chestelements[40 + realslotind * 2].uvs = [
-                        bf.blx, bf.bly,
-                        bf.brx, bf.bry,
-                        bf.trx, bf.tr_y,
-
-                        bf.trx, bf.tr_y,
-                        bf.tlx, bf.tly,
-                        bf.blx, bf.bly
+                    self.hud.chestelements[(ROWLENGTH*8 + realslotind * 2) as usize].uvs = [
+                        bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx,
+                        bf.tly, bf.blx, bf.bly,
                     ];
-                    self.hud.chestelements[40 + realslotind * 2 + 1].uvs = [
-                        g2.blx, g2.bly,
-                        g2.brx, g2.bry,
-                        g2.trx, g2.tr_y,
-
-                        g2.trx, g2.tr_y,
-                        g2.tlx, g2.tly,
-                        g2.blx, g2.bly
+                    self.hud.chestelements[(ROWLENGTH*8 + realslotind * 2 + 1) as usize].uvs = [
+                        g2.blx, g2.bly, g2.brx, g2.bry, g2.trx, g2.tr_y, g2.trx, g2.tr_y, g2.tlx,
+                        g2.tly, g2.blx, g2.bly,
                     ];
                 }
             } else {
-                self.hud.chestelements[40 + realslotind * 2].uvs = [
-                        bf.blx, bf.bly,
-                        bf.brx, bf.bry,
-                        bf.trx, bf.tr_y,
-
-                        bf.trx, bf.tr_y,
-                        bf.tlx, bf.tly,
-                        bf.blx, bf.bly
-                    ];
-                self.hud.chestelements[40 + realslotind * 2 + 1].uvs = [
-                    bf.blx, bf.bly,
-                    bf.brx, bf.bry,
-                    bf.trx, bf.tr_y,
-
-                    bf.trx, bf.tr_y,
-                    bf.tlx, bf.tly,
-                    bf.blx, bf.bly
+                self.hud.chestelements[(ROWLENGTH*8 + realslotind * 2) as usize].uvs = [
+                    bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx,
+                    bf.tly, bf.blx, bf.bly,
+                ];
+                self.hud.chestelements[(ROWLENGTH*8 + realslotind * 2 + 1) as usize].uvs = [
+                    bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx,
+                    bf.tly, bf.blx, bf.bly,
                 ];
             }
         }
-        
-        for i in 5..10 {
-            let realslotind = i - 5;
-            let slot = self.inventory.read().unwrap().inv[realslotind];
+
+        for i in ROWLENGTH..(ROWLENGTH*2){
+            let realslotind = i - ROWLENGTH;
+            let slot = self.inventory.read().unwrap().inv[realslotind as usize];
             let idinslot = slot.0;
             let texcoords = Blocks::get_tex_coords(idinslot, crate::cube::CubeSide::LEFT);
             let tf = TextureFace::new(texcoords.0 as i8, texcoords.1 as i8);
-            let bf = TextureFace::new(0,0);
+            let bf = TextureFace::new(0, 0);
             self.hud.elements[i as usize].uvs = [
+                tf.blx, tf.bly, tf.brx, tf.bry, tf.trx, tf.tr_y, tf.trx, tf.tr_y, tf.tlx, tf.tly,
                 tf.blx, tf.bly,
-                tf.brx, tf.bry,
-                tf.trx, tf.tr_y,
-
-                tf.trx, tf.tr_y,
-                tf.tlx, tf.tly,
-                tf.blx, tf.bly
             ];
 
             if slot.1 > 0 {
@@ -1880,86 +1906,47 @@ impl Game {
                     let g1 = GlyphFace::new(count.as_bytes()[0]);
                     let g2 = GlyphFace::new(count.as_bytes()[1]);
 
-                    self.hud.elements[10 + realslotind * 2].uvs = [
-                        g1.blx, g1.bly,
-                        g1.brx, g1.bry,
-                        g1.trx, g1.tr_y,
-
-                        g1.trx, g1.tr_y,
-                        g1.tlx, g1.tly,
-                        g1.blx, g1.bly
+                    self.hud.elements[(ROWLENGTH*2 + realslotind * 2) as usize].uvs = [
+                        g1.blx, g1.bly, g1.brx, g1.bry, g1.trx, g1.tr_y, g1.trx, g1.tr_y, g1.tlx,
+                        g1.tly, g1.blx, g1.bly,
                     ];
-                    self.hud.elements[10 + realslotind * 2 + 1].uvs = [
-                        g2.blx, g2.bly,
-                        g2.brx, g2.bry,
-                        g2.trx, g2.tr_y,
-
-                        g2.trx, g2.tr_y,
-                        g2.tlx, g2.tly,
-                        g2.blx, g2.bly
+                    self.hud.elements[(ROWLENGTH*2 + realslotind * 2 + 1) as usize].uvs = [
+                        g2.blx, g2.bly, g2.brx, g2.bry, g2.trx, g2.tr_y, g2.trx, g2.tr_y, g2.tlx,
+                        g2.tly, g2.blx, g2.bly,
                     ];
                 }
 
                 if count.len() == 1 {
                     let g2 = GlyphFace::new(count.as_bytes()[0]);
-                    self.hud.elements[10 + realslotind * 2].uvs = [
-                        bf.blx, bf.bly,
-                        bf.brx, bf.bry,
-                        bf.trx, bf.tr_y,
-
-                        bf.trx, bf.tr_y,
-                        bf.tlx, bf.tly,
-                        bf.blx, bf.bly
+                    self.hud.elements[(ROWLENGTH*2 + realslotind * 2) as usize].uvs = [
+                        bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx,
+                        bf.tly, bf.blx, bf.bly,
                     ];
-                    self.hud.elements[10 + realslotind * 2 + 1].uvs = [
-                        g2.blx, g2.bly,
-                        g2.brx, g2.bry,
-                        g2.trx, g2.tr_y,
-
-                        g2.trx, g2.tr_y,
-                        g2.tlx, g2.tly,
-                        g2.blx, g2.bly
+                    self.hud.elements[(ROWLENGTH*2 + realslotind * 2 + 1) as usize].uvs = [
+                        g2.blx, g2.bly, g2.brx, g2.bry, g2.trx, g2.tr_y, g2.trx, g2.tr_y, g2.tlx,
+                        g2.tly, g2.blx, g2.bly,
                     ];
                 }
             } else {
-                self.hud.elements[10 + realslotind * 2].uvs = [
-                        bf.blx, bf.bly,
-                        bf.brx, bf.bry,
-                        bf.trx, bf.tr_y,
-
-                        bf.trx, bf.tr_y,
-                        bf.tlx, bf.tly,
-                        bf.blx, bf.bly
-                    ];
-                self.hud.elements[10 + realslotind * 2 + 1].uvs = [
-                    bf.blx, bf.bly,
-                    bf.brx, bf.bry,
-                    bf.trx, bf.tr_y,
-
-                    bf.trx, bf.tr_y,
-                    bf.tlx, bf.tly,
-                    bf.blx, bf.bly
+                self.hud.elements[(ROWLENGTH*2 + realslotind * 2) as usize].uvs = [
+                    bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx,
+                    bf.tly, bf.blx, bf.bly,
+                ];
+                self.hud.elements[(ROWLENGTH*2 + realslotind * 2 + 1) as usize].uvs = [
+                    bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx,
+                    bf.tly, bf.blx, bf.bly,
                 ];
             }
         }
-
-
-
-
 
         let slot = self.mouse_slot;
         let idinslot = slot.0;
         let texcoords = Blocks::get_tex_coords(idinslot, crate::cube::CubeSide::LEFT);
         let tf = TextureFace::new(texcoords.0 as i8, texcoords.1 as i8);
-        let bf = TextureFace::new(0,0);
-        self.hud.chestelements[80].uvs = [
+        let bf = TextureFace::new(0, 0);
+        self.hud.chestelements[(ROWLENGTH*16) as usize].uvs = [
+            tf.blx, tf.bly, tf.brx, tf.bry, tf.trx, tf.tr_y, tf.trx, tf.tr_y, tf.tlx, tf.tly,
             tf.blx, tf.bly,
-            tf.brx, tf.bry,
-            tf.trx, tf.tr_y,
-
-            tf.trx, tf.tr_y,
-            tf.tlx, tf.tly,
-            tf.blx, tf.bly
         ];
 
         if slot.1 > 0 {
@@ -1968,23 +1955,13 @@ impl Game {
                 let g1 = GlyphFace::new(count.as_bytes()[0]);
                 let g2 = GlyphFace::new(count.as_bytes()[1]);
 
-                self.hud.chestelements[81].uvs = [
-                    g1.blx, g1.bly,
-                    g1.brx, g1.bry,
-                    g1.trx, g1.tr_y,
-
-                    g1.trx, g1.tr_y,
-                    g1.tlx, g1.tly,
-                    g1.blx, g1.bly
+                self.hud.chestelements[(ROWLENGTH*16) as usize + 1].uvs = [
+                    g1.blx, g1.bly, g1.brx, g1.bry, g1.trx, g1.tr_y, g1.trx, g1.tr_y, g1.tlx,
+                    g1.tly, g1.blx, g1.bly,
                 ];
-                self.hud.chestelements[82].uvs = [
-                    g2.blx, g2.bly,
-                    g2.brx, g2.bry,
-                    g2.trx, g2.tr_y,
-
-                    g2.trx, g2.tr_y,
-                    g2.tlx, g2.tly,
-                    g2.blx, g2.bly
+                self.hud.chestelements[(ROWLENGTH*16) as usize + 2].uvs = [
+                    g2.blx, g2.bly, g2.brx, g2.bry, g2.trx, g2.tr_y, g2.trx, g2.tr_y, g2.tlx,
+                    g2.tly, g2.blx, g2.bly,
                 ];
             }
 
@@ -1992,83 +1969,51 @@ impl Game {
                 let g1 = GlyphFace::new(43);
                 let g2 = GlyphFace::new(43);
 
-                self.hud.chestelements[81].uvs = [
-                    g1.blx, g1.bly,
-                    g1.brx, g1.bry,
-                    g1.trx, g1.tr_y,
-
-                    g1.trx, g1.tr_y,
-                    g1.tlx, g1.tly,
-                    g1.blx, g1.bly
+                self.hud.chestelements[(ROWLENGTH*16) as usize + 1].uvs = [
+                    g1.blx, g1.bly, g1.brx, g1.bry, g1.trx, g1.tr_y, g1.trx, g1.tr_y, g1.tlx,
+                    g1.tly, g1.blx, g1.bly,
                 ];
-                self.hud.chestelements[82].uvs = [
-                    g2.blx, g2.bly,
-                    g2.brx, g2.bry,
-                    g2.trx, g2.tr_y,
-
-                    g2.trx, g2.tr_y,
-                    g2.tlx, g2.tly,
-                    g2.blx, g2.bly
+                self.hud.chestelements[(ROWLENGTH*16) as usize + 2].uvs = [
+                    g2.blx, g2.bly, g2.brx, g2.bry, g2.trx, g2.tr_y, g2.trx, g2.tr_y, g2.tlx,
+                    g2.tly, g2.blx, g2.bly,
                 ];
             }
 
             if count.len() == 1 {
                 let g2 = GlyphFace::new(count.as_bytes()[0]);
-                self.hud.chestelements[81].uvs = [
-                    bf.blx, bf.bly,
-                    bf.brx, bf.bry,
-                    bf.trx, bf.tr_y,
-
-                    bf.trx, bf.tr_y,
-                    bf.tlx, bf.tly,
-                    bf.blx, bf.bly
+                self.hud.chestelements[(ROWLENGTH*16) as usize + 1].uvs = [
+                    bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx,
+                    bf.tly, bf.blx, bf.bly,
                 ];
-                self.hud.chestelements[82].uvs = [
-                    g2.blx, g2.bly,
-                    g2.brx, g2.bry,
-                    g2.trx, g2.tr_y,
-
-                    g2.trx, g2.tr_y,
-                    g2.tlx, g2.tly,
-                    g2.blx, g2.bly
+                self.hud.chestelements[(ROWLENGTH*16) as usize + 2].uvs = [
+                    g2.blx, g2.bly, g2.brx, g2.bry, g2.trx, g2.tr_y, g2.trx, g2.tr_y, g2.tlx,
+                    g2.tly, g2.blx, g2.bly,
                 ];
             }
         } else {
-            self.hud.chestelements[81].uvs = [
-                    bf.blx, bf.bly,
-                    bf.brx, bf.bry,
-                    bf.trx, bf.tr_y,
-
-                    bf.trx, bf.tr_y,
-                    bf.tlx, bf.tly,
-                    bf.blx, bf.bly
-                ];
-            self.hud.chestelements[82].uvs = [
+            self.hud.chestelements[(ROWLENGTH*16) as usize + 1].uvs = [
+                bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx, bf.tly,
                 bf.blx, bf.bly,
-                bf.brx, bf.bry,
-                bf.trx, bf.tr_y,
-
-                bf.trx, bf.tr_y,
-                bf.tlx, bf.tly,
-                bf.blx, bf.bly
+            ];
+            self.hud.chestelements[(ROWLENGTH*16) as usize + 2].uvs = [
+                bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx, bf.tly,
+                bf.blx, bf.bly,
             ];
         }
 
-
-
-
-
-
-
-
-
-        
         self.hud.dirty = true;
 
         Game::update_avail_recipes(&self.inventory);
     }
 
-    pub fn set_in_inventory(inv: &Arc<RwLock<Inventory>>, slot: usize, newid: u32, newcount: u32, in_m: bool, needtosend: &Arc<Queue<Message>>  ) -> Result<bool, bool> {
+    pub fn set_in_inventory(
+        inv: &Arc<RwLock<Inventory>>,
+        slot: usize,
+        newid: u32,
+        newcount: u32,
+        in_m: bool,
+        needtosend: &Arc<Queue<Message>>,
+    ) -> Result<bool, bool> {
         let mut updaterecipes = false;
         let result;
 
@@ -2078,39 +2023,51 @@ impl Game {
             result = Ok(true);
         } else {
             let mut inventory = inv.write().unwrap();
-             // If not found, try to find an empty slot to add the new item
-                let item = &mut inventory.inv[slot];
+            // If not found, try to find an empty slot to add the new item
+            let item = &mut inventory.inv[slot];
 
-                item.0 = newid;
-                item.1 = newcount;
-                inventory.dirty = true;
-                result = Ok(true);
-                updaterecipes = true;
-            
+            item.0 = newid;
+            item.1 = newcount;
+            inventory.dirty = true;
+            result = Ok(true);
+            updaterecipes = true;
         }
 
         if updaterecipes {
             Game::update_avail_recipes(&inv);
         }
 
-
         return result;
     }
 
-    pub fn add_to_inventory(inv: &Arc<RwLock<Inventory>>, id: u32, count: u32, in_m: bool, needtosend: &Arc<Queue<Message>>) -> Result<bool, bool> {
-
+    pub fn add_to_inventory(
+        inv: &Arc<RwLock<Inventory>>,
+        id: u32,
+        count: u32,
+        in_m: bool,
+        needtosend: &Arc<Queue<Message>>,
+    ) -> Result<bool, bool> {
         let mut updaterecipes = false;
         let result;
 
         if in_m {
-
             let n = needtosend.clone();
 
             let inventory = inv.read().unwrap();
-        
+
             // First, try to find an item with the given `id`
-            if let Some((index, item)) = inventory.inv.iter().enumerate().find(|(_index, item)| item.0 == id) {
-                let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, id as f32, index as u32);
+            if let Some((index, item)) = inventory
+                .inv
+                .iter()
+                .enumerate()
+                .find(|(_index, item)| item.0 == id)
+            {
+                let mut msg = Message::new(
+                    MessageType::ChestInvUpdate,
+                    Vec3::ZERO,
+                    id as f32,
+                    index as u32,
+                );
                 msg.infof = item.1 as f32 + 1.0;
                 msg.info2 = 1;
 
@@ -2119,12 +2076,20 @@ impl Game {
                 // inventory.dirty = true;
                 updaterecipes = true;
                 result = Ok(true);
-            } else 
-
+            } else
             // If not found, try to find an empty slot to add the new item
-            if let Some((index, _item)) = inventory.inv.iter().enumerate().find(|(_index, item)| item.0 == 0) {
-                
-                let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, id as f32, index as u32);
+            if let Some((index, _item)) = inventory
+                .inv
+                .iter()
+                .enumerate()
+                .find(|(_index, item)| item.0 == 0)
+            {
+                let mut msg = Message::new(
+                    MessageType::ChestInvUpdate,
+                    Vec3::ZERO,
+                    id as f32,
+                    index as u32,
+                );
                 msg.infof = 1.0;
                 msg.info2 = 1;
 
@@ -2137,11 +2102,9 @@ impl Game {
             } else {
                 result = Err(false);
             }
-
-
         } else {
             let mut inventory = inv.write().unwrap();
-        
+
             // First, try to find an item with the given `id`
             if let Some(item) = inventory.inv.iter_mut().find(|item| item.0 == id) {
                 item.1 += count;
@@ -2149,7 +2112,6 @@ impl Game {
                 result = Ok(true);
                 updaterecipes = true;
             } else
-
             // If not found, try to find an empty slot to add the new item
             if let Some(item) = inventory.inv.iter_mut().find(|item| item.0 == 0) {
                 item.0 = id;
@@ -2160,8 +2122,6 @@ impl Game {
             } else {
                 result = Err(false);
             }
-
-            
         }
 
         if updaterecipes {
@@ -2169,9 +2129,6 @@ impl Game {
         }
 
         return result;
-
-        
-        
     }
 
     pub fn craft_recipe_index(&mut self, index: usize) {
@@ -2180,16 +2137,16 @@ impl Game {
                 let r = CURRENT_AVAIL_RECIPES.lock().unwrap();
                 &r[index].clone().recipe
             };
-            
-
 
             let mut hasreqs = true;
             let invlock = self.inventory.write().unwrap();
-            
+
+            let originalinv = invlock.inv.clone();
+
             for req in &recipe.0 {
                 let mut amt = 0;
 
-                for i in 0..5 {
+                for i in 0..ROWLENGTH as usize {
                     let typehere = invlock.inv[i].0;
                     if typehere == req.0 {
                         amt += invlock.inv[i].1;
@@ -2201,14 +2158,7 @@ impl Game {
                 }
             }
 
-            
-
-
-
-
             if hasreqs {
-
-
                 //Find an empty spot OR MATCHING RESULT ITEM SPOT in their imaginary inv that would exist if we were to subtract the necessary ingredients:
                 //Make an imaginary clone of their inventory:
                 let mut invclone = invlock.inv.clone();
@@ -2216,18 +2166,17 @@ impl Game {
                 //Subtract the ingredients
                 for req in &recipe.0 {
                     let mut amt = 0;
-    
-                    for i in 0..5 {
+
+                    for i in 0..ROWLENGTH as usize {
                         let typehere = invclone[i].0;
                         if typehere == req.0 {
                             while invclone[i].1 > 0 && amt < req.1 {
+                                amt += 1;
+                                invclone[i].1 -= 1;
 
-                                    amt += 1;
-                                    invclone[i].1 -= 1;
-
-                                    if invclone[i].1 == 0 {
-                                        invclone[i].0 = 0;
-                                    }
+                                if invclone[i].1 == 0 {
+                                    invclone[i].0 = 0;
+                                }
                             }
                             if amt >= req.1 {
                                 break;
@@ -2240,9 +2189,11 @@ impl Game {
                 let resultslot = {
                     let mut slot = None;
 
-                    for i in 0..5 {
+                    for i in 0..ROWLENGTH as usize {
                         let typehere = invclone[i].0;
-                        if (typehere == 0 || typehere == recipe.1.0) && (invclone[i].1 + recipe.1.1) <= 99 {
+                        if (typehere == 0 || typehere == recipe.1 .0)
+                            && (invclone[i].1 + recipe.1 .1) <= 999
+                        {
                             slot = Some(i);
                             break;
                         }
@@ -2255,55 +2206,61 @@ impl Game {
 
                 //Only execute the subtraction and addition of items if they will have that result slot available
                 match resultslot {
-                    None => {
-
-                    }
+                    None => {}
                     Some(slot) => {
-
-                        
-
-                        
                         //Take the reqs away from their real inventory
                         for _req in &recipe.0 {
                             let _amt = 0;
-            
-                            for i in 0..5 {
+
+                            for i in 0..ROWLENGTH as usize {
                                 //Turn their inventory into the invclone
-                                Game::set_in_inventory(&self.inventory.clone(), i, invclone[i].0, invclone[i].1, self.vars.in_multiplayer, &self.needtosend);
+
+                                if invclone[i] != originalinv[i] {
+                                    Game::set_in_inventory(
+                                        &self.inventory.clone(),
+                                        i,
+                                        invclone[i].0,
+                                        invclone[i].1,
+                                        self.vars.in_multiplayer,
+                                        &self.needtosend,
+                                    );
+                                }
                                 
                             }
                         }
-                        
-                        //Give them the resulting item
-                        Game::set_in_inventory(&self.inventory.clone(), slot, recipe.1.0, invclone[slot].1 + recipe.1.1, self.vars.in_multiplayer, &self.needtosend);
 
+                        //Give them the resulting item
+                        Game::set_in_inventory(
+                            &self.inventory.clone(),
+                            slot,
+                            recipe.1 .0,
+                            invclone[slot].1 + recipe.1 .1,
+                            self.vars.in_multiplayer,
+                            &self.needtosend,
+                        );
                     }
                 }
-
-
-                
-
-
             }
-                
-
         }
     }
     #[cfg(feature = "audio")]
     pub fn do_step_sounds(&mut self) {
         static mut TIMER: f32 = 0.0;
-        static mut LAST_CAM_POS: Vec3 = Vec3{x: 0.0, y: 0.0, z: 0.0};
+        static mut LAST_CAM_POS: Vec3 = Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
         let cl = self.camera.lock().unwrap();
         let campos = cl.position - cl.direction * 0.5;
         drop(cl);
-        
+
         unsafe {
-            let diff = campos.distance(LAST_CAM_POS); 
+            let diff = campos.distance(LAST_CAM_POS);
 
             let interval = if unsafe { SPRINTING } { 0.3 } else { 0.45 };
 
             if diff > self.delta_time * 3.0 {
-               
                 if TIMER > interval {
                     self.do_step_sound_now(campos);
                     TIMER = 0.0;
@@ -2314,28 +2271,37 @@ impl Game {
                 LAST_CAM_POS = campos;
             }
         }
-        
     }
     #[cfg(feature = "audio")]
     pub fn do_step_sound_now(&mut self, position: Vec3) {
         let campos = position;
         let camfootpos = campos - Vec3::new(0.0, 2.0, 0.0);
-        let blockat = self.chunksys.read().unwrap().blockat(IVec3::new(camfootpos.x.floor() as i32, camfootpos.y.floor() as i32, camfootpos.z.floor() as i32));
+        let blockat = self.chunksys.read().unwrap().blockat(IVec3::new(
+            camfootpos.x.floor() as i32,
+            camfootpos.y.floor() as i32,
+            camfootpos.z.floor() as i32,
+        ));
         let blockat = blockat & Blocks::block_id_bits();
-        if blockat != 0 { 
+        if blockat != 0 {
             unsafe {
-                
-                AUDIOPLAYER.play_next_in_series(&Blocks::get_walk_series(blockat), &(camfootpos), &Vec3::new(0.0, 0.0, 0.0), 0.3);
+                AUDIOPLAYER.play_next_in_series(
+                    &Blocks::get_walk_series(blockat),
+                    &(camfootpos),
+                    &Vec3::new(0.0, 0.0, 0.0),
+                    0.3,
+                );
             }
         }
-        
     }
-
 
     pub fn activate_jump_block(&mut self, position: Vec3) {
         let campos = position;
         let camfootpos = campos - Vec3::new(0.0, 2.0, 0.0);
-        let spot = IVec3::new(camfootpos.x.floor() as i32, camfootpos.y.floor() as i32, camfootpos.z.floor() as i32);
+        let spot = IVec3::new(
+            camfootpos.x.floor() as i32,
+            camfootpos.y.floor() as i32,
+            camfootpos.z.floor() as i32,
+        );
         let blockat = self.chunksys.read().unwrap().blockat(spot);
         let blockat = blockat & Blocks::block_id_bits();
         // if blockat != 0 {
@@ -2345,91 +2311,99 @@ impl Game {
         match blockat {
             40 => {
                 if !self.vars.in_multiplayer {
-                    self.chunksys.read().unwrap().set_block_and_queue_rerender_no_sound(spot, 41, false, true);
+                    self.chunksys
+                        .read()
+                        .unwrap()
+                        .set_block_and_queue_rerender_no_sound(spot, 41, false, true);
                 } else {
                     let mut message = Message::new(
-                        MessageType::BlockSet, 
-                        Vec3::new(
-                            spot.x as f32, 
-                            spot.y as f32, 
-                            spot.z as f32), 
-                        0.0, 
-                        41);
-                        message.infof = 0.0;
+                        MessageType::BlockSet,
+                        Vec3::new(spot.x as f32, spot.y as f32, spot.z as f32),
+                        0.0,
+                        41,
+                    );
+                    message.infof = 0.0;
 
                     self.netconn.sendqueue.push(message);
                 }
 
                 #[cfg(feature = "audio")]
                 unsafe {
-                    AUDIOPLAYER.play_next_in_series("clickseries", &Vec3::new(
-                            spot.x as f32, 
-                            spot.y as f32, 
-                            spot.z as f32), &Vec3::ZERO, 0.5);
+                    AUDIOPLAYER.play_next_in_series(
+                        "clickseries",
+                        &Vec3::new(spot.x as f32, spot.y as f32, spot.z as f32),
+                        &Vec3::ZERO,
+                        0.5,
+                    );
                 }
-                
-                
             }
             41 => {
                 if !self.vars.in_multiplayer {
-                    self.chunksys.read().unwrap().set_block_and_queue_rerender_no_sound(spot, 40, false, true);
+                    self.chunksys
+                        .read()
+                        .unwrap()
+                        .set_block_and_queue_rerender_no_sound(spot, 40, false, true);
                 } else {
-
                     let mut message = Message::new(
-                        MessageType::BlockSet, 
-                        Vec3::new(
-                            spot.x as f32, 
-                            spot.y as f32, 
-                            spot.z as f32), 
-                        0.0, 
-                        40);
-                        message.infof = 0.0;
+                        MessageType::BlockSet,
+                        Vec3::new(spot.x as f32, spot.y as f32, spot.z as f32),
+                        0.0,
+                        40,
+                    );
+                    message.infof = 0.0;
 
                     self.netconn.sendqueue.push(message);
                 }
                 #[cfg(feature = "audio")]
                 unsafe {
-                    AUDIOPLAYER.play_next_in_series("clickseries", &Vec3::new(
-                    spot.x as f32, 
-                    spot.y as f32, 
-                    spot.z as f32), &Vec3::ZERO, 0.5);
+                    AUDIOPLAYER.play_next_in_series(
+                        "clickseries",
+                        &Vec3::new(spot.x as f32, spot.y as f32, spot.z as f32),
+                        &Vec3::ZERO,
+                        0.5,
+                    );
                 }
-                
             }
             42 => {
                 let d = self.camera.lock().unwrap().direction.clone();
 
-                self.camera.lock().unwrap().velocity += Vec3::new(0.0, TRAMPOLINE_VELOCITY_FIGURE, 0.0) + d;
+                self.camera.lock().unwrap().velocity +=
+                    Vec3::new(0.0, TRAMPOLINE_VELOCITY_FIGURE, 0.0) + d;
                 #[cfg(feature = "audio")]
                 unsafe {
-                    AUDIOPLAYER.play("assets/sfx/boing.mp3", &(camfootpos), &Vec3::new(0.0, 0.0, 0.0), 0.5);
+                    AUDIOPLAYER.play(
+                        "assets/sfx/boing.mp3",
+                        &(camfootpos),
+                        &Vec3::new(0.0, 0.0, 0.0),
+                        0.5,
+                    );
                 }
-                
             }
-            _ => {
-                
-            }
+            _ => {}
         }
-        
     }
 
     pub fn takeoff_ship(&mut self) {
         if !self.vars.ship_taken_off {
             #[cfg(feature = "audio")]
             unsafe {
-                AUDIOPLAYER.play("assets/sfx/shiptakeoff.mp3", &self.ship_pos, &Vec3::ZERO, 1.0);
+                AUDIOPLAYER.play(
+                    "assets/sfx/shiptakeoff.mp3",
+                    &self.ship_pos,
+                    &Vec3::ZERO,
+                    1.0,
+                );
             }
-            
+
             self.vars.ship_going_up = true;
             self.vars.ship_going_down = false;
             self.vars.ship_taken_off = true;
             self.vars.on_new_world = false;
         }
-        
     }
 
-    pub fn gaussian (x: f32, peak: f32, radius: f32) -> f32 {
-        let std_dev = radius / 3.0;  // Controls the spread
+    pub fn gaussian(x: f32, peak: f32, radius: f32) -> f32 {
+        let std_dev = radius / 3.0; // Controls the spread
         let variance = std_dev * std_dev;
 
         // Gaussian formula
@@ -2446,25 +2420,33 @@ impl Game {
 
         let conn = Connection::open("chestdb").unwrap();
 
-        conn.execute(&format!(
-            "CREATE TABLE IF NOT EXISTS {} (
+        conn.execute(
+            &format!(
+                "CREATE TABLE IF NOT EXISTS {} (
                 id TEXT PRIMARY KEY,
                 inventory BLOB
             )",
-            table_name
-        ), ()).unwrap();
+                table_name
+            ),
+            (),
+        )
+        .unwrap();
 
-        let mut stmt = conn.prepare(&format!(
-            "SELECT inventory FROM {} WHERE id = ?1",
-            table_name
-        )).unwrap();
-    
-        let mut rows = stmt.query([self.my_uuid.read().unwrap().unwrap().to_string()]).unwrap();
-    
+        let mut stmt = conn
+            .prepare(&format!(
+                "SELECT inventory FROM {} WHERE id = ?1",
+                table_name
+            ))
+            .unwrap();
+
+        let mut rows = stmt
+            .query([self.my_uuid.read().unwrap().unwrap().to_string()])
+            .unwrap();
+
         if let Some(row) = rows.next().unwrap() {
             let inventory: Vec<u8> = row.get(0).unwrap();
 
-            match bincode::deserialize::<[(u32, u32); 5]>(&inventory) {
+            match bincode::deserialize::<[(u32, u32); ROWLENGTH as usize]>(&inventory) {
                 Ok(inv) => {
                     let mut invlock = self.inventory.write().unwrap();
                     invlock.inv = inv.clone();
@@ -2473,11 +2455,8 @@ impl Game {
                     info!("Couldn't de-serialize inventory blob");
                 }
             }
-
-            
         } else {
         }
-
     }
 
     pub fn load_my_pos_from_file(&self) {
@@ -2485,21 +2464,29 @@ impl Game {
 
         let conn = Connection::open("chestdb").unwrap();
 
-        conn.execute(&format!(
-            "CREATE TABLE IF NOT EXISTS {} (
+        conn.execute(
+            &format!(
+                "CREATE TABLE IF NOT EXISTS {} (
                 id TEXT PRIMARY KEY,
                 playerposition BLOB
             )",
-            table_name
-        ), ()).unwrap();
+                table_name
+            ),
+            (),
+        )
+        .unwrap();
 
-        let mut stmt = conn.prepare(&format!(
-            "SELECT playerposition FROM {} WHERE id = ?1",
-            table_name
-        )).unwrap();
-    
-        let mut rows = stmt.query([self.my_uuid.read().unwrap().unwrap().to_string()]).unwrap();
-    
+        let mut stmt = conn
+            .prepare(&format!(
+                "SELECT playerposition FROM {} WHERE id = ?1",
+                table_name
+            ))
+            .unwrap();
+
+        let mut rows = stmt
+            .query([self.my_uuid.read().unwrap().unwrap().to_string()])
+            .unwrap();
+
         if let Some(row) = rows.next().unwrap() {
             let pp: Vec<u8> = row.get(0).unwrap();
 
@@ -2515,21 +2502,16 @@ impl Game {
                     info!("Couldn't de-serialize playerpos blob");
                 }
             }
-
-            
         } else {
         }
-
     }
 
     pub fn update(&mut self) {
-        
         let current_time = unsafe { glfwGetTime() as f32 };
         self.delta_time = (current_time - self.prev_time).min(0.05);
-        let stam =self.stamina.load(Ordering::Relaxed);
+        let stam = self.stamina.load(Ordering::Relaxed);
 
-        if unsafe {MOVING}
-        {
+        if unsafe { MOVING } {
             self.vars.walkbobtimer = self.vars.walkbobtimer + self.delta_time * 10.0;
             self.vars.walkbobtimer %= 2.0 * consts::PI;
         }
@@ -2545,8 +2527,6 @@ impl Game {
         }
 
         unsafe {
-
-            
             if ON_CONVEYORS {
                 if CONVEYOR_SOUND_TIMER <= 0.0 {
                     #[cfg(feature = "audio")]
@@ -2560,9 +2540,6 @@ impl Game {
             }
         }
 
-
-
-
         if !self.vars.in_multiplayer || self.headless {
             unsafe {
                 WEATHERTIMER += self.delta_time;
@@ -2571,18 +2548,14 @@ impl Game {
                     let randint: usize = rand.gen_range(0..=2);
                     WEATHERTYPE = randint as f32;
                     WEATHERTIMER = 0.0;
-                    
                 }
             }
-
-            
         }
 
         if !self.headless {
             #[cfg(feature = "audio")]
             self.play_weather_sound();
         }
-            
 
         unsafe {
             if WINDED {
@@ -2594,9 +2567,7 @@ impl Game {
                     WINDEDTIMER = 0.0;
                 }
             }
-            
         }
-
 
         static mut sprintchecktimer: f32 = 0.0;
         unsafe {
@@ -2605,11 +2576,10 @@ impl Game {
 
                 if self.controls.shift && !self.vars.in_climbable {
                     if stam > 0 {
-                        unsafe { 
+                        unsafe {
                             SPRINTING = true;
-                           // self.stamina.store(stam - 4, Ordering::Relaxed);
+                            // self.stamina.store(stam - 4, Ordering::Relaxed);
                         }
-        
                     } else {
 
                         // if stam < 0 {
@@ -2617,68 +2587,65 @@ impl Game {
                         //         WINDED = true;
                         //     }
                         // }
-        
-                        // unsafe { SPRINTING = false } 
+
+                        // unsafe { SPRINTING = false }
                         // if stam < 100 {
                         //     self.stamina.store(stam + 2, Ordering::Relaxed);
                         // }
-                        
                     }
                 } else {
-                    unsafe{ SPRINTING = false; }
+                    unsafe {
+                        SPRINTING = false;
+                    }
                     // if stam < 100 {
                     //     self.stamina.store(stam + 2, Ordering::Relaxed);
                     // }
                 }
-
-
             } else {
                 sprintchecktimer += self.delta_time;
             }
         }
-        
-
-        
 
         unsafe {
             STAMINA = self.stamina.load(Ordering::Relaxed);
         }
 
-        
-            let mut rng = StdRng::from_entropy();
-            if !self.vars.in_multiplayer {
-                unsafe {
-                    if SONGTIMER < SONGINTERVAL {
-                        SONGTIMER += self.delta_time;
-                    } else {
-                        SONGTIMER = 0.0;
-                        if !self.headless {
-                            #[cfg(feature = "audio")]
-                            AUDIOPLAYER.play_in_head(SONGS[SONGINDEX]);
-                        }
-                        
+        let mut rng = StdRng::from_entropy();
+        if !self.vars.in_multiplayer {
+            unsafe {
+                if SONGTIMER < SONGINTERVAL {
+                    SONGTIMER += self.delta_time;
+                } else {
+                    SONGTIMER = 0.0;
+
+                    if !self.headless {
                         SONGINDEX = (SONGINDEX + rng.gen_range(1..SONGS.len())) % SONGS.len();
-                        
+
+                        #[cfg(feature = "audio")]
+                        AUDIOPLAYER.play_in_head(SONGS[SONGINDEX]);
                     }
                 }
             }
-                
-
+        }
 
         unsafe {
             AMBIENTBRIGHTNESS = self.ambient_bright_mult;
         }
-            
 
         self.prev_time = current_time;
         let mut todlock = self.timeofday.lock().unwrap();
         *todlock = (*todlock + self.delta_time) % self.daylength;
 
-        let gaussian_value = Self::gaussian(*todlock, self.daylength / 2.0, self.daylength / 2.0) * 1.3;
+        let gaussian_value =
+            Self::gaussian(*todlock, self.daylength / 2.0, self.daylength / 2.0) * 1.3;
         self.ambient_bright_mult = gaussian_value.clamp(0.08, 1.0);
 
-        self.sunset_factor = Self::gaussian(*todlock, self.daylength*(3.0/4.0), self.daylength/16.0);
-        self.sunrise_factor = Self::gaussian(*todlock, self.daylength/6.0, self.daylength/16.0);
+        self.sunset_factor = Self::gaussian(
+            *todlock,
+            self.daylength * (3.0 / 4.0),
+            self.daylength / 16.0,
+        );
+        self.sunrise_factor = Self::gaussian(*todlock, self.daylength / 6.0, self.daylength / 16.0);
 
         drop(todlock);
 
@@ -2689,8 +2656,7 @@ impl Game {
         drop(fadersread);
         #[cfg(feature = "glfw")]
         if !self.headless {
-
-            let (x,y) = self.window.read().unwrap().get_cursor_pos();
+            let (x, y) = self.window.read().unwrap().get_cursor_pos();
 
             unsafe {
                 MOUSEX = x;
@@ -2700,30 +2666,28 @@ impl Game {
             self.hud.mousetrans = HudElement::xytondc(x, y);
             if self.hud.chest_open {
                 let mut isoverlappingany = false;
-                for i in 0..5 {
+                for i in 0..ROWLENGTH as usize {
                     let hudel = &self.hud.elements[i];
-                    
+
                     if hudel.overlaps(x, y) {
                         unsafe {
                             MOUSED_SLOT = SlotIndexType::InvSlot(i as i32);
                             match self.inventory.read() {
                                 Ok(inv) => {
                                     TOOLTIPNAME = Blocks::get_name(inv.inv[i].0);
-                                },
-                                Err(_) => {
-
-                                },
+                                }
+                                Err(_) => {}
                             }
-                            
+
                             SHOWTOOLTIP = true;
                             isoverlappingany = true;
                         }
                     }
                 }
 
-                for i in 0..20 {
+                for i in 0..ROWLENGTH as usize*4 {
                     let hudel = &self.hud.chestelements[i];
-                    
+
                     if hudel.overlaps(x, y) {
                         unsafe {
                             MOUSED_SLOT = SlotIndexType::ChestSlot(i as i32);
@@ -2733,23 +2697,20 @@ impl Game {
                                     match csys.chest_registry.get(&self.hud.current_chest) {
                                         Some(chest) => {
                                             TOOLTIPNAME = Blocks::get_name(chest.value().inv[i].0);
-                                        },
-                                        None => {},
+                                        }
+                                        None => {}
                                     }
                                 }
-                                Err(_) => {},
+                                Err(_) => {}
                             }
 
-                            
-                            
                             SHOWTOOLTIP = true;
                             isoverlappingany = true;
                         }
                     }
                 }
                 if !isoverlappingany {
-                    unsafe 
-                    {
+                    unsafe {
                         SHOWTOOLTIP = false;
                         MOUSED_SLOT = SlotIndexType::None;
                     }
@@ -2772,9 +2733,7 @@ impl Game {
                 Some(comm) => {
                     self.netconn.send(&comm);
                 }
-                None => {
-
-                }
+                None => {}
             }
             let mut morestuff = true;
             while morestuff {
@@ -2782,45 +2741,76 @@ impl Game {
                     Some(comm) => {
                         match comm.message_type {
                             MessageType::BlockSet => {
-
                                 if comm.infof == 1.0 {
                                     if comm.info == 0 {
-                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
-                                        comm.info, true, true);
+                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                            IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32),
+                                            comm.info,
+                                            true,
+                                            true,
+                                        );
                                     } else {
-                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
-                                        comm.info, false, true);
+                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                            IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32),
+                                            comm.info,
+                                            false,
+                                            true,
+                                        );
                                     }
                                 } else {
                                     if comm.info == 0 {
-                                        self.chunksys.read().unwrap().set_block_and_queue_rerender_no_sound(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
-                                        comm.info, true, true);
+                                        self.chunksys
+                                            .read()
+                                            .unwrap()
+                                            .set_block_and_queue_rerender_no_sound(
+                                                IVec3::new(
+                                                    comm.x as i32,
+                                                    comm.y as i32,
+                                                    comm.z as i32,
+                                                ),
+                                                comm.info,
+                                                true,
+                                                true,
+                                            );
                                     } else {
-                                        self.chunksys.read().unwrap().set_block_and_queue_rerender_no_sound(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
-                                        comm.info, false, true);
+                                        self.chunksys
+                                            .read()
+                                            .unwrap()
+                                            .set_block_and_queue_rerender_no_sound(
+                                                IVec3::new(
+                                                    comm.x as i32,
+                                                    comm.y as i32,
+                                                    comm.z as i32,
+                                                ),
+                                                comm.info,
+                                                false,
+                                                true,
+                                            );
                                     }
                                 }
-                                
-                                
 
-
-                                    unsafe {
-                                        UPDATE_THE_BLOCK_OVERLAY = true;
-                                    }
+                                unsafe {
+                                    UPDATE_THE_BLOCK_OVERLAY = true;
+                                }
                             }
                             MessageType::MultiBlockSet => {
+                                let cread = self.chunksys.read().unwrap();
 
-                                        let cread = self.chunksys.read().unwrap();
+                                cread.set_block_no_sound(
+                                    IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32),
+                                    comm.info,
+                                    true,
+                                );
 
-                                        cread.set_block_no_sound(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
-                                        comm.info, true);
-
-                                        cread.set_block_and_queue_rerender(comm.otherpos, 
-                                        comm.info2, true, true);
-                                        unsafe {
-                                            UPDATE_THE_BLOCK_OVERLAY = true;
-                                        }
-
+                                cread.set_block_and_queue_rerender(
+                                    comm.otherpos,
+                                    comm.info2,
+                                    true,
+                                    true,
+                                );
+                                unsafe {
+                                    UPDATE_THE_BLOCK_OVERLAY = true;
+                                }
                             }
                             MessageType::ChestReg => {
                                 self.load_my_inv_from_file();
@@ -2828,116 +2818,86 @@ impl Game {
                             }
                             MessageType::ChestInvUpdate => {
                                 let currchest = comm.otherpos;
-            
+
                                 let destslot = comm.info;
-            
+
                                 let slotindextype = match comm.info2 {
-                                    0 => {
-                                        SlotIndexType::ChestSlot(destslot as i32)
-                                    }
-                                    1 => {
-                                        SlotIndexType::InvSlot(destslot as i32)
-                                    }
-                                    _ => {
-                                        SlotIndexType::None
-                                    }
+                                    0 => SlotIndexType::ChestSlot(destslot as i32),
+                                    1 => SlotIndexType::InvSlot(destslot as i32),
+                                    _ => SlotIndexType::None,
                                 };
 
                                 let uuid = Uuid::from_u64_pair(comm.goose.0, comm.goose.1);
 
                                 let mut updateinv = false;
-                                
 
                                 match *self.my_uuid.read().unwrap() {
                                     Some(ud) => {
                                         if uuid == ud && comm.z == 1.0 {
+                                            //this message is intended for my inv and it is to replace my mouse_slot
                                             self.mouse_slot.0 = comm.x as u32;
                                             self.mouse_slot.1 = comm.y as u32;
                                             updateinv = true;
                                         }
-                                    },
-                                    None => {
-
-                                    },
+                                    }
+                                    None => {}
                                 }
 
-                                
-            
                                 match slotindextype {
                                     SlotIndexType::ChestSlot(e) => {
                                         let csys = self.chunksys.write().unwrap();
-                                        let mut chestinv = csys.chest_registry.entry(currchest).or_insert(ChestInventory {
-                                            dirty: false, inv: [(0,0), (0,0), (0,0), (0,0), (0,0),
-                                            (0,0), (0,0), (0,0), (0,0), (0,0), 
-                                            (0,0), (0,0), (0,0), (0,0), (0,0), 
-                                            (0,0), (0,0), (0,0), (0,0), (0,0) ]
-                                        });
-            
+                                        let mut chestinv = csys
+                                            .chest_registry
+                                            .entry(currchest)
+                                            .or_insert(ChestInventory {
+                                                dirty: false,
+                                                inv: [(0,0); ROWLENGTH as usize * 4],
+                                            });
+
                                         let slot = &mut chestinv.inv[e as usize];
-            
-                                       // let wasthere = slot.clone();
-            
+
+                                        // let wasthere = slot.clone();
+
                                         slot.0 = comm.rot as u32;
                                         slot.1 = comm.infof as u32;
                                         updateinv = true;
                                         //comm.x = wasthere.0 as f32; comm.y = wasthere.1 as f32;
                                     }
                                     SlotIndexType::InvSlot(e) => {
-
-
                                         let ud = match *self.my_uuid.read().unwrap() {
-                                            Some(ud) => {
-                                                Some(ud.clone())
-                                            }
-                                            None => {
-                                                None
-                                            }
+                                            Some(ud) => Some(ud.clone()),
+                                            None => None,
                                         };
-                                        
+
                                         match ud {
                                             Some(ud) => {
                                                 if uuid == ud {
-                                                    let playerinv = &mut self.inventory.write().unwrap();
+                                                    let playerinv =
+                                                        &mut self.inventory.write().unwrap();
                                                     let slot = &mut playerinv.inv[e as usize];
-                
-                                                   // let wasthere = slot.clone();
-                
+
+                                                    // let wasthere = slot.clone();
+
                                                     slot.0 = comm.rot as u32;
                                                     slot.1 = comm.infof as u32;
 
-                                                    
-        
                                                     updateinv = true;
                                                 }
-                                            },
+                                            }
                                             None => todo!(),
                                         }
-                                        
-                                        
+
                                         //comm.x = wasthere.0 as f32; comm.y = wasthere.1 as f32;
-
-                                        
                                     }
-                                    SlotIndexType::None => {
-            
-                                    }
+                                    SlotIndexType::None => {}
                                 }
-
 
                                 if updateinv {
                                     self.update_inventory();
                                 }
-
-                                
-                                
-                                
-            
-                                
                             }
-                            
-                            _ => {
 
-                            }
+                            _ => {}
                         }
                     }
                     None => {
@@ -2948,8 +2908,7 @@ impl Game {
             let mut morestuff = true;
             //while morestuff {
 
-            
-            for _ in 0..10{
+            for _ in 0..10 {
                 match self.server_command_queue.pop() {
                     Some(comm) => {
                         match comm.message_type {
@@ -2964,7 +2923,7 @@ impl Game {
                                     WEATHERTYPE = comm.rot;
                                 }
                                 unsafe {
-                                    let newsongindex= comm.info;
+                                    let newsongindex = comm.info;
 
                                     if SONGINDEX as u32 != newsongindex {
                                         SONGINDEX = newsongindex as usize;
@@ -2972,16 +2931,23 @@ impl Game {
                                         AUDIOPLAYER.play_in_head(SONGS[SONGINDEX]);
                                     }
                                 }
-                                
                             }
                             MessageType::BlockSet => {
                                 if comm.info == 0 {
-                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
-                                        comm.info, true, true);
-                                    } else {
-                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32), 
-                                        comm.info, false, true);
-                                    }
+                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                        IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32),
+                                        comm.info,
+                                        true,
+                                        true,
+                                    );
+                                } else {
+                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                        IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32),
+                                        comm.info,
+                                        false,
+                                        true,
+                                    );
+                                }
                             }
                             MessageType::MobUpdate => {
                                 let newpos = Vec3::new(comm.x, comm.y, comm.z);
@@ -2989,12 +2955,11 @@ impl Game {
                                 let modind = comm.info2;
                                 let rot = comm.rot;
                                 let scale = comm.infof;
-                                let sounding  = comm.bo;
+                                let sounding = comm.bo;
                                 let hostile = comm.hostile;
                                 // if sounding {
                                 //     info!("We got a sounding message");
                                 // }
-                                
 
                                 let nsme = self.non_static_model_entities.clone();
                                 //info!("Mob update. NSME Length: {}", nsme.len());
@@ -3011,12 +2976,18 @@ impl Game {
                                         unsafe {
                                             (*modent).time_stamp = glfwGetTime();
                                         }
-                                        
-                                        
                                     }
                                     None => {
                                         //info!("Received an update for a mob {} that doesn't exist. Creating it...", id);
-                                        self.insert_static_model_entity(id, modind as usize, newpos, scale, Vec3::new(0.0,rot,0.0), 5.0, hostile);
+                                        self.insert_static_model_entity(
+                                            id,
+                                            modind as usize,
+                                            newpos,
+                                            scale,
+                                            Vec3::new(0.0, rot, 0.0),
+                                            5.0,
+                                            hostile,
+                                        );
                                     }
                                 };
                             }
@@ -3028,8 +2999,8 @@ impl Game {
                                 let scale = 0.3;
                                 //let sounding  = comm.bo;
 
-                                let pme: Arc<DashMap<Uuid, ModelEntity>> = self.player_model_entities.clone();
-
+                                let pme: Arc<DashMap<Uuid, ModelEntity>> =
+                                    self.player_model_entities.clone();
 
                                 let uuid = Uuid::from_u64_pair(comm.goose.0, comm.goose.1);
                                 //info!("NSME Length: {}", nsme.len());
@@ -3045,12 +3016,17 @@ impl Game {
                                         unsafe {
                                             (*modent).time_stamp = glfwGetTime();
                                         }
-                                        
-                                        
                                     }
                                     None => {
                                         info!("Received an update for a player {} that doesn't exist. Creating it...", uuid);
-                                        self.insert_player_model_entity(uuid, modind as usize, newpos, scale, Vec3::new(0.0,rot,0.0), 5.0);
+                                        self.insert_player_model_entity(
+                                            uuid,
+                                            modind as usize,
+                                            newpos,
+                                            scale,
+                                            Vec3::new(0.0, rot, 0.0),
+                                            5.0,
+                                        );
                                     }
                                 };
                             }
@@ -3058,22 +3034,16 @@ impl Game {
                                 //Means we're going to a new world
                                 self.non_static_model_entities.clear();
                             }
-                            _ => {
-
-                            }
+                            _ => {}
                         }
                     }
                     None => {
-                       break;
+                        break;
                     }
                 }
             }
 
-
-
             //}
-        
-            
 
             for i in self.faders.write().unwrap().iter_mut().enumerate() {
                 if i.1.tick(self.delta_time) {
@@ -3082,8 +3052,11 @@ impl Game {
                     }
                 }
             }
-            if (self.controls.forward || self.controls.back || self.controls.left || self.controls.right)
-            && unsafe {SPRINTING}
+            if (self.controls.forward
+                || self.controls.back
+                || self.controls.left
+                || self.controls.right)
+                && unsafe { SPRINTING }
             {
                 if !self.faders.read().unwrap()[FaderNames::FovFader as usize].mode {
                     self.faders.write().unwrap()[FaderNames::FovFader as usize].up();
@@ -3094,31 +3067,21 @@ impl Game {
                 }
             }
             self.draw();
-            
-            
-        
-            
+
             if !self.vars.ship_taken_off {
                 self.draw_select_cube();
             }
-            
+
             self.guisys.draw_text(0);
 
             let mvp = self.camera.lock().unwrap().mvp;
 
             self.drops.update_and_draw_drops(&self.delta_time, &mvp);
 
-
-  
-            
-            
-
-
             self.hud.update();
             self.hud.draw();
 
             self.tex.update_texture(self.delta_time);
-
 
             let overlaycolor = Vec4::new(0.0, 0.0, 1.0, overlayfade);
             let overlaycolor2 = Vec4::new(1.0, 0.0, 0.0, overlayfade);
@@ -3128,20 +3091,16 @@ impl Game {
                 unsafe {
                     if self.visions_timer > 3.0 {
                         self.faders.write().unwrap()[FaderNames::VisionsFader as usize].down();
-
                     } else {
                         self.visions_timer += self.delta_time;
                     }
                 }
             }
-            
 
-            unsafe{ 
+            unsafe {
                 #[cfg(feature = "audio")]
                 AUDIOPLAYER.update();
             }
-            
-
 
             let camlock = self.camera.lock().unwrap();
             let pos = camlock.position;
@@ -3162,15 +3121,11 @@ impl Game {
             if self.vars.ship_taken_off {
                 if !self.vars.on_new_world {
                     if self.planet_y_offset > REQUIRED_SHIP_FLYAWAY_HEIGHT {
-
                     } else {
-                        
-                    
                         self.new_world_func();
-                        
-                        
+
                         //self.audiop.play("assets/sfx/shipland28sec.mp3", &self.ship_pos, &Vec3::ZERO);
-                        
+
                         self.vars.on_new_world = true;
                         self.vars.ship_going_down = true;
                         self.vars.ship_going_up = false;
@@ -3182,8 +3137,7 @@ impl Game {
                     }
                 }
             }
-            
-            
+
             // let camlock = self.camera.lock().unwrap();
             // let shipdist = camlock.position.distance(self.ship_pos);
             // if shipdist < 30.0 && shipdist > 10.0 {
@@ -3194,26 +3148,26 @@ impl Game {
             // }
             // drop(camlock);
 
-            
             let planet_speed = -self.planet_y_offset.clamp(-100.0, -0.5);
 
             if self.vars.ship_going_down {
-                self.planet_y_offset = (self.planet_y_offset + self.delta_time * planet_speed).clamp(-1000.0, 0.0);
+                self.planet_y_offset =
+                    (self.planet_y_offset + self.delta_time * planet_speed).clamp(-1000.0, 0.0);
             }
             if self.vars.ship_going_up {
-                self.planet_y_offset = (self.planet_y_offset - self.delta_time * planet_speed).clamp(-1000.0, 0.0);
+                self.planet_y_offset =
+                    (self.planet_y_offset - self.delta_time * planet_speed).clamp(-1000.0, 0.0);
             }
         }
 
-        if self.initial_timer < 1.5  {
+        if self.initial_timer < 1.5 {
             self.initial_timer += self.delta_time;
         } else {
             if self.headless {
-                
-                self.update_non_static_model_entities();  
+                self.update_non_static_model_entities();
             } else {
                 if !self.vars.in_multiplayer {
-                    self.update_non_static_model_entities();  
+                    self.update_non_static_model_entities();
                 } else {
                     //YOu are in multiplayer
                     self.update_server_received_modents();
@@ -3221,33 +3175,18 @@ impl Game {
                 if overlayfade <= 0.1 {
                     self.update_movement_and_physics();
                 }
-                
             }
-            
-            
         }
 
         //info!("Planet y off: {}", self.planet_y_offset);
-        
-        
     }
 
-    pub fn update_movement_and_physics(&mut self) { 
-
-
-
-
+    pub fn update_movement_and_physics(&mut self) {
         static mut SPOTIFSHIFTING: Vec3 = Vec3::ZERO;
         static mut SPOTSET: bool = false;
 
-
-
-
         let camarc = self.camera.clone();
         let mut camlock = camarc.lock().unwrap();
-
-
-
 
         unsafe {
             if CROUCHING {
@@ -3263,23 +3202,16 @@ impl Game {
             }
         }
 
-
         static mut wasngrounded: bool = false;
 
         match *self.my_uuid.read().unwrap() {
-            Some(uuid) => {
-                match self.known_cameras.get_mut(&uuid) {
-                    Some(mut pos) => {
-                        *pos = camlock.position;
-                    }
-                    None => {
-
-                    }
+            Some(uuid) => match self.known_cameras.get_mut(&uuid) {
+                Some(mut pos) => {
+                    *pos = camlock.position;
                 }
-            }
-            None => {
-
-            }
+                None => {}
+            },
+            None => {}
         }
 
         static mut wasinwater: bool = false;
@@ -3290,14 +3222,31 @@ impl Game {
 
         let underfeetpos = feetpos - Vec3::new(0.0, 1.0, 0.0);
 
-        let feetposi = vec::IVec3::new(feetpos.x.floor() as i32, feetpos.y.floor() as i32, feetpos.z.floor() as i32);
-        let headposi = vec::IVec3::new(camlock.position.x.floor() as i32, camlock.position.y.floor() as i32, camlock.position.z.floor() as i32);
-        let feetposi2 = vec::IVec3::new(feetpos.x.floor() as i32, (feetpos.y-0.25).floor() as i32, feetpos.z.floor() as i32);
+        let feetposi = vec::IVec3::new(
+            feetpos.x.floor() as i32,
+            feetpos.y.floor() as i32,
+            feetpos.z.floor() as i32,
+        );
+        let headposi = vec::IVec3::new(
+            camlock.position.x.floor() as i32,
+            camlock.position.y.floor() as i32,
+            camlock.position.z.floor() as i32,
+        );
+        let feetposi2 = vec::IVec3::new(
+            feetpos.x.floor() as i32,
+            (feetpos.y - 0.25).floor() as i32,
+            feetpos.z.floor() as i32,
+        );
 
-        let underfeetposi = vec::IVec3::new(underfeetpos.x.floor() as i32, underfeetpos.y.floor() as i32, underfeetpos.z.floor() as i32);
+        let underfeetposi = vec::IVec3::new(
+            underfeetpos.x.floor() as i32,
+            underfeetpos.y.floor() as i32,
+            underfeetpos.z.floor() as i32,
+        );
 
         let blockfeetin = self.chunksys.read().unwrap().blockat(feetposi) & Blocks::block_id_bits();
-        let blockfeetinlower = self.chunksys.read().unwrap().blockat(feetposi2) & Blocks::block_id_bits();
+        let blockfeetinlower =
+            self.chunksys.read().unwrap().blockat(feetposi2) & Blocks::block_id_bits();
         let blockbitsunderfeet = self.chunksys.read().unwrap().blockat(underfeetposi);
         let blockunderfeet = blockbitsunderfeet & Blocks::block_id_bits();
 
@@ -3314,30 +3263,45 @@ impl Game {
         let mut conveyor = false;
 
         match blockunderfeet {
-            46 => {
-
-                unsafe {
-                    if !TRAMPOLINE {
-                        TRAMPOLINE = true;
-                        let d = camlock.direction;
-                        camlock.velocity += Vec3::new(0.0, TRAMPOLINE_VELOCITY_FIGURE, 0.0) + d;
-                        #[cfg(feature = "audio")]
-                        AUDIOPLAYER.play("assets/sfx/boing.mp3", &(feetpos), &Vec3::new(0.0, 0.0, 0.0), 0.5);
-                    }
-                    
+            46 => unsafe {
+                if !TRAMPOLINE {
+                    TRAMPOLINE = true;
+                    let d = camlock.direction;
+                    camlock.velocity += Vec3::new(0.0, TRAMPOLINE_VELOCITY_FIGURE, 0.0) + d;
+                    #[cfg(feature = "audio")]
+                    AUDIOPLAYER.play(
+                        "assets/sfx/boing.mp3",
+                        &(feetpos),
+                        &Vec3::new(0.0, 0.0, 0.0),
+                        0.5,
+                    );
                 }
-                
-             
-            }
-            45 => { //Conveyor
-
+            },
+            45 => {
+                //Conveyor
 
                 conveyor = true;
                 static DIRS: [Vec3; 4] = [
-                    Vec3{x: 0.0,y: 0.0,z: -1.0},
-                    Vec3{x: 1.0,y: 0.0,z: 0.0},
-                    Vec3{x: 0.0,y: 0.0,z: 1.0},
-                    Vec3{x: -1.0,y: 0.0,z: 0.0},
+                    Vec3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: -1.0,
+                    },
+                    Vec3 {
+                        x: 1.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    Vec3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 1.0,
+                    },
+                    Vec3 {
+                        x: -1.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
                 ];
                 let dir = Blocks::get_direction_bits(blockbitsunderfeet);
 
@@ -3346,9 +3310,7 @@ impl Game {
 
                 camlock.velocity += (DIRS[dir as usize] * 10.0 * multiplier) * self.delta_time;
             }
-            _ => {
-
-            }
+            _ => {}
         }
 
         if conveyor {
@@ -3359,12 +3321,9 @@ impl Game {
                     TIME_ON_CONVEYORS = 0.0;
                 }
             }
-
-            
         } else {
             unsafe {
                 ON_CONVEYORS = false;
-
             }
         }
         unsafe {
@@ -3381,7 +3340,7 @@ impl Game {
                     AUDIOPLAYER.play_next_in_series("waterstepseries", &feetpos, &vel, 0.6);
                 }
                 wasinwater = feetinwater;
-            } 
+            }
         }
 
         if Blocks::is_climbable(blockfeetin) || Blocks::is_climbable(blockheadin) {
@@ -3400,33 +3359,39 @@ impl Game {
             self.inwater = false;
         }
 
-
-        if !self.coll_cage.solid.contains(&Side::FLOOR) && !(unsafe {CROUCHING}) {
+        if !self.coll_cage.solid.contains(&Side::FLOOR) && !(unsafe { CROUCHING }) {
             self.grounded = false;
-            unsafe{ wasngrounded = true; }
+            unsafe {
+                wasngrounded = true;
+            }
         } else {
         }
 
         const GRAV: f32 = 9.8;
 
-
         if self.inwater || self.vars.in_climbable {
             self.time_falling_scalar = 1.0;
             if !self.grounded {
-                camlock.velocity += Vec3::new(0.0, -2.0*self.delta_time, 0.0);
+                camlock.velocity += Vec3::new(0.0, -2.0 * self.delta_time, 0.0);
                 if self.controls.shift {
-                    camlock.velocity += Vec3::new(0.0, -5.0*self.delta_time, 0.0);
+                    camlock.velocity += Vec3::new(0.0, -5.0 * self.delta_time, 0.0);
                 }
             }
 
             if self.controls.up {
-                let amount = unsafe { if SPRINTING { 12.0  } else { 7.0 }};
-                camlock.velocity += Vec3::new(0.0, amount *self.delta_time, 0.0);
+                let amount = unsafe {
+                    if SPRINTING {
+                        12.0
+                    } else {
+                        7.0
+                    }
+                };
+                camlock.velocity += Vec3::new(0.0, amount * self.delta_time, 0.0);
             }
-        }
-        else {
+        } else {
             if !self.grounded && !self.jumping_up {
-                self.time_falling_scalar = (self.time_falling_scalar + self.delta_time * 5.0).min(3.0);
+                self.time_falling_scalar =
+                    (self.time_falling_scalar + self.delta_time * 5.0).min(3.0);
             } else {
                 self.time_falling_scalar = 1.0;
             }
@@ -3458,24 +3423,20 @@ impl Game {
                 self.controls.up = false;
             }
         }
-           
 
-        let mut proposed =
-                                    unsafe {
-                                        if CROUCHING && self.grounded {
-                                            camlock.respond_to_controls(&self.controls, &self.delta_time, 1.5)
-                                        } else {
-                                            
-                                            camlock.respond_to_controls(&self.controls, &self.delta_time, 5.5)
-                                        }
-                                    };
+        let mut proposed = unsafe {
+            if CROUCHING && self.grounded {
+                camlock.respond_to_controls(&self.controls, &self.delta_time, 1.5)
+            } else {
+                camlock.respond_to_controls(&self.controls, &self.delta_time, 5.5)
+            }
+        };
         unsafe {
             if CROUCHING {
-
                 fn cap_distance(proposed: Vec3, reference: Vec3, max_distance: f32) -> Vec3 {
                     let direction = proposed - reference;
                     let distance = direction.length();
-                
+
                     if distance > max_distance {
                         let v3 = reference + direction.normalize() * max_distance;
                         Vec3::new(v3.x, proposed.y, v3.z)
@@ -3487,22 +3448,15 @@ impl Game {
                 let prop2 = Vec3::new(proposed.x, 0.0, proposed.z);
                 let spotshift = Vec3::new(SPOTIFSHIFTING.x, 0.0, SPOTIFSHIFTING.z);
 
-
                 if proposed.distance(SPOTIFSHIFTING) > 1.0 {
                     proposed = cap_distance(proposed, SPOTIFSHIFTING, 1.0);
                 }
             }
         }
-        
+
         self.user_bound_box
-            .set_center(proposed + Vec3::new(0.0, -0.5  , 0.0), 0.2, 0.95);
+            .set_center(proposed + Vec3::new(0.0, -0.5, 0.0), 0.2, 0.95);
         self.coll_cage.update_colliding(&self.user_bound_box);
-
-
-        
-
-
-
 
         let mut corr_made: Vec<Vec3> = Vec::new();
 
@@ -3518,12 +3472,13 @@ impl Game {
                 }
                 if *side == Side::FLOOR {
                     self.grounded = true;
-                    unsafe
-                    {if wasngrounded {
-                        activate_jump_queued = true;
-                        stepsoundqueued = true;
-                        wasngrounded = false; 
-                    }}
+                    unsafe {
+                        if wasngrounded {
+                            activate_jump_queued = true;
+                            stepsoundqueued = true;
+                            wasngrounded = false;
+                        }
+                    }
                 }
                 if *side == Side::ROOF {
                     self.jumping_up = false;
@@ -3532,7 +3487,6 @@ impl Game {
             }
         }
 
-        
         camlock.position = Vec3::new(proposed.x, proposed.y, proposed.z);
 
         let cc_center = camlock.position + Vec3::new(0.0, -1.0, 0.0);
@@ -3555,7 +3509,6 @@ impl Game {
         if activate_jump_queued {
             self.activate_jump_block(pos);
         }
-
     }
 
     #[cfg(feature = "glfw")]
@@ -3637,10 +3590,17 @@ impl Game {
     }
     #[cfg(feature = "glfw")]
     pub fn draw_select_cube(&mut self) {
-
-        static mut LAST_CAM_POS: Vec3 = Vec3{x:0.0, y:0.0, z:0.0};
-        static mut LAST_CAM_DIR: Vec3 = Vec3{x:0.0, y:0.0, z:0.0};
-        static mut LAST_BLOCK_POS : IVec3 = IVec3{x:0, y:0, z:0};
+        static mut LAST_CAM_POS: Vec3 = Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        static mut LAST_CAM_DIR: Vec3 = Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        };
+        static mut LAST_BLOCK_POS: IVec3 = IVec3 { x: 0, y: 0, z: 0 };
 
         static mut HIT_RESULT: Option<(Vec3, IVec3)> = None;
 
@@ -3650,23 +3610,25 @@ impl Game {
 
         static mut BREAK_TIME: f32 = 0.0;
 
-        
-
         let camlock = self.camera.lock().unwrap();
         unsafe {
-            
-            if camlock.position != LAST_CAM_POS || camlock.direction != LAST_CAM_DIR || UPDATE_THE_BLOCK_OVERLAY {
-
-
+            if camlock.position != LAST_CAM_POS
+                || camlock.direction != LAST_CAM_DIR
+                || UPDATE_THE_BLOCK_OVERLAY
+            {
                 UPDATE_THE_BLOCK_OVERLAY = false;
 
                 LAST_CAM_POS = camlock.position;
                 LAST_CAM_DIR = camlock.direction;
 
-                HIT_RESULT = raycast_voxel_with_bob(camlock.position, camlock.direction, &self.chunksys, 10.0, self.vars.walkbobtimer);
-                
-                
-                
+                HIT_RESULT = raycast_voxel_with_bob(
+                    camlock.position,
+                    camlock.direction,
+                    &self.chunksys,
+                    10.0,
+                    self.vars.walkbobtimer,
+                );
+
                 BLOCK_TYPE = match HIT_RESULT {
                     Some((_head, hit)) => {
                         if LAST_BLOCK_POS != hit {
@@ -3675,39 +3637,41 @@ impl Game {
                         }
                         self.chunksys.read().unwrap().blockat(hit) & Blocks::block_id_bits()
                     }
-                    None => {
-                        0
-                    }
-                    
+                    None => 0,
                 };
 
                 BLOCK_MATERIAL = get_block_material(BLOCK_TYPE);
             }
 
-
             match HIT_RESULT {
                 Some((_head, hit)) => {
                     let hitvec3 = Vec3::new(hit.x as f32, hit.y as f32, hit.z as f32);
-                    self.select_cube.draw_at(hitvec3, &camlock.mvp, self.vars.walkbobtimer);
+                    self.select_cube
+                        .draw_at(hitvec3, &camlock.mvp, self.vars.walkbobtimer);
                     let bprog = (BREAK_TIME / Blocks::get_break_time(BLOCK_TYPE)).clamp(0.0, 1.0);
-                    
+
                     let slot_selected = self.hud.bumped_slot;
                     let slot = {
                         let b = self.inventory.read().unwrap().inv[slot_selected];
                         b.clone()
                     };
-                    
+
                     let tooltype = get_tools_target_material(slot.0);
 
                     let tool_is_for_this_material = tooltype == BLOCK_MATERIAL;
 
                     let mut modifier = 1.0;
-                    if tool_is_for_this_material { 
+                    if tool_is_for_this_material {
                         modifier = 4.0;
                     }
-                    
+
                     if self.vars.mouse_clicked && !self.crafting_open && !self.vars.menu_open {
-                        self.block_overlay.draw_at(hitvec3, (bprog * 8.0).floor() as i8, &camlock.mvp, self.vars.walkbobtimer);
+                        self.block_overlay.draw_at(
+                            hitvec3,
+                            (bprog * 8.0).floor() as i8,
+                            &camlock.mvp,
+                            self.vars.walkbobtimer,
+                        );
                         BREAK_TIME = BREAK_TIME + self.delta_time * modifier;
                         if bprog >= 1.0 {
                             drop(camlock);
@@ -3719,30 +3683,35 @@ impl Game {
                         }
                     }
                 }
-                None => {
-    
-                }
+                None => {}
             }
         }
     }
 
     #[cfg(feature = "glfw")]
     pub fn draw(&self) {
-        
-
         let campitch = self.camera.lock().unwrap().pitch;
 
         //Sky
         #[cfg(feature = "glfw")]
         match self.vars.hostile_world {
             true => {
-                self.draw_sky(self.vars.hostile_world_sky_color, self.vars.hostile_world_sky_bottom, self.ambient_bright_mult, campitch);
+                self.draw_sky(
+                    self.vars.hostile_world_sky_color,
+                    self.vars.hostile_world_sky_bottom,
+                    self.ambient_bright_mult,
+                    campitch,
+                );
             }
             false => {
-                self.draw_sky(self.vars.sky_color, self.vars.sky_bottom, self.ambient_bright_mult, campitch);
+                self.draw_sky(
+                    self.vars.sky_color,
+                    self.vars.sky_bottom,
+                    self.ambient_bright_mult,
+                    campitch,
+                );
             }
         }
-
 
         //Chunks
         unsafe {
@@ -3750,14 +3719,17 @@ impl Game {
             gl::UseProgram(self.shader0.shader_id);
         }
 
-        
-
-        let ugqarc = self.chunksys.read().unwrap().finished_user_geo_queue.clone();
+        let ugqarc = self
+            .chunksys
+            .read()
+            .unwrap()
+            .finished_user_geo_queue
+            .clone();
 
         match ugqarc.pop() {
             Some(ready) => {
                 //info!("Some user queue");
-               // info!("Weird!");
+                // info!("Weird!");
 
                 let bankarc = self.chunksys.read().unwrap().geobank[ready.geo_index].clone();
 
@@ -3797,7 +3769,14 @@ impl Game {
                 let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
                 let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
 
-                WorldGeometry::bind_geometry(v32, v8, vbo8rgb, true, &self.shader0, bankarc.solids());
+                WorldGeometry::bind_geometry(
+                    v32,
+                    v8,
+                    vbo8rgb,
+                    true,
+                    &self.shader0,
+                    bankarc.solids(),
+                );
                 WorldGeometry::bind_geometry(
                     tv32,
                     tv8,
@@ -3807,8 +3786,20 @@ impl Game {
                     bankarc.transparents(),
                 );
 
-                WorldGeometry::bind_old_geometry(vv, uvv, &bankarc.vdata.lock().unwrap(), &bankarc.uvdata.lock().unwrap(), &self.oldshader);
-                WorldGeometry::bind_old_geometry(wvv, wuvv, &bankarc.wvdata.lock().unwrap(), &bankarc.wuvdata.lock().unwrap(), &self.oldshader);
+                WorldGeometry::bind_old_geometry(
+                    vv,
+                    uvv,
+                    &bankarc.vdata.lock().unwrap(),
+                    &bankarc.uvdata.lock().unwrap(),
+                    &self.oldshader,
+                );
+                WorldGeometry::bind_old_geometry(
+                    wvv,
+                    wuvv,
+                    &bankarc.wvdata.lock().unwrap(),
+                    &bankarc.wuvdata.lock().unwrap(),
+                    &self.oldshader,
+                );
             }
             None => {}
         }
@@ -3817,7 +3808,6 @@ impl Game {
 
         match gqarc.pop() {
             Some(ready) => {
-
                 //info!("Weird!");
 
                 let bankarc = self.chunksys.read().unwrap().geobank[ready.geo_index].clone();
@@ -3859,7 +3849,14 @@ impl Game {
                 let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
                 let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
 
-                WorldGeometry::bind_geometry(v32, v8, vbo8rgb, true, &self.shader0, bankarc.solids());
+                WorldGeometry::bind_geometry(
+                    v32,
+                    v8,
+                    vbo8rgb,
+                    true,
+                    &self.shader0,
+                    bankarc.solids(),
+                );
                 WorldGeometry::bind_geometry(
                     tv32,
                     tv8,
@@ -3869,67 +3866,100 @@ impl Game {
                     bankarc.transparents(),
                 );
 
-                WorldGeometry::bind_old_geometry(vv, uvv, &bankarc.vdata.lock().unwrap(), &bankarc.uvdata.lock().unwrap(), &self.oldshader);
-                WorldGeometry::bind_old_geometry(wvv, wuvv, &bankarc.wvdata.lock().unwrap(), &bankarc.wuvdata.lock().unwrap(), &self.oldshader);
+                WorldGeometry::bind_old_geometry(
+                    vv,
+                    uvv,
+                    &bankarc.vdata.lock().unwrap(),
+                    &bankarc.uvdata.lock().unwrap(),
+                    &self.oldshader,
+                );
+                WorldGeometry::bind_old_geometry(
+                    wvv,
+                    wuvv,
+                    &bankarc.wvdata.lock().unwrap(),
+                    &bankarc.wuvdata.lock().unwrap(),
+                    &self.oldshader,
+                );
 
                 let mut userstuff = true;
                 while userstuff {
                     match ugqarc.pop() {
                         Some(ready) => {
-                            
-                                    //info!("Some user queue");
-                                    // info!("Weird!");
-                
-                                let bankarc = self.chunksys.read().unwrap().geobank[ready.geo_index].clone();
-                
-                                //let mut cmemlock = self.chunksys.chunk_memories.lock().unwrap();
-                
-                                cmemlock.memories[ready.geo_index].length = ready.newlength;
-                                cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
-                                cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
-                                cmemlock.memories[ready.geo_index].wvlength = ready.newwvlength;
-                                cmemlock.memories[ready.geo_index].pos = ready.newpos;
-                                cmemlock.memories[ready.geo_index].used = true;
-                
-                                //info!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
-                                //info!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
-                                //if num == 0 { num = 1; } else { num = 0; }
-                                //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
-                                // if num == 0 {
-                                //     bankarc.num.store(1, Ordering::Relaxed);
-                                //     num = 1;
-                                // } else {
-                                //     bankarc.num.store(0, Ordering::Relaxed);
-                                //     num = 0;
-                                // };
-                
-                                let v32 = cmemlock.memories[ready.geo_index].vbo32;
-                                let v8 = cmemlock.memories[ready.geo_index].vbo8;
-                                let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
-                                let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
-                                let vv = cmemlock.memories[ready.geo_index].vvbo;
-                                let uvv = cmemlock.memories[ready.geo_index].uvvbo;
+                            //info!("Some user queue");
+                            // info!("Weird!");
 
-                                let wvv = cmemlock.memories[ready.geo_index].wvvbo;
-                                let wuvv = cmemlock.memories[ready.geo_index].wuvvbo;
+                            let bankarc =
+                                self.chunksys.read().unwrap().geobank[ready.geo_index].clone();
 
-                                let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
-                                let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
-                
-                                WorldGeometry::bind_geometry(v32, v8, vbo8rgb, true, &self.shader0, bankarc.solids());
-                                WorldGeometry::bind_geometry(
-                                    tv32,
-                                    tv8,
-                                    tvbo8rgb,
-                                    true,
-                                    &self.shader0,
-                                    bankarc.transparents(),
-                                );
-                            
-                                WorldGeometry::bind_old_geometry(vv, uvv, &bankarc.vdata.lock().unwrap(), &bankarc.uvdata.lock().unwrap(), &self.oldshader);
-                                WorldGeometry::bind_old_geometry(wvv, wuvv, &bankarc.wvdata.lock().unwrap(), &bankarc.wuvdata.lock().unwrap(), &self.oldshader);
+                            //let mut cmemlock = self.chunksys.chunk_memories.lock().unwrap();
+
+                            cmemlock.memories[ready.geo_index].length = ready.newlength;
+                            cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
+                            cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
+                            cmemlock.memories[ready.geo_index].wvlength = ready.newwvlength;
+                            cmemlock.memories[ready.geo_index].pos = ready.newpos;
+                            cmemlock.memories[ready.geo_index].used = true;
+
+                            //info!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
+                            //info!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
+                            //if num == 0 { num = 1; } else { num = 0; }
+                            //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
+                            // if num == 0 {
+                            //     bankarc.num.store(1, Ordering::Relaxed);
+                            //     num = 1;
+                            // } else {
+                            //     bankarc.num.store(0, Ordering::Relaxed);
+                            //     num = 0;
+                            // };
+
+                            let v32 = cmemlock.memories[ready.geo_index].vbo32;
+                            let v8 = cmemlock.memories[ready.geo_index].vbo8;
+                            let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
+                            let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
+                            let vv = cmemlock.memories[ready.geo_index].vvbo;
+                            let uvv = cmemlock.memories[ready.geo_index].uvvbo;
+
+                            let wvv = cmemlock.memories[ready.geo_index].wvvbo;
+                            let wuvv = cmemlock.memories[ready.geo_index].wuvvbo;
+
+                            let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
+                            let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
+
+                            WorldGeometry::bind_geometry(
+                                v32,
+                                v8,
+                                vbo8rgb,
+                                true,
+                                &self.shader0,
+                                bankarc.solids(),
+                            );
+                            WorldGeometry::bind_geometry(
+                                tv32,
+                                tv8,
+                                tvbo8rgb,
+                                true,
+                                &self.shader0,
+                                bankarc.transparents(),
+                            );
+
+                            WorldGeometry::bind_old_geometry(
+                                vv,
+                                uvv,
+                                &bankarc.vdata.lock().unwrap(),
+                                &bankarc.uvdata.lock().unwrap(),
+                                &self.oldshader,
+                            );
+                            WorldGeometry::bind_old_geometry(
+                                wvv,
+                                wuvv,
+                                &bankarc.wvdata.lock().unwrap(),
+                                &bankarc.wuvdata.lock().unwrap(),
+                                &self.oldshader,
+                            );
                         }
-                        None => { userstuff = false; }
+                        None => {
+                            userstuff = false;
+                        }
                     }
                 }
             }
@@ -4029,17 +4059,11 @@ impl Game {
                 0,
             );
             let fc = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
-            gl::Uniform4f(
-                FOGCOL_LOC,
-                fc.0, 
-                fc.1,
-                fc.2,
-                fc.3
-            );
+            gl::Uniform4f(FOGCOL_LOC, fc.0, fc.1, fc.2, fc.3);
 
             drop(cam_lock);
         }
-        
+
         let cs = self.chunksys.read().unwrap();
         let cmem = cs.chunk_memories.lock().unwrap();
         for (_index, cfl) in cmem.memories.iter().enumerate() {
@@ -4078,8 +4102,7 @@ impl Game {
             gl::Disable(gl::CULL_FACE);
         }
         self.draw_models();
-        
-        
+
         for (_index, cfl) in cmem.memories.iter().enumerate() {
             if cfl.used {
                 let dd1: Mutex<Vec<u32>> = Mutex::new(Vec::new());
@@ -4126,205 +4149,182 @@ impl Game {
                     gl::UseProgram(self.oldshader.shader_id);
                 }
 
+                static mut MVP_LOC: i32 = -1;
+                static mut CAM_POS_LOC: i32 = 0;
+                static mut AMBIENT_BRIGHT_MULT_LOC: i32 = 0;
+                static mut VIEW_DISTANCE_LOC: i32 = 0;
+                static mut UNDERWATER_LOC: i32 = 0;
+                static mut CAM_DIR_LOC: i32 = 0;
+                static mut SUNSET_LOC: i32 = 0;
+                static mut SUNRISE_LOC: i32 = 0;
+                static mut WALKBOB_LOC: i32 = 0;
+                unsafe {
+                    if MVP_LOC == -1 {
+                        MVP_LOC = gl::GetUniformLocation(
+                            self.oldshader.shader_id,
+                            b"mvp\0".as_ptr() as *const i8,
+                        );
+                        //info!("MVP LOC: {}", MVP_LOC);
 
-        static mut MVP_LOC: i32 = -1;
-        static mut CAM_POS_LOC: i32 = 0;
-        static mut AMBIENT_BRIGHT_MULT_LOC: i32 = 0;
-        static mut VIEW_DISTANCE_LOC: i32 = 0;
-        static mut UNDERWATER_LOC: i32 = 0;
-        static mut CAM_DIR_LOC: i32 = 0;
-        static mut SUNSET_LOC: i32 = 0;
-        static mut SUNRISE_LOC: i32 = 0;
-        static mut WALKBOB_LOC: i32 = 0;
-        unsafe {
-            if MVP_LOC == -1 {
+                        WALKBOB_LOC = gl::GetUniformLocation(
+                            self.oldshader.shader_id,
+                            b"walkbob\0".as_ptr() as *const i8,
+                        );
 
-                MVP_LOC =
-                    gl::GetUniformLocation(self.oldshader.shader_id, b"mvp\0".as_ptr() as *const i8);
-                //info!("MVP LOC: {}", MVP_LOC);
+                        CAM_POS_LOC = gl::GetUniformLocation(
+                            self.oldshader.shader_id,
+                            b"camPos\0".as_ptr() as *const i8,
+                        );
+                        AMBIENT_BRIGHT_MULT_LOC = gl::GetUniformLocation(
+                            self.oldshader.shader_id,
+                            b"ambientBrightMult\0".as_ptr() as *const i8,
+                        );
+                        VIEW_DISTANCE_LOC = gl::GetUniformLocation(
+                            self.oldshader.shader_id,
+                            b"viewDistance\0".as_ptr() as *const i8,
+                        );
+                        UNDERWATER_LOC = gl::GetUniformLocation(
+                            self.oldshader.shader_id,
+                            b"underWater\0".as_ptr() as *const i8,
+                        );
+                        CAM_DIR_LOC = gl::GetUniformLocation(
+                            self.oldshader.shader_id,
+                            b"camDir\0".as_ptr() as *const i8,
+                        );
+                        SUNSET_LOC = gl::GetUniformLocation(
+                            self.oldshader.shader_id,
+                            b"sunset\0".as_ptr() as *const i8,
+                        );
+                        SUNRISE_LOC = gl::GetUniformLocation(
+                            self.oldshader.shader_id,
+                            b"sunrise\0".as_ptr() as *const i8,
+                        );
+                    }
+                    let cam_lock = self.camera.lock().unwrap();
 
-                WALKBOB_LOC = gl::GetUniformLocation(
-                    self.oldshader.shader_id,
-                    b"walkbob\0".as_ptr() as *const i8,
-                );
+                    gl::UniformMatrix4fv(
+                        MVP_LOC,
+                        1,
+                        gl::FALSE,
+                        cam_lock.mvp.to_cols_array().as_ptr(),
+                    );
+                    gl::Uniform3f(
+                        CAM_POS_LOC,
+                        cam_lock.position.x,
+                        cam_lock.position.y,
+                        cam_lock.position.z,
+                    );
+                    gl::Uniform1f(AMBIENT_BRIGHT_MULT_LOC, self.ambient_bright_mult);
+                    gl::Uniform1f(VIEW_DISTANCE_LOC, 8.0);
+                    gl::Uniform1f(UNDERWATER_LOC, 0.0);
+                    gl::Uniform3f(
+                        CAM_DIR_LOC,
+                        cam_lock.direction.x,
+                        cam_lock.direction.y,
+                        cam_lock.direction.z,
+                    );
 
-                CAM_POS_LOC = gl::GetUniformLocation(
-                    self.oldshader.shader_id,
-                    b"camPos\0".as_ptr() as *const i8,
-                );
-                AMBIENT_BRIGHT_MULT_LOC = gl::GetUniformLocation(
-                    self.oldshader.shader_id,
-                    b"ambientBrightMult\0".as_ptr() as *const i8,
-                );
-                VIEW_DISTANCE_LOC = gl::GetUniformLocation(
-                    self.oldshader.shader_id,
-                    b"viewDistance\0".as_ptr() as *const i8,
-                );
-                UNDERWATER_LOC = gl::GetUniformLocation(
-                    self.oldshader.shader_id,
-                    b"underWater\0".as_ptr() as *const i8,
-                );
-                CAM_DIR_LOC = gl::GetUniformLocation(
-                    self.oldshader.shader_id,
-                    b"camDir\0".as_ptr() as *const i8,
-                );
-                SUNSET_LOC = gl::GetUniformLocation(
-                    self.oldshader.shader_id,
-                    b"sunset\0".as_ptr() as *const i8,
-                );
-                SUNRISE_LOC = gl::GetUniformLocation(
-                    self.oldshader.shader_id,
-                    b"sunrise\0".as_ptr() as *const i8,
-                );
-            }
-            let cam_lock = self.camera.lock().unwrap();
+                    gl::Uniform1f(
+                        gl::GetUniformLocation(
+                            self.oldshader.shader_id,
+                            b"time\0".as_ptr() as *const i8,
+                        ),
+                        glfwGetTime() as f32,
+                    );
+                    gl::Uniform1f(
+                        gl::GetUniformLocation(
+                            self.oldshader.shader_id,
+                            b"weathertype\0".as_ptr() as *const i8,
+                        ),
+                        WEATHERTYPE,
+                    );
 
-            gl::UniformMatrix4fv(MVP_LOC, 1, gl::FALSE, cam_lock.mvp.to_cols_array().as_ptr());
-            gl::Uniform3f(
-                CAM_POS_LOC,
-                cam_lock.position.x,
-                cam_lock.position.y,
-                cam_lock.position.z,
-            );
-            gl::Uniform1f(AMBIENT_BRIGHT_MULT_LOC, self.ambient_bright_mult);
-            gl::Uniform1f(VIEW_DISTANCE_LOC, 8.0);
-            gl::Uniform1f(UNDERWATER_LOC, 0.0);
-            gl::Uniform3f(
-                CAM_DIR_LOC,
-                cam_lock.direction.x,
-                cam_lock.direction.y,
-                cam_lock.direction.z,
-            );
+                    gl::Uniform1f(SUNSET_LOC, self.sunset_factor);
+                    gl::Uniform1f(WALKBOB_LOC, self.vars.walkbobtimer);
+                    gl::Uniform1f(SUNRISE_LOC, self.sunrise_factor);
+                    gl::Uniform1i(
+                        gl::GetUniformLocation(
+                            self.oldshader.shader_id,
+                            b"ourTexture\0".as_ptr() as *const i8,
+                        ),
+                        0,
+                    );
+                    gl::Uniform1i(
+                        gl::GetUniformLocation(
+                            self.oldshader.shader_id,
+                            b"weatherTexture\0".as_ptr() as *const i8,
+                        ),
+                        2,
+                    );
+                    // let fc = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
+                    // gl::Uniform4f(
+                    //     FOGCOL_LOC,
+                    //     fc.0,
+                    //     fc.1,
+                    //     fc.2,
+                    //     fc.3
+                    // );
 
-
-            
-            gl::Uniform1f(
-                gl::GetUniformLocation(self.oldshader.shader_id, b"time\0".as_ptr() as *const i8),
-                glfwGetTime() as f32
-            );
-            gl::Uniform1f(
-                gl::GetUniformLocation(self.oldshader.shader_id, b"weathertype\0".as_ptr() as *const i8),
-                WEATHERTYPE
-            );
-    
-            gl::Uniform1f(SUNSET_LOC, self.sunset_factor);
-            gl::Uniform1f(WALKBOB_LOC, self.vars.walkbobtimer);
-            gl::Uniform1f(SUNRISE_LOC, self.sunrise_factor);
-            gl::Uniform1i(
-                gl::GetUniformLocation(
-                    self.oldshader.shader_id,
-                    b"ourTexture\0".as_ptr() as *const i8,
-                ),
-                0,
-            );
-            gl::Uniform1i(
-                gl::GetUniformLocation(
-                    self.oldshader.shader_id,
-                    b"weatherTexture\0".as_ptr() as *const i8,
-                ),
-                2,
-            );
-            // let fc = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
-            // gl::Uniform4f(
-            //     FOGCOL_LOC,
-            //     fc.0, 
-            //     fc.1,
-            //     fc.2,
-            //     fc.3
-            // );
-
-            drop(cam_lock);
-        }
-
-        unsafe {
-            gl::Uniform1f(
-                gl::GetUniformLocation(
-                    self.oldshader.shader_id,
-                    b"renderingweather\0".as_ptr() as *const i8,
-                ),
-                0.0,
-            );
-        }
-
-        WorldGeometry::bind_old_geometry_no_upload(cfl.vvbo, cfl.uvvbo, &self.oldshader);
-
-
-
-        unsafe {
-            //gl::Disable(gl::CULL_FACE);
-            gl::DrawArrays(gl::TRIANGLES, 0, cfl.vlength as i32 / 5);
-            let error = gl::GetError();
-            if error != gl::NO_ERROR {
-                info!("OpenGL Error after drawing arrays: {}", error);
-            }
-            //gl::Enable(gl::CULL_FACE);
-            // info!("Chunk rending!");
-        }
-
-        if unsafe { WEATHERTYPE } != 0.0 {
-            WorldGeometry::bind_old_geometry_no_upload(cfl.wvvbo, cfl.wuvvbo, &self.oldshader);
-            unsafe {
-                gl::Uniform1f(
-                    gl::GetUniformLocation(
-                        self.oldshader.shader_id,
-                        b"renderingweather\0".as_ptr() as *const i8,
-                    ),
-                    1.0,
-                );
-            }
-            
-        
-            unsafe {
-                //gl::Disable(gl::CULL_FACE);
-                gl::DrawArrays(gl::TRIANGLES, 0, cfl.wvlength as i32 / 5);
-                let error = gl::GetError();
-                if error != gl::NO_ERROR {
-                    info!("OpenGL Error after drawing arrays: {}", error);
+                    drop(cam_lock);
                 }
-                //gl::Enable(gl::CULL_FACE);
-                // info!("Chunk rending!");
-            }
 
-        }
-        
+                unsafe {
+                    gl::Uniform1f(
+                        gl::GetUniformLocation(
+                            self.oldshader.shader_id,
+                            b"renderingweather\0".as_ptr() as *const i8,
+                        ),
+                        0.0,
+                    );
+                }
 
+                WorldGeometry::bind_old_geometry_no_upload(cfl.vvbo, cfl.uvvbo, &self.oldshader);
 
+                unsafe {
+                    //gl::Disable(gl::CULL_FACE);
+                    gl::DrawArrays(gl::TRIANGLES, 0, cfl.vlength as i32 / 5);
+                    let error = gl::GetError();
+                    if error != gl::NO_ERROR {
+                        info!("OpenGL Error after drawing arrays: {}", error);
+                    }
+                    //gl::Enable(gl::CULL_FACE);
+                    // info!("Chunk rending!");
+                }
 
+                if unsafe { WEATHERTYPE } != 0.0 {
+                    WorldGeometry::bind_old_geometry_no_upload(
+                        cfl.wvvbo,
+                        cfl.wuvvbo,
+                        &self.oldshader,
+                    );
+                    unsafe {
+                        gl::Uniform1f(
+                            gl::GetUniformLocation(
+                                self.oldshader.shader_id,
+                                b"renderingweather\0".as_ptr() as *const i8,
+                            ),
+                            1.0,
+                        );
+                    }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+                    unsafe {
+                        //gl::Disable(gl::CULL_FACE);
+                        gl::DrawArrays(gl::TRIANGLES, 0, cfl.wvlength as i32 / 5);
+                        let error = gl::GetError();
+                        if error != gl::NO_ERROR {
+                            info!("OpenGL Error after drawing arrays: {}", error);
+                        }
+                        //gl::Enable(gl::CULL_FACE);
+                        // info!("Chunk rending!");
+                    }
+                }
             }
         }
         #[cfg(feature = "glfw")]
         self.draw_stars();
         #[cfg(feature = "glfw")]
         self.draw_clouds();
-
-
     }
-
-
 
     pub fn start_world(&mut self) {
         (*self.run_chunk_thread).store(true, Ordering::Relaxed);
@@ -4350,7 +4350,6 @@ impl Game {
     pub fn exit(&mut self) {
         (*self.run_chunk_thread).store(false, Ordering::Relaxed);
 
-
         if let Some(handle) = self.chunk_thread.take() {
             handle.join().unwrap();
             info!("Thread joined successfully!");
@@ -4364,11 +4363,8 @@ impl Game {
         self.chunksys.write().unwrap().exit();
     }
 
-    
     pub fn start_chunks_with_radius(&mut self, newradius: u8, seed: u32, nt: usize) {
-
         (*self.run_chunk_thread).store(false, Ordering::Relaxed);
-
 
         if let Some(handle) = self.chunk_thread.take() {
             handle.join().unwrap();
@@ -4376,14 +4372,10 @@ impl Game {
         } else {
             info!("No thread to join or already joined.");
         }
-        
 
-
-    #[cfg(feature = "glfw")]
+        #[cfg(feature = "glfw")]
         self.drops.drops.clear();
         self.non_static_model_entities.clear();
-
-
 
         self.chunksys.write().unwrap().reset(newradius, seed, nt);
 
@@ -4392,21 +4384,71 @@ impl Game {
         //self.drops.csys = self.chunksys.clone();
 
         let mut rng = StdRng::from_entropy();
-        
+
         if !self.vars.in_multiplayer {
             if nt == 1 {
-                self.create_non_static_model_entity(0, Vec3::new(-100.0, 100.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0, false);
-    
+                self.create_non_static_model_entity(
+                    0,
+                    Vec3::new(-100.0, 100.0, 350.0),
+                    5.0,
+                    Vec3::new(0.0, 0.0, 0.0),
+                    7.0,
+                    false,
+                );
+
                 for _i in 0..4 {
                     if rng.gen_range(0..3) <= 2 {
-                        self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0, false);
-                        self.create_non_static_model_entity(2, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0, false);
-                        
-                        self.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0, false);
-                        self.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),80.0,rng.gen_range(-200.0..200.0)), 5.0, Vec3::new(0.0, 0.0, 0.0), 3.0, false);
+                        self.create_non_static_model_entity(
+                            2,
+                            Vec3::new(
+                                rng.gen_range(-200.0..200.0),
+                                80.0,
+                                rng.gen_range(-200.0..200.0),
+                            ),
+                            5.0,
+                            Vec3::new(0.0, 0.0, 0.0),
+                            7.0,
+                            false,
+                        );
+                        self.create_non_static_model_entity(
+                            2,
+                            Vec3::new(
+                                rng.gen_range(-200.0..200.0),
+                                80.0,
+                                rng.gen_range(-200.0..200.0),
+                            ),
+                            5.0,
+                            Vec3::new(0.0, 0.0, 0.0),
+                            7.0,
+                            false,
+                        );
+
+                        self.create_non_static_model_entity(
+                            3,
+                            Vec3::new(
+                                rng.gen_range(-200.0..200.0),
+                                80.0,
+                                rng.gen_range(-200.0..200.0),
+                            ),
+                            5.0,
+                            Vec3::new(0.0, 0.0, 0.0),
+                            3.0,
+                            false,
+                        );
+                        self.create_non_static_model_entity(
+                            3,
+                            Vec3::new(
+                                rng.gen_range(-200.0..200.0),
+                                80.0,
+                                rng.gen_range(-200.0..200.0),
+                            ),
+                            5.0,
+                            Vec3::new(0.0, 0.0, 0.0),
+                            3.0,
+                            false,
+                        );
                     }
                 }
-                
             }
         }
 
@@ -4415,14 +4457,14 @@ impl Game {
         self.start_world();
     }
 
-
-    pub fn rebuild_whole_world_while_showing_loading_screen(&mut self) -> std::thread::JoinHandle<()> {
-
+    pub fn rebuild_whole_world_while_showing_loading_screen(
+        &mut self,
+    ) -> std::thread::JoinHandle<()> {
         let _csys = self.chunksys.clone();
         let _campos = self.camera.lock().unwrap().position.clone();
         let _shader = self.shader0.clone();
 
-        let threadhandle = thread::spawn(move|| {
+        let threadhandle = thread::spawn(move || {
             //ChunkSystem::initial_rebuild_on_main_thread(&csys, &shader, &campos)
         });
 
@@ -4434,11 +4476,11 @@ impl Game {
         //     self.window.read().unwrap()
         //     let current_time = unsafe { glfwGetTime() as f32 };
         //     self.delta_time = current_time - self.prev_time;
-    
+
         //     self.prev_time = current_time;
 
         // }
-        
+
         // match threadhandle.join() {
         //     Ok(_) => {
 
@@ -4449,7 +4491,11 @@ impl Game {
         // };
     }
 
-    pub fn chunk_thread_inner_function(cam_arc: &Arc<Mutex<Camera>>, csys_arc: &Arc<RwLock<ChunkSystem>>, last_user_c_pos: &mut vec::IVec2) {
+    pub fn chunk_thread_inner_function(
+        cam_arc: &Arc<Mutex<Camera>>,
+        csys_arc: &Arc<RwLock<ChunkSystem>>,
+        last_user_c_pos: &mut vec::IVec2,
+    ) {
         //info!("Starting over the CTIF");
         let _rng = StdRng::from_entropy();
 
@@ -4462,30 +4508,19 @@ impl Game {
 
                     let mut lightraylistlist = Vec::new();
 
-
                     match csys_arc.read() {
-                        Ok(csys) => {
-                            match csys.lightmap.lock() {
-                                Ok(lightmap) => {
-
-                                        match lightmap.get(&spot) {
-                                            Some(lightseg) => {
-                                                lightraylistlist.push(lightseg.rays.clone());
-                                            },
-                                            None => {
-
-                                            },
-                                        };
-
-                                }
-                                Err(_) => {
-
-                                }
+                        Ok(csys) => match csys.lightmap.lock() {
+                            Ok(lightmap) => {
+                                match lightmap.get(&spot) {
+                                    Some(lightseg) => {
+                                        lightraylistlist.push(lightseg.rays.clone());
+                                    }
+                                    None => {}
+                                };
                             }
+                            Err(_) => {}
                         },
-                        Err(_) => {
-
-                        },
+                        Err(_) => {}
                     }
 
                     for raylist in lightraylistlist {
@@ -4502,24 +4537,22 @@ impl Game {
                             implicated.insert(chunkofthisraysorigin);
                         }
                     }
-                        
+
                     //TEMPORARILY DISABLED UNTIL WE CAN DO A LIGHT UPDATE WITHOUT STUTTERING THE MAIN FUCKING THREAD DUMBASS
                     //let c = csys_arc.read().unwrap();
                     // for i in implicated {
                     //     QUEUE_THESE.push(i);
                     //     //c.queue_rerender_with_key(i, true, true);
                     // }
-                },
+                }
                 None => {
                     lightcheckstuff = false;
-                },
+                }
             }
         }
 
-
         let mut lightstuff = true;
         while lightstuff {
-
             let csys_arc = csys_arc.read().unwrap();
 
             match csys_arc.light_rebuild_requests.pop() {
@@ -4532,11 +4565,9 @@ impl Game {
                 }
             }
         }
-        
 
         let mut userstuff = true;
         while userstuff {
-
             let csys_arc = csys_arc.read().unwrap();
 
             match csys_arc.user_rebuild_requests.pop() {
@@ -4544,14 +4575,12 @@ impl Game {
                     //info!("Popping stuff USER {}", rng.gen_range(0..255));
                     csys_arc.rebuild_index(index, true, false);
 
-
                     match csys_arc.light_rebuild_requests.pop() {
                         Some(index) => {
                             //info!("Popping stuff LIGHT {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, true);
                         }
-                        None => {
-                        }
+                        None => {}
                     }
                 }
                 None => {
@@ -4566,22 +4595,20 @@ impl Game {
             match csys_arc.gen_rebuild_requests.pop() {
                 Some(index) => {
                     csys_arc.rebuild_index(index, true, false);
-                   // info!("Popping stuff GEN {}", rng.gen_range(0..255));
+                    // info!("Popping stuff GEN {}", rng.gen_range(0..255));
                     match csys_arc.user_rebuild_requests.pop() {
                         Some(index) => {
-                           // info!("Popping stuff USER {}", rng.gen_range(0..255));
+                            // info!("Popping stuff USER {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, false);
-                            
                         }
                         None => {}
                     }
                     match csys_arc.light_rebuild_requests.pop() {
                         Some(index) => {
-                           // info!("Popping stuff LIGHT {}", rng.gen_range(0..255));
+                            // info!("Popping stuff LIGHT {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, true);
                         }
-                        None => {
-                        }
+                        None => {}
                     }
                 }
                 None => {
@@ -4590,37 +4617,34 @@ impl Game {
             }
         }
 
-
         let mut backgroundstuff = true;
         while backgroundstuff {
             let csys_arc = csys_arc.read().unwrap();
             match csys_arc.background_rebuild_requests.pop() {
                 Some(index) => {
-                   // info!("Popping stuff BACKGROUND {}", rng.gen_range(0..255));
+                    // info!("Popping stuff BACKGROUND {}", rng.gen_range(0..255));
                     csys_arc.rebuild_index(index, false, false);
-                    
+
                     match csys_arc.user_rebuild_requests.pop() {
                         Some(index) => {
-                           // info!("Popping stuff USER {}", rng.gen_range(0..255));
+                            // info!("Popping stuff USER {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, false);
                             let _userstuff = true;
-                            
                         }
                         None => {}
                     }
 
                     match csys_arc.light_rebuild_requests.pop() {
                         Some(index) => {
-                           // info!("Popping stuff LIGHT {}", rng.gen_range(0..255));
+                            // info!("Popping stuff LIGHT {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, true);
                         }
-                        None => {
-                        }
+                        None => {}
                     }
 
                     match csys_arc.gen_rebuild_requests.pop() {
                         Some(index) => {
-                           // info!("Popping stuff GEN {}", rng.gen_range(0..255));
+                            // info!("Popping stuff GEN {}", rng.gen_range(0..255));
                             csys_arc.rebuild_index(index, true, false);
                             let mut genstuff = true;
                             while genstuff {
@@ -4650,13 +4674,10 @@ impl Game {
         static mut last_time: f32 = 0.0;
 
         unsafe {
-
-
             let current_time = glfwGetTime() as f32;
 
             let delta_time = current_time - last_time;
 
-            
             static mut time_since_last_check: f32 = 1.0;
 
             let user_c_pos = ChunkSystem::spot_to_chunk_pos(&IVec3::new(
@@ -4665,7 +4686,9 @@ impl Game {
                 vec3.z.floor() as i32,
             ));
 
-            if /*user_c_pos != *last_user_c_pos &&*/ time_since_last_check >= 1.0 {
+            if
+            /*user_c_pos != *last_user_c_pos &&*/
+            time_since_last_check >= 1.0 {
                 *last_user_c_pos = user_c_pos;
 
                 time_since_last_check = 0.0;
@@ -4726,9 +4749,7 @@ impl Game {
                     dist_a.cmp(&dist_b)
                 });
 
-                
                 for (index, ns) in neededspots.iter().enumerate() {
-                    
                     csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns);
                     match csys_arc.user_rebuild_requests.pop() {
                         Some(index) => {
@@ -4742,8 +4763,7 @@ impl Game {
                             csys_arc.rebuild_index(index, true, true);
                             break;
                         }
-                        None => {
-                        }
+                        None => {}
                     }
                     match csys_arc.gen_rebuild_requests.pop() {
                         Some(index) => {
@@ -4830,9 +4850,14 @@ impl Game {
             self.vars.first_mouse = true;
         }
     }
-    pub fn delete_block_recursively(chunksys: &Arc<RwLock<ChunkSystem>>, id: u32, at: IVec3, set: &mut HashSet<IVec2>) {
+    pub fn delete_block_recursively(
+        chunksys: &Arc<RwLock<ChunkSystem>>,
+        id: u32,
+        at: IVec3,
+        set: &mut HashSet<IVec2>,
+    ) {
         let mut stack = vec![at]; // Initialize stack with initial position
-    
+
         while let Some(current) = stack.pop() {
             // Check if the block at the current position is already deleted
 
@@ -4855,19 +4880,29 @@ impl Game {
     }
     pub fn cast_break_ray(&mut self) {
         let cl = self.camera.lock().unwrap();
-        match raycast_voxel_with_bob(cl.position, cl.direction, &self.chunksys, 10.0, self.vars.walkbobtimer) {
+        match raycast_voxel_with_bob(
+            cl.position,
+            cl.direction,
+            &self.chunksys,
+            10.0,
+            self.vars.walkbobtimer,
+        ) {
             Some((tip, block_hit)) => {
                 let blockbits = self.chunksys.read().unwrap().blockat(block_hit);
                 let blockat = blockbits & Blocks::block_id_bits();
                 if blockat == 16 {
                     let mut set: HashSet<IVec2> = HashSet::new();
-                    Game::delete_block_recursively(&self.chunksys, 16,  block_hit, &mut set);
+                    Game::delete_block_recursively(&self.chunksys, 16, block_hit, &mut set);
                     for key in set {
-                        self.chunksys.read().unwrap().queue_rerender_with_key(key, true, false);
+                        self.chunksys
+                            .read()
+                            .unwrap()
+                            .queue_rerender_with_key(key, true, false);
                     }
                     #[cfg(feature = "glfw")]
                     self.drops.add_drop(tip, 17, 1);
-                } else if blockat == 19 { //Door stuff
+                } else if blockat == 19 {
+                    //Door stuff
                     let top = DoorInfo::get_door_top_bit(blockbits);
                     let other_half;
 
@@ -4882,7 +4917,7 @@ impl Game {
                             MessageType::MultiBlockSet,
                             Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32),
                             0.0,
-                            0
+                            0,
                         );
                         message.info2 = 0;
                         message.otherpos = other_half;
@@ -4890,25 +4925,33 @@ impl Game {
                         self.netconn.send(&message);
                     } else {
                         self.chunksys.read().unwrap().set_block(block_hit, 0, true);
-                        self.chunksys.read().unwrap().set_block_and_queue_rerender(other_half, 0, true, true);
+                        self.chunksys
+                            .read()
+                            .unwrap()
+                            .set_block_and_queue_rerender(other_half, 0, true, true);
                     }
-
                 } else {
                     if blockat != 0 {
                         #[cfg(feature = "glfw")]
                         self.drops.add_drop(tip, blockat, 1);
                     }
-                    
+
                     //TODO: PROBLEM HERE THAT WILL ALLOW USERS TO KEEP DUPING A BLOCK AS LONG AS THE SERVER DOESNT RESPOND
                     if self.vars.in_multiplayer {
-                        let message = Message::new(MessageType::BlockSet, Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32), 0.0, 0);
+                        let message = Message::new(
+                            MessageType::BlockSet,
+                            Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32),
+                            0.0,
+                            0,
+                        );
                         self.netconn.send(&message);
                     } else {
-                        self.chunksys.read().unwrap().set_block_and_queue_rerender(block_hit, 0, true, true);
+                        self.chunksys
+                            .read()
+                            .unwrap()
+                            .set_block_and_queue_rerender(block_hit, 0, true, true);
                     }
                 }
-                
-                
             }
             None => {}
         }
@@ -4924,16 +4967,14 @@ impl Game {
         }
         let mut proposednewslot = self.hud.bumped_slot as i8 + invrowchange;
         if proposednewslot < 0 {
-            proposednewslot = 4;
+            proposednewslot = ROWLENGTH as i8-1;
         }
-        self.hud.bumped_slot = proposednewslot as usize % 5;
+        self.hud.bumped_slot = proposednewslot as usize % ROWLENGTH as usize;
         self.hud.dirty = true;
         self.hud.update();
     }
     #[cfg(feature = "glfw")]
     pub fn cast_place_ray(&mut self) {
-        
-
         let slot_selected = self.hud.bumped_slot;
         let slot = self.inventory.read().unwrap().inv[slot_selected];
 
@@ -4941,13 +4982,16 @@ impl Game {
         let mut openedcraft = false;
 
         if true {
-
             let cl = self.camera.lock().unwrap();
 
-            match raycast_voxel_with_bob(cl.position, cl.direction, &self.chunksys, 10.0, self.vars.walkbobtimer) {
-                
+            match raycast_voxel_with_bob(
+                cl.position,
+                cl.direction,
+                &self.chunksys,
+                10.0,
+                self.vars.walkbobtimer,
+            ) {
                 Some((tip, block_hit)) => {
-
                     let mut blockbitshere = self.chunksys.read().unwrap().blockat(block_hit);
                     let blockidhere = blockbitshere & Blocks::block_id_bits();
 
@@ -4956,8 +5000,7 @@ impl Game {
                         let otherhalf;
 
                         if top == 1 {
-                            otherhalf = block_hit + IVec3::new(0,-1,0);
-                            
+                            otherhalf = block_hit + IVec3::new(0, -1, 0);
                         } else {
                             otherhalf = block_hit + IVec3::new(0, 1, 0);
                         }
@@ -4969,51 +5012,65 @@ impl Game {
                         if self.vars.in_multiplayer {
                             let mut message = Message::new(
                                 MessageType::MultiBlockSet,
-                                Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32),
+                                Vec3::new(
+                                    block_hit.x as f32,
+                                    block_hit.y as f32,
+                                    block_hit.z as f32,
+                                ),
                                 0.0,
-                                blockbitshere
+                                blockbitshere,
                             );
                             message.info2 = otherhalfbits;
                             message.otherpos = otherhalf;
                             self.netconn.send(&message);
                         } else {
-                            self.chunksys.write().unwrap().set_block(otherhalf, otherhalfbits, true);
-                            self.chunksys.write().unwrap().set_block_and_queue_rerender(block_hit, blockbitshere, true, true);
+                            self.chunksys.write().unwrap().set_block(
+                                otherhalf,
+                                otherhalfbits,
+                                true,
+                            );
+                            self.chunksys.write().unwrap().set_block_and_queue_rerender(
+                                block_hit,
+                                blockbitshere,
+                                true,
+                                true,
+                            );
                         }
-                    } else if blockidhere == 21 { //RIGHT CLICKED A CHEST
-                        
+                    } else if blockidhere == 21 {
+                        //RIGHT CLICKED A CHEST
+
                         let _csys = self.chunksys.write().unwrap();
 
                         self.hud.current_chest = block_hit;
                         updateinv = true;
-                        
-
-                        
-
                     } else if blockidhere == 31 {
                         unsafe {
                             ATSMALLTABLE = false;
                         }
                         self.crafting_open = true;
 
-                        self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Normal);
+                        self.window
+                            .write()
+                            .unwrap()
+                            .set_cursor_mode(glfw::CursorMode::Normal);
                         openedcraft = true;
-                        
-
-
                     } else if slot.0 != 0 && slot.1 > 0 {
-                         
                         let id = slot.0;
-                        let diff = (tip+Vec3::new(-0.5, -0.5, -0.5)) - (Vec3::new(block_hit.x as f32, block_hit.y as f32, block_hit.z as f32));
+                        let diff = (tip + Vec3::new(-0.5, -0.5, -0.5))
+                            - (Vec3::new(
+                                block_hit.x as f32,
+                                block_hit.y as f32,
+                                block_hit.z as f32,
+                            ));
 
                         let hit_normal;
 
                         // Determine the primary axis of intersection
                         if (diff.x).abs() > (diff.y).abs() && (diff.x).abs() > (diff.z).abs() {
                             // The hit was primarily along the X-axis
-                            hit_normal = vec::IVec3::new( if diff.x > 0.0 { 1 } else { -1 }, 0, 0);
-
-                        } else if (diff.y).abs() > (diff.x).abs() && (diff.y).abs() > (diff.z).abs() {
+                            hit_normal = vec::IVec3::new(if diff.x > 0.0 { 1 } else { -1 }, 0, 0);
+                        } else if (diff.y).abs() > (diff.x).abs() && (diff.y).abs() > (diff.z).abs()
+                        {
                             // The hit was primarily along the Y-axis
                             hit_normal = vec::IVec3::new(0, if diff.y > 0.0 { 1 } else { -1 }, 0);
                         } else {
@@ -5021,23 +5078,29 @@ impl Game {
                             hit_normal = vec::IVec3::new(0, 0, if diff.z > 0.0 { 1 } else { -1 });
                         }
 
-                        info!("Hit normal is {} {} {}", hit_normal.x, hit_normal.y, hit_normal.z);
-
+                        info!(
+                            "Hit normal is {} {} {}",
+                            hit_normal.x, hit_normal.y, hit_normal.z
+                        );
 
                         let place_point = block_hit + hit_normal;
-                        info!("Placing {} at {} {} {}", id, place_point.x, place_point.y, place_point.z);
+                        info!(
+                            "Placing {} at {} {} {}",
+                            id, place_point.x, place_point.y, place_point.z
+                        );
 
-                        if id == 19 { //Door shit
+                        if id == 19 {
+                            //Door shit
 
                             let neighbor_axes = vec![
-                                IVec3::new(1,0,0),
-                                IVec3::new(0,0,1),
-                                IVec3::new(1,0,0),
-                                IVec3::new(0,0,1)
+                                IVec3::new(1, 0, 0),
+                                IVec3::new(0, 0, 1),
+                                IVec3::new(1, 0, 0),
+                                IVec3::new(0, 0, 1),
                             ];
 
-                            let place_above = place_point + IVec3::new(0,1,0);
-                            let place_below = place_point + IVec3::new(0,-1,0);
+                            let place_above = place_point + IVec3::new(0, 1, 0);
+                            let place_below = place_point + IVec3::new(0, -1, 0);
 
                             let csysread = self.chunksys.read().unwrap();
 
@@ -5047,153 +5110,191 @@ impl Game {
                             drop(csysread);
 
                             if condition1 && condition2 {
+                                let mut bottom_id = id;
+                                let mut top_id = id;
 
-                            let mut bottom_id = id;
-                            let mut top_id = id;
+                                top_id |= door::DOORTOP_BITS;
 
-                            top_id |= door::DOORTOP_BITS;
+                                let diffx = cl.position.x - place_point.x as f32;
+                                let diffz = cl.position.z - place_point.z as f32;
 
+                                let mut direction = 0;
 
-                            let diffx = cl.position.x - place_point.x as f32;
-                            let diffz = cl.position.z - place_point.z as f32;
+                                if diffx.abs() > diffz.abs() {
+                                    direction = if diffx > 0.0 { 1 } else { 3 };
+                                } else {
+                                    direction = if diffz > 0.0 { 2 } else { 0 };
+                                }
 
+                                Blocks::set_direction_bits(&mut bottom_id, direction);
+                                Blocks::set_direction_bits(&mut top_id, direction);
 
-                            let mut direction = 0;
+                                let mut left: IVec3 = IVec3::new(0, 0, 0);
+                                let mut right: IVec3 = IVec3::new(0, 0, 0);
 
-                            if diffx.abs() > diffz.abs() {
-                                direction = if diffx > 0.0 { 1 } else { 3 };
-                            } else {
-                                direction = if diffz > 0.0 { 2 } else { 0 };
-                            }
+                                if direction == 0 || direction == 1 {
+                                    left = place_point - neighbor_axes[direction as usize];
+                                    right = place_point + neighbor_axes[direction as usize];
+                                } else {
+                                    left = place_point + neighbor_axes[direction as usize];
+                                    right = place_point - neighbor_axes[direction as usize];
+                                }
 
-                            Blocks::set_direction_bits(&mut bottom_id, direction);
-                            Blocks::set_direction_bits(&mut top_id, direction);
+                                let csysread = self.chunksys.read().unwrap();
 
-                            let mut left: IVec3 = IVec3::new(0,0,0);
-                            let mut right: IVec3 = IVec3::new(0,0,0);
+                                let mut blockbitsright = csysread.blockat(right);
+                                let mut blockbitsleft = csysread.blockat(left);
 
-                            if direction == 0 || direction == 1 {
-                                left = place_point - neighbor_axes[direction as usize];
-                                right = place_point + neighbor_axes[direction as usize];
-                            } else {
-                                left = place_point + neighbor_axes[direction as usize];
-                                right = place_point - neighbor_axes[direction as usize];
-                            }
+                                drop(csysread);
 
-                            let csysread = self.chunksys.read().unwrap();
+                                if (blockbitsright & Blocks::block_id_bits()) == 19 {
+                                    let neighdir = Blocks::get_direction_bits(blockbitsright);
+                                    if neighdir == direction
+                                        && DoorInfo::get_door_top_bit(blockbitsright) == 0
+                                    {
+                                        let csysread = self.chunksys.read().unwrap();
 
-                            let mut blockbitsright = csysread.blockat(right);
-                            let mut blockbitsleft = csysread.blockat(left);
+                                        let rightup = right + IVec3::new(0, 1, 0);
+                                        let mut neightopbits = csysread.blockat(rightup);
 
-                            drop(csysread);
+                                        DoorInfo::set_opposite_door_bits(&mut top_id, 1);
+                                        DoorInfo::set_opposite_door_bits(&mut bottom_id, 1);
 
-                            if (blockbitsright & Blocks::block_id_bits()) == 19 {
+                                        DoorInfo::set_opposite_door_bits(&mut blockbitsright, 0);
+                                        DoorInfo::set_opposite_door_bits(&mut neightopbits, 0);
 
-                                let neighdir = Blocks::get_direction_bits(blockbitsright);
-                                if neighdir == direction && DoorInfo::get_door_top_bit(blockbitsright) == 0 {
+                                        let _chunktoreb = ChunkSystem::spot_to_chunk_pos(&right);
 
-                                    let csysread = self.chunksys.read().unwrap();
-
-                                    let rightup = right + IVec3::new(0,1,0);
-                                    let mut neightopbits = csysread.blockat(rightup);
-
-                                    DoorInfo::set_opposite_door_bits(&mut top_id, 1);
-                                    DoorInfo::set_opposite_door_bits(&mut bottom_id, 1);
-
-                                    DoorInfo::set_opposite_door_bits(&mut blockbitsright, 0);
-                                    DoorInfo::set_opposite_door_bits(&mut neightopbits, 0);
-
-                                    let _chunktoreb = ChunkSystem::spot_to_chunk_pos(&right);
-
-                                    if self.vars.in_multiplayer {
-                                        let mut message = Message::new(
-                                            MessageType::MultiBlockSet, 
-                                            Vec3::new(
-                                                right.x as f32, 
-                                                right.y as f32, 
-                                                right.z as f32), 
-                                            0.0, 
-                                            blockbitsright);
+                                        if self.vars.in_multiplayer {
+                                            let mut message = Message::new(
+                                                MessageType::MultiBlockSet,
+                                                Vec3::new(
+                                                    right.x as f32,
+                                                    right.y as f32,
+                                                    right.z as f32,
+                                                ),
+                                                0.0,
+                                                blockbitsright,
+                                            );
 
                                             message.info2 = neightopbits;
                                             message.otherpos = rightup;
 
-
-                                        self.netconn.send(&message);
-
-                                    } else {
-                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(right, blockbitsright, false, true);
-                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(rightup, neightopbits, false, true);
+                                            self.netconn.send(&message);
+                                        } else {
+                                            self.chunksys
+                                                .read()
+                                                .unwrap()
+                                                .set_block_and_queue_rerender(
+                                                    right,
+                                                    blockbitsright,
+                                                    false,
+                                                    true,
+                                                );
+                                            self.chunksys
+                                                .read()
+                                                .unwrap()
+                                                .set_block_and_queue_rerender(
+                                                    rightup,
+                                                    neightopbits,
+                                                    false,
+                                                    true,
+                                                );
+                                        }
                                     }
-
                                 }
-                            }
 
-                            if (blockbitsleft & Blocks::block_id_bits()) == 19 {
-                                let neighdir = Blocks::get_direction_bits(blockbitsleft);
-                                if neighdir == direction && DoorInfo::get_door_top_bit(blockbitsleft) == 0 {
-                                    let leftup = left + IVec3::new(0,1,0);
+                                if (blockbitsleft & Blocks::block_id_bits()) == 19 {
+                                    let neighdir = Blocks::get_direction_bits(blockbitsleft);
+                                    if neighdir == direction
+                                        && DoorInfo::get_door_top_bit(blockbitsleft) == 0
+                                    {
+                                        let leftup = left + IVec3::new(0, 1, 0);
 
-                                    let csysread = self.chunksys.read().unwrap();
+                                        let csysread = self.chunksys.read().unwrap();
 
+                                        let mut neightopbits = csysread.blockat(leftup);
 
-                                    let mut neightopbits = csysread.blockat(leftup);
+                                        DoorInfo::set_opposite_door_bits(&mut top_id, 1);
+                                        DoorInfo::set_opposite_door_bits(&mut bottom_id, 1);
 
-                                    DoorInfo::set_opposite_door_bits(&mut top_id, 1);
-                                    DoorInfo::set_opposite_door_bits(&mut bottom_id, 1);
+                                        DoorInfo::set_opposite_door_bits(&mut blockbitsleft, 0);
+                                        DoorInfo::set_opposite_door_bits(&mut neightopbits, 0);
 
-                                    DoorInfo::set_opposite_door_bits(&mut blockbitsleft, 0);
-                                    DoorInfo::set_opposite_door_bits(&mut neightopbits, 0);
+                                        let _chunktoreb = ChunkSystem::spot_to_chunk_pos(&left);
 
-                                    let _chunktoreb = ChunkSystem::spot_to_chunk_pos(&left);
-
-                                    if self.vars.in_multiplayer {
-                                        let mut message = Message::new(
-                                            MessageType::MultiBlockSet, 
-                                            Vec3::new(
-                                                left.x as f32, 
-                                                left.y as f32, 
-                                                left.z as f32), 
-                                            0.0, 
-                                            blockbitsleft);
-
+                                        if self.vars.in_multiplayer {
+                                            let mut message = Message::new(
+                                                MessageType::MultiBlockSet,
+                                                Vec3::new(
+                                                    left.x as f32,
+                                                    left.y as f32,
+                                                    left.z as f32,
+                                                ),
+                                                0.0,
+                                                blockbitsleft,
+                                            );
 
                                             message.info2 = neightopbits;
                                             message.otherpos = leftup;
 
-                                        self.netconn.send(&message);
-
-                                    } else {
-                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(left, blockbitsleft, false, true);
-                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(leftup, neightopbits, false, true);
+                                            self.netconn.send(&message);
+                                        } else {
+                                            self.chunksys
+                                                .read()
+                                                .unwrap()
+                                                .set_block_and_queue_rerender(
+                                                    left,
+                                                    blockbitsleft,
+                                                    false,
+                                                    true,
+                                                );
+                                            self.chunksys
+                                                .read()
+                                                .unwrap()
+                                                .set_block_and_queue_rerender(
+                                                    leftup,
+                                                    neightopbits,
+                                                    false,
+                                                    true,
+                                                );
+                                        }
                                     }
-
                                 }
-                            }
 
-                            if self.vars.in_multiplayer {
-                                let mut message = Message::new(
-                                    MessageType::MultiBlockSet, 
-                                    Vec3::new(
-                                        place_point.x as f32, 
-                                        place_point.y as f32, 
-                                        place_point.z as f32), 
-                                    0.0, 
-                                    bottom_id);
+                                if self.vars.in_multiplayer {
+                                    let mut message = Message::new(
+                                        MessageType::MultiBlockSet,
+                                        Vec3::new(
+                                            place_point.x as f32,
+                                            place_point.y as f32,
+                                            place_point.z as f32,
+                                        ),
+                                        0.0,
+                                        bottom_id,
+                                    );
 
                                     message.info2 = top_id;
                                     message.otherpos = place_above;
 
-                                self.netconn.send(&message);
-
-                            } else {
-                                self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, bottom_id, false, true);
-                                self.chunksys.read().unwrap().set_block_and_queue_rerender(place_above, top_id, false, true);
+                                    self.netconn.send(&message);
+                                } else {
+                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                        place_point,
+                                        bottom_id,
+                                        false,
+                                        true,
+                                    );
+                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                        place_above,
+                                        top_id,
+                                        false,
+                                        true,
+                                    );
+                                }
                             }
-
-                        }
-
-                        } else if id == 45 { //conveyor shit
+                        } else if id == 45 {
+                            //conveyor shit
 
                             let mut conveyor_id = id;
 
@@ -5212,20 +5313,27 @@ impl Game {
 
                             if self.vars.in_multiplayer {
                                 let message = Message::new(
-                                    MessageType::BlockSet, 
+                                    MessageType::BlockSet,
                                     Vec3::new(
-                                        place_point.x as f32, 
-                                        place_point.y as f32, 
-                                        place_point.z as f32), 
-                                    0.0, 
-                                    conveyor_id);
+                                        place_point.x as f32,
+                                        place_point.y as f32,
+                                        place_point.z as f32,
+                                    ),
+                                    0.0,
+                                    conveyor_id,
+                                );
 
                                 self.netconn.send(&message);
                             } else {
-                                self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, conveyor_id, false, true);
+                                self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                    place_point,
+                                    conveyor_id,
+                                    false,
+                                    true,
+                                );
                             }
-
-                        }else if id == 20 { //ladder shit
+                        } else if id == 20 {
+                            //ladder shit
 
                             let mut ladder_id = id;
 
@@ -5244,20 +5352,27 @@ impl Game {
 
                             if self.vars.in_multiplayer {
                                 let message = Message::new(
-                                    MessageType::BlockSet, 
+                                    MessageType::BlockSet,
                                     Vec3::new(
-                                        place_point.x as f32, 
-                                        place_point.y as f32, 
-                                        place_point.z as f32), 
-                                    0.0, 
-                                    ladder_id);
+                                        place_point.x as f32,
+                                        place_point.y as f32,
+                                        place_point.z as f32,
+                                    ),
+                                    0.0,
+                                    ladder_id,
+                                );
 
                                 self.netconn.send(&message);
                             } else {
-                                self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, ladder_id, false, true);
+                                self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                    place_point,
+                                    ladder_id,
+                                    false,
+                                    true,
+                                );
                             }
-
-                        } else if id == 21 { //Chest shit
+                        } else if id == 21 {
+                            //Chest shit
 
                             let mut chest_id = id;
 
@@ -5276,82 +5391,101 @@ impl Game {
 
                             if self.vars.in_multiplayer {
                                 let message = Message::new(
-                                    MessageType::BlockSet, 
+                                    MessageType::BlockSet,
                                     Vec3::new(
-                                        place_point.x as f32, 
-                                        place_point.y as f32, 
-                                        place_point.z as f32), 
-                                    0.0, 
-                                    chest_id);
+                                        place_point.x as f32,
+                                        place_point.y as f32,
+                                        place_point.z as f32,
+                                    ),
+                                    0.0,
+                                    chest_id,
+                                );
 
                                 self.netconn.send(&message);
                             } else {
-                                self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, chest_id, false, true);
+                                self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                    place_point,
+                                    chest_id,
+                                    false,
+                                    true,
+                                );
                             }
-
                         } else {
                             if !Blocks::is_non_placeable(slot.0) {
                                 if self.vars.in_multiplayer {
-                                    let message = Message::new(MessageType::BlockSet, Vec3::new(place_point.x as f32, place_point.y as f32, place_point.z as f32), 0.0, id);
+                                    let message = Message::new(
+                                        MessageType::BlockSet,
+                                        Vec3::new(
+                                            place_point.x as f32,
+                                            place_point.y as f32,
+                                            place_point.z as f32,
+                                        ),
+                                        0.0,
+                                        id,
+                                    );
                                     self.netconn.send(&message);
                                 } else {
-                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(place_point, id, false, true);
+                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                        place_point,
+                                        id,
+                                        false,
+                                        true,
+                                    );
                                 }
                             }
                         }
                         if !Blocks::is_non_placeable(slot.0) {
                             if self.vars.in_multiplayer {
                                 if slot.1 == 1 {
-                                    let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                                    let mutslot =
+                                        &mut self.inventory.write().unwrap().inv[slot_selected];
                                     mutslot.1 = 0;
                                     mutslot.0 = 0;
 
+                                    let mut msg = Message::new(
+                                        MessageType::ChestInvUpdate,
+                                        Vec3::ZERO,
+                                        0.0,
+                                        slot_selected as u32,
+                                    );
+                                    msg.infof = 0.0;
+                                    msg.info2 = 1;
 
-                                    let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, 0.0, slot_selected as u32);
-                                        msg.infof = 0.0;
-                                        msg.info2 = 1;
-
-                                        self.netconn.send(&msg);
-                        
-                                    
+                                    self.netconn.send(&msg);
                                 } else {
                                     let slot = &self.inventory.read().unwrap().inv[slot_selected];
-                            
 
-                                    let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, slot.0 as f32, slot_selected as u32);
-                                        msg.infof = slot.1 as f32 - 1.0;
-                                        msg.info2 = 1;
+                                    let mut msg = Message::new(
+                                        MessageType::ChestInvUpdate,
+                                        Vec3::ZERO,
+                                        slot.0 as f32,
+                                        slot_selected as u32,
+                                    );
+                                    msg.infof = slot.1 as f32 - 1.0;
+                                    msg.info2 = 1;
 
-                                        self.netconn.send(&msg);
-
+                                    self.netconn.send(&msg);
                                 }
                             } else {
                                 if slot.1 == 1 {
-                                    let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                                    let mutslot =
+                                        &mut self.inventory.write().unwrap().inv[slot_selected];
                                     mutslot.1 = 0;
                                     mutslot.0 = 0;
                                 } else {
-                                    let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                                    let mutslot =
+                                        &mut self.inventory.write().unwrap().inv[slot_selected];
                                     mutslot.1 -= 1;
                                 }
                             }
                         }
-
-                        
                     }
-
-                    
-                    
                 }
 
                 None => {}
             }
-
-            
-
         } else {
             if Blocks::is_food(slot.0) {
-
                 //GET THIS FOODS HEALTH STATS
 
                 let foodstats = Blocks::get_food_stats(slot.0);
@@ -5362,8 +5496,10 @@ impl Game {
 
                 let s = self.stamina.load(Ordering::Relaxed);
 
-                self.health.store((h + foodstats.0 as i8).min(20), Ordering::Relaxed);
-                self.stamina.store((s + foodstats.1).min(100), Ordering::Relaxed);
+                self.health
+                    .store((h + foodstats.0 as i8).min(20), Ordering::Relaxed);
+                self.stamina
+                    .store((s + foodstats.1).min(100), Ordering::Relaxed);
 
                 //REDUCE THE INV ITEM:
                 if self.vars.in_multiplayer {
@@ -5372,24 +5508,29 @@ impl Game {
                         mutslot.1 = 0;
                         mutslot.0 = 0;
 
+                        let mut msg = Message::new(
+                            MessageType::ChestInvUpdate,
+                            Vec3::ZERO,
+                            0.0,
+                            slot_selected as u32,
+                        );
+                        msg.infof = 0.0;
+                        msg.info2 = 1;
 
-                           let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, 0.0, slot_selected as u32);
-                            msg.infof = 0.0;
-                            msg.info2 = 1;
-
-                            self.netconn.send(&msg);
-             
-                        
+                        self.netconn.send(&msg);
                     } else {
                         let slot = &self.inventory.read().unwrap().inv[slot_selected];
-                  
 
-                        let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::ZERO, slot.0 as f32, slot_selected as u32);
-                            msg.infof = slot.1 as f32 - 1.0;
-                            msg.info2 = 1;
+                        let mut msg = Message::new(
+                            MessageType::ChestInvUpdate,
+                            Vec3::ZERO,
+                            slot.0 as f32,
+                            slot_selected as u32,
+                        );
+                        msg.infof = slot.1 as f32 - 1.0;
+                        msg.info2 = 1;
 
-                            self.netconn.send(&msg);
-
+                        self.netconn.send(&msg);
                     }
                 } else {
                     if slot.1 == 1 {
@@ -5401,7 +5542,6 @@ impl Game {
                         mutslot.1 -= 1;
                     }
                 }
-
             }
         }
 
@@ -5409,21 +5549,20 @@ impl Game {
             self.update_inventory();
             self.hud.chest_open = true;
 
-            self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Normal);
+            self.window
+                .write()
+                .unwrap()
+                .set_cursor_mode(glfw::CursorMode::Normal);
             self.set_mouse_focused(false);
         }
 
         if openedcraft {
             self.set_mouse_focused(false);
         }
-
-        
-
     }
     #[cfg(feature = "glfw")]
     pub fn mouse_button(&mut self, mb: MouseButton, a: Action) {
         if self.hud.chest_open {
-
             match mb {
                 glfw::MouseButtonLeft => {
                     //self.vars.mouse_clicked = a == Action::Press;
@@ -5432,21 +5571,16 @@ impl Game {
                         let mut updateinv = false;
                         {
                             let csys = self.chunksys.write().unwrap();
-                        unsafe {
-                            match MOUSED_SLOT {
-                                SlotIndexType::ChestSlot(e) => {
-                                    match csys.chest_registry.get_mut(&self.hud.current_chest) {
-                                        Some(mut ch) =>  {
-                                            let slot = &mut ch.value_mut().inv[e as usize];
+                            unsafe {
+                                match MOUSED_SLOT {
+                                    SlotIndexType::ChestSlot(e) => {
+                                        match csys.chest_registry.get_mut(&self.hud.current_chest) {
+                                            Some(mut ch) => {
+                                                let slot = &mut ch.value_mut().inv[e as usize];
 
-
-                                            let buff = slot.clone();
-                                            if self.vars.in_multiplayer {
-
-
-
-
-
+                                                //IF This slot has an item id the same as our mouse slot
+                                                if slot.0 == self.mouse_slot.0 {
+                                                    if self.vars.in_multiplayer {
                                                         /*OTHERPOS: CURRENT CHEST */
                                                         /*INFO: DEST SLOT INDEX */
                                                         /*INFO2: SLOT INDEX TYPE */
@@ -5454,42 +5588,70 @@ impl Game {
                                                         /*INFOF: COUNT */
                                                         /*X, Y:   SLOT MOVED TO MOUSE OF <GOOSE> PLAYER */
                                                         /*Z: IF MOUSE_SLOT IS REPLACED */
-                                                        let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::new(buff.0 as f32, buff.1 as f32, 1.0), self.mouse_slot.0 as f32, e as u32);
+                                                        let mut msg = Message::new(
+                                                            MessageType::ChestInvUpdate,
+                                                            Vec3::new(0 as f32, 0 as f32, 1.0),
+                                                            slot.0 as f32,
+                                                            e as u32,
+                                                        );
+                                                        msg.otherpos = self.hud.current_chest;
+                                                        msg.info2 = /*0 = CHEST, 1 = INV, 2 = NONE */0;
+                                                        msg.infof =
+                                                            (slot.1 + self.mouse_slot.1) as f32;
+
+                                                        self.netconn.send(&msg);
+                                                    } else {
+                                                        slot.1 = slot.1 + self.mouse_slot.1;
+
+                                                        self.mouse_slot = (0, 0);
+                                                    }
+                                                } else
+                                                //SWAP YOUR mouse_slot AND slot
+                                                {
+                                                    let buff = slot.clone();
+                                                    if self.vars.in_multiplayer {
+                                                        /*OTHERPOS: CURRENT CHEST */
+                                                        /*INFO: DEST SLOT INDEX */
+                                                        /*INFO2: SLOT INDEX TYPE */
+                                                        /*ROT: ID */
+                                                        /*INFOF: COUNT */
+                                                        /*X, Y:   SLOT MOVED TO MOUSE OF <GOOSE> PLAYER */
+                                                        /*Z: IF MOUSE_SLOT IS REPLACED */
+                                                        let mut msg = Message::new(
+                                                            MessageType::ChestInvUpdate,
+                                                            Vec3::new(
+                                                                buff.0 as f32,
+                                                                buff.1 as f32,
+                                                                1.0,
+                                                            ),
+                                                            self.mouse_slot.0 as f32,
+                                                            e as u32,
+                                                        );
                                                         msg.otherpos = self.hud.current_chest;
                                                         msg.info2 = /*0 = CHEST, 1 = INV, 2 = NONE */0;
                                                         msg.infof = self.mouse_slot.1 as f32;
 
                                                         self.netconn.send(&msg);
+                                                    } else {
+                                                        slot.0 = self.mouse_slot.0;
+                                                        slot.1 = self.mouse_slot.1;
 
-
-
-
-
+                                                        self.mouse_slot.0 = buff.0;
+                                                        self.mouse_slot.1 = buff.1;
+                                                        updateinv = true;
+                                                    }
+                                                }
                                             }
-                                            else
-                                            {
-                                                slot.0 = self.mouse_slot.0;
-                                                slot.1 = self.mouse_slot.1;
-
-                                                self.mouse_slot.0 = buff.0;
-                                                self.mouse_slot.1 = buff.1;
-                                                updateinv = true;
-                                            }
-                                            
-                                        },
-                                        None => {
-
-                                        },
+                                            None => {}
+                                        }
                                     }
-                                },
-                                SlotIndexType::InvSlot(e) => {
-                                    let slot = &mut self.inventory.write().unwrap().inv[e as usize];
+                                    SlotIndexType::InvSlot(e) => {
+                                        let slot =
+                                            &mut self.inventory.write().unwrap().inv[e as usize];
 
-                                    let buff = slot.clone();
-
-                                    if self.vars.in_multiplayer {
-
-
+                                        //IF This slot has an item id the same as our mouse slot
+                                        if slot.0 == self.mouse_slot.0 {
+                                            if self.vars.in_multiplayer {
                                                 /*OTHERPOS: CURRENT CHEST */
                                                 /*INFO: DEST SLOT INDEX */
                                                 /*INFO2: SLOT INDEX TYPE */
@@ -5497,31 +5659,59 @@ impl Game {
                                                 /*INFOF: COUNT */
                                                 /*X, Y:   SLOT MOVED TO MOUSE OF <GOOSE> PLAYER */
                                                 /*Z: IF MOUSE_SLOT IS REPLACED */
-                                                let mut msg = Message::new(MessageType::ChestInvUpdate, Vec3::new(buff.0 as f32, buff.1 as f32, 1.0), self.mouse_slot.0 as f32, e as u32);
+                                                let mut msg = Message::new(
+                                                    MessageType::ChestInvUpdate,
+                                                    Vec3::new(0 as f32, 0 as f32, 1.0),
+                                                    slot.0 as f32,
+                                                    e as u32,
+                                                );
+                                                msg.otherpos = self.hud.current_chest;
+                                                msg.info2 = /*0 = CHEST, 1 = INV, 2 = NONE */1;
+                                                msg.infof = (slot.1 + self.mouse_slot.1) as f32;
+
+                                                self.netconn.send(&msg);
+                                            } else {
+                                                slot.1 = slot.1 + self.mouse_slot.1;
+
+                                                self.mouse_slot = (0, 0);
+                                            }
+                                        } else
+                                        //SWAP YOUR mouse_slot AND slot
+                                        {
+                                            let buff = slot.clone();
+
+                                            if self.vars.in_multiplayer {
+                                                /*OTHERPOS: CURRENT CHEST */
+                                                /*INFO: DEST SLOT INDEX */
+                                                /*INFO2: SLOT INDEX TYPE */
+                                                /*ROT: ID */
+                                                /*INFOF: COUNT */
+                                                /*X, Y:   SLOT MOVED TO MOUSE OF <GOOSE> PLAYER */
+                                                /*Z: IF MOUSE_SLOT IS REPLACED */
+                                                let mut msg = Message::new(
+                                                    MessageType::ChestInvUpdate,
+                                                    Vec3::new(buff.0 as f32, buff.1 as f32, 1.0),
+                                                    self.mouse_slot.0 as f32,
+                                                    e as u32,
+                                                );
                                                 msg.otherpos = self.hud.current_chest;
                                                 msg.info2 = /*0 = CHEST, 1 = INV, 2 = NONE */ 1;
                                                 msg.infof = self.mouse_slot.1 as f32;
                                                 self.netconn.send(&msg);
+                                            } else {
+                                                slot.0 = self.mouse_slot.0;
+                                                slot.1 = self.mouse_slot.1;
 
-
+                                                self.mouse_slot.0 = buff.0;
+                                                self.mouse_slot.1 = buff.1;
+                                                updateinv = true;
+                                            }
+                                        }
                                     }
-                                    else
-                                    {
-                                        slot.0 = self.mouse_slot.0;
-                                        slot.1 = self.mouse_slot.1;
-
-                                        self.mouse_slot.0 = buff.0;
-                                        self.mouse_slot.1 = buff.1;
-                                        updateinv = true;
-                                    }
-
-                                },
-                                SlotIndexType::None => {
-
-                                },
+                                    SlotIndexType::None => {}
+                                }
                             }
                         }
-                    }
                         if updateinv {
                             self.update_inventory();
                         }
@@ -5540,10 +5730,7 @@ impl Game {
                 }
                 _ => {}
             }
-
         } else {
-
-            
             match mb {
                 glfw::MouseButtonLeft => {
                     self.vars.mouse_clicked = a == Action::Press;
@@ -5561,20 +5748,15 @@ impl Game {
                 }
                 _ => {}
             }
-
         }
     }
 
     pub fn new_world_func(&mut self) {
-
-
         if self.vars.in_multiplayer {
-
             //let msg = Message::new(MessageType::ShutUpMobMsgs, Vec3::ZERO, 0.0, 0);
             //self.netconn.send(&msg);
 
             self.netconn.received_world.store(false, Ordering::Relaxed);
- 
 
             let msg = Message::new(MessageType::RequestUdm, Vec3::ZERO, 0.0, 0);
             self.netconn.send(&msg);
@@ -5591,7 +5773,6 @@ impl Game {
             self.vars.hostile_world = (nt % 2) != 0;
 
             self.start_chunks_with_radius(10, currseed, nt as usize);
-
         } else {
             let mut rng = StdRng::from_entropy();
 
@@ -5601,26 +5782,24 @@ impl Game {
             static mut CURR_NT: usize = 0;
             self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
 
-            
             unsafe {
                 self.vars.hostile_world = (CURR_NT % 2) == 0;
                 CURR_NT = (CURR_NT + 1) % 2;
                 *self.chunksys.read().unwrap().currentseed.write().unwrap() = seed;
                 self.start_chunks_with_radius(10, seed, CURR_NT);
 
-                info!("Now noise type is {}", self.chunksys.read().unwrap().planet_type);
+                info!(
+                    "Now noise type is {}",
+                    self.chunksys.read().unwrap().planet_type
+                );
             }
         }
-
-
-        
 
         // self.chunksys.load_world_from_file(String::from("saves/world1"));
         // self.vars.hostile_world = false;
         // let seed = *self.chunksys.currentseed.read().unwrap();
         // self.start_chunks_with_radius(10, seed, 0);
         // self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
-
     }
 
     #[cfg(feature = "glfw")]
@@ -5629,12 +5808,13 @@ impl Game {
             Key::Escape => {
                 if action == Action::Press {
                     if !self.vars.menu_open && !self.hud.chest_open && !self.crafting_open {
-
                         self.button_command("escapemenu".to_string());
-    
                     } else {
                         self.vars.menu_open = false;
-                        self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+                        self.window
+                            .write()
+                            .unwrap()
+                            .set_cursor_mode(glfw::CursorMode::Disabled);
                         self.set_mouse_focused(true);
                         unsafe {
                             uncapkb.store(true, Ordering::Relaxed);
@@ -5643,7 +5823,10 @@ impl Game {
 
                     if self.crafting_open {
                         self.crafting_open = false;
-                        self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+                        self.window
+                            .write()
+                            .unwrap()
+                            .set_cursor_mode(glfw::CursorMode::Disabled);
                         self.set_mouse_focused(true);
                         unsafe {
                             uncapkb.store(true, Ordering::Relaxed);
@@ -5652,15 +5835,16 @@ impl Game {
 
                     if self.hud.chest_open {
                         self.hud.chest_open = false;
-                        self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+                        self.window
+                            .write()
+                            .unwrap()
+                            .set_cursor_mode(glfw::CursorMode::Disabled);
                         self.set_mouse_focused(true);
                         unsafe {
                             uncapkb.store(true, Ordering::Relaxed);
                         }
                     }
                 }
-                
-                
             }
             Key::W => {
                 if action == Action::Press || action == Action::Repeat {
@@ -5677,17 +5861,19 @@ impl Game {
                 }
             }
             Key::C => {
-                if action == Action::Press  {
+                if action == Action::Press {
                     unsafe {
                         ATSMALLTABLE = true;
                     }
                     Game::update_avail_recipes(&self.inventory);
                     self.crafting_open = true;
 
-                    self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Normal);
+                    self.window
+                        .write()
+                        .unwrap()
+                        .set_cursor_mode(glfw::CursorMode::Normal);
                     self.set_mouse_focused(false);
                 } else {
-                    
                 }
             }
             Key::S => {
@@ -5718,16 +5904,13 @@ impl Game {
                     self.controls.shift = false;
                 }
             }
-            Key::LeftControl => {
-                unsafe {
-                    if action == Action::Press || action == Action::Repeat {
-                        CROUCHING = true;
-                    } else {
-                        CROUCHING = false;
-                    }
+            Key::LeftControl => unsafe {
+                if action == Action::Press || action == Action::Repeat {
+                    CROUCHING = true;
+                } else {
+                    CROUCHING = false;
                 }
-                
-            }
+            },
             // Key::M => {
             //     if action == Action::Press {
             //         unsafe { WEATHERTYPE = WEATHERTYPE + 1.0 };
@@ -5743,7 +5926,7 @@ impl Game {
             //         } else {
             //             self.takeoff_ship();
             //         }
-                    
+
             //     }
             // }
             // Key::L => {
@@ -5758,7 +5941,7 @@ impl Game {
             // Key::Num0 => {
             //     self.vars.ship_going_down = true;
             //     self.vars.ship_going_up = false;
-                
+
             // }
             // Key::Num9 => {
             //     self.vars.ship_going_down = false;
@@ -5774,18 +5957,19 @@ impl Game {
                 self.faders.write().unwrap()[FaderNames::FovFader as usize].up();
                 self.faders.write().unwrap()[FaderNames::FovFader as usize].top += 1.0;
                 self.faders.write().unwrap()[FaderNames::FovFader as usize].bottom += 1.0;
-
             }
             Key::Num9 => {
                 self.faders.write().unwrap()[FaderNames::FovFader as usize].down();
                 self.faders.write().unwrap()[FaderNames::FovFader as usize].top -= 1.0;
                 self.faders.write().unwrap()[FaderNames::FovFader as usize].bottom -= 1.0;
-                
             }
             Key::P => {
-                if action == Action::Press && !self.faders.read().unwrap()[FaderNames::VisionsFader as usize].mode {
+                if action == Action::Press
+                    && !self.faders.read().unwrap()[FaderNames::VisionsFader as usize].mode
+                {
                     let mut rng = StdRng::from_entropy();
-                    self.current_vision = Some(VisionType::Model(rng.gen_range(2..self.gltf_models.len())));
+                    self.current_vision =
+                        Some(VisionType::Model(rng.gen_range(2..self.gltf_models.len())));
                     self.visions_timer = 0.0;
                     self.faders.write().unwrap()[FaderNames::VisionsFader as usize].up();
                     #[cfg(feature = "audio")]
@@ -5799,7 +5983,6 @@ impl Game {
             //     if action == Action::Press {
             //         self.vars.menu_open = !self.vars.menu_open;
             //     }
-                
 
             // }
             Key::O => {

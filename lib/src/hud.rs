@@ -6,6 +6,7 @@ use gl::types::{GLuint, GLvoid};
 use glam::Vec2;
 use glfw::PWindow;
 
+use crate::game::ROWLENGTH;
 use crate::shader::Shader;
 use crate::textureface::TextureFace;
 use crate::vec::{self, IVec3};
@@ -181,7 +182,7 @@ impl Hud {
                     let mut realpos = element.normalized_pos;
                     if bumped_slot != -1 
                     {
-                        if bumped_slot as usize == index || bumped_slot as usize + 5 == index {
+                        if bumped_slot as usize == index || bumped_slot as usize + ROWLENGTH as usize == index {
                             realpos += Vec2::new(0.0, 0.05);
                         }
                     }

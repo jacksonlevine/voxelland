@@ -16,10 +16,12 @@ use uuid::Uuid;
 
 use crate::camera::Camera;
 use crate::chunk::ChunkSystem;
-use crate::game::UPDATE_THE_BLOCK_OVERLAY;
+use crate::game::{Game, UPDATE_THE_BLOCK_OVERLAY};
+use crate::inventory::ChestInventory;
 use crate::modelentity::{direction_to_euler, ModelEntity};
 use crate::server_types::{self, Message, MessageType, MOB_BATCH_SIZE};
 use crate::statics::MY_MULTIPLAYER_UUID;
+use crate::vec;
 
 
 
@@ -39,13 +41,14 @@ pub struct NetworkConnector {
     pub mycam: Arc<Mutex<Camera>>,
     pub shouldsend: Arc<AtomicBool>,
     pub pme: Arc<DashMap<Uuid, ModelEntity>>,
-    pub sendqueue: Arc<Queue<Message>>
+    pub sendqueue: Arc<Queue<Message>>,
+    pub chest_registry: Arc<DashMap<vec::IVec3, ChestInventory>>,
 }
 
 impl NetworkConnector {
     pub fn new(csys: &Arc<RwLock<ChunkSystem>>, commqueue: &Arc<Queue<Message>>, commqueue2: &Arc<Queue<Message>>, gkc: &Arc<DashMap<Uuid, Vec3>>,
                 my_uuid: &Arc<RwLock<Option<Uuid>>>, nsme: &Arc<DashMap<u32, ModelEntity>>, mycam: &Arc<Mutex<Camera>>, pme: &Arc<DashMap<Uuid, ModelEntity>>,
-                ) -> NetworkConnector {
+                chest_reg: &Arc<DashMap<vec::IVec3, ChestInventory>>) -> NetworkConnector {
         NetworkConnector {
             stream: None,
             recvthread: None,
@@ -62,7 +65,8 @@ impl NetworkConnector {
             mycam: mycam.clone(),
             shouldsend: Arc::new(AtomicBool::new(false)),
             pme: pme.clone(),
-            sendqueue: Arc::new(Queue::new())
+            sendqueue: Arc::new(Queue::new()),
+            chest_registry: chest_reg.clone()
         }
     }
 
@@ -149,6 +153,8 @@ impl NetworkConnector {
                     let hpcommqueue = self.highprioritycommqueue.clone();
 
                     let sendqueue = self.sendqueue.clone();
+
+                    let chestreg = self.chest_registry.clone();
 
                     self.sendthread = Some(thread::spawn(move || {
                         let sr = sr2.clone();
@@ -288,8 +294,14 @@ impl NetworkConnector {
                                                         let mut file = File::create("chestdb").unwrap();
                                                         file.write_all(&payload_buffer).unwrap();
 
+                                                        let seed = {
+                                                            let c = csys.read().unwrap();
+                                                            let s = c.currentseed.read().unwrap();
+                                                            s.clone()
+                                                        };
 
-                                                        csys.write().unwrap().load_chests_from_file();
+
+                                                        Game::static_load_chests_from_file(seed, &chestreg);
                                                         //csys.write().unwrap().load_my_inv_from_file();
                                                         hpcommqueue.push(comm);
                                                         recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);

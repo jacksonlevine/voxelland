@@ -16,7 +16,7 @@ use std::time::Duration;
 use lockfree::queue::Queue;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
-use rusqlite::Connection;
+use rusqlite::{params, Connection};
 use uuid::Uuid;
 
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI8, Ordering};
@@ -342,6 +342,7 @@ pub struct Game {
     pub crafting_open: bool,
     pub stamina: Arc<AtomicI32>,
     pub weathertype: f32,
+    pub chest_registry: Arc<DashMap<vec::IVec3, ChestInventory>>,
 }
 
 pub const ROWLENGTH: i32 = 8;
@@ -833,6 +834,8 @@ impl Game {
         #[cfg(feature = "glfw")]
         let window = &window.as_ref().unwrap().clone();
 
+        let chest_registry = Arc::new(DashMap::new());
+
         let mut g = Game {
             chunksys: chunksys.clone(),
             shader0,
@@ -926,6 +929,7 @@ impl Game {
                 &nsme,
                 &cam.clone(),
                 &pme.clone(),
+                &chest_registry
             ),
             server_command_queue: server_command_queue.clone(),
             hp_server_command_queue: server_command_hp_queue.clone(),
@@ -958,6 +962,7 @@ impl Game {
             crafting_open: false,
             stamina,
             weathertype: 0.0,
+            chest_registry
         };
         #[cfg(feature = "glfw")]
         if !headless {
@@ -1171,6 +1176,198 @@ impl Game {
                 }
                 //let result = rec.1;
             }
+        }
+    }
+
+    pub fn save_one_chest_to_file(&self, key: IVec3) {
+        let seed = {
+            let c = self.chunksys.read().unwrap();
+            let s = c.currentseed.read().unwrap();
+            s.clone()
+        };
+
+        let table_name = format!("chest_registry_{}", seed);
+
+        match Connection::open("chestdb") {
+            Ok(conn) => {
+                // Ensure the table exists
+                conn.execute(
+                    &format!(
+                        "CREATE TABLE IF NOT EXISTS {} (
+                            x INTEGER,
+                            y INTEGER,
+                            z INTEGER,
+                            dirty BOOLEAN,
+                            inventory BLOB,
+                            PRIMARY KEY (x, y, z)
+                        )",
+                        table_name
+                    ),
+                    (),
+                )
+                .unwrap();
+
+                // Get the chest inventory for the given key
+                if let Some(chest_inventory) = self.chest_registry.get(&key) {
+                    let inv_bin = bincode::serialize(&chest_inventory.inv).unwrap();
+
+                    // Update the specific entry in the database
+                    let mut stmt = conn.prepare(&format!(
+                        "INSERT OR REPLACE INTO {} (x, y, z, dirty, inventory) VALUES (?, ?, ?, ?, ?)",
+                        table_name
+                    )).unwrap();
+
+                    stmt.execute(params![key.x, key.y, key.z, chest_inventory.dirty, inv_bin])
+                        .unwrap();
+                } else {
+                    info!("No chest inventory found for key {:?}", key);
+                }
+            }
+            Err(_e) => {}
+        };
+    }
+
+    
+    pub fn save_current_chests_to_file(&self) {
+        let seed = {
+            let c = self.chunksys.read().unwrap();
+            let s = c.currentseed.read().unwrap();
+            s.clone()
+        };
+
+        let table_name = format!("chest_registry_{}", seed);
+
+        let conn = Connection::open("chestdb").unwrap();
+
+        conn.execute(
+            &format!(
+                "CREATE TABLE IF NOT EXISTS {} (
+                x INTEGER,
+                y INTEGER,
+                z INTEGER,
+                dirty BOOLEAN,
+                inventory BLOB,
+                PRIMARY KEY (x, y, z)
+            )",
+                table_name
+            ),
+            (),
+        )
+        .unwrap();
+
+        // Insert chest_registry entries
+        let mut stmt = conn
+            .prepare(&format!(
+                "INSERT OR REPLACE INTO {} (x, y, z, dirty, inventory) VALUES (?, ?, ?, ?, ?)",
+                table_name
+            ))
+            .unwrap();
+
+        for entry in self.chest_registry.iter() {
+            let key = entry.key();
+            let chest_inventory = entry.value();
+            let inv_bin = bincode::serialize(&chest_inventory.inv).unwrap();
+            stmt.execute(params![key.x, key.y, key.z, chest_inventory.dirty, inv_bin])
+                .unwrap();
+        }
+    }
+
+    pub fn load_chests_from_file(&self) {
+        let seed = {
+            let c = self.chunksys.read().unwrap();
+            let s = c.currentseed.read().unwrap();
+            s.clone()
+        };
+
+        let table_name = format!("chest_registry_{}", seed);
+
+        let conn = Connection::open("chestdb").unwrap();
+
+        conn.execute(
+            &format!(
+                "CREATE TABLE IF NOT EXISTS {} (
+                x INTEGER,
+                y INTEGER,
+                z INTEGER,
+                dirty BOOLEAN,
+                inventory BLOB,
+                PRIMARY KEY (x, y, z)
+            )",
+                table_name
+            ),
+            (),
+        )
+        .unwrap();
+
+        let mut stmt = conn
+            .prepare(&format!(
+                "SELECT x, y, z, dirty, inventory FROM {}",
+                table_name
+            ))
+            .unwrap();
+
+        let chest_iter = stmt
+            .query_map([], |row| {
+                let x: i32 = row.get(0)?;
+                let y: i32 = row.get(1)?;
+                let z: i32 = row.get(2)?;
+                let dirty: bool = row.get(3)?;
+                let inventory: Vec<u8> = row.get(4)?;
+                let inv: [(u32, u32); ROWLENGTH as usize * 4] = bincode::deserialize(&inventory).unwrap();
+                Ok((IVec3 { x, y, z }, ChestInventory { dirty, inv }))
+            })
+            .unwrap();
+
+        for chest in chest_iter {
+            let (coords, chest_inventory) = chest.unwrap();
+            self.chest_registry.insert(coords, chest_inventory);
+        }
+    }
+
+    pub fn static_load_chests_from_file(seed: u32, chest_registry: &Arc<DashMap<IVec3, ChestInventory>>) {
+
+        let table_name = format!("chest_registry_{}", seed);
+
+        let conn = Connection::open("chestdb").unwrap();
+
+        conn.execute(
+            &format!(
+                "CREATE TABLE IF NOT EXISTS {} (
+                x INTEGER,
+                y INTEGER,
+                z INTEGER,
+                dirty BOOLEAN,
+                inventory BLOB,
+                PRIMARY KEY (x, y, z)
+            )",
+                table_name
+            ),
+            (),
+        )
+        .unwrap();
+
+        let mut stmt = conn
+            .prepare(&format!(
+                "SELECT x, y, z, dirty, inventory FROM {}",
+                table_name
+            ))
+            .unwrap();
+
+        let chest_iter = stmt
+            .query_map([], |row| {
+                let x: i32 = row.get(0)?;
+                let y: i32 = row.get(1)?;
+                let z: i32 = row.get(2)?;
+                let dirty: bool = row.get(3)?;
+                let inventory: Vec<u8> = row.get(4)?;
+                let inv: [(u32, u32); ROWLENGTH as usize * 4] = bincode::deserialize(&inventory).unwrap();
+                Ok((IVec3 { x, y, z }, ChestInventory { dirty, inv }))
+            })
+            .unwrap();
+
+        for chest in chest_iter {
+            let (coords, chest_inventory) = chest.unwrap();
+            chest_registry.insert(coords, chest_inventory);
         }
     }
 
@@ -1847,9 +2044,7 @@ impl Game {
         for i in ROWLENGTH*4..ROWLENGTH*8 {
             let realslotind = i - ROWLENGTH*4;
             let slot = self
-                .chunksys
-                .read()
-                .unwrap()
+                
                 .chest_registry
                 .entry(self.hud.current_chest)
                 .or_insert(ChestInventory {
@@ -2856,7 +3051,7 @@ impl Game {
 
                             match self.chunksys.try_read() {
                                 Ok(csys) => {
-                                    match csys.chest_registry.get(&self.hud.current_chest) {
+                                    match self.chest_registry.get(&self.hud.current_chest) {
                                         Some(chest) => {
                                             TOOLTIPNAME = Blocks::get_name(chest.value().inv[i].0);
                                         }
@@ -3008,7 +3203,7 @@ impl Game {
                                 match slotindextype {
                                     SlotIndexType::ChestSlot(e) => {
                                         let csys = self.chunksys.write().unwrap();
-                                        let mut chestinv = csys
+                                        let mut chestinv = self
                                             .chest_registry
                                             .entry(currchest)
                                             .or_insert(ChestInventory {
@@ -5272,7 +5467,7 @@ impl Game {
                     } else if blockidhere == 21 {
                         //RIGHT CLICKED A CHEST
 
-                        let _csys = self.chunksys.write().unwrap();
+                        //let _csys = self.chunksys.write().unwrap();
 
                         self.hud.current_chest = block_hit;
                         updateinv = true;
@@ -5823,7 +6018,7 @@ impl Game {
                             unsafe {
                                 match MOUSED_SLOT {
                                     SlotIndexType::ChestSlot(e) => {
-                                        match csys.chest_registry.get_mut(&self.hud.current_chest) {
+                                        match self.chest_registry.get_mut(&self.hud.current_chest) {
                                             Some(mut ch) => {
                                                 let slot = &mut ch.value_mut().inv[e as usize];
 

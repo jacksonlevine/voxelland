@@ -516,14 +516,14 @@ fn main() {
 
     *(csys.currentseed.write().unwrap()) = initialseed;
 
-    let chestreg = csys.chest_registry.clone();
+    let chestreg = gamewrite.chest_registry.clone();
 
     csys.load_world_from_file(format!("world/{}", initialseed));
 
     *(csys.currentseed.write().unwrap()) = initialseed;
 
     
-    csys.load_chests_from_file();
+    Game::static_load_chests_from_file(initialseed, &chestreg);
 
     csys.save_current_world_to_file(format!("world/{}", initialseed));
 

@@ -275,7 +275,7 @@ pub struct ChunkSystem {
     pub headless: bool,
     pub hashadinitiallightpass: Arc<Mutex<HashMap<vec::IVec2, bool>>>,
     pub lightmap: Arc<Mutex<HashMap<vec::IVec3, LightSegment>>>,
-    pub chest_registry: Arc<DashMap<vec::IVec3, ChestInventory>>,
+
     pub generated_chunks: Arc<DashMap<vec::IVec2, bool>>,
 }
 
@@ -350,134 +350,8 @@ impl ChunkSystem {
         writeln!(file, "{}", self.planet_type).unwrap();
     }
 
-    pub fn save_one_chest_to_file(&self, key: IVec3) {
-        let seed = self.currentseed.read().unwrap();
-        let table_name = format!("chest_registry_{}", seed);
 
-        match Connection::open("chestdb") {
-            Ok(conn) => {
-                // Ensure the table exists
-                conn.execute(
-                    &format!(
-                        "CREATE TABLE IF NOT EXISTS {} (
-                            x INTEGER,
-                            y INTEGER,
-                            z INTEGER,
-                            dirty BOOLEAN,
-                            inventory BLOB,
-                            PRIMARY KEY (x, y, z)
-                        )",
-                        table_name
-                    ),
-                    (),
-                )
-                .unwrap();
 
-                // Get the chest inventory for the given key
-                if let Some(chest_inventory) = self.chest_registry.get(&key) {
-                    let inv_bin = bincode::serialize(&chest_inventory.inv).unwrap();
-
-                    // Update the specific entry in the database
-                    let mut stmt = conn.prepare(&format!(
-                        "INSERT OR REPLACE INTO {} (x, y, z, dirty, inventory) VALUES (?, ?, ?, ?, ?)",
-                        table_name
-                    )).unwrap();
-
-                    stmt.execute(params![key.x, key.y, key.z, chest_inventory.dirty, inv_bin])
-                        .unwrap();
-                } else {
-                    info!("No chest inventory found for key {:?}", key);
-                }
-            }
-            Err(_e) => {}
-        };
-    }
-
-    pub fn save_current_chests_to_file(&self) {
-        let seed = self.currentseed.read().unwrap();
-        let table_name = format!("chest_registry_{}", seed);
-
-        let conn = Connection::open("chestdb").unwrap();
-
-        conn.execute(
-            &format!(
-                "CREATE TABLE IF NOT EXISTS {} (
-                x INTEGER,
-                y INTEGER,
-                z INTEGER,
-                dirty BOOLEAN,
-                inventory BLOB,
-                PRIMARY KEY (x, y, z)
-            )",
-                table_name
-            ),
-            (),
-        )
-        .unwrap();
-
-        // Insert chest_registry entries
-        let mut stmt = conn
-            .prepare(&format!(
-                "INSERT OR REPLACE INTO {} (x, y, z, dirty, inventory) VALUES (?, ?, ?, ?, ?)",
-                table_name
-            ))
-            .unwrap();
-
-        for entry in self.chest_registry.iter() {
-            let key = entry.key();
-            let chest_inventory = entry.value();
-            let inv_bin = bincode::serialize(&chest_inventory.inv).unwrap();
-            stmt.execute(params![key.x, key.y, key.z, chest_inventory.dirty, inv_bin])
-                .unwrap();
-        }
-    }
-
-    pub fn load_chests_from_file(&self) {
-        let seed = self.currentseed.read().unwrap();
-        let table_name = format!("chest_registry_{}", seed);
-
-        let conn = Connection::open("chestdb").unwrap();
-
-        conn.execute(
-            &format!(
-                "CREATE TABLE IF NOT EXISTS {} (
-                x INTEGER,
-                y INTEGER,
-                z INTEGER,
-                dirty BOOLEAN,
-                inventory BLOB,
-                PRIMARY KEY (x, y, z)
-            )",
-                table_name
-            ),
-            (),
-        )
-        .unwrap();
-
-        let mut stmt = conn
-            .prepare(&format!(
-                "SELECT x, y, z, dirty, inventory FROM {}",
-                table_name
-            ))
-            .unwrap();
-
-        let chest_iter = stmt
-            .query_map([], |row| {
-                let x: i32 = row.get(0)?;
-                let y: i32 = row.get(1)?;
-                let z: i32 = row.get(2)?;
-                let dirty: bool = row.get(3)?;
-                let inventory: Vec<u8> = row.get(4)?;
-                let inv: [(u32, u32); ROWLENGTH as usize * 4] = bincode::deserialize(&inventory).unwrap();
-                Ok((IVec3 { x, y, z }, ChestInventory { dirty, inv }))
-            })
-            .unwrap();
-
-        for chest in chest_iter {
-            let (coords, chest_inventory) = chest.unwrap();
-            self.chest_registry.insert(coords, chest_inventory);
-        }
-    }
 
     pub fn load_world_from_file(&mut self, path: String) {
         self.userdatamap.clear();
@@ -676,7 +550,6 @@ impl ChunkSystem {
             headless,
             hashadinitiallightpass: Arc::new(Mutex::new(HashMap::new())),
             lightmap: Arc::new(Mutex::new(HashMap::new())),
-            chest_registry: Arc::new(DashMap::new()),
             generated_chunks: Arc::new(DashMap::new()),
         };
 

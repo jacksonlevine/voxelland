@@ -1,4 +1,4 @@
-use crate::{blockinfo::Blocks, game::{Game, CROUCHING, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, MOUSEX, MOUSEY, SHOWTOOLTIP, SINGLEPLAYER, TOOLTIPNAME}, recipes::{RecipeEntry, RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, texture::Texture};
+use crate::{blockinfo::Blocks, game::{Game, CROUCHING, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, MOUSEX, MOUSEY, SHOWTOOLTIP, SINGLEPLAYER, SOUNDSVOLUME, TOOLTIPNAME}, recipes::{RecipeEntry, RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, texture::Texture};
 
 use glfw::{Action, Context, Glfw, GlfwReceiver, Key, Modifiers, PWindow, WindowEvent};
 use once_cell::sync::Lazy;
@@ -501,7 +501,7 @@ impl WindowAndKeyContext {
                                         | WindowFlags::NO_TITLE_BAR
                                         | WindowFlags::NO_BACKGROUND;
             
-                                    let window_size = (700.0, 700.0);
+                                    let window_size = (900.0, 700.0);
             
                                     let window_pos = [width as f32 / 2.0 - (window_size.0/2.0), height as f32 / 2.0 - (window_size.1/2.0)];
                                     
@@ -548,8 +548,20 @@ impl WindowAndKeyContext {
                                                 ui.set_cursor_pos([pos_x, pos_y]);
                                                 if buttonname.starts_with("Slider") {
                                                     let truncated_name = buttonname.split_at(6).1;
-                                                    if ui.slider(truncated_name, 0.1, 3.0, &mut g.vars.sensitivity) {
-                                                        //g.button_command(command);
+                                                    if buttonname == "SliderMouse Sensitivity" {
+                                                        if ui.slider(truncated_name, 0.1, 3.0, &mut g.vars.sensitivity) {
+                                                            //g.button_command(command);
+                                                        }
+                                                    }
+                                                    if buttonname == "SliderMusic Volume" {
+                                                        if ui.slider(truncated_name, 0.0, 1.0, &mut g.vars.musicvolume) {
+                                                            //g.button_command(command);
+                                                        }
+                                                    }
+                                                    if buttonname == "SliderSounds Volume" {
+                                                        if ui.slider(truncated_name, 0.0, 1.0, &mut SOUNDSVOLUME) {
+                                                            //g.button_command(command);
+                                                        }
                                                     }
                                                 } else {
                                                     if ui.button_with_size(buttonname, [button_width, button_height]) {

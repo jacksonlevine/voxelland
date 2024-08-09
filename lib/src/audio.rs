@@ -6,6 +6,7 @@ use once_cell::sync::Lazy;
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, SpatialSink};
 use tracing::info;
 
+use crate::game::SOUNDSVOLUME;
 #[cfg(feature = "audio")]
 use crate::game::{AUDIOPLAYER, SHOULDRUN};
 
@@ -229,6 +230,8 @@ impl AudioPlayer {
 
     pub fn _play(&mut self, id: String, pos: &Vec3, vel: &Vec3, vol: f32) {
         let vol = vol * 5.0;
+
+        let vol = vol * unsafe { SOUNDSVOLUME };
         let mut needtopreload = false;
         match self.sounds.get(&id.to_string()) {
             Some(sound) => {

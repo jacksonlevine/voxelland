@@ -71,6 +71,9 @@ pub static mut TOOLTIPNAME: &'static str = "";
 
 pub static mut SPRINTING: bool = false;
 
+
+pub static mut SOUNDSVOLUME: f32 = 1.0;
+
 pub static mut STAMINA: i32 = 0;
 pub static mut UPDATE_THE_BLOCK_OVERLAY: bool = false;
 
@@ -145,7 +148,7 @@ pub static mut SONGS: [&'static str; 11] = [
     "assets/music/empythree.mp3",
 ];
 
-pub static mut SONGTIMER: f32 = 150.0;
+pub static mut SONGTIMER: f32 = 0.0;
 pub static mut SONGINTERVAL: f32 = 300.0;
 pub static mut SONGINDEX: usize = 0;
 
@@ -241,6 +244,8 @@ pub struct GameVariables {
     pub main_menu: bool,
     pub in_climbable: bool,
     pub walkbobtimer: f32,
+    pub musicvolume: f32,
+    pub soundsvolume: f32
 }
 
 pub enum VisionType {
@@ -861,6 +866,8 @@ impl Game {
                 main_menu: false,
                 in_climbable: false,
                 walkbobtimer: 0.0,
+                musicvolume: 1.0,
+                soundsvolume: 1.0
             },
             controls: ControlsState::new(),
             faders: Arc::new(faders),
@@ -1228,6 +1235,8 @@ impl Game {
                         "escapemenu".to_string(),
                     ),
                     ("SliderMouse Sensitivity".to_string(), "test".to_string()),
+                    ("SliderMusic Volume".to_string(), "music".to_string()),
+                    ("SliderSounds Volume".to_string(), "sounds".to_string()),
                 ];
                 self.vars.menu_open = true;
             }
@@ -1275,11 +1284,13 @@ impl Game {
                     }
                     self.currentbuttons.push((recipestring, tableneeded))
                 }
-                self.vars.menu_open = true;
                 self.currentbuttons.push((
                     "Back to Previous Menu".to_string(),
                     "escapemenu".to_string(),
                 ));
+
+                self.vars.menu_open = true;
+                
             }
             _ => {
                 info!("Unknown button command given");
@@ -2506,6 +2517,31 @@ impl Game {
         }
     }
 
+    #[cfg(feature = "audio")]
+    pub fn update_music_volume(&mut self) {
+        unsafe {
+            static mut PASTVOLUME: f32 = 1.0;
+            if self.vars.musicvolume != PASTVOLUME {
+
+
+                for songname in SONGS {
+                    match AUDIOPLAYER.headsinks.get(songname) {
+                        Some(s) => {
+                            s.set_volume(self.vars.musicvolume);
+                        },
+                        None => {
+
+                        },
+                    }
+                }
+
+                PASTVOLUME = self.vars.musicvolume;
+            }
+
+        }
+        
+    }
+
     pub fn takeoff_ship(&mut self) {
         if !self.vars.ship_taken_off {
             #[cfg(feature = "audio")]
@@ -2638,6 +2674,9 @@ impl Game {
             self.vars.walkbobtimer = self.vars.walkbobtimer + self.delta_time * 10.0;
             self.vars.walkbobtimer %= 2.0 * consts::PI;
         }
+
+        #[cfg(feature = "audio")]
+        self.update_music_volume();
 
         unsafe {
             if TRAMPOLINE {
@@ -3050,6 +3089,12 @@ impl Game {
 
                                     if SONGINDEX as u32 != newsongindex {
                                         SONGINDEX = newsongindex as usize;
+
+                                        #[cfg(feature = "audio")]
+                                        for (name, sink) in &AUDIOPLAYER.headsinks {
+                                            sink.stop();
+                                        }
+
                                         #[cfg(feature = "audio")]
                                         AUDIOPLAYER.play_in_head(SONGS[SONGINDEX]);
                                     }

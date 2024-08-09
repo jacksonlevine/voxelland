@@ -253,8 +253,8 @@ impl WindowAndKeyContext {
                         | WindowFlags::NO_TITLE_BAR
                         | WindowFlags::NO_BACKGROUND;
 
-                    let window_size = (700.0, 700.0);
-                    let window_pos = [width as f32 / 2.0 - (window_size.0 / 2.0), height as f32 / 2.0 - (window_size.1 / 2.0)];
+                    let window_size = (950.0, 700.0);
+                    let window_pos = [width as f32 / 2.0 - (window_size.0 / 2.0), (height as f32 / 2.0 - (window_size.1 / 2.0)) + 75.0];
 
                     ui.window("Transparent Window")
                         .size([window_size.0, window_size.1], Condition::Always)

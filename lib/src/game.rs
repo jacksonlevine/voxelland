@@ -5293,7 +5293,7 @@ impl Game {
                             - (Vec3::new(
                                 block_hit.x as f32,
                                 block_hit.y as f32,
-                                block_hit.z as f32,
+                                block_hit.z as f32, //TODO ADD -0.5 to these?????
                             ));
 
                         let hit_normal;
@@ -5318,9 +5318,25 @@ impl Game {
 
                         let place_point = block_hit + hit_normal;
                         info!(
-                            "Placing {} at {} {} {}",
+                            "Attempting to place {} at {} {} {}",
                             id, place_point.x, place_point.y, place_point.z
                         );
+
+
+                        //Don't allow placing blocks where solid blocks or the player are
+                        let blockbitsatplacepoint = self.chunksys.read().unwrap().blockat(place_point);
+                        let blockidatplacepoint = blockbitsatplacepoint & Blocks::block_id_bits();
+
+                        if !Blocks::is_overwritable(blockidatplacepoint) {
+                            return ();
+                        }
+
+                        let camblockspot = IVec3::new(cl.position.x.floor() as i32, cl.position.y.round() as i32, cl.position.z.floor() as i32);
+
+                        if place_point ==  camblockspot || place_point == camblockspot - IVec3::new(0, 1, 0){
+                            return ();
+                        }
+                        
 
                         if id == 19 {
                             //Door shit

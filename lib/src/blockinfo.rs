@@ -235,6 +235,13 @@ impl Blocks {
         
         return &TEXS[id as usize][SIDES[side as usize]];
     }
+
+    pub fn is_overwritable(id: u32) -> bool {
+        static OV: [u32; 2] = [
+            0, 2
+        ];
+        return OV.contains(&id);
+    }
     pub fn is_transparent(id: u32) -> bool {
         static TRANSPARENTS: [u32; 2] = [
             2, 8,

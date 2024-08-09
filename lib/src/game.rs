@@ -1399,7 +1399,7 @@ impl Game {
     pub fn button_command(&mut self, str: String) {
         match str.as_str() {
             "quittomainmenu" => {
-                self.exit();
+                //self.exit();
                 if self.vars.in_multiplayer {
                     self.netconn
                         .send(&Message::new(MessageType::Disconnect, Vec3::ZERO, 0.0, 0))

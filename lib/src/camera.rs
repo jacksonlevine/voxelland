@@ -1,5 +1,7 @@
 use crate::game::{ControlsState, MOVING, SPRINTING};
 use glam::{Mat4, Vec3};
+
+#[derive(Clone, Default)]
 pub struct Camera {
     pub yaw: f32,
     pub pitch: f32,

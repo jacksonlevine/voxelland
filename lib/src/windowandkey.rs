@@ -35,7 +35,12 @@ pub struct WindowAndKeyContext {
 
     pub serveraddrbuffer: String,
 
-    pub logo: Texture
+    pub logo: Texture,
+
+    #[cfg(feature = "glfw")]
+    pub client: Arc<Client>,
+    #[cfg(feature = "glfw")]
+    pub single: SingleClient
 }
 
 fn toggle_fullscreen(window_ptr: *mut glfw::ffi::GLFWwindow) {
@@ -71,8 +76,21 @@ fn toggle_fullscreen(window_ptr: *mut glfw::ffi::GLFWwindow) {
     }
 }
 
+
+use steamworks::{restart_app_if_necessary, AppId, Client, SingleClient};
+
+
 impl WindowAndKeyContext {
     pub fn new(windowname: &'static str, width: u32, height: u32) -> Self {
+
+
+
+        #[cfg(feature = "glfw")]
+        let (client, single) = Client::init().unwrap();
+        #[cfg(feature = "glfw")]
+        restart_app_if_necessary(AppId::from(3114230));
+
+
 
         unsafe {
             WINDOWHEIGHT = height as i32;
@@ -170,7 +188,12 @@ impl WindowAndKeyContext {
             addressentered: Arc::new(AtomicBool::new(false)),
             serveraddress: Arc::new(Mutex::new(None)),
             serveraddrbuffer: String::with_capacity(128),
-            logo: Texture::new("assets/Untitled3.png").unwrap()
+            logo: Texture::new("assets/Untitled3.png").unwrap(),
+
+            #[cfg(feature = "glfw")]
+            client: Arc::new(client),
+            #[cfg(feature = "glfw")]
+            single
         };
 
         LOAD_OR_INITIALIZE_STATICS();
@@ -189,6 +212,13 @@ impl WindowAndKeyContext {
         
         #[cfg(feature = "glfw")]
         self.glfw.poll_events();
+
+
+
+        #[cfg(feature = "glfw")]
+        self.single.run_callbacks();
+
+
 
         let current_time = Instant::now();
         self.delta_time = current_time

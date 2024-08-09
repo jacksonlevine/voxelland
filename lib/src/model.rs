@@ -317,7 +317,7 @@ impl Game {
         let h = self.health.load(std::sync::atomic::Ordering::Relaxed);
         let newamount = (h-amount as i8).max(0);
         self.health.store(newamount, std::sync::atomic::Ordering::Relaxed);
-        if newamount <= 0 {
+        if newamount <= 0 { //DEAD
 
             let mut camlock = self.camera.lock().unwrap();
             let campos = camlock.position.clone();
@@ -516,9 +516,17 @@ impl Game {
             gl::Disable(gl::CULL_FACE);
             gl::UseProgram(self.modelshader.shader_id);
             let mvp_loc = gl::GetUniformLocation(self.modelshader.shader_id, b"mvp\0".as_ptr() as *const i8);
-            let cam_lock = self.camera.lock().unwrap();
 
-            gl::UniformMatrix4fv(mvp_loc, 1, gl::FALSE, cam_lock.mvp.to_cols_array().as_ptr());
+
+
+            
+            let camclone = {
+                let cam_lock = self.camera.lock().unwrap();
+                cam_lock.clone()
+            };
+
+
+            gl::UniformMatrix4fv(mvp_loc, 1, gl::FALSE, camclone.mvp.to_cols_array().as_ptr());
             gl::Uniform1i(
                 gl::GetUniformLocation(
                     self.modelshader.shader_id,
@@ -717,9 +725,9 @@ impl Game {
                                     self.modelshader.shader_id,
                                     b"camPos\0".as_ptr() as *const i8,
                                 ),
-                                cam_lock.position.x,
-                                cam_lock.position.y,
-                                cam_lock.position.z
+                                camclone.position.x,
+                                camclone.position.y,
+                                camclone.position.z
                             );
 
                             gl::Uniform3f(
@@ -738,9 +746,9 @@ impl Game {
                                     self.modelshader.shader_id,
                                     b"camDir\0".as_ptr() as *const i8,
                                 ),
-                                cam_lock.direction.x,
-                                cam_lock.direction.y,
-                                cam_lock.direction.z
+                                camclone.direction.x,
+                                camclone.direction.y,
+                                camclone.direction.z
                             );
 
                             gl::Uniform1f(

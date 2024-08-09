@@ -1,4 +1,5 @@
 
+
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::fmt::writer::BoxMakeWriter;
 use tracing_subscriber::fmt::Subscriber;
@@ -13,6 +14,11 @@ use voxelland::game::{Game, DECIDEDSPORMP, SHOULDRUN};
 
 
 fn main() {
+
+    
+
+
+    
 
     // Create a non-blocking, asynchronous file writer
     let file = File::create("app.log").expect("Unable to create log file");

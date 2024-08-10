@@ -202,6 +202,7 @@ impl Game {
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             let csys_arc = Arc::clone(&self.chunksys);
+            //println!("This thing thinks the seed is {}", csys_arc.read().unwrap().currentseed.read().unwrap());
             Box::new(move |v: vec::IVec3| {
                 return csys_arc.read().unwrap().collision_predicate(v);
             })
@@ -345,6 +346,8 @@ impl Game {
     }
 
     pub fn update_non_static_model_entities(&mut self) {
+
+        //println!("UYdpawdaw");
         //info!("Updating NSMEs, delta time: {}", self.delta_time);
         for mut model in self.non_static_model_entities.iter_mut() {
             let model: &mut ModelEntity = model.value_mut();
@@ -508,7 +511,6 @@ impl Game {
 
         #[cfg(feature = "glfw")]
         unsafe {
-
 
             
 

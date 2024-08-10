@@ -11,7 +11,7 @@ use gl::types::{GLenum, GLsizei, GLsizeiptr, GLuint, GLvoid};
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
 use glfw::{Action, Key, MouseButton, PWindow};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use lockfree::queue::Queue;
 use rand::rngs::StdRng;
@@ -2861,8 +2861,32 @@ impl Game {
     }
 
     pub fn update(&mut self) {
-        let current_time = unsafe { glfwGetTime() as f32 };
-        self.delta_time = (current_time - self.prev_time).min(0.05);
+        
+        #[cfg(feature = "glfw")]
+        {
+            let current_time = unsafe { glfwGetTime() as f32 };
+            self.delta_time = (current_time - self.prev_time).min(0.05);
+            self.prev_time = current_time;
+        }
+
+        #[cfg(not(feature = "glfw"))]
+        unsafe {
+            static mut PREVTIME: Lazy<Instant> = Lazy::new(|| Instant::now());
+            let delta_time = match Instant::now().checked_duration_since(*PREVTIME) {
+                Some(time) => {
+                    time
+                }
+                None => {
+                    Duration::from_secs_f32(0.0)
+                }
+            };
+            self.delta_time = delta_time.as_secs_f32().min(0.05);
+            (*PREVTIME) = Instant::now();
+        }
+
+
+        
+        
         let stam = self.stamina.load(Ordering::Relaxed);
 
         if unsafe { MOVING } {
@@ -2989,7 +3013,7 @@ impl Game {
             AMBIENTBRIGHTNESS = self.ambient_bright_mult;
         }
 
-        self.prev_time = current_time;
+
         let mut todlock = self.timeofday.lock().unwrap();
         *todlock = (*todlock + self.delta_time) % self.daylength;
 
@@ -3011,6 +3035,8 @@ impl Game {
         let overlayfade = fadersread[FaderNames::VisionsFader as usize].value.clone();
 
         drop(fadersread);
+
+
         #[cfg(feature = "glfw")]
         if !self.headless {
             let (x, y) = self.window.read().unwrap().get_cursor_pos();
@@ -3202,7 +3228,7 @@ impl Game {
 
                                 match slotindextype {
                                     SlotIndexType::ChestSlot(e) => {
-                                        let csys = self.chunksys.write().unwrap();
+                                        //let csys = self.chunksys.write().unwrap();
                                         let mut chestinv = self
                                             .chest_registry
                                             .entry(currchest)
@@ -3313,6 +3339,9 @@ impl Game {
                                 }
                             }
                             MessageType::MobUpdate => {
+
+                                //println!("Got mobupdate");
+                                println!("MobUpdate: {}", comm);
                                 let newpos = Vec3::new(comm.x, comm.y, comm.z);
                                 let id = comm.info;
                                 let modind = comm.info2;
@@ -3526,16 +3555,29 @@ impl Game {
             }
         }
 
+
+
+
+
+
+
+
+
+
         if self.initial_timer < 1.5 {
             self.initial_timer += self.delta_time;
+            //println!("Initial timer: {}", self.initial_timer);
         } else {
             if self.headless {
+                //println!("Headless so updating nsmes");
                 self.update_non_static_model_entities();
             } else {
                 if !self.vars.in_multiplayer {
+                    //println!("Singleplayer so updating nsmes");
                     self.update_non_static_model_entities();
                 } else {
                     //YOu are in multiplayer
+                    //println!("MUltiplayer so aug updating nsmes");
                     self.update_server_received_modents();
                 }
                 if overlayfade <= 0.1 {

@@ -4,7 +4,7 @@ pub const BLOCK_DIRECTION_BITS: u32 = 0b0000_0000_0000_0011_0000_0000_0000_0000;
 pub struct Blocks {}
 
 
-static BREAKTIMES: [f32; 48] = [
+static BREAKTIMES: [f32; 49] = [
     0.1,
     0.5,
     0.7,
@@ -55,10 +55,11 @@ static BREAKTIMES: [f32; 48] = [
     1.0,
     0.5,
     0.5,
+    1.0,
     1.0
 ];
 
-static TEXS: [[(u8, u8); 3]; 48] = [
+static TEXS: [[(u8, u8); 3]; 49] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],  // 0
             [(1, 0), (1, 0), (1, 0)],  // 1 sand
@@ -119,6 +120,8 @@ static TEXS: [[(u8, u8); 3]; 48] = [
             [(10,6),(10,6),(10,6)], // 45 conveyor/highway
             [(11,5),(11,5),(11,5)], // 46 auto trampoline block
             [(1,6),(1,6),(1,6)], // 47  metal plate block
+
+            [(8,4),(4,0),(8,5)], // 48, snowy grass
         ];
 
 
@@ -177,6 +180,7 @@ impl Blocks {
             45 => {"Conveyor"}
             46 => {"Auto Trampoline"}
             47 => {"Metal Plate Block"}
+            48 => {"Snowy Grass Block"}
             _ => {
                 "Unknown Item"
             }
@@ -306,7 +310,7 @@ impl Blocks {
     }
     pub fn get_walk_series(id: u32) -> &'static str {
         match id {
-            3 => {
+            3 | 48 => {
                 "grassstepseries"
             }
             34 => {
@@ -343,7 +347,7 @@ impl Blocks {
     }
     pub fn get_place_series(id: u32) -> &'static str {
         match id {
-            3 => {
+            3 | 48 => {
                 "grassstepseries"
             }
             34 => {

@@ -28,7 +28,7 @@ use crate::audio::{spawn_audio_thread, AudioPlayer};
 
 use crate::blockinfo::Blocks;
 use crate::blockoverlay::BlockOverlay;
-use crate::chunk::{check_for_intercepting, ChunkFacade, ChunkSystem};
+use crate::chunk::{check_for_intercepting, ChunkFacade, ChunkSystem, AUTOMATA_QUEUED_CHANGES};
 
 use crate::camera::Camera;
 use crate::collisioncage::*;
@@ -3118,6 +3118,33 @@ impl Game {
                 }
                 None => {}
             }
+
+            unsafe {
+                match AUTOMATA_QUEUED_CHANGES.pop() {
+                    Some(comm) => {
+                        println!("Poppin one");
+
+                        match self.chunksys.try_write() {
+                            Ok(c) => {
+                                if (c.blockat(comm.spot) & Blocks::block_id_bits()) == comm.expectedhere {
+
+                                    println!("Settin");
+                                    c.set_block_and_queue_rerender(comm.spot, comm.changeto, comm.changeto == 0, true);
+                                } else {
+                                    println!("Expected {} here but its {} for this change", comm.expectedhere, (c.blockat(comm.spot) & Blocks::block_id_bits()) );
+                                }
+                            },
+                            Err(e) => {
+                                //AUTOMATA_QUEUED_CHANGES.push(comm);
+                            },
+                        }
+                   
+
+
+                    }
+                    None => {}
+                }
+            }
             let mut morestuff = true;
             while morestuff {
                 match self.hp_server_command_queue.pop() {
@@ -3341,7 +3368,7 @@ impl Game {
                             MessageType::MobUpdate => {
 
                                 //println!("Got mobupdate");
-                                println!("MobUpdate: {}", comm);
+                               // println!("MobUpdate: {}", comm);
                                 let newpos = Vec3::new(comm.x, comm.y, comm.z);
                                 let id = comm.info;
                                 let modind = comm.info2;
@@ -4786,9 +4813,13 @@ impl Game {
         let carc = self.camera.clone();
         let csysarc = self.chunksys.clone();
 
+        //csysarc.write().unwrap().do_automata();
+
         let handle = thread::spawn(move || {
             Game::chunk_thread_function(&rctarc, carc, csysarc);
         });
+
+
 
         self.chunk_thread = Some(handle);
 

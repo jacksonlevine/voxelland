@@ -7,8 +7,13 @@ use std::io::BufReader;
 use std::path::Path;
 
 use std::sync::RwLock;
+use std::thread;
+use std::time::Duration;
 
 use dashmap::DashMap;
+
+
+pub static CHUNKPOSDEFAULT: i32 = 999999;
 
 use gl::types::GLuint;
 use glam::Vec2;
@@ -38,6 +43,7 @@ use crate::cube::CubeSide;
 use crate::game::AUDIOPLAYER;
 
 use crate::game::ROWLENGTH;
+use crate::game::WEATHERTYPE;
 use crate::inventory::ChestInventory;
 
 use crate::packedvertex::PackedVertex;
@@ -164,8 +170,8 @@ impl ChunkGeo {
             data8: Mutex::new(Vec::new()),
             data8rgb: Mutex::new(Vec::new()),
             pos: Mutex::new(IVec2 {
-                x: 999999,
-                y: 999999,
+                x: CHUNKPOSDEFAULT,
+                y: CHUNKPOSDEFAULT,
             }),
             vbo32,
             vbo8,
@@ -253,6 +259,28 @@ impl ReadyMesh {
     }
 }
 
+
+pub struct AutomataChange {
+    pub expectedhere: u32,
+    pub spot: IVec3,
+    pub changeto: u32
+}
+
+impl AutomataChange {
+    pub fn new(expectedhere: u32, spot: IVec3, changeto: u32) -> Self {
+        Self {
+            expectedhere,
+            spot, 
+            changeto
+        }
+    }
+}
+
+
+pub static mut AUTOMATA_QUEUED_CHANGES: Lazy<Queue<AutomataChange>> = Lazy::new(|| Queue::new());
+
+
+
 pub struct ChunkSystem {
     pub chunks: Vec<Arc<Mutex<ChunkFacade>>>,
     pub geobank: Vec<Arc<ChunkGeo>>,
@@ -263,11 +291,11 @@ pub struct ChunkSystem {
     pub gen_rebuild_requests: lockfree::queue::Queue<usize>,
     pub light_rebuild_requests: lockfree::queue::Queue<usize>,
     pub background_rebuild_requests: lockfree::queue::Queue<usize>,
-    pub userdatamap: DashMap<vec::IVec3, u32>,
-    pub nonuserdatamap: DashMap<vec::IVec3, u32>,
+    pub userdatamap: Arc<DashMap<vec::IVec3, u32>>,
+    pub nonuserdatamap: Arc<DashMap<vec::IVec3, u32>>,
     pub justcollisionmap: DashMap<vec::IVec3, u8>,
     pub radius: u8,
-    pub perlin: Perlin,
+    pub perlin: Arc<RwLock<Perlin>>,
     pub voxel_models: Option<Arc<Vec<JVoxModel>>>,
     pub chunk_memories: Mutex<ChunkRegistry>,
     pub planet_type: u8,
@@ -398,7 +426,7 @@ impl ChunkSystem {
                 if let Some(seed) = parts.next() {
                     let s = seed.parse::<u32>().unwrap();
                     info!("Seed Is {}", s);
-                    self.perlin = Perlin::new(s);
+                    *(self.perlin.write().unwrap()) = Perlin::new(s);
                     *self.currentseed.write().unwrap() = s;
                 }
             }
@@ -451,6 +479,96 @@ impl ChunkSystem {
 
     pub fn start_with_seed(_seed: u32) {}
 
+
+
+
+
+
+
+    pub fn do_automata(&mut self) {
+        let chunkslist = self.chunks.clone();
+
+        let udm = self.userdatamap.clone();
+        let nudm = self.nonuserdatamap.clone();
+        let per = self.perlin.clone();
+
+        
+
+        thread::spawn(move || {
+
+            let mut rng = StdRng::from_entropy();
+
+            loop {
+    
+                for chunk in &chunkslist {
+                    let cclone = match chunk.try_lock() {
+                        Ok(c) => {
+                            Some(c.clone())
+                        },
+                        Err(e) => {
+                            None
+                        },
+                    };
+
+                    match cclone {
+                        Some(c) => {
+                            if c.pos.x != CHUNKPOSDEFAULT {
+                                //println!("Chunk at {}, {}", c.pos.x, c.pos.y);
+
+
+
+                                for i in 0..CW {
+                                    for k in 0..CW {
+                                        let mut hit_block = false;
+                                        for j in (0..CH).rev() {
+
+                                            let spot = vec::IVec3 {
+                                                x: (c.pos.x * CW) + i,
+                                                y: j,
+                                                z: (c.pos.y * CW) + k,
+                                            };
+
+
+                                            let combined = Self::_blockat(&nudm, &udm, &per.read().unwrap(), spot);
+                                            let block = combined & Blocks::block_id_bits();
+                                            let flags = combined & Blocks::block_flag_bits();
+                                            unsafe {
+                                                //println!("weathertype: {}", WEATHERTYPE);
+                                                if true { //WEATHERTYPE == 1.0 {
+                                                    if block == 3 {
+                                                        if true {
+                                                            //println!("Pushin one");
+                                                            AUTOMATA_QUEUED_CHANGES.push(AutomataChange::new(
+                                                                block, spot, 48
+                                                            ));
+                                                        }
+
+                                                        break;
+
+                                                    }
+                                                }
+                                            }
+                                            
+                                            
+                                        }
+
+                                    }
+                                }
+                            }
+                            
+                        }   
+                        None => {
+
+                        }
+                    }
+                }
+    
+                thread::sleep(Duration::from_secs(5));
+            }
+        });
+        
+    }
+
     pub fn exit(&mut self) {
         if !self.headless {
             for cg in &self.geobank {
@@ -489,7 +607,7 @@ impl ChunkSystem {
         info!("Start of reset func");
 
         self.radius = radius;
-        self.perlin = Perlin::new(seed);
+        *(self.perlin.write().unwrap()) = Perlin::new(seed);
         self.voxel_models = None;
         self.planet_type = noisetype as u8;
         (*self.currentseed.write().unwrap()) = seed;
@@ -502,8 +620,8 @@ impl ChunkSystem {
                         geo_index: self.geobank.len(),
                         used: false,
                         pos: IVec2 {
-                            x: 999999,
-                            y: 999999,
+                            x: CHUNKPOSDEFAULT,
+                            y: CHUNKPOSDEFAULT,
                         },
                     })));
 
@@ -536,11 +654,11 @@ impl ChunkSystem {
             gen_rebuild_requests: lockfree::queue::Queue::new(),
             light_rebuild_requests: lockfree::queue::Queue::new(),
             background_rebuild_requests: lockfree::queue::Queue::new(),
-            userdatamap: DashMap::new(),
-            nonuserdatamap: DashMap::new(),
+            userdatamap: Arc::new(DashMap::new()),
+            nonuserdatamap: Arc::new(DashMap::new()),
             justcollisionmap: DashMap::new(),
             radius,
-            perlin: Perlin::new(seed),
+            perlin: Arc::new(RwLock::new(Perlin::new(seed))),
             voxel_models: None,
             chunk_memories: Mutex::new(ChunkRegistry {
                 memories: Vec::new(),
@@ -571,8 +689,8 @@ impl ChunkSystem {
                         geo_index: cs.geobank.len(),
                         used: false,
                         pos: IVec2 {
-                            x: 999999,
-                            y: 999999,
+                            x: CHUNKPOSDEFAULT,
+                            y: CHUNKPOSDEFAULT,
                         },
                     })));
 
@@ -739,34 +857,34 @@ impl ChunkSystem {
             check_for_intercepting.push(spot);
         }
 
-        // if !light {
-        //     //If not light still check if it intercepts any lights, we will need to update.
+        if !light {
+            //If not light still check if it intercepts any lights, we will need to update.
 
-        //     let mut implicated = HashSet::new();
-        //     for i in Cube::get_neighbors() {
-        //         match self.lightmap.lock().unwrap().get(&(*i + spot)) {
-        //             Some(k) => {
-        //                 for ray in &k.rays {
-        //                     let chunkofthisraysorigin = ChunkSystem::spot_to_chunk_pos(&ray.origin);
-        //                     // match self.takencare.get(&chunkofthisraysorigin) {
-        //                     //     Some(chunk) => {
-        //                     //         implicated.insert(chunk.geo_index);
-        //                     //     }
-        //                     //     None => {
+            let mut implicated = HashSet::new();
+            for i in Cube::get_neighbors() {
+                match self.lightmap.lock().unwrap().get(&(*i + spot)) {
+                    Some(k) => {
+                        for ray in &k.rays {
+                            let chunkofthisraysorigin = ChunkSystem::spot_to_chunk_pos(&ray.origin);
+                            // match self.takencare.get(&chunkofthisraysorigin) {
+                            //     Some(chunk) => {
+                            //         implicated.insert(chunk.geo_index);
+                            //     }
+                            //     None => {
 
-        //                     //     }
-        //                     // }
-        //                     implicated.insert(chunkofthisraysorigin);
-        //                 }
-        //             }
-        //             None => {}
-        //         }
-        //     }
+                            //     }
+                            // }
+                            implicated.insert(chunkofthisraysorigin);
+                        }
+                    }
+                    None => {}
+                }
+            }
 
-        //     for i in implicated {
-        //         self.queue_rerender_with_key(i, true, true);
-        //     }
-        // }
+            for i in implicated {
+                self.queue_rerender_with_key(i, true, true);
+            }
+        }
 
         if neighbors {
             let mut neighbs: HashSet<vec::IVec2> = HashSet::new();
@@ -2167,13 +2285,17 @@ unsafe {
     }
 
     pub fn biome_noise(&self, spot: vec::IVec2) -> f64 {
+        return Self::_biome_noise(&self.perlin.read().unwrap(), spot);
+    }
+
+    pub fn _biome_noise(perlin: &Perlin, spot: vec::IVec2) -> f64 {
         const XZDIVISOR1: f64 = 100.35 * 4.0;
 
         let y = 20;
 
         let noise1 = f64::max(
             0.0,
-            self.perlin.get([
+            perlin.get([
                 spot.x as f64 / XZDIVISOR1,
                 y as f64,
                 spot.y as f64 / XZDIVISOR1,
@@ -2182,13 +2304,16 @@ unsafe {
 
         noise1
     }
-
     pub fn ore_noise(&self, spot: vec::IVec3) -> f64 {
+        return Self::_ore_noise(&self.perlin.read().unwrap(), spot);
+    }
+
+    pub fn _ore_noise(perlin: &Perlin, spot: vec::IVec3) -> f64 {
         const XYZDIVISOR: f64 = 15.53;
 
         let noise1 = f64::max(
             0.0,
-            self.perlin.get([
+            perlin.get([
                 spot.x as f64 / XYZDIVISOR,
                 spot.y as f64 / XYZDIVISOR,
                 spot.z as f64 / XYZDIVISOR,
@@ -2197,15 +2322,18 @@ unsafe {
 
         noise1 * ((60.0 - spot.y as f64).max(0.0) / 7.0)
     }
-
     pub fn feature_noise(&self, spot: vec::IVec2) -> f64 {
+        return Self::_feature_noise(&self.perlin.read().unwrap(), spot);
+    }
+
+    pub fn _feature_noise(perlin: &Perlin, spot: vec::IVec2) -> f64 {
         const XZDIVISOR1: f64 = 45.35 * 4.0;
 
         let y = 20;
 
         let noise1 = f64::max(
             0.0,
-            self.perlin.get([
+            perlin.get([
                 (spot.x as f64 + 200.0) / XZDIVISOR1,
                 y as f64,
                 spot.y as f64 / XZDIVISOR1,
@@ -2216,11 +2344,15 @@ unsafe {
     }
 
     pub fn cave_noise(&self, spot: vec::IVec3) -> f64 {
+        return Self::_cave_noise(&self.perlin.read().unwrap(), spot);
+    }
+
+    pub fn _cave_noise(perlin: &Perlin, spot: vec::IVec3) -> f64 {
         const XZDIVISOR1: f64 = 25.35;
 
         let noise1 = f64::max(
             0.0,
-            self.perlin.get([
+            perlin.get([
                 (spot.x as f64) / XZDIVISOR1,
                 (spot.y as f64) / XZDIVISOR1,
                 spot.z as f64 / XZDIVISOR1,
@@ -2231,6 +2363,12 @@ unsafe {
     }
 
     pub fn noise_func(&self, spot: vec::IVec3) -> f64 {
+        return Self::_noise_func(&self.perlin.read().unwrap(), spot);
+    }
+
+    pub fn _noise_func(perlin: &Perlin, spot: vec::IVec3) -> f64 {
+
+        let per = perlin;
 
         let spot = spot;
         let spot = (Vec3::new(spot.x as f32, spot.y as f32, spot.z as f32) / 3.0) + Vec3::new(0.0, 10.0, 0.0);
@@ -2241,15 +2379,14 @@ unsafe {
 
         let noise1 = f64::max(
             0.0,
-            20.0 + self.perlin.get([
+            20.0 + per.get([
                 spot.x as f64 / xzdivisor2,
                 y as f64 / xzdivisor2,
                 spot.z as f64 / xzdivisor2,
             ]) * 5.0
                 - f64::max(
                     y as f64 / 1.7
-                        + self
-                            .perlin
+                        + per
                             .get([spot.x as f64 / 65.0, spot.z as f64 / 65.0])
                             * 10.0,
                     0.0,
@@ -2260,12 +2397,12 @@ unsafe {
 
         let noise2 = f64::max(
             0.0,
-            50.0 + self.perlin.get([
+            50.0 + per.get([
                 spot.x as f64 / 100.35,
                 y as f64 / 50.35,
                 spot.z as f64 / 100.35,
             ]) * 10.0
-                + self.perlin.get([
+                + per.get([
                     spot.x as f64 / 300.35,
                     y as f64 / 100.35,
                     spot.z as f64 / 300.35,
@@ -2273,8 +2410,7 @@ unsafe {
                 - f64::max(y as f64 / 3.0, 0.0),
         );
 
-        let mut p = self
-            .perlin
+        let mut p = per
             .get([spot.x as f64 / 500.0, spot.z as f64 / 500.0])
             * 2.0;
 
@@ -2285,7 +2421,7 @@ unsafe {
         // Rust doesn't have a direct `mix` function, but you can create one or use a linear interpolation
         let noisemix = ChunkSystem::mix(noise1, noise2, p);
 
-        let texture = self.perlin.get([
+        let texture = per.get([
             spot.x as f64 / 12.35,
             y as f64 / 12.35,
             spot.z as f64 / 12.35,
@@ -2293,12 +2429,12 @@ unsafe {
 
         let noise3 = f64::max(
             0.0,
-            50.0 + self.perlin.get([
+            50.0 + per.get([
                 spot.x as f64 / 25.35,
                 y as f64 / 25.35,
                 spot.z as f64 / 25.35,
             ]) * 10.0
-                + self.perlin.get([
+                + per.get([
                     spot.x as f64 / 60.35,
                     y as f64 / 50.35,
                     spot.z as f64 / 60.35,
@@ -2306,13 +2442,13 @@ unsafe {
                 - f64::max(y as f64 / 3.0, 0.0),
         );
 
-        let mut p2 = 0.5 + self.perlin.get([
+        let mut p2 = 0.5 + per.get([
             (spot.x as f64 + 4500.0) / 150.0,
             (spot.y as f64 + 5000.0) / 150.0,
             (spot.z as f64 - 5000.0) / 150.0,
         ]) * 1.0;
 
-        let p3 = (self.perlin.get([
+        let p3 = (per.get([
             (spot.x as f64 - 1500.0) / 3500.0,
             (spot.z as f64 + 1000.0) / 3500.0,
         ]) * 10.0).min(9.0);
@@ -2326,19 +2462,20 @@ unsafe {
     }
 
     pub fn noise_func2(&self, spot: vec::IVec3) -> f64 {
+
+        let p2 = self.perlin.read().unwrap();
         let mut y = spot.y - 20;
 
         let noise1 = f64::max(
             0.0,
-            20.0 + self.perlin.get([
+            20.0 + p2.get([
                 spot.x as f64 / 25.35,
                 y as f64 / 20.35,
                 spot.z as f64 / 25.35,
             ]) * 5.0
                 - f64::max(
                     y as f64 / 2.0
-                        + self
-                            .perlin
+                        + p2
                             .get([spot.x as f64 / 65.0, spot.z as f64 / 65.0])
                             * 10.0,
                     0.0,
@@ -2349,12 +2486,12 @@ unsafe {
 
         let noise2 = f64::max(
             0.0,
-            50.0 + self.perlin.get([
+            50.0 + p2.get([
                 spot.x as f64 / 55.35,
                 y as f64 / 25.35,
                 spot.z as f64 / 55.35,
             ]) * 10.0
-                + self.perlin.get([
+                + p2.get([
                     spot.x as f64 / 25.35,
                     y as f64 / 65.35,
                     spot.z as f64 / 25.35,
@@ -2362,8 +2499,7 @@ unsafe {
                 - f64::max(y as f64 * 3.0, 0.0),
         );
 
-        let mut p = self
-            .perlin
+        let mut p = p2
             .get([spot.x as f64 / 500.0, spot.z as f64 / 500.0])
             * 5.0;
 
@@ -2399,8 +2535,10 @@ unsafe {
         //     return b;
         // }
     }
-
     pub fn blockat(&self, spot: vec::IVec3) -> u32 {
+        Self::_blockat(&self.nonuserdatamap.clone(), &self.userdatamap.clone(), &self.perlin.read().unwrap(), spot)
+    }
+    pub fn _blockat(nonuserdatamap: &Arc<DashMap<IVec3, u32>>, userdatamap: &Arc<DashMap<IVec3, u32>>, perlin: &Perlin, spot: vec::IVec3) -> u32 {
         // if self.headless {
         //     if self.generated_chunks.contains_key(&ChunkSystem::spot_to_chunk_pos(&spot)) {
 
@@ -2409,48 +2547,55 @@ unsafe {
         //     }
         // }
 
-        match self.userdatamap.get(&spot) {
+        match userdatamap.get(&spot) {
             Some(id) => {
                 return *id;
             }
             None => {}
         }
 
-        match self.nonuserdatamap.get(&spot) {
+        match nonuserdatamap.get(&spot) {
             Some(id) => {
                 return *id;
             }
-            None => return self.natural_blockat(spot),
+            None => return Self::_natural_blockat(perlin, spot),
         }
     }
 
     pub fn natural_blockat(&self, spot: vec::IVec3) -> u32 {
+        return Self::_natural_blockat(&self.perlin.read().unwrap(), spot);
+    }
+
+    pub fn _natural_blockat(perlin: &Perlin, spot: vec::IVec3) -> u32 {
+
+
+        let per = perlin;
         if spot.y == 0 {
             return 15;
         }
 
         
-        let ret = match self.planet_type {
-            1 => {
-                if self.noise_func2(spot) > 10.0 {
-                    if self.noise_func2(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {
-                        14
-                    } else {
-                        1
-                    }
+        let ret = match 0 {
+            // 1 => {
+            //     if self.noise_func2(spot) > 10.0 {
+            //         if self.noise_func2(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {
+            //             14
+            //         } else {
+            //             1
+            //         }
 
-                } else {
-                    0
-                }
-            }
+            //     } else {
+            //         0
+            //     }
+            // }
             _ => {
                 static WL: f32 = 30.0;
 
-                let biomenum = self.biome_noise(IVec2 {
+                let biomenum = Self::_biome_noise(per, IVec2 {
                     x: spot.x,
                     y: spot.z,
                 });
-                let biomenum2 = self.biome_noise(IVec2 {
+                let biomenum2 = Self::_biome_noise(per, IVec2 {
                     x: spot.x * 20 + 5000,
                     y: spot.z * 20 + 5000,
                 });
@@ -2473,20 +2618,20 @@ unsafe {
                     }
                 }
 
-                if self.noise_func(spot) > 10.0 {
-                    if self.noise_func(spot + vec::IVec3 { x: 0, y: 10, z: 0 }) > 10.0 {
-                        if self.ore_noise(spot) > 1.0 {
+                if Self::_noise_func(per, spot) > 10.0 {
+                    if Self::_noise_func(per, spot + vec::IVec3 { x: 0, y: 10, z: 0 }) > 10.0 {
+                        if Self::_ore_noise(per, spot) > 1.0 {
                             35
                         } else {
                             underdirt
                         }
                     } else {
 
-                        let beachnoise = self.perlin.get([spot.y as f64/7.5, spot.z as f64/7.5, spot.x as f64/7.5]);
+                        let beachnoise = per.get([spot.y as f64/7.5, spot.z as f64/7.5, spot.x as f64/7.5]);
                         if spot.y > (WL + beachnoise as f32) as i32
-                        || self.noise_func(spot + vec::IVec3 { x: 0, y: 5, z: 0 }) > 10.0
+                        || Self::_noise_func(per, spot + vec::IVec3 { x: 0, y: 5, z: 0 }) > 10.0
                         {
-                            if self.noise_func(spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {
+                            if Self::_noise_func(per, spot + vec::IVec3 { x: 0, y: 1, z: 0 }) < 10.0 {
                                 surface
                             } else {
                                 undersurface
@@ -2509,7 +2654,7 @@ unsafe {
             }
         };
         if ret != 2 {
-            if self.cave_noise(spot) > 0.5 {
+            if Self::_cave_noise(per, spot) > 0.5 {
                 return 0;
             }
         }

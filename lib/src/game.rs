@@ -253,6 +253,11 @@ pub enum VisionType {
     Vox(usize),
 }
 
+
+
+
+pub static mut PLAYERCHUNKPOS: Lazy<(AtomicI32, AtomicI32)> = Lazy::new(|| (AtomicI32::new(0), AtomicI32::new(0)));
+
 pub struct Game {
     pub chunksys: Arc<RwLock<ChunkSystem>>,
     pub shader0: Shader,
@@ -3119,32 +3124,7 @@ impl Game {
                 None => {}
             }
 
-            unsafe {
-                match AUTOMATA_QUEUED_CHANGES.pop() {
-                    Some(comm) => {
-                        println!("Poppin one");
 
-                        match self.chunksys.try_write() {
-                            Ok(c) => {
-                                if (c.blockat(comm.spot) & Blocks::block_id_bits()) == comm.expectedhere {
-
-                                    println!("Settin");
-                                    c.set_block_and_queue_rerender(comm.spot, comm.changeto, comm.changeto == 0, true);
-                                } else {
-                                    println!("Expected {} here but its {} for this change", comm.expectedhere, (c.blockat(comm.spot) & Blocks::block_id_bits()) );
-                                }
-                            },
-                            Err(e) => {
-                                //AUTOMATA_QUEUED_CHANGES.push(comm);
-                            },
-                        }
-                   
-
-
-                    }
-                    None => {}
-                }
-            }
             let mut morestuff = true;
             while morestuff {
                 match self.hp_server_command_queue.pop() {
@@ -3526,8 +3506,14 @@ impl Game {
             let pos = camlock.position.clone();
             let right = camlock.right.clone();
 
+            let camchunkpos = ChunkSystem::spot_to_chunk_pos(&IVec3::new(pos.x.floor() as i32, 0, pos.z.floor() as i32));
+            
             drop(camlock);
-
+            // unsafe {
+            //     PLAYERCHUNKPOS.0.store(camchunkpos.x, Ordering::Relaxed);
+            //     PLAYERCHUNKPOS.1.store(camchunkpos.y, Ordering::Relaxed);
+            // }
+            
 
             #[cfg(feature = "audio")]
             unsafe {
@@ -3581,7 +3567,6 @@ impl Game {
                     (self.planet_y_offset - self.delta_time * planet_speed).clamp(-1000.0, 0.0);
             }
         }
-
 
 
 
@@ -4813,7 +4798,7 @@ impl Game {
         let carc = self.camera.clone();
         let csysarc = self.chunksys.clone();
 
-        //csysarc.write().unwrap().do_automata();
+        csysarc.write().unwrap().do_automata(&carc);
 
         let handle = thread::spawn(move || {
             Game::chunk_thread_function(&rctarc, carc, csysarc);
@@ -4979,8 +4964,17 @@ impl Game {
         csys_arc: &Arc<RwLock<ChunkSystem>>,
         last_user_c_pos: &mut vec::IVec2,
     ) {
+
+
         //info!("Starting over the CTIF");
         let _rng = StdRng::from_entropy();
+
+
+
+        
+
+
+
 
         let mut lightcheckstuff = true;
 
@@ -5103,6 +5097,31 @@ impl Game {
         let mut backgroundstuff = true;
         while backgroundstuff {
             let csys_arc = csys_arc.read().unwrap();
+
+            unsafe {
+                match AUTOMATA_QUEUED_CHANGES.pop() {
+                    Some(comm) => {
+                        println!("Poppin one");
+    
+
+                                if (csys_arc.blockat(comm.spot) & Blocks::block_id_bits()) == comm.expectedhere {
+    
+                                    println!("Settin");
+                                    csys_arc.set_block(comm.spot, comm.changeto, false);
+                                    csys_arc.queue_rerender_with_key(ChunkSystem::spot_to_chunk_pos(&comm.spot), false, false);
+                                    //csys_arc.rebuild_index(comm.geo_index, false, false);
+                                } else {
+                                    println!("Expected {} here but its {} for this change", comm.expectedhere, (csys_arc.blockat(comm.spot) & Blocks::block_id_bits()) );
+                                }
+
+                   
+    
+    
+                    }
+                    None => {}
+                }
+            }
+
             match csys_arc.background_rebuild_requests.pop() {
                 Some(index) => {
                     // info!("Popping stuff BACKGROUND {}", rng.gen_range(0..255));

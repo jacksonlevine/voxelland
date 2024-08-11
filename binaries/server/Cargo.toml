@@ -19,6 +19,7 @@ dashmap = "6.0.1"
 lockfree = "0.5.1"
 crossbeam = "0.8.4"
 tracing = "0.1.40"
+parking_lot = "0.12.3"
 
 [dependencies.rusqlite]
 version = "0.31.0"

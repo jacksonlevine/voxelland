@@ -34,6 +34,7 @@ use noise::{NoiseFn, Perlin};
 #[cfg(feature = "audio")]
 use crate::audio::AudioPlayer;
 
+use crate::camera::Camera;
 use crate::chunkregistry::ChunkMemory;
 use crate::chunkregistry::ChunkRegistry;
 use crate::cube::Cube;
@@ -42,6 +43,7 @@ use crate::cube::CubeSide;
 #[cfg(feature = "audio")]
 use crate::game::AUDIOPLAYER;
 
+use crate::game::PLAYERCHUNKPOS;
 use crate::game::ROWLENGTH;
 use crate::game::WEATHERTYPE;
 use crate::inventory::ChestInventory;
@@ -416,6 +418,8 @@ impl ChunkSystem {
         //     }
         // }
         let pa = format!("{}/seed2", path);
+
+
         if Path::new(&pa).exists() {
             let file = File::open(pa).unwrap();
             let reader = BufReader::new(file);
@@ -485,12 +489,13 @@ impl ChunkSystem {
 
 
 
-    pub fn do_automata(&mut self) {
+    pub fn do_automata(&mut self, cam: &Arc<Mutex<Camera>>) {
         let chunkslist = self.chunks.clone();
 
         let udm = self.userdatamap.clone();
         let nudm = self.nonuserdatamap.clone();
         let per = self.perlin.clone();
+        let cam = cam.clone();
 
         
 
@@ -499,6 +504,11 @@ impl ChunkSystem {
             let mut rng = StdRng::from_entropy();
 
             loop {
+                
+                // let camposx = unsafe { PLAYERCHUNKPOS.0.load(std::sync::atomic::Ordering::Relaxed) };
+                // let camposz = unsafe { PLAYERCHUNKPOS.1.load(std::sync::atomic::Ordering::Relaxed) };
+
+
     
                 for chunk in &chunkslist {
                     let cclone = match chunk.try_lock() {
@@ -523,7 +533,7 @@ impl ChunkSystem {
                                         for j in (0..CH).rev() {
 
                                             let spot = vec::IVec3 {
-                                                x: (c.pos.x * CW) + i,
+                                                x: ((c.pos.x)  * CW) + i,
                                                 y: j,
                                                 z: (c.pos.y * CW) + k,
                                             };
@@ -536,7 +546,7 @@ impl ChunkSystem {
                                                 //println!("weathertype: {}", WEATHERTYPE);
                                                 if true { //WEATHERTYPE == 1.0 {
                                                     if block == 3 {
-                                                        if true {
+                                                        if rng.gen_range(0..100) == 9 {
                                                             //println!("Pushin one");
                                                             AUTOMATA_QUEUED_CHANGES.push(AutomataChange::new(
                                                                 block, spot, 48
@@ -1459,6 +1469,14 @@ unsafe {
                     //     }
                     // }
                     if block != 0 {
+
+
+                        let isgrass = if block == 3 {
+                            1u8
+                        } else {
+                            0u8
+                        };
+
                         if !weatherstoptops.contains_key(&vec::IVec2 {
                             x: i,
                             y: k,
@@ -1775,7 +1793,7 @@ unsafe {
                                                 k as u8 + v[2],
                                                 ind as u8,
                                                 clamped_light,
-                                                0u8, //TEMPORARY UNUSED
+                                                isgrass, //TEMPORARY UNUSED
                                                 texcoord.0,
                                                 texcoord.1,
                                             );
@@ -1869,7 +1887,7 @@ unsafe {
                                                 k as u8 + v[2],
                                                 ind as u8,
                                                 clamped_light,
-                                                0u8, //TEMPORARY UNUSED
+                                                isgrass, //TEMPORARY UNUSED
                                                 texcoord.0,
                                                 texcoord.1,
                                             );

@@ -74,7 +74,7 @@ pub type LightColor = glam::U16Vec3;
 
 
 
-pub static check_for_intercepting: Lazy<Queue<vec::IVec3>> = Lazy::new(|| Queue::new());
+//pub static check_for_intercepting: Lazy<Queue<vec::IVec3>> = Lazy::new(|| Queue::new());
 
 #[derive(Clone)]
 pub struct LightRay {
@@ -853,6 +853,7 @@ impl ChunkSystem {
         block: u32,
         neighbors: bool,
         user_power: bool,
+        automata: bool
     ) {
         let existingblock = self.blockat(spot);
 
@@ -863,11 +864,11 @@ impl ChunkSystem {
 
         let light = blockislight || blockwaslight;
 
-        if !light {
-            check_for_intercepting.push(spot);
-        }
+        // if !light {
+        //     check_for_intercepting.push(spot);
+        // }
 
-        if !light {
+        if !light && !automata && !Blocks::is_transparent(block & Blocks::block_id_bits()) {
             //If not light still check if it intercepts any lights, we will need to update.
 
             let mut implicated = HashSet::new();
@@ -924,6 +925,7 @@ impl ChunkSystem {
         block: u32,
         neighbors: bool,
         user_power: bool,
+        automata: bool
     ) {
         let existingblock = self.blockat(spot);
 
@@ -934,8 +936,37 @@ impl ChunkSystem {
 
         let light = blockislight || blockwaslight;
 
-        if !light {
-            check_for_intercepting.push(spot);
+        // if !light {
+        //     check_for_intercepting.push(spot);
+        // }
+
+        if !light && !automata && !Blocks::is_transparent(block & Blocks::block_id_bits()) {
+            //If not light still check if it intercepts any lights, we will need to update.
+
+            let mut implicated = HashSet::new();
+            for i in Cube::get_neighbors() {
+                match self.lightmap.lock().unwrap().get(&(*i + spot)) {
+                    Some(k) => {
+                        for ray in &k.rays {
+                            let chunkofthisraysorigin = ChunkSystem::spot_to_chunk_pos(&ray.origin);
+                            // match self.takencare.get(&chunkofthisraysorigin) {
+                            //     Some(chunk) => {
+                            //         implicated.insert(chunk.geo_index);
+                            //     }
+                            //     None => {
+
+                            //     }
+                            // }
+                            implicated.insert(chunkofthisraysorigin);
+                        }
+                    }
+                    None => {}
+                }
+            }
+
+            for i in implicated {
+                self.queue_rerender_with_key(i, true, true);
+            }
         }
 
         if neighbors {

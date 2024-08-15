@@ -171,7 +171,11 @@ impl NetworkConnector {
 
                                     }
                                 }
-                                let c = cam.lock().unwrap();
+                                let c = {
+                                    let c = cam.lock().unwrap();
+                                    c.clone()
+                                };
+                                
                                 let dir = direction_to_euler(c.direction);
                                 let mut message = Message::new(MessageType::PlayerUpdate, c.position, dir.y, 0);
                                 message.infof = c.pitch;

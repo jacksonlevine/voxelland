@@ -28,7 +28,7 @@ use crate::audio::{spawn_audio_thread, AudioPlayer};
 
 use crate::blockinfo::Blocks;
 use crate::blockoverlay::BlockOverlay;
-use crate::chunk::{check_for_intercepting, ChunkFacade, ChunkSystem, AUTOMATA_QUEUED_CHANGES};
+use crate::chunk::{ChunkFacade, ChunkSystem, AUTOMATA_QUEUED_CHANGES};
 
 use crate::camera::Camera;
 use crate::collisioncage::*;
@@ -2648,7 +2648,7 @@ impl Game {
                     self.chunksys
                         .read()
                         .unwrap()
-                        .set_block_and_queue_rerender_no_sound(spot, 41, false, true);
+                        .set_block_and_queue_rerender_no_sound(spot, 41, false, true, true);
                 } else {
                     let mut message = Message::new(
                         MessageType::BlockSet,
@@ -2676,7 +2676,7 @@ impl Game {
                     self.chunksys
                         .read()
                         .unwrap()
-                        .set_block_and_queue_rerender_no_sound(spot, 40, false, true);
+                        .set_block_and_queue_rerender_no_sound(spot, 40, false, true, true);
                 } else {
                     let mut message = Message::new(
                         MessageType::BlockSet,
@@ -3138,6 +3138,7 @@ impl Game {
                                             comm.info,
                                             true,
                                             true,
+                                            false
                                         );
                                     } else {
                                         self.chunksys.read().unwrap().set_block_and_queue_rerender(
@@ -3145,6 +3146,7 @@ impl Game {
                                             comm.info,
                                             false,
                                             true,
+                                            false
                                         );
                                     }
                                 } else {
@@ -3161,6 +3163,7 @@ impl Game {
                                                 comm.info,
                                                 true,
                                                 true,
+                                                false
                                             );
                                     } else {
                                         self.chunksys
@@ -3175,6 +3178,7 @@ impl Game {
                                                 comm.info,
                                                 false,
                                                 true,
+                                                false
                                             );
                                     }
                                 }
@@ -3197,6 +3201,7 @@ impl Game {
                                     comm.info2,
                                     true,
                                     true,
+                                    false
                                 );
                                 unsafe {
                                     UPDATE_THE_BLOCK_OVERLAY = true;
@@ -3335,6 +3340,7 @@ impl Game {
                                         comm.info,
                                         true,
                                         true,
+                                        false
                                     );
                                 } else {
                                     self.chunksys.read().unwrap().set_block_and_queue_rerender(
@@ -3342,6 +3348,7 @@ impl Game {
                                         comm.info,
                                         false,
                                         true,
+                                        false
                                     );
                                 }
                             }
@@ -4798,7 +4805,8 @@ impl Game {
         let carc = self.camera.clone();
         let csysarc = self.chunksys.clone();
 
-        csysarc.write().unwrap().do_automata(&carc);
+        //Uncomment to do automata (just snow updating grass simulation for now)
+        //csysarc.write().unwrap().do_automata(&carc);
 
         let handle = thread::spawn(move || {
             Game::chunk_thread_function(&rctarc, carc, csysarc);
@@ -4928,9 +4936,9 @@ impl Game {
     pub fn rebuild_whole_world_while_showing_loading_screen(
         &mut self,
     ) -> std::thread::JoinHandle<()> {
-        let _csys = self.chunksys.clone();
-        let _campos = self.camera.lock().unwrap().position.clone();
-        let _shader = self.shader0.clone();
+        // let _csys = self.chunksys.clone();
+        // let _campos = self.camera.lock().unwrap().position.clone();
+        // let _shader = self.shader0.clone();
 
         let threadhandle = thread::spawn(move || {
             //ChunkSystem::initial_rebuild_on_main_thread(&csys, &shader, &campos)
@@ -4976,57 +4984,57 @@ impl Game {
 
 
 
-        let mut lightcheckstuff = true;
+        // let mut lightcheckstuff = true;
 
-        while lightcheckstuff {
-            match check_for_intercepting.pop() {
-                Some(spot) => {
-                    let mut implicated = HashSet::new();
+        // while lightcheckstuff {
+        //     match check_for_intercepting.pop() {
+        //         Some(spot) => {
+        //             let mut implicated = HashSet::new();
 
-                    let mut lightraylistlist = Vec::new();
+        //             let mut lightraylistlist = Vec::new();
 
-                    match csys_arc.read() {
-                        Ok(csys) => match csys.lightmap.lock() {
-                            Ok(lightmap) => {
-                                match lightmap.get(&spot) {
-                                    Some(lightseg) => {
-                                        lightraylistlist.push(lightseg.rays.clone());
-                                    }
-                                    None => {}
-                                };
-                            }
-                            Err(_) => {}
-                        },
-                        Err(_) => {}
-                    }
+        //             match csys_arc.read() {
+        //                 Ok(csys) => match csys.lightmap.lock() {
+        //                     Ok(lightmap) => {
+        //                         match lightmap.get(&spot) {
+        //                             Some(lightseg) => {
+        //                                 lightraylistlist.push(lightseg.rays.clone());
+        //                             }
+        //                             None => {}
+        //                         };
+        //                     }
+        //                     Err(_) => {}
+        //                 },
+        //                 Err(_) => {}
+        //             }
 
-                    for raylist in lightraylistlist {
-                        for ray in &raylist {
-                            let chunkofthisraysorigin = ChunkSystem::spot_to_chunk_pos(&ray.origin);
-                            // match self.takencare.get(&chunkofthisraysorigin) {
-                            //     Some(chunk) => {
-                            //         implicated.insert(chunk.geo_index);
-                            //     }
-                            //     None => {
+        //             for raylist in lightraylistlist {
+        //                 for ray in &raylist {
+        //                     let chunkofthisraysorigin = ChunkSystem::spot_to_chunk_pos(&ray.origin);
+        //                     // match self.takencare.get(&chunkofthisraysorigin) {
+        //                     //     Some(chunk) => {
+        //                     //         implicated.insert(chunk.geo_index);
+        //                     //     }
+        //                     //     None => {
 
-                            //     }
-                            // }
-                            implicated.insert(chunkofthisraysorigin);
-                        }
-                    }
+        //                     //     }
+        //                     // }
+        //                     implicated.insert(chunkofthisraysorigin);
+        //                 }
+        //             }
 
-                    //TEMPORARILY DISABLED UNTIL WE CAN DO A LIGHT UPDATE WITHOUT STUTTERING THE MAIN FUCKING THREAD DUMBASS
-                    //let c = csys_arc.read().unwrap();
-                    // for i in implicated {
-                    //     QUEUE_THESE.push(i);
-                    //     //c.queue_rerender_with_key(i, true, true);
-                    // }
-                }
-                None => {
-                    lightcheckstuff = false;
-                }
-            }
-        }
+        //             //TEMPORARILY DISABLED UNTIL WE CAN DO A LIGHT UPDATE WITHOUT STUTTERING THE MAIN FUCKING THREAD DUMBASS
+        //             //let c = csys_arc.read().unwrap();
+        //             // for i in implicated {
+        //             //     QUEUE_THESE.push(i);
+        //             //     //c.queue_rerender_with_key(i, true, true);
+        //             // }
+        //         }
+        //         None => {
+        //             lightcheckstuff = false;
+        //         }
+        //     }
+        // }
 
         let mut lightstuff = true;
         while lightstuff {
@@ -5445,7 +5453,7 @@ impl Game {
                         self.chunksys
                             .read()
                             .unwrap()
-                            .set_block_and_queue_rerender(other_half, 0, true, true);
+                            .set_block_and_queue_rerender(other_half, 0, true, true, false);
                     }
                 } else {
                     if blockat != 0 {
@@ -5466,7 +5474,7 @@ impl Game {
                         self.chunksys
                             .read()
                             .unwrap()
-                            .set_block_and_queue_rerender(block_hit, 0, true, true);
+                            .set_block_and_queue_rerender(block_hit, 0, true, true, false);
                     }
                 }
             }
@@ -5554,6 +5562,7 @@ impl Game {
                                 blockbitshere,
                                 true,
                                 true,
+                                true
                             );
                         }
                     } else if blockidhere == 21 {
@@ -5726,6 +5735,7 @@ impl Game {
                                                     blockbitsright,
                                                     false,
                                                     true,
+                                                    true
                                                 );
                                             self.chunksys
                                                 .read()
@@ -5735,6 +5745,7 @@ impl Game {
                                                     neightopbits,
                                                     false,
                                                     true,
+                                                    true
                                                 );
                                         }
                                     }
@@ -5784,6 +5795,7 @@ impl Game {
                                                     blockbitsleft,
                                                     false,
                                                     true,
+                                                    true
                                                 );
                                             self.chunksys
                                                 .read()
@@ -5793,6 +5805,7 @@ impl Game {
                                                     neightopbits,
                                                     false,
                                                     true,
+                                                    true
                                                 );
                                         }
                                     }
@@ -5820,12 +5833,14 @@ impl Game {
                                         bottom_id,
                                         false,
                                         true,
+                                        true
                                     );
                                     self.chunksys.read().unwrap().set_block_and_queue_rerender(
                                         place_above,
                                         top_id,
                                         false,
                                         true,
+                                        true
                                     );
                                 }
                             }
@@ -5866,6 +5881,7 @@ impl Game {
                                     conveyor_id,
                                     false,
                                     true,
+                                    false
                                 );
                             }
                         } else if id == 20 {
@@ -5905,6 +5921,7 @@ impl Game {
                                     ladder_id,
                                     false,
                                     true,
+                                    false
                                 );
                             }
                         } else if id == 21 {
@@ -5944,6 +5961,7 @@ impl Game {
                                     chest_id,
                                     false,
                                     true,
+                                    false
                                 );
                             }
                         } else {
@@ -5966,6 +5984,7 @@ impl Game {
                                         id,
                                         false,
                                         true,
+                                        false
                                     );
                                 }
                             }

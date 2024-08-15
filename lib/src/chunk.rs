@@ -1962,20 +1962,22 @@ unsafe {
                 }
 
                 //BEGIN ADD WEATHER PANES FOR RAIN/SNOW/ETC, nOT EVERY BLOCK
+
+                let topy = match weatherstoptops.get(&vec::IVec2 {
+                    x: i,
+                    y: k,
+                }) {
+                    Some(top) => {
+                        //println!("Found top {}", *top);
+                        *top
+                    }
+                    None => {
+                        0
+                    }
+                };
                 
-                if ((i * CW) + k) % 17 == 0  {
-                    let topy = match weatherstoptops.get(&vec::IVec2 {
-                        x: i,
-                        y: k,
-                    }) {
-                        Some(top) => {
-                            //println!("Found top {}", *top);
-                            *top
-                        }
-                        None => {
-                            0
-                        }
-                    };
+                if ((i * CW) + k) % 17 == 0 && topy < 115 {
+                    
 
                     let mut rng = StdRng::from_entropy();
                     
@@ -2034,10 +2036,10 @@ unsafe {
                     wvdata.extend_from_slice(&[
                         spo.x as f32 - 1.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
                         spo.x as f32 + 2.0, spo.y as f32, spo.z as f32 + 2.0,   lightf32 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, 115.0, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
 
-                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, 115.0, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, 115.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
                         spo.x as f32 - 1.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
 
 
@@ -2045,61 +2047,63 @@ unsafe {
 
                         spo.x as f32 + 2.0, spo.y as f32, spo.z as f32 + 2.0,   lightf32 /*BLOCKLIGHT */, 14.0,
                         spo.x as f32 - 1.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, 115.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
 
-                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, 115.0, spo.z as f32,   0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, 115.0, spo.z as f32 + 2.0,   0.0 /*BLOCKLIGHT */, 14.0,
                         spo.x as f32 + 2.0, spo.y as f32, spo.z as f32 + 2.0,   lightf32 /*BLOCKLIGHT */, 14.0,
 
 
                         spo.x as f32 - 1.0, spo.y as f32, spo.z as f32 + 2.0,              lightf32 /*BLOCKLIGHT */, 14.0,
                         spo.x as f32 + 2.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, 115.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
 
-                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, 115.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, 115.0, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
                         spo.x as f32 - 1.0, spo.y as f32, spo.z as f32 + 2.0,              lightf32 /*BLOCKLIGHT */, 14.0,
 
 
                         spo.x as f32 + 2.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
                         spo.x as f32 - 1.0, spo.y as f32, spo.z as f32 + 2.0,              lightf32 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, 115.0, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
 
-                        spo.x as f32 - 1.0, spo.y as f32 + 128.0, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
-                        spo.x as f32 + 2.0, spo.y as f32 + 128.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 - 1.0, 115.0, spo.z as f32 + 2.0,              0.0 /*BLOCKLIGHT */, 14.0,
+                        spo.x as f32 + 2.0, 115.0, spo.z as f32,              0.0 /*BLOCKLIGHT */, 14.0,
                         spo.x as f32 + 2.0, spo.y as f32, spo.z as f32,              lightf32 /*BLOCKLIGHT */, 14.0,
 
                     ]);
 
+                    let randyoffset = rng.gen_range(0.0..1.0);
+
                     
                     wuvdata.extend_from_slice(&[
-                        face.blx, face.bly, 0.0, 0.0,
-                        face.brx + ONE_OVER_16 * 2.0, face.bry, 0.0, 0.0,
-                        face.brx + ONE_OVER_16 * 2.0, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
-                        face.brx + ONE_OVER_16 * 2.0, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
-                        face.blx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
-                        face.blx, face.bly, 0.0, 0.0,
+                        face.blx, face.bly + randyoffset, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bry + randyoffset, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly  - TEXTURE_WIDTH * (115.0 - spo.y as f32)   + randyoffset, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly   - TEXTURE_WIDTH * (115.0 - spo.y as f32)   + randyoffset, 0.0, 0.0,
+                        face.blx, face.bly   - TEXTURE_WIDTH * (115.0 - spo.y as f32)   + randyoffset, 0.0, 0.0,
+                        face.blx, face.bly + randyoffset, 0.0, 0.0,
 
-                        face.blx, face.bly, 0.0, 0.0,
-                        face.brx + ONE_OVER_16 * 2.0, face.bry, 0.0, 0.0,
-                        face.brx + ONE_OVER_16 * 2.0, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
-                        face.brx + ONE_OVER_16 * 2.0, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
-                        face.blx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
-                        face.blx, face.bly, 0.0, 0.0,
+                        face.blx, face.bly + randyoffset, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bry + randyoffset, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly  - TEXTURE_WIDTH * (115.0 - spo.y as f32)  + randyoffset , 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly   - TEXTURE_WIDTH * (115.0 - spo.y as f32)  + randyoffset , 0.0, 0.0,
+                        face.blx, face.bly   - TEXTURE_WIDTH * (115.0 - spo.y as f32)  + randyoffset , 0.0, 0.0,
+                        face.blx, face.bly + randyoffset, 0.0, 0.0,
 
-                        face.blx, face.bly, 0.0, 0.0,
-                        face.brx + ONE_OVER_16 * 2.0, face.bry, 0.0, 0.0,
-                        face.brx + ONE_OVER_16 * 2.0, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
-                        face.brx + ONE_OVER_16 * 2.0, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
-                        face.blx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
-                        face.blx, face.bly, 0.0, 0.0,
+                        face.blx, face.bly + randyoffset, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bry + randyoffset, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly  - TEXTURE_WIDTH * (115.0 - spo.y as f32)  + randyoffset , 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly   - TEXTURE_WIDTH * (115.0 - spo.y as f32)  + randyoffset , 0.0, 0.0,
+                        face.blx, face.bly   - TEXTURE_WIDTH * (115.0 - spo.y as f32)  + randyoffset , 0.0, 0.0,
+                        face.blx, face.bly + randyoffset, 0.0, 0.0,
 
-                        face.blx, face.bly, 0.0, 0.0,
-                        face.brx + ONE_OVER_16 * 2.0, face.bry, 0.0, 0.0,
-                        face.brx + ONE_OVER_16 * 2.0, face.bly  - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
-                        face.brx + ONE_OVER_16 * 2.0, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
-                        face.blx, face.bly   - TEXTURE_WIDTH * 128.0  , 0.0, 0.0,
-                        face.blx, face.bly, 0.0, 0.0,
+                        face.blx, face.bly + randyoffset, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bry + randyoffset, 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly  - TEXTURE_WIDTH * (115.0 - spo.y as f32)  + randyoffset , 0.0, 0.0,
+                        face.brx + ONE_OVER_16 * 2.0, face.bly   - TEXTURE_WIDTH * (115.0 - spo.y as f32)  + randyoffset , 0.0, 0.0,
+                        face.blx, face.bly   - TEXTURE_WIDTH * (115.0 - spo.y as f32)  + randyoffset , 0.0, 0.0,
+                        face.blx, face.bly + randyoffset, 0.0, 0.0,
                     ]);
 
                     //println!("{}", face.blx);

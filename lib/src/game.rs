@@ -943,7 +943,7 @@ impl Game {
             my_uuid,
             ambient_bright_mult: 1.0,
             daylength: 900.0,
-            timeofday: Arc::new(Mutex::new(700.0)),
+            timeofday: Arc::new(Mutex::new(0.0)),
             sunrise_factor: 0.0,
             sunset_factor: 0.0,
             visions_timer: 0.0,

@@ -82,7 +82,7 @@ void main() {
     FragColor = vec4(FragColor.xyz, FragColor.w*opacity);
 
     float pn = pNoise(TexCoord + (vec2(0.0005, 0.0005) * time), 10) * 25.0;
-    FragColor = vec4(ambientBrightMult, ambientBrightMult, ambientBrightMult, pn * 0.3);
+    FragColor = vec4(ambientBrightMult, ambientBrightMult, ambientBrightMult, min(pn * 0.3, 0.6));
 
 
 }

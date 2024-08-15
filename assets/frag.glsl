@@ -26,6 +26,7 @@ void main()
 
 
     vec4 texColor = texture(ourTexture, TexCoord) + vec4(grassColor, 0.0);
+    texColor = min(texColor, vec4(1.0));
     FragColor = texColor * vec4(vertexColor, 1.0);
 
     vec3 west = vec3(0.0,0.0,-1.0);

@@ -122,7 +122,7 @@ void main()
     vertexColor = vec3(min((bright/16.0f) + color.r, 1.0), min((bright/16.0f) + color.g, 1.0), min((bright/16.0f) + color.b, 1.0) );
 
     if(isgrass == 1.0) {
-        float noiseval = pNoise(vec2(position.x * 0.001, position.z * 0.001), 1);
+        float noiseval = pNoise(vec2(position.x * 0.0002, position.z * 0.0002), 1);
 
         grassColor = vec3(noiseval, 0.0, 0.0);
 

@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use std::f32::consts::{self};
 use std::io::Write;
 
+use atomic_float::AtomicF32;
 use once_cell::sync::Lazy;
 use tracing::info;
 
@@ -257,6 +258,46 @@ pub enum VisionType {
 
 
 pub static mut PLAYERCHUNKPOS: Lazy<(AtomicI32, AtomicI32)> = Lazy::new(|| (AtomicI32::new(0), AtomicI32::new(0)));
+
+
+pub struct PlayerCam {
+    pos: (AtomicF32, AtomicF32, AtomicF32),
+    dir: (AtomicF32, AtomicF32, AtomicF32),
+    yaw: AtomicF32,
+    pitch: AtomicF32
+}
+
+pub struct PlayerCamSnapshot {
+    pub pos: (f32, f32, f32),
+    pub dir: (f32, f32, f32),
+    pub yaw: f32,
+    pub pitch: f32
+}
+
+impl PlayerCam {
+    pub fn snapshot(&self) -> PlayerCamSnapshot {
+        let pos = (self.pos.0.load(Ordering::Relaxed), self.pos.1.load(Ordering::Relaxed), self.pos.2.load(Ordering::Relaxed));
+        let dir = (self.dir.0.load(Ordering::Relaxed), self.dir.1.load(Ordering::Relaxed), self.dir.2.load(Ordering::Relaxed));
+        let yaw = self.yaw.load(Ordering::Relaxed);
+        let pitch = self.pitch.load(Ordering::Relaxed);
+
+        PlayerCamSnapshot {
+            pos,
+            dir,
+            yaw,
+            pitch
+        }
+    }
+}
+
+pub static mut PLAYERPOS: Lazy<PlayerCam> = Lazy::new(|| {
+    PlayerCam {
+        pos: (AtomicF32::new(0.0), AtomicF32::new(0.0), AtomicF32::new(0.0)),
+        dir: (AtomicF32::new(0.0), AtomicF32::new(0.0), AtomicF32::new(0.0)),
+        yaw: AtomicF32::new(0.0),
+        pitch: AtomicF32::new(0.0)
+    }
+});
 
 pub struct Game {
     pub chunksys: Arc<RwLock<ChunkSystem>>,
@@ -934,7 +975,8 @@ impl Game {
                 &nsme,
                 &cam.clone(),
                 &pme.clone(),
-                &chest_registry
+                &chest_registry,
+                &needtosend
             ),
             server_command_queue: server_command_queue.clone(),
             hp_server_command_queue: server_command_hp_queue.clone(),
@@ -3117,12 +3159,12 @@ impl Game {
                 //     }
                 // }
             }
-            match self.needtosend.pop() {
-                Some(comm) => {
-                    self.netconn.send(&comm);
-                }
-                None => {}
-            }
+            // match self.needtosend.pop() {
+            //     Some(comm) => {
+            //         self.netconn.send(&comm);
+            //     }
+            //     None => {}
+            // }
 
 
             let mut morestuff = true;
@@ -3511,15 +3553,32 @@ impl Game {
             let camlock = self.camera.lock().unwrap();
 
             let pos = camlock.position.clone();
+            let dir = camlock.direction.clone();
             let right = camlock.right.clone();
+            let yaw = camlock.yaw.clone();
+            let pitch = camlock.pitch.clone();
 
-            let camchunkpos = ChunkSystem::spot_to_chunk_pos(&IVec3::new(pos.x.floor() as i32, 0, pos.z.floor() as i32));
+
+
             
             drop(camlock);
             // unsafe {
             //     PLAYERCHUNKPOS.0.store(camchunkpos.x, Ordering::Relaxed);
             //     PLAYERCHUNKPOS.1.store(camchunkpos.y, Ordering::Relaxed);
             // }
+
+            unsafe {
+                PLAYERPOS.pos.0.store(pos.x, Ordering::Relaxed);
+                PLAYERPOS.pos.1.store(pos.y, Ordering::Relaxed);
+                PLAYERPOS.pos.2.store(pos.z, Ordering::Relaxed);
+
+                PLAYERPOS.dir.0.store(dir.x, Ordering::Relaxed);
+                PLAYERPOS.dir.1.store(dir.y, Ordering::Relaxed);
+                PLAYERPOS.dir.2.store(dir.z, Ordering::Relaxed);
+
+                PLAYERPOS.yaw.store(yaw, Ordering::Relaxed);
+                PLAYERPOS.pitch.store(pitch, Ordering::Relaxed);
+            }
             
 
             #[cfg(feature = "audio")]
@@ -5104,13 +5163,13 @@ impl Game {
 
         let mut backgroundstuff = true;
         while backgroundstuff {
-            let csys_arc = csys_arc.read().unwrap();
+            
 
             unsafe {
                 match AUTOMATA_QUEUED_CHANGES.pop() {
                     Some(comm) => {
                         println!("Poppin one");
-    
+                                let csys_arc = csys_arc.read().unwrap();
 
                                 if (csys_arc.blockat(comm.spot) & Blocks::block_id_bits()) == comm.expectedhere {
     
@@ -5129,6 +5188,7 @@ impl Game {
                     None => {}
                 }
             }
+            let csys_arc = csys_arc.read().unwrap();
 
             match csys_arc.background_rebuild_requests.pop() {
                 Some(index) => {
@@ -5198,7 +5258,7 @@ impl Game {
 
             if
             /*user_c_pos != *last_user_c_pos &&*/
-            time_since_last_check >= 1.0 {
+            time_since_last_check >= 5.0 {
                 *last_user_c_pos = user_c_pos;
 
                 time_since_last_check = 0.0;
@@ -5212,11 +5272,17 @@ impl Game {
                 };
                 drop(cam_lock);
 
-                let csys_arc = csys_arc.read().unwrap();
+                let radius = {
+                    let x = csys_arc.read().unwrap().radius;
+                    x.clone()
+                };
 
-                let tcarc = csys_arc.takencare.clone();
-                for i in -(csys_arc.radius as i32)..(csys_arc.radius as i32) {
-                    for k in -(csys_arc.radius as i32)..(csys_arc.radius as i32) {
+                for i in -(radius as i32)..(radius as i32) {
+                    for k in -(radius as i32)..(radius as i32) {
+
+                        let csys_arc = csys_arc.read().unwrap();
+
+                        let tcarc = csys_arc.takencare.clone();
                         let this_spot = IVec2 {
                             x: user_cpos.x + i as i32,
                             y: user_cpos.y + k as i32,
@@ -5228,15 +5294,19 @@ impl Game {
                 }
 
                 let mut sorted_chunk_facades: Vec<ChunkFacade> = Vec::new();
+                {
+                    let csyschunks = csys_arc.read().unwrap().chunks.clone();
 
-                for carc in &csys_arc.chunks {
-                    match carc.try_lock() {
-                        Ok(cf) => {
-                            sorted_chunk_facades.push(*cf);
+                    for carc in &csyschunks {
+                        match carc.try_lock() {
+                            Ok(cf) => {
+                                sorted_chunk_facades.push(*cf);
+                            }
+                            Err(_) => {}
                         }
-                        Err(_) => {}
                     }
                 }
+                    
 
                 let (unused_or_distant, used_and_close): (Vec<ChunkFacade>, Vec<ChunkFacade>) =
                     sorted_chunk_facades.drain(..).partition(|chunk| {
@@ -5245,7 +5315,7 @@ impl Game {
                         } else {
                             let dist = (chunk.pos.x - user_cpos.x).abs()
                                 + (chunk.pos.y - user_cpos.y).abs();
-                            dist >= csys_arc.radius as i32 * 2
+                            dist >= radius as i32 * 2
                         }
                     });
 
@@ -5260,7 +5330,9 @@ impl Game {
                 });
 
                 for (index, ns) in neededspots.iter().enumerate() {
+                    let csys_arc = csys_arc.read().unwrap();
                     csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns);
+                    
                     match csys_arc.user_rebuild_requests.pop() {
                         Some(index) => {
                             csys_arc.rebuild_index(index, true, false);

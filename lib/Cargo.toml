@@ -35,6 +35,7 @@ crossbeam = "0.8.4"
 bytes = "1.6.1"
 steamworks = "0.11.0"
 parking_lot = "0.12.3"
+atomic_float = "1.0.0"
 
 [features]
 default = []

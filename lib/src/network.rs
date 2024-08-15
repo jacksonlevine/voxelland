@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 use crate::camera::Camera;
 use crate::chunk::ChunkSystem;
-use crate::game::{Game, UPDATE_THE_BLOCK_OVERLAY};
+use crate::game::{Game, PLAYERPOS, UPDATE_THE_BLOCK_OVERLAY};
 use crate::inventory::ChestInventory;
 use crate::modelentity::{direction_to_euler, ModelEntity};
 use crate::server_types::{self, Message, MessageType, MOB_BATCH_SIZE};
@@ -48,7 +48,7 @@ pub struct NetworkConnector {
 impl NetworkConnector {
     pub fn new(csys: &Arc<RwLock<ChunkSystem>>, commqueue: &Arc<Queue<Message>>, commqueue2: &Arc<Queue<Message>>, gkc: &Arc<DashMap<Uuid, Vec3>>,
                 my_uuid: &Arc<RwLock<Option<Uuid>>>, nsme: &Arc<DashMap<u32, ModelEntity>>, mycam: &Arc<Mutex<Camera>>, pme: &Arc<DashMap<Uuid, ModelEntity>>,
-                chest_reg: &Arc<DashMap<vec::IVec3, ChestInventory>>) -> NetworkConnector {
+                chest_reg: &Arc<DashMap<vec::IVec3, ChestInventory>>, sendqueue: &Arc<Queue<Message>>) -> NetworkConnector {
         NetworkConnector {
             stream: None,
             recvthread: None,
@@ -65,7 +65,7 @@ impl NetworkConnector {
             mycam: mycam.clone(),
             shouldsend: Arc::new(AtomicBool::new(false)),
             pme: pme.clone(),
-            sendqueue: Arc::new(Queue::new()),
+            sendqueue: sendqueue.clone(),
             chest_registry: chest_reg.clone()
         }
     }
@@ -171,18 +171,21 @@ impl NetworkConnector {
 
                                     }
                                 }
-                                let c = {
-                                    let c = cam.lock().unwrap();
-                                    c.clone()
+
+                                let c = unsafe {
+                                    PLAYERPOS.snapshot()
                                 };
-                                
-                                let dir = direction_to_euler(c.direction);
-                                let mut message = Message::new(MessageType::PlayerUpdate, c.position, dir.y, 0);
+
+                           
+                                let dir = direction_to_euler(c.dir.into());
+                                let mut message = Message::new(MessageType::PlayerUpdate, c.pos.into(), dir.y, 0);
                                 message.infof = c.pitch;
                                 message.info2 = c.yaw as u32;
-                                drop(c);
 
                                 NetworkConnector::sendto(&message, &stream);
+                      
+                                
+                                
                             }
                             thread::sleep(Duration::from_millis(250));
                         }

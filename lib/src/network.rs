@@ -92,7 +92,7 @@ impl NetworkConnector {
                 Ok(_) => return (),
                 Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                     // Sleep for a short duration and retry
-                    std::thread::sleep(Duration::from_millis(10));
+                    //std::thread::sleep(Duration::from_millis(10));
                     attempts += 1;
                     if attempts > 50 {
                         return ()

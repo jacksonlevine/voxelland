@@ -31,8 +31,6 @@ use std::sync::{Arc, Mutex};
 
 use noise::{NoiseFn, Perlin};
 
-#[cfg(feature = "audio")]
-use crate::audio::AudioPlayer;
 
 use crate::camera::Camera;
 use crate::chunkregistry::ChunkMemory;
@@ -44,10 +42,6 @@ use crate::cube::CubeSide;
 use crate::game::AUDIOPLAYER;
 
 use crate::game::CURRSEED;
-use crate::game::PLAYERCHUNKPOS;
-use crate::game::ROWLENGTH;
-use crate::game::WEATHERTYPE;
-use crate::inventory::ChestInventory;
 
 use crate::packedvertex::PackedVertex;
 use crate::planetinfo::Planets;
@@ -532,7 +526,7 @@ impl ChunkSystem {
 
                                 for i in 0..CW {
                                     for k in 0..CW {
-                                        let mut hit_block = false;
+                                        let hit_block = false;
                                         for j in (0..CH).rev() {
 
                                             let spot = vec::IVec3 {

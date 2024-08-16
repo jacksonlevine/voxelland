@@ -12,7 +12,7 @@ use gl::types::{GLenum, GLsizei, GLsizeiptr, GLuint, GLvoid};
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
 use glfw::{Action, Key, MouseButton, PWindow};
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 
 use lockfree::queue::Queue;
 use rand::rngs::StdRng;
@@ -52,7 +52,7 @@ use crate::shader::Shader;
 use crate::specialblocks::door::{self, DoorInfo};
 use crate::statics::MY_MULTIPLAYER_UUID;
 use crate::texture::Texture;
-use crate::textureface::{TextureFace, ONE_OVER_16};
+use crate::textureface::{TextureFace};
 use crate::tools::{get_block_material, get_tools_target_material, Material};
 use crate::vec::{self, IVec2, IVec3};
 use crate::voxmodel::JVoxModel;
@@ -2418,7 +2418,7 @@ impl Game {
 
 
             let mut morepossible = true;
-            fn craft_in_local_inv(recipe: &Recipe, mut inven: &mut Inventory, mut morepossible: &mut bool) {
+            fn craft_in_local_inv(recipe: &Recipe, inven: &mut Inventory, morepossible: &mut bool) {
                 let mut hasreqs = true;
                 for req in &recipe.0 {
                     let mut amt = 0;
@@ -2439,7 +2439,7 @@ impl Game {
                 if hasreqs {
                     //Find an empty spot OR MATCHING RESULT ITEM SPOT in their imaginary inv that would exist if we were to subtract the necessary ingredients:
                     //Make an imaginary clone of their inventory:
-                    let mut invclone = &mut inven.inv;
+                    let invclone = &mut inven.inv;
     
                     //Subtract the ingredients
                     for req in &recipe.0 {
@@ -3352,7 +3352,7 @@ impl Game {
                     }
                 }
             }
-            let mut morestuff = true;
+            let morestuff = true;
             //while morestuff {
 
             for _ in 0..5 {
@@ -3947,7 +3947,7 @@ impl Game {
 
             (*camlock) = cam_clone;
 
-            let mut proposed = unsafe {
+            let proposed = unsafe {
                 if CROUCHING && self.grounded {
                     camlock.respond_to_controls(&self.controls, &self.delta_time, 1.5)
                 } else {

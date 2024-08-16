@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 
 #[derive(PartialEq)]
 pub enum Material {

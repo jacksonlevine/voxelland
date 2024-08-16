@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 use crate::camera::Camera;
 use crate::chunk::ChunkSystem;
-use crate::game::{Game, CURRSEED, PLAYERPOS, UPDATE_THE_BLOCK_OVERLAY};
+use crate::game::{Game, CURRSEED, PLAYERPOS};
 use crate::inventory::ChestInventory;
 use crate::modelentity::{direction_to_euler, ModelEntity};
 use crate::server_types::{self, Message, MessageType, MOB_BATCH_SIZE};

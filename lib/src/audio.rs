@@ -1,5 +1,4 @@
 use std::{collections::HashMap, fs::File, io::{BufReader, Cursor, Read}, thread};
-use dashmap::DashMap;
 use glam::Vec3;
 use lockfree::queue::Queue;
 use once_cell::sync::Lazy;
@@ -149,7 +148,7 @@ impl AudioPlayer {
     ) -> Result<(), AudioError> {
 
         let soundname = match self.serieslist.get_mut(_series_name) {
-            Some(mut series) => {
+            Some(series) => {
 
                 let ret = series.sounds[series.index].clone();
                 series.increment();

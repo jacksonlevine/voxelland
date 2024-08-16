@@ -1,4 +1,4 @@
-use crate::{blockinfo::Blocks, game::{Game, CROUCHING, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, MOUSEX, MOUSEY, SHOWTOOLTIP, SINGLEPLAYER, SOUNDSVOLUME, TOOLTIPNAME}, recipes::{RecipeEntry, RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, texture::Texture};
+use crate::{blockinfo::Blocks, game::{Game, CROUCHING, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, MOUSEX, MOUSEY, SHOWTOOLTIP, SINGLEPLAYER, SOUNDSVOLUME, TOOLTIPNAME}, recipes::{RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, texture::Texture};
 
 use glfw::{Action, Context, Glfw, GlfwReceiver, Key, Modifiers, PWindow, WindowEvent};
 use once_cell::sync::Lazy;
@@ -124,7 +124,7 @@ impl WindowAndKeyContext {
         imgui.style_mut().scale_all_sizes(scale_factor);
 
         {
-            let mut io = imgui.io_mut();
+            let io = imgui.io_mut();
 
             io.key_map[ImGuiKey::Backspace as usize] = Key::Backspace as u32;
             io.key_map[ImGuiKey::Tab as usize] = Key::Tab as u32;

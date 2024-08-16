@@ -23,7 +23,7 @@ use uuid::Uuid;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI8, AtomicU32, Ordering};
 use std::sync::{Arc};
 
-use parking_lot::{Mutex, RwLock};
+use parking_lot::{deadlock, Mutex, RwLock};
 
 use std::thread::{self, JoinHandle};
 
@@ -74,7 +74,8 @@ pub static mut SHOWTOOLTIP: bool = false;
 pub static mut TOOLTIPNAME: &'static str = "";
 
 pub static mut SPRINTING: bool = false;
-
+pub static mut WASFREEFALLING: bool = false;
+pub static mut FREEFALLING: bool = false;
 
 pub static mut SOUNDSVOLUME: f32 = 1.0;
 
@@ -989,7 +990,7 @@ impl Game {
             my_uuid,
             ambient_bright_mult: 1.0,
             daylength: 900.0,
-            timeofday: Arc::new(Mutex::new(0.0)),
+            timeofday: Arc::new(Mutex::new(250.0)),
             sunrise_factor: 0.0,
             sunset_factor: 0.0,
             visions_timer: 0.0,
@@ -1645,8 +1646,7 @@ impl Game {
 
     pub fn initialize_being_in_world(&mut self) -> JoinHandle<()> {
         let mut ship_pos = vec::IVec3::new(20, 200, 0);
-        let mut ship_front = vec::IVec3::new(30, 200, 0);
-        let mut ship_back = vec::IVec3::new(10, 200, 0);
+
         // Function to decrement y until a block is found
         fn find_ground_y(position: &mut vec::IVec3, game: &Game) {
             while game.chunksys.read().blockat(*position) == 0 {
@@ -1656,11 +1656,9 @@ impl Game {
 
         // Find the ground positions
         find_ground_y(&mut ship_pos, &self);
-        find_ground_y(&mut ship_front, &self);
-        find_ground_y(&mut ship_back, &self);
 
         // Determine the highest y position found
-        let decided_pos_y = max(max(ship_pos.y, ship_front.y), ship_back.y) + 10;
+        let decided_pos_y = ship_pos.y;
 
         // Update the ship's position
         ship_pos.y = decided_pos_y;
@@ -1684,7 +1682,7 @@ impl Game {
         // self.static_model_entities.push(ModelEntity::new(4, ship_float_pos, 1.5, Vec3::new(0.0, 0.0, 0.0), &self.chunksys, &self.camera));
 
         unsafe {
-            SPAWNPOINT = ship_float_pos + Vec3::new(5.0, 2.0, 0.0);
+            SPAWNPOINT = ship_float_pos + Vec3::new(5.0, 10.0, 0.0);
             self.camera.lock().position = SPAWNPOINT;
         }
 
@@ -3874,6 +3872,18 @@ impl Game {
         const GRAV: f32 = 9.8;
 
         if self.inwater || self.vars.in_climbable {
+
+            unsafe {
+                if WASFREEFALLING {
+                    FREEFALLING = false;
+                    WASFREEFALLING = false;
+                    AUDIOPLAYER.stop_head_sound("assets/sfx/freefall.mp3".to_string());
+                    if self.inwater {
+                        AUDIOPLAYER.play_in_head("assets/sfx/splash.mp3");
+                    }
+                }
+                
+            }
             self.time_falling_scalar = 1.0;
             if !self.grounded {
                 cam_clone.velocity += Vec3::new(0.0, -2.0 * self.delta_time, 0.0);
@@ -3893,18 +3903,44 @@ impl Game {
                 cam_clone.velocity += Vec3::new(0.0, amount * self.delta_time, 0.0);
             }
         } else {
+
+
+
             if !self.grounded && !self.jumping_up {
                 self.time_falling_scalar =
                     (self.time_falling_scalar + self.delta_time * 3.0).min(3.0);
+
+
+                   
                 
-                if self.time_falling_scalar == 3.0 {
+                if self.time_falling_scalar >= 3.0 {
+                    unsafe {
+                        FREEFALLING = true;
+                    }
+                    unsafe {
+                        if !WASFREEFALLING {
+                            WASFREEFALLING = true;
+                            AUDIOPLAYER.play_in_head("assets/sfx/freefall.mp3")
+                        }
+                    }
+                    
+                    
                     self.vars.time_tfs_at_3 += self.delta_time;
                 } else {
                     self.vars.time_tfs_at_3 = 0.0;
+                    
                 }
                     //println!("Time falscal: {}", self.time_falling_scalar);
             } else {
                 self.time_falling_scalar = 1.0;
+                unsafe {
+                    FREEFALLING = false;
+                    if WASFREEFALLING {
+                        WASFREEFALLING = false;
+                        AUDIOPLAYER.stop_head_sound("assets/sfx/freefall.mp3".to_string());
+                    }
+                    
+                }
             }
 
             if !self.grounded && !self.jumping_up {
@@ -3996,7 +4032,10 @@ impl Game {
                     self.grounded = true;
                     unsafe {
                         if wasngrounded {
-                            falldamage = Some(self.vars.time_tfs_at_3);
+                            if self.vars.time_tfs_at_3 > 0.0 {
+                                falldamage = Some(self.vars.time_tfs_at_3);
+                            }
+                            
                             
                             
                             self.vars.time_tfs_at_3 = 0.0;
@@ -4044,7 +4083,10 @@ impl Game {
 
         match falldamage {
             Some(fd) => {
-                self.take_damage(fd as u8);
+                unsafe {
+                    AUDIOPLAYER.play_in_head("assets/sfx/falldamage.mp3");
+                }
+                self.take_damage((fd*20.0) as u8);
             }
             None => {
 
@@ -4058,6 +4100,9 @@ impl Game {
         self.health.store(newamount, std::sync::atomic::Ordering::Relaxed);
         if newamount <= 0 { //DEAD
 
+            unsafe {
+                AUDIOPLAYER.play_in_head("assets/sfx/death.mp3");
+            }
             let mut camlock = self.camera.lock();
             let campos = camlock.position.clone();
 
@@ -4075,6 +4120,7 @@ impl Game {
             
             unsafe {
                 camlock.position = SPAWNPOINT;
+                camlock.velocity = Vec3::ZERO;
             }
             
             drop(camlock);
@@ -5441,6 +5487,20 @@ impl Game {
         };
 
         while runcheck.load(Ordering::Relaxed) {
+            let deadlocks = deadlock::check_deadlock();
+
+            if !deadlocks.is_empty() {
+                println!("{} deadlocks detected", deadlocks.len());
+                for (i, threads) in deadlocks.iter().enumerate() {
+                    println!("Deadlock #{}", i);
+                    for t in threads {
+                        println!("Thread Id {:#?}", t.thread_id());
+                        println!("{:#?}", t.backtrace());
+                    }
+                }
+            }
+            
+            
             Game::chunk_thread_inner_function(&cam_arc, &csys_arc, &mut last_user_c_pos);
         }
     }
@@ -6130,6 +6190,7 @@ impl Game {
                             }
                         }
                         if !Blocks::is_non_placeable(slot.0) {
+                            
                             if self.vars.in_multiplayer {
                                 if slot.1 == 1 {
                                     let mutslot =
@@ -6179,7 +6240,7 @@ impl Game {
 
                 None => {}
             }
-        } else {
+
             if Blocks::is_food(slot.0) {
                 //GET THIS FOODS HEALTH STATS
 
@@ -6189,12 +6250,12 @@ impl Game {
 
                 let h = self.health.load(Ordering::Relaxed);
 
-                let s = self.stamina.load(Ordering::Relaxed);
+                //let s = self.stamina.load(Ordering::Relaxed);
 
                 self.health
                     .store((h + foodstats.0 as i8).min(20), Ordering::Relaxed);
-                self.stamina
-                    .store((s + foodstats.1).min(100), Ordering::Relaxed);
+                // self.stamina
+                //     .store((s + foodstats.1).min(100), Ordering::Relaxed);
 
                 //REDUCE THE INV ITEM:
                 if self.vars.in_multiplayer {
@@ -6238,6 +6299,8 @@ impl Game {
                     }
                 }
             }
+        } else {
+            
         }
 
         if updateinv {

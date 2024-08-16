@@ -170,6 +170,17 @@ impl AudioPlayer {
         unsafe { FUNC_QUEUE.push(FuncQueue::play_in_head(id.to_string())) };
     }
 
+    pub fn stop_head_sound(&mut self, id: String) {
+        match self.headsinks.get(&id.to_string()) {
+            Some(sink) => {
+                sink.stop();
+            }
+            None => {
+
+            }
+        }
+    }
+
     pub fn _play_in_head(&mut self, id: String) {
         let mut needtopreload = false;
         match self.sounds.get(&id.to_string()) {
@@ -215,8 +226,15 @@ impl AudioPlayer {
         }
     }
 
-    pub fn stop_sound(&mut self, _id: &'static str) {
+    pub fn stop_sound(&mut self, id: &'static str) {
+        match self.sinks.get(&id.to_string()) {
+            Some(sink) => {
+                sink.sink.stop();
+            }
+            None => {
 
+            }
+        }
     }
 
     pub fn play_stringname(&mut self, id: String, pos: &Vec3, vel: &Vec3, vol: f32) {

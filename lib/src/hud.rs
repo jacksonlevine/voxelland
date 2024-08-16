@@ -8,7 +8,7 @@ use glfw::PWindow;
 
 use crate::game::ROWLENGTH;
 use crate::shader::Shader;
-use crate::textureface::TextureFace;
+use crate::textureface::{TextureFace, ONE_OVER_16};
 use crate::vec::{self, IVec3};
 use crate::windowandkey::{WINDOWHEIGHT, WINDOWWIDTH};
 use crate::{game, windowandkey};
@@ -180,10 +180,15 @@ impl Hud {
                     let realsize = (element.size*800.0) / Vec2::new(width as f32, height as f32);
 
                     let mut realpos = element.normalized_pos;
+                    let mut xoff = 0.0;
                     if bumped_slot != -1 
                     {
                         if bumped_slot as usize == index || bumped_slot as usize + ROWLENGTH as usize == index {
-                            realpos += Vec2::new(0.0, 0.05);
+                            if bumped_slot as usize == index {
+                                xoff = ONE_OVER_16;
+                            }
+                                realpos += Vec2::new(0.0, 0.03);
+                            
                         }
                     }
 
@@ -195,14 +200,16 @@ impl Hud {
                     let element_id = element.element_ass_slot_to_shader_float();
                     //info!("Putting e id {}", element_id);
 
-                    allgeo.extend_from_slice(&[
-                        bl.x, bl.y, element.uvs[0], element.uvs[1], element_id,
-                        br.x, br.y, element.uvs[2], element.uvs[3], element_id,
-                        tr.x, tr.y, element.uvs[4], element.uvs[5], element_id,
+                   
 
-                        tr.x, tr.y, element.uvs[6], element.uvs[7], element_id,
-                        tl.x, tl.y, element.uvs[8], element.uvs[9], element_id,
-                        bl.x, bl.y, element.uvs[10], element.uvs[11], element_id,
+                    allgeo.extend_from_slice(&[
+                        bl.x, bl.y, element.uvs[0] + xoff, element.uvs[1], element_id,
+                        br.x, br.y, element.uvs[2] + xoff, element.uvs[3], element_id,
+                        tr.x, tr.y, element.uvs[4] + xoff, element.uvs[5], element_id,
+
+                        tr.x, tr.y, element.uvs[6] + xoff, element.uvs[7], element_id,
+                        tl.x, tl.y, element.uvs[8] + xoff, element.uvs[9], element_id,
+                        bl.x, bl.y, element.uvs[10] + xoff, element.uvs[11], element_id,
                     ]);
                 }
                 

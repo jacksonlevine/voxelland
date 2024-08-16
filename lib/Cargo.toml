@@ -34,7 +34,7 @@ imgui-opengl-renderer = "0.12.1"
 crossbeam = "0.8.4"
 bytes = "1.6.1"
 steamworks = "0.11.0"
-parking_lot = "0.12.3"
+parking_lot = { version = "0.12.3", features = ["deadlock_detection"]}
 atomic_float = "1.0.0"
 
 [features]

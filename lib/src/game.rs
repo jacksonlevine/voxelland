@@ -4,6 +4,7 @@ use std::f32::consts::{self};
 use std::io::Write;
 
 use atomic_float::AtomicF32;
+use noise::Perlin;
 use once_cell::sync::Lazy;
 use tracing::info;
 
@@ -2410,6 +2411,8 @@ impl Game {
             let originalinvinv = invlock.clone();
             let originalinv = invlock.inv.clone();
 
+            drop(invlock);
+
 
 
             let mut morepossible = true;
@@ -2491,7 +2494,7 @@ impl Game {
 
             if all {
 
-                let mut newinv = invlock.clone();
+                let mut newinv = originalinvinv.clone();
 
 
                 while morepossible {
@@ -2524,9 +2527,9 @@ impl Game {
                     let mut amt = 0;
     
                     for i in 0..ROWLENGTH as usize {
-                        let typehere = invlock.inv[i].0;
+                        let typehere = originalinvinv.inv[i].0;
                         if typehere == req.0 {
-                            amt += invlock.inv[i].1;
+                            amt += originalinvinv.inv[i].1;
                         }
                     }
     
@@ -2538,7 +2541,9 @@ impl Game {
                 if hasreqs {
                     //Find an empty spot OR MATCHING RESULT ITEM SPOT in their imaginary inv that would exist if we were to subtract the necessary ingredients:
                     //Make an imaginary clone of their inventory:
+                    let invlock = self.inventory.read();
                     let mut invclone = invlock.inv.clone();
+                    drop(invlock);
     
                     //Subtract the ingredients
                     for req in &recipe.0 {
@@ -2579,7 +2584,7 @@ impl Game {
                         slot
                     };
     
-                    drop(invlock);
+                    //drop(invlock);
     
                     //Only execute the subtraction and addition of items if they will have that result slot available
                     match resultslot {
@@ -3673,7 +3678,26 @@ impl Game {
         //info!("Planet y off: {}", self.planet_y_offset);
     }
 
+    
+
     pub fn update_movement_and_physics(&mut self) {
+
+        static mut NUDM: Lazy<Arc<DashMap<IVec3, u32>>> = Lazy::new(|| Arc::new(DashMap::new()));
+        static mut UDM: Lazy<Arc<DashMap<IVec3, u32>>> = Lazy::new(|| Arc::new(DashMap::new()));
+        static mut PERL: Lazy<Arc<RwLock<Perlin>>> = Lazy::new(|| Arc::new(RwLock::new(Perlin::new(0))));
+        static mut hasbeenset: bool = false;
+
+
+        unsafe {
+            let cr = self.chunksys.read();
+            if !hasbeenset {
+                (*NUDM) = cr.nonuserdatamap.clone();
+                (*UDM) = cr.userdatamap.clone();
+                (*PERL) = cr.perlin.clone();
+                hasbeenset = true;
+            }
+        }
+
         static mut SPOTIFSHIFTING: Vec3 = Vec3::ZERO;
         static mut SPOTSET: bool = false;
 
@@ -3743,13 +3767,18 @@ impl Game {
             underfeetpos.z.floor() as i32,
         );
 
-        let blockfeetin = self.chunksys.read().blockat(feetposi) & Blocks::block_id_bits();
-        let blockfeetinlower =
-            self.chunksys.read().blockat(feetposi2) & Blocks::block_id_bits();
-        let blockbitsunderfeet = self.chunksys.read().blockat(underfeetposi);
-        let blockunderfeet = blockbitsunderfeet & Blocks::block_id_bits();
+        
+       
+        
 
-        let blockheadin = self.chunksys.read().blockat(headposi) & Blocks::block_id_bits();
+        let blockfeetin = unsafe { ChunkSystem::_blockat(&NUDM, &UDM, &PERL.read(), feetposi) & Blocks::block_id_bits()};
+        let blockfeetinlower = unsafe {
+        ChunkSystem::_blockat(&NUDM, &UDM, &PERL.read(), feetposi2) & Blocks::block_id_bits()};
+        let blockbitsunderfeet = unsafe { ChunkSystem::_blockat(&NUDM, &UDM, &PERL.read(), underfeetposi) };
+        let blockunderfeet = blockbitsunderfeet & Blocks::block_id_bits();
+       // println!("BUF: {}", blockunderfeet);
+
+        let blockheadin = unsafe { ChunkSystem::_blockat(&NUDM, &UDM, &PERL.read(), headposi) & Blocks::block_id_bits() };
 
         if blockheadin == 2 {
             self.headinwater = true;
@@ -3803,13 +3832,14 @@ impl Game {
                     },
                 ];
                 let dir = Blocks::get_direction_bits(blockbitsunderfeet);
+                //println!("Dir: {}", dir);
 
                 let multiplier = 2.4;
                 //println!("MUltiplier: {}", multiplier);
                 {
-                    let mut camlock = self.camera.lock();
-                    camlock.velocity += (DIRS[dir as usize] * 10.0 * multiplier) * self.delta_time;
-                    drop(camlock);
+                    let vel = (DIRS[dir as usize] * 70.0 * multiplier) * self.delta_time;
+                    cam_clone.velocity.x = vel.x;
+                    cam_clone.velocity.z = vel.z;
                 }
             }
             _ => {}

@@ -2,7 +2,7 @@
 
 
 
-use std::sync::RwLock;
+use parking_lot::{Mutex, RwLock};
 use glam::{Vec3};
 
 use crate::chunk::ChunkSystem;
@@ -21,7 +21,7 @@ pub fn raycast_voxel(origin: Vec3, direction: Vec3, csys: &RwLock<ChunkSystem>, 
             z: current_pos.z.floor() as i32,
         };
 
-        if csys.read().unwrap().collision_predicate(grid_pos) {
+        if csys.read().collision_predicate(grid_pos) {
             // Hit a block, return the current position and the grid position
             return Some((current_pos, grid_pos));
         }

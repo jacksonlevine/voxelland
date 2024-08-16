@@ -182,7 +182,7 @@ impl Game {
                         });
     
                         // Rasterize the triangle and update the collision map
-                        rasterize_triangle(transformed_triangle, &self.chunksys.read().unwrap().justcollisionmap);
+                        rasterize_triangle(transformed_triangle, &self.chunksys.read().justcollisionmap);
                     }
                 }
             }
@@ -202,9 +202,9 @@ impl Game {
 
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             let csys_arc = Arc::clone(&self.chunksys);
-            //println!("This thing thinks the seed is {}", csys_arc.read().unwrap().currentseed.read().unwrap());
+            //println!("This thing thinks the seed is {}", csys_arc.read().currentseed.read());
             Box::new(move |v: vec::IVec3| {
-                return csys_arc.read().unwrap().collision_predicate(v);
+                return csys_arc.read().collision_predicate(v);
             })
         };
 
@@ -226,7 +226,7 @@ impl Game {
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             let csys_arc = Arc::clone(&self.chunksys);
             Box::new(move |v: vec::IVec3| {
-                return csys_arc.read().unwrap().collision_predicate(v);
+                return csys_arc.read().collision_predicate(v);
             })
         };
 
@@ -249,7 +249,7 @@ impl Game {
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             let csys_arc = Arc::clone(&self.chunksys);
             Box::new(move |v: vec::IVec3| {
-                return csys_arc.read().unwrap().collision_predicate(v);
+                return csys_arc.read().collision_predicate(v);
             })
         };
 
@@ -274,7 +274,7 @@ impl Game {
                     match model.sound {
                         Some(str) => {
 
-                            //info!("Playing at {}, while player pos is {}", model.position, self.camera.lock().unwrap().position);
+                            //info!("Playing at {}, while player pos is {}", model.position, self.camera.lock().position);
                             #[cfg(feature = "audio")]
                             unsafe {
                                                            AUDIOPLAYER.play(str, &model.position, &model.velocity, Planets::get_mob_volume(model.model_index));
@@ -295,7 +295,7 @@ impl Game {
                 if model.attacktimer < model.attackinterval {
                     model.attacktimer += self.delta_time;
                 } else {
-                    let camlock = self.camera.lock().unwrap();
+                    let camlock = self.camera.lock();
                     let campos = camlock.position;
                     drop(camlock);
 
@@ -404,7 +404,7 @@ impl Game {
                 model.sounding = false;
             }
             
-            // if (makebelievepos).distance(self.camera.lock().unwrap().position) < 30.0 {
+            // if (makebelievepos).distance(self.camera.lock().position) < 30.0 {
             //     model.target = AggroTarget::ThisCamera;
             //     if model.soundtimer > 0.0 {
             //         model.soundtimer += self.delta_time;
@@ -494,7 +494,7 @@ impl Game {
 
             
             let camclone = {
-                let cam_lock = self.camera.lock().unwrap();
+                let cam_lock = self.camera.lock();
                 cam_lock.clone()
             };
 
@@ -666,8 +666,8 @@ impl Game {
                                         entity.position.y as i32,
                                         entity.position.z as i32
                                     );
-                                    let csyslock = self.chunksys.read().unwrap();
-                                    let lmlock = csyslock.lightmap.lock().unwrap();
+                                    let csyslock = self.chunksys.read();
+                                    let lmlock = csyslock.lightmap.lock();
 
                                     match lmlock.get(&samplingcoord) {
                                         Some(t) => {
@@ -732,7 +732,7 @@ impl Game {
                                 8.0
                             );
 
-                            let fogcol = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
+                            let fogcol = Planets::get_fog_col(self.chunksys.read().planet_type as u32);
 
                             gl::Uniform4f(
                                 gl::GetUniformLocation(

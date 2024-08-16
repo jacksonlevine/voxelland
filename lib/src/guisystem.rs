@@ -1,4 +1,5 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc};
+use parking_lot::{Mutex, RwLock};
 
 use glam::Vec2;
 use glfw::PWindow;
@@ -29,9 +30,9 @@ impl GuiSystem {
         let mut texts = Vec::new();
 
 
-        texts.push(Text::new("", &window.read().unwrap(), menu_shader.shader_id, Vec2::new(100.0,100.0), texture.id));
+        texts.push(Text::new("", &window.read(), menu_shader.shader_id, Vec2::new(100.0,100.0), texture.id));
 
-        texts.push(Text::new("Press B to board the ship.", &window.read().unwrap(), menu_shader.shader_id, Vec2::new(800.0,100.0), texture.id));
+        texts.push(Text::new("Press B to board the ship.", &window.read(), menu_shader.shader_id, Vec2::new(800.0,100.0), texture.id));
 
         GuiSystem {
             texts,

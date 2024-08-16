@@ -1,6 +1,8 @@
 
 
-use std::{sync::{Arc, Mutex, RwLock}};
+use std::{sync::{Arc}};
+
+use parking_lot::{Mutex, RwLock};
 
 use dashmap::DashMap;
 use glam::*;
@@ -135,7 +137,7 @@ impl ModelEntity {
         let chunkpos = ChunkSystem::spot_to_chunk_pos(&IVec3::new(self.position.x as i32, self.position.y as i32, self.position.z as i32));
         if self.lastchunkpos != chunkpos {
 
-            let csys = self.csys.write().unwrap();
+            let csys = self.csys.write();
 
             for neigh in NEIGHS {
                 let thisspot = chunkpos + neigh;
@@ -340,7 +342,7 @@ impl ModelEntity {
             self.sounding = false;
         }
 
-            let block = {let blockbitshere = self.csys.read().unwrap().blockat(IVec3::new(self.position.x.floor() as i32, self.position.y.floor() as i32, self.position.z.floor() as i32));
+            let block = {let blockbitshere = self.csys.read().blockat(IVec3::new(self.position.x.floor() as i32, self.position.y.floor() as i32, self.position.z.floor() as i32));
             let block = blockbitshere & Blocks::block_id_bits();
             block
             };
@@ -365,7 +367,7 @@ impl ModelEntity {
                     Some(res) => {
                         let block = 
                         {
-                            let blockbitshere = self.csys.read().unwrap().blockat(res.1);
+                            let blockbitshere = self.csys.read().blockat(res.1);
                             let block = blockbitshere & Blocks::block_id_bits();
                             block
                         };
@@ -426,7 +428,7 @@ impl ModelEntity {
                 }
                 AggroTarget::ThisCamera => {
                     self.speedfactor = 2.5;
-                    let campos = self.cam.lock().unwrap().position;
+                    let campos = self.cam.lock().position;
                     let mut diff = campos - self.position;
                     diff.y = 0.0;
                     self.set_direction(diff.normalize());

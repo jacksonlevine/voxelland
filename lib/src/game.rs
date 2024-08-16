@@ -12,7 +12,7 @@ use gl::types::{GLenum, GLsizei, GLsizeiptr, GLuint, GLvoid};
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use glfw::ffi::glfwGetTime;
 use glfw::{Action, Key, MouseButton, PWindow};
-use std::time::{Duration};
+use std::time::{Duration, Instant};
 
 use lockfree::queue::Queue;
 use rand::rngs::StdRng;
@@ -21,7 +21,10 @@ use rusqlite::{params, Connection};
 use uuid::Uuid;
 
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI8, AtomicU32, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
+
+use parking_lot::{Mutex, RwLock};
+
 use std::thread::{self, JoinHandle};
 
 #[cfg(feature = "audio")]
@@ -58,7 +61,7 @@ use crate::vec::{self, IVec2, IVec3};
 use crate::voxmodel::JVoxModel;
 use crate::windowandkey::uncapkb;
 use crate::worldgeometry::WorldGeometry;
-use std::sync::RwLock;
+
 
 static mut CONVEYOR_SOUND_TIMER: f32 = 0.0;
 
@@ -468,7 +471,7 @@ impl Game {
             spawn_audio_thread();
         }
 
-        faders.write().unwrap().extend(vec![
+        faders.write().extend(vec![
             Fader::new(83.0, 80.0, 30.0, false), //FOV fader for moving
             Fader::new(1.0, 0.0, 5.0, false),    //"Visions" fader for overlay
         ]);
@@ -530,9 +533,9 @@ impl Game {
         //csys.load_world_from_file(String::from("saves/world1"));
 
         //self.vars.hostile_world = false;
-        //let seed = *csys.currentseed.read().unwrap();
+        //let seed = *csys.currentseed.read();
         //self.start_chunks_with_radius(10, seed, 0);
-        //self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
+        //self.camera.lock().position = Vec3::new(0.0, 100.0, 0.0);
 
         let vmarc = Arc::new(voxel_models);
         let vmarc2 = vmarc.clone();
@@ -544,7 +547,7 @@ impl Game {
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool + Send + Sync> = {
             let csys_arc = Arc::clone(&chunksys);
             Box::new(move |v: vec::IVec3| {
-                let csys = csys_arc.read().unwrap();
+                let csys = csys_arc.read();
                 let bitshere = csys.blockat(v.clone());
 
                 let isntopendoor = DoorInfo::get_door_open_bit(bitshere) != 1;
@@ -555,7 +558,7 @@ impl Game {
                     && isntladder
                     && isntbamboo
                     && isnttallgrass
-                    && csys_arc.read().unwrap().collision_predicate(v);
+                    && csys_arc.read().collision_predicate(v);
             })
         };
 
@@ -570,41 +573,36 @@ impl Game {
                     let mut hitblock = false;
 
                     match cam_clone.try_lock() {
-                        Ok(camlock) => {
+                        Some(camlock) => {
                             pos = camlock.position.clone();
                         }
-                        Err(e) => {
+                        None => {
                             //println!("Failed to lock camera: {:?}", e);
                         }
                     }
 
                     if pos != Vec3::ZERO {
-                        match csysclone.read() {
-                            Ok(r) => {
-                                while !hitblock && pos.y < 128.0 {
-                                    let ppos = vec::IVec3::new(
-                                        pos.x.floor() as i32,
-                                        pos.y.round() as i32,
-                                        pos.z.floor() as i32,
-                                    );
-                                    if r.blockat(ppos) != 0 {
-                                        hitblock = true;
-                                        break;
-                                    }
-                                    pos.y += 1.0;
-                                }
-                                unsafe {
-                                    if hitblock {
-                                        ROOFOVERHEAD.store(true, Ordering::Relaxed)
-                                    } else {
-                                        ROOFOVERHEAD.store(false, Ordering::Relaxed)
-                                    }
-                                }
+                      let r = csysclone.read();
+                        while !hitblock && pos.y < 128.0 {
+                            let ppos = vec::IVec3::new(
+                                pos.x.floor() as i32,
+                                pos.y.round() as i32,
+                                pos.z.floor() as i32,
+                            );
+                            if r.blockat(ppos) != 0 {
+                                hitblock = true;
+                                break;
                             }
-                            Err(e) => {
-                                //println!("Failed to read csysclone: {:?}", e);
+                            pos.y += 1.0;
+                        }
+                        unsafe {
+                            if hitblock {
+                                ROOFOVERHEAD.store(true, Ordering::Relaxed)
+                            } else {
+                                ROOFOVERHEAD.store(false, Ordering::Relaxed)
                             }
-                        };
+                        }
+                     
                     }
 
                     thread::sleep(Duration::from_millis(250));
@@ -1193,10 +1191,10 @@ impl Game {
     pub fn update_avail_recipes(inv: &Arc<RwLock<Inventory>>) {
         unsafe {
             {
-                CURRENT_AVAIL_RECIPES.lock().unwrap().clear();
+                CURRENT_AVAIL_RECIPES.lock().clear();
             }
 
-            let inv = inv.write().unwrap();
+            let inv = inv.write();
 
             for rec in RECIPES.iter() {
                 let requirements = rec.0.clone();
@@ -1224,7 +1222,7 @@ impl Game {
                 if able {
                     CURRENT_AVAIL_RECIPES
                         .lock()
-                        .unwrap()
+       
                         .push(RecipeEntry::from_recipe(rec.clone()));
                 }
                 //let result = rec.1;
@@ -1234,7 +1232,7 @@ impl Game {
 
     pub fn save_one_chest_to_file(&self, key: IVec3) {
         let seed = {
-            let c = self.chunksys.read().unwrap();
+            let c = self.chunksys.read();
             let s = unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)};
             s.clone()
         };
@@ -1283,7 +1281,7 @@ impl Game {
     
     pub fn save_current_chests_to_file(&self) {
         let seed = {
-            let c = self.chunksys.read().unwrap();
+            let c = self.chunksys.read();
             let s = unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)};
             s.clone()
         };
@@ -1327,7 +1325,7 @@ impl Game {
 
     pub fn load_chests_from_file(&self) {
         let seed = {
-            let c = self.chunksys.read().unwrap();
+            let c = self.chunksys.read();
             let s = unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)};
             s.clone()
         };
@@ -1439,7 +1437,6 @@ impl Game {
             let address = self
                 .address
                 .lock()
-                .unwrap()
                 .as_ref()
                 .unwrap()
                 .trim()
@@ -1458,14 +1455,14 @@ impl Game {
                         .send(&Message::new(MessageType::Disconnect, Vec3::ZERO, 0.0, 0))
                 }
                 #[cfg(feature = "glfw")]
-                self.window.write().unwrap().set_should_close(true);
+                self.window.write().set_should_close(true);
             }
             "closemenu" => {
                 self.vars.menu_open = false;
                 #[cfg(feature = "glfw")]
                 self.window
                     .write()
-                    .unwrap()
+          
                     .set_cursor_mode(glfw::CursorMode::Disabled);
                 self.set_mouse_focused(true);
             }
@@ -1652,7 +1649,7 @@ impl Game {
         let mut ship_back = vec::IVec3::new(10, 200, 0);
         // Function to decrement y until a block is found
         fn find_ground_y(position: &mut vec::IVec3, game: &Game) {
-            while game.chunksys.read().unwrap().blockat(*position) == 0 {
+            while game.chunksys.read().blockat(*position) == 0 {
                 position.y -= 1;
             }
         }
@@ -1671,13 +1668,13 @@ impl Game {
         let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
 
         if self.vars.in_multiplayer {
-            //ChunkSystem::initial_rebuild_on_main_thread(&self.chunksys.clone(), &self.shader0, &self.camera.lock().unwrap().position);
+            //ChunkSystem::initial_rebuild_on_main_thread(&self.chunksys.clone(), &self.shader0, &self.camera.lock().position);
             while !self.netconn.received_world.load(Ordering::Relaxed) {
                 thread::sleep(Duration::from_millis(500));
             }
         }
 
-        self.vars.hostile_world = (self.chunksys.read().unwrap().planet_type % 2) != 0;
+        self.vars.hostile_world = (self.chunksys.read().planet_type % 2) != 0;
 
         //self.audiop.play("assets/music/Farfromhome.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
         //self.audiop.play("assets/sfx/shipland28sec.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
@@ -1688,7 +1685,7 @@ impl Game {
 
         unsafe {
             SPAWNPOINT = ship_float_pos + Vec3::new(5.0, 2.0, 0.0);
-            self.camera.lock().unwrap().position = SPAWNPOINT;
+            self.camera.lock().position = SPAWNPOINT;
         }
 
         //self.static_model_entities.push(ModelEntity::new(5, Vec3::new(0.0, 25.0, 200.0), 140.0, Vec3::new(0.0, 0.0, 0.0), &self.chunksys, &self.camera));
@@ -1799,7 +1796,7 @@ impl Game {
 
             // Set uniforms
             let cam_clone = {
-                let cam_lock = self.camera.lock().unwrap();
+                let cam_lock = self.camera.lock();
                 cam_lock.clone()
             };
             
@@ -1868,7 +1865,7 @@ impl Game {
                 8.0,
             );
 
-            let fogcol = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
+            let fogcol = Planets::get_fog_col(self.chunksys.read().planet_type as u32);
             gl::Uniform4f(
                 gl::GetUniformLocation(
                     self.cloudshader.shader_id,
@@ -1996,7 +1993,7 @@ impl Game {
 
             // Set uniforms
             let cam_clone = {
-                let cam_lock = self.camera.lock().unwrap();
+                let cam_lock = self.camera.lock();
                 cam_lock.clone()
             };
             
@@ -2062,7 +2059,7 @@ impl Game {
                 8.0,
             );
 
-            let fogcol = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
+            let fogcol = Planets::get_fog_col(self.chunksys.read().planet_type as u32);
             gl::Uniform4f(
                 gl::GetUniformLocation(
                     self.starshader.shader_id,
@@ -2161,7 +2158,7 @@ impl Game {
 
         for i in ROWLENGTH..(ROWLENGTH*2){
             let realslotind = i - ROWLENGTH;
-            let slot = self.inventory.read().unwrap().inv[realslotind as usize];
+            let slot = self.inventory.read().inv[realslotind as usize];
             let idinslot = slot.0;
             let texcoords = Blocks::get_tex_coords(idinslot, crate::cube::CubeSide::LEFT);
             let tf = TextureFace::new(texcoords.0 as i8, texcoords.1 as i8);
@@ -2293,7 +2290,7 @@ impl Game {
             n.push(Message::invupdate(slot, newid, newcount));
             result = Ok(true);
         } else {
-            let mut inventory = inv.write().unwrap();
+            let mut inventory = inv.write();
             // If not found, try to find an empty slot to add the new item
             let item = &mut inventory.inv[slot];
 
@@ -2324,7 +2321,7 @@ impl Game {
         if in_m {
             let n = needtosend.clone();
 
-            let inventory = inv.read().unwrap();
+            let inventory = inv.read();
 
             // First, try to find an item with the given `id`
             if let Some((index, item)) = inventory
@@ -2374,7 +2371,7 @@ impl Game {
                 result = Err(false);
             }
         } else {
-            let mut inventory = inv.write().unwrap();
+            let mut inventory = inv.write();
 
             // First, try to find an item with the given `id`
             if let Some(item) = inventory.inv.iter_mut().find(|item| item.0 == id) {
@@ -2405,12 +2402,12 @@ impl Game {
     pub fn craft_recipe_index(&mut self, index: usize, all: bool) {
         unsafe {
             let recipe = {
-                let r = CURRENT_AVAIL_RECIPES.lock().unwrap();
+                let r = CURRENT_AVAIL_RECIPES.lock();
                 &r[index].clone().recipe
             };
 
             let mut hasreqs = true;
-            let invlock = self.inventory.write().unwrap();
+            let invlock = self.inventory.write();
 
             let originalinvinv = invlock.clone();
             let originalinv = invlock.inv.clone();
@@ -2637,7 +2634,7 @@ impl Game {
             y: 0.0,
             z: 0.0,
         };
-        let cl = self.camera.lock().unwrap();
+        let cl = self.camera.lock();
         let campos = cl.position - cl.direction * 0.5;
         drop(cl);
 
@@ -2662,7 +2659,7 @@ impl Game {
     pub fn do_step_sound_now(&mut self, position: Vec3) {
         let campos = position;
         let camfootpos = campos - Vec3::new(0.0, 2.0, 0.0);
-        let blockat = self.chunksys.read().unwrap().blockat(IVec3::new(
+        let blockat = self.chunksys.read().blockat(IVec3::new(
             camfootpos.x.floor() as i32,
             camfootpos.y.floor() as i32,
             camfootpos.z.floor() as i32,
@@ -2688,10 +2685,10 @@ impl Game {
             camfootpos.y.floor() as i32,
             camfootpos.z.floor() as i32,
         );
-        let blockat = self.chunksys.read().unwrap().blockat(spot);
+        let blockat = self.chunksys.read().blockat(spot);
         let blockat = blockat & Blocks::block_id_bits();
         // if blockat != 0 {
-        //     self.audiop.write().unwrap().play_next_in_series(&Blocks::get_walk_series(blockat), &(camfootpos), &Vec3::new(0.0, 0.0, 0.0), 0.5);
+        //     self.audiop.write().play_next_in_series(&Blocks::get_walk_series(blockat), &(camfootpos), &Vec3::new(0.0, 0.0, 0.0), 0.5);
         // }
 
         match blockat {
@@ -2699,7 +2696,7 @@ impl Game {
                 if !self.vars.in_multiplayer {
                     self.chunksys
                         .read()
-                        .unwrap()
+  
                         .set_block_and_queue_rerender_no_sound(spot, 41, false, true, true);
                 } else {
                     let mut message = Message::new(
@@ -2727,7 +2724,7 @@ impl Game {
                 if !self.vars.in_multiplayer {
                     self.chunksys
                         .read()
-                        .unwrap()
+
                         .set_block_and_queue_rerender_no_sound(spot, 40, false, true, true);
                 } else {
                     let mut message = Message::new(
@@ -2751,9 +2748,9 @@ impl Game {
                 }
             }
             42 => {
-                let d = self.camera.lock().unwrap().direction.clone();
+                let d = self.camera.lock().direction.clone();
 
-                self.camera.lock().unwrap().velocity +=
+                self.camera.lock().velocity +=
                     Vec3::new(0.0, TRAMPOLINE_VELOCITY_FIGURE, 0.0) + d;
                 #[cfg(feature = "audio")]
                 unsafe {
@@ -2851,7 +2848,7 @@ impl Game {
             .unwrap();
 
         let mut rows = stmt
-            .query([self.my_uuid.read().unwrap().unwrap().to_string()])
+            .query([self.my_uuid.read().unwrap().to_string()])
             .unwrap();
 
         if let Some(row) = rows.next().unwrap() {
@@ -2859,7 +2856,7 @@ impl Game {
 
             match bincode::deserialize::<[(u32, u32); ROWLENGTH as usize]>(&inventory) {
                 Ok(inv) => {
-                    let mut invlock = self.inventory.write().unwrap();
+                    let mut invlock = self.inventory.write();
                     invlock.inv = inv.clone();
                 }
                 Err(_e) => {
@@ -2895,7 +2892,7 @@ impl Game {
             .unwrap();
 
         let mut rows = stmt
-            .query([self.my_uuid.read().unwrap().unwrap().to_string()])
+            .query([self.my_uuid.read().unwrap().to_string()])
             .unwrap();
 
         if let Some(row) = rows.next().unwrap() {
@@ -2903,7 +2900,7 @@ impl Game {
 
             match bincode::deserialize::<PlayerPosition>(&pp) {
                 Ok(playpos) => {
-                    let mut camlock = self.camera.lock().unwrap();
+                    let mut camlock = self.camera.lock();
                     camlock.position = Vec3::new(playpos.pos.x, playpos.pos.y, playpos.pos.z);
                     camlock.pitch = playpos.pitch;
                     camlock.yaw = playpos.yaw;
@@ -3071,7 +3068,7 @@ impl Game {
         }
 
 
-        let mut todlock = self.timeofday.lock().unwrap();
+        let mut todlock = self.timeofday.lock();
         *todlock = (*todlock + self.delta_time) % self.daylength;
 
         let gaussian_value =
@@ -3087,7 +3084,7 @@ impl Game {
 
         drop(todlock);
 
-        let fadersread = self.faders.read().unwrap();
+        let fadersread = self.faders.read();
 
         let overlayfade = fadersread[FaderNames::VisionsFader as usize].value.clone();
 
@@ -3096,7 +3093,7 @@ impl Game {
 
         #[cfg(feature = "glfw")]
         if !self.headless {
-            let (x, y) = self.window.read().unwrap().get_cursor_pos();
+            let (x, y) = self.window.read().get_cursor_pos();
 
             unsafe {
                 MOUSEX = x;
@@ -3112,12 +3109,9 @@ impl Game {
                     if hudel.overlaps(x, y) {
                         unsafe {
                             MOUSED_SLOT = SlotIndexType::InvSlot(i as i32);
-                            match self.inventory.read() {
-                                Ok(inv) => {
+                            let inv = self.inventory.read();
                                     TOOLTIPNAME = Blocks::get_name(inv.inv[i].0);
-                                }
-                                Err(_) => {}
-                            }
+                              
 
                             SHOWTOOLTIP = true;
                             isoverlappingany = true;
@@ -3133,7 +3127,7 @@ impl Game {
                             MOUSED_SLOT = SlotIndexType::ChestSlot(i as i32);
 
                             match self.chunksys.try_read() {
-                                Ok(csys) => {
+                                Some(csys) => {
                                     match self.chest_registry.get(&self.hud.current_chest) {
                                         Some(chest) => {
                                             TOOLTIPNAME = Blocks::get_name(chest.value().inv[i].0);
@@ -3141,7 +3135,7 @@ impl Game {
                                         None => {}
                                     }
                                 }
-                                Err(_) => {}
+                                None => {}
                             }
 
                             SHOWTOOLTIP = true;
@@ -3185,7 +3179,7 @@ impl Game {
                             MessageType::BlockSet => {
                                 if comm.infof == 1.0 {
                                     if comm.info == 0 {
-                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                        self.chunksys.read().set_block_and_queue_rerender(
                                             IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32),
                                             comm.info,
                                             true,
@@ -3193,7 +3187,7 @@ impl Game {
                                             false
                                         );
                                     } else {
-                                        self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                        self.chunksys.read().set_block_and_queue_rerender(
                                             IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32),
                                             comm.info,
                                             false,
@@ -3205,7 +3199,7 @@ impl Game {
                                     if comm.info == 0 {
                                         self.chunksys
                                             .read()
-                                            .unwrap()
+                                           
                                             .set_block_and_queue_rerender_no_sound(
                                                 IVec3::new(
                                                     comm.x as i32,
@@ -3220,7 +3214,7 @@ impl Game {
                                     } else {
                                         self.chunksys
                                             .read()
-                                            .unwrap()
+                                       
                                             .set_block_and_queue_rerender_no_sound(
                                                 IVec3::new(
                                                     comm.x as i32,
@@ -3240,7 +3234,7 @@ impl Game {
                                 }
                             }
                             MessageType::MultiBlockSet => {
-                                let cread = self.chunksys.read().unwrap();
+                                let cread = self.chunksys.read();
 
                                 cread.set_block_no_sound(
                                     IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32),
@@ -3278,7 +3272,7 @@ impl Game {
 
                                 let mut updateinv = false;
 
-                                match *self.my_uuid.read().unwrap() {
+                                match *self.my_uuid.read() {
                                     Some(ud) => {
                                         if uuid == ud && comm.z == 1.0 {
                                             //this message is intended for my inv and it is to replace my mouse_slot
@@ -3292,7 +3286,7 @@ impl Game {
 
                                 match slotindextype {
                                     SlotIndexType::ChestSlot(e) => {
-                                        //let csys = self.chunksys.write().unwrap();
+                                        //let csys = self.chunksys.write();
                                         let mut chestinv = self
                                             .chest_registry
                                             .entry(currchest)
@@ -3311,7 +3305,7 @@ impl Game {
                                         //comm.x = wasthere.0 as f32; comm.y = wasthere.1 as f32;
                                     }
                                     SlotIndexType::InvSlot(e) => {
-                                        let ud = match *self.my_uuid.read().unwrap() {
+                                        let ud = match *self.my_uuid.read() {
                                             Some(ud) => Some(ud.clone()),
                                             None => None,
                                         };
@@ -3320,7 +3314,7 @@ impl Game {
                                             Some(ud) => {
                                                 if uuid == ud {
                                                     let playerinv =
-                                                        &mut self.inventory.write().unwrap();
+                                                        &mut self.inventory.write();
                                                     let slot = &mut playerinv.inv[e as usize];
 
                                                     // let wasthere = slot.clone();
@@ -3364,7 +3358,7 @@ impl Game {
                             }
                             MessageType::TimeUpdate => {
                                 //println!("Songindex: {}", unsafe { SONGINDEX });
-                                let mut todlock = self.timeofday.lock().unwrap();
+                                let mut todlock = self.timeofday.lock();
                                 *todlock = comm.infof;
                                 unsafe {
                                     WEATHERTYPE = comm.rot;
@@ -3387,7 +3381,7 @@ impl Game {
                             }
                             MessageType::BlockSet => {
                                 if comm.info == 0 {
-                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                    self.chunksys.read().set_block_and_queue_rerender(
                                         IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32),
                                         comm.info,
                                         true,
@@ -3395,7 +3389,7 @@ impl Game {
                                         false
                                     );
                                 } else {
-                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                    self.chunksys.read().set_block_and_queue_rerender(
                                         IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32),
                                         comm.info,
                                         false,
@@ -3503,10 +3497,10 @@ impl Game {
 
             //}
 
-            for i in self.faders.write().unwrap().iter_mut().enumerate() {
+            for i in self.faders.write().iter_mut().enumerate() {
                 if i.1.tick(self.delta_time) {
                     if i.0 == (FaderNames::FovFader as usize) {
-                        self.camera.lock().unwrap().update_fov(i.1.value);
+                        self.camera.lock().update_fov(i.1.value);
                     }
                 }
             }
@@ -3516,12 +3510,12 @@ impl Game {
                 || self.controls.right)
                 && unsafe { SPRINTING }
             {
-                if !self.faders.read().unwrap()[FaderNames::FovFader as usize].mode {
-                    self.faders.write().unwrap()[FaderNames::FovFader as usize].up();
+                if !self.faders.read()[FaderNames::FovFader as usize].mode {
+                    self.faders.write()[FaderNames::FovFader as usize].up();
                 }
             } else {
-                if self.faders.read().unwrap()[FaderNames::FovFader as usize].mode {
-                    self.faders.write().unwrap()[FaderNames::FovFader as usize].down();
+                if self.faders.read()[FaderNames::FovFader as usize].mode {
+                    self.faders.write()[FaderNames::FovFader as usize].down();
                 }
             }
             self.draw();
@@ -3532,7 +3526,7 @@ impl Game {
 
             self.guisys.draw_text(0);
 
-            let mvp = self.camera.lock().unwrap().mvp;
+            let mvp = self.camera.lock().mvp;
 
             self.drops.update_and_draw_drops(&self.delta_time, &mvp);
 
@@ -3548,7 +3542,7 @@ impl Game {
                 self.draw_current_vision(overlayfade);
                 unsafe {
                     if self.visions_timer > 3.0 {
-                        self.faders.write().unwrap()[FaderNames::VisionsFader as usize].down();
+                        self.faders.write()[FaderNames::VisionsFader as usize].down();
                     } else {
                         self.visions_timer += self.delta_time;
                     }
@@ -3560,7 +3554,7 @@ impl Game {
                 AUDIOPLAYER.update();
             }
 
-            let camlock = self.camera.lock().unwrap();
+            let camlock = self.camera.lock();
 
             let pos = camlock.position.clone();
             let dir = camlock.direction.clone();
@@ -3598,7 +3592,7 @@ impl Game {
             #[cfg(feature = "audio")]
             self.do_step_sounds();
 
-            if self.inventory.read().unwrap().dirty {
+            if self.inventory.read().dirty {
                 self.update_inventory();
             }
 
@@ -3622,7 +3616,7 @@ impl Game {
                 }
             }
 
-            // let camlock = self.camera.lock().unwrap();
+            // let camlock = self.camera.lock();
             // let shipdist = camlock.position.distance(self.ship_pos);
             // if shipdist < 30.0 && shipdist > 10.0 {
             //     self.vars.near_ship = true;
@@ -3687,7 +3681,7 @@ impl Game {
 
         let camarc = self.camera.clone();
         let mut cam_clone = {
-                let camlock = camarc.lock().unwrap();
+                let camlock = camarc.lock();
 
 
                 let cam_clone: Camera = camlock.clone();
@@ -3711,7 +3705,7 @@ impl Game {
 
         static mut wasngrounded: bool = false;
 
-        match *self.my_uuid.read().unwrap() {
+        match *self.my_uuid.read() {
             Some(uuid) => match self.known_cameras.get_mut(&uuid) {
                 Some(mut pos) => {
                     *pos = cam_clone.position;
@@ -3751,13 +3745,13 @@ impl Game {
             underfeetpos.z.floor() as i32,
         );
 
-        let blockfeetin = self.chunksys.read().unwrap().blockat(feetposi) & Blocks::block_id_bits();
+        let blockfeetin = self.chunksys.read().blockat(feetposi) & Blocks::block_id_bits();
         let blockfeetinlower =
-            self.chunksys.read().unwrap().blockat(feetposi2) & Blocks::block_id_bits();
-        let blockbitsunderfeet = self.chunksys.read().unwrap().blockat(underfeetposi);
+            self.chunksys.read().blockat(feetposi2) & Blocks::block_id_bits();
+        let blockbitsunderfeet = self.chunksys.read().blockat(underfeetposi);
         let blockunderfeet = blockbitsunderfeet & Blocks::block_id_bits();
 
-        let blockheadin = self.chunksys.read().unwrap().blockat(headposi) & Blocks::block_id_bits();
+        let blockheadin = self.chunksys.read().blockat(headposi) & Blocks::block_id_bits();
 
         if blockheadin == 2 {
             self.headinwater = true;
@@ -3815,7 +3809,7 @@ impl Game {
                 let multiplier = 2.4;
                 //println!("MUltiplier: {}", multiplier);
                 {
-                    let mut camlock = self.camera.lock().unwrap();
+                    let mut camlock = self.camera.lock();
                     camlock.velocity += (DIRS[dir as usize] * 10.0 * multiplier) * self.delta_time;
                     drop(camlock);
                 }
@@ -3943,7 +3937,7 @@ impl Game {
 
 
         let mut proposed = {
-            let mut camlock = self.camera.lock().unwrap();
+            let mut camlock = self.camera.lock();
 
             (*camlock) = cam_clone;
 
@@ -4035,7 +4029,7 @@ impl Game {
 
 
         {
-            let mut camlock = self.camera.lock().unwrap();
+            let mut camlock = self.camera.lock();
             *camlock = cam_clone;
         }
 
@@ -4064,10 +4058,10 @@ impl Game {
         self.health.store(newamount, std::sync::atomic::Ordering::Relaxed);
         if newamount <= 0 { //DEAD
 
-            let mut camlock = self.camera.lock().unwrap();
+            let mut camlock = self.camera.lock();
             let campos = camlock.position.clone();
 
-            let mut inv = self.inventory.write().unwrap();
+            let mut inv = self.inventory.write();
             for i in 0..ROWLENGTH {
                 let amt = inv.inv[i as usize].1;
                 #[cfg(feature = "glfw")]
@@ -4143,7 +4137,7 @@ impl Game {
                 );
             }
 
-            let camlock = self.camera.lock().unwrap();
+            let camlock = self.camera.lock();
             let c = camlock.clone();
             drop(camlock);
             let cam_clone = c;
@@ -4193,7 +4187,7 @@ impl Game {
         static mut BREAK_TIME: f32 = 0.0;
 
         let cam_clone = {
-            let c = self.camera.lock().unwrap();
+            let c = self.camera.lock();
             c.clone()
         };
 
@@ -4221,7 +4215,7 @@ impl Game {
                             BREAK_TIME = 0.0;
                             LAST_BLOCK_POS = hit;
                         }
-                        self.chunksys.read().unwrap().blockat(hit) & Blocks::block_id_bits()
+                        self.chunksys.read().blockat(hit) & Blocks::block_id_bits()
                     }
                     None => 0,
                 };
@@ -4238,7 +4232,7 @@ impl Game {
 
                     let slot_selected = self.hud.bumped_slot;
                     let slot = {
-                        let b = self.inventory.read().unwrap().inv[slot_selected];
+                        let b = self.inventory.read().inv[slot_selected];
                         b.clone()
                     };
 
@@ -4273,14 +4267,14 @@ impl Game {
             }
         }
         {
-            let mut c = self.camera.lock().unwrap();
+            let mut c = self.camera.lock();
             (*c) = cam_clone;
         }
     }
 
     #[cfg(feature = "glfw")]
     pub fn draw(&self) {
-        let campitch = self.camera.lock().unwrap().pitch;
+        let campitch = self.camera.lock().pitch;
 
         //Sky
         #[cfg(feature = "glfw")]
@@ -4316,7 +4310,7 @@ impl Game {
         let ugqarc = self
             .chunksys
             .read()
-            .unwrap()
+     
             .finished_user_geo_queue
             .clone();
 
@@ -4326,11 +4320,11 @@ impl Game {
                 //info!("Some user queue");
                 // info!("Weird!");
 
-                let bankarc = self.chunksys.read().unwrap().geobank[ready.geo_index].clone();
+                let bankarc = self.chunksys.read().geobank[ready.geo_index].clone();
 
-                let cs = self.chunksys.read().unwrap();
+                let cs = self.chunksys.read();
 
-                let mut cmemlock = cs.chunk_memories.lock().unwrap();
+                let mut cmemlock = cs.chunk_memories.lock();
 
                 cmemlock.memories[ready.geo_index].length = ready.newlength;
                 cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
@@ -4384,32 +4378,32 @@ impl Game {
                 WorldGeometry::bind_old_geometry(
                     vv,
                     uvv,
-                    &bankarc.vdata.lock().unwrap(),
-                    &bankarc.uvdata.lock().unwrap(),
+                    &bankarc.vdata.lock(),
+                    &bankarc.uvdata.lock(),
                     &self.oldshader,
                 );
                 WorldGeometry::bind_old_geometry(
                     wvv,
                     wuvv,
-                    &bankarc.wvdata.lock().unwrap(),
-                    &bankarc.wuvdata.lock().unwrap(),
+                    &bankarc.wvdata.lock(),
+                    &bankarc.wuvdata.lock(),
                     &self.oldshader,
                 );
             }
             None => {}
         }
 
-        let gqarc = self.chunksys.read().unwrap().finished_geo_queue.clone();
+        let gqarc = self.chunksys.read().finished_geo_queue.clone();
 
         match gqarc.pop() {
             Some(ready) => {
                 //info!("Weird!");
 
-                let bankarc = self.chunksys.read().unwrap().geobank[ready.geo_index].clone();
+                let bankarc = self.chunksys.read().geobank[ready.geo_index].clone();
 
-                let cs = self.chunksys.read().unwrap();
+                let cs = self.chunksys.read();
 
-                let mut cmemlock = cs.chunk_memories.lock().unwrap();
+                let mut cmemlock = cs.chunk_memories.lock();
 
                 cmemlock.memories[ready.geo_index].length = ready.newlength;
                 cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
@@ -4464,15 +4458,15 @@ impl Game {
                 WorldGeometry::bind_old_geometry(
                     vv,
                     uvv,
-                    &bankarc.vdata.lock().unwrap(),
-                    &bankarc.uvdata.lock().unwrap(),
+                    &bankarc.vdata.lock(),
+                    &bankarc.uvdata.lock(),
                     &self.oldshader,
                 );
                 WorldGeometry::bind_old_geometry(
                     wvv,
                     wuvv,
-                    &bankarc.wvdata.lock().unwrap(),
-                    &bankarc.wuvdata.lock().unwrap(),
+                    &bankarc.wvdata.lock(),
+                    &bankarc.wuvdata.lock(),
                     &self.oldshader,
                 );
 
@@ -4484,9 +4478,9 @@ impl Game {
                             // info!("Weird!");
 
                             let bankarc =
-                                self.chunksys.read().unwrap().geobank[ready.geo_index].clone();
+                                self.chunksys.read().geobank[ready.geo_index].clone();
 
-                            //let mut cmemlock = self.chunksys.chunk_memories.lock().unwrap();
+                            //let mut cmemlock = self.chunksys.chunk_memories.lock();
 
                             cmemlock.memories[ready.geo_index].length = ready.newlength;
                             cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
@@ -4540,15 +4534,15 @@ impl Game {
                             WorldGeometry::bind_old_geometry(
                                 vv,
                                 uvv,
-                                &bankarc.vdata.lock().unwrap(),
-                                &bankarc.uvdata.lock().unwrap(),
+                                &bankarc.vdata.lock(),
+                                &bankarc.uvdata.lock(),
                                 &self.oldshader,
                             );
                             WorldGeometry::bind_old_geometry(
                                 wvv,
                                 wuvv,
-                                &bankarc.wvdata.lock().unwrap(),
-                                &bankarc.wuvdata.lock().unwrap(),
+                                &bankarc.wvdata.lock(),
+                                &bankarc.wuvdata.lock(),
                                 &self.oldshader,
                             );
                         }
@@ -4565,7 +4559,7 @@ impl Game {
         }
 
         let cam_clone = {
-            let cam_lock = self.camera.lock().unwrap();
+            let cam_lock = self.camera.lock();
             cam_lock.clone()
         };
 
@@ -4662,14 +4656,14 @@ impl Game {
                 ),
                 0,
             );
-            let fc = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
+            let fc = Planets::get_fog_col(self.chunksys.read().planet_type as u32);
             gl::Uniform4f(FOGCOL_LOC, fc.0, fc.1, fc.2, fc.3);
 
 
         }
 
-        let cs = self.chunksys.read().unwrap();
-        let cmem = cs.chunk_memories.lock().unwrap();
+        let cs = self.chunksys.read();
+        let cmem = cs.chunk_memories.lock();
         for (_index, cfl) in cmem.memories.iter().enumerate() {
             if cfl.used {
                 let dd1: Mutex<Vec<u32>> = Mutex::new(Vec::new());
@@ -4861,7 +4855,7 @@ impl Game {
                         ),
                         2,
                     );
-                    // let fc = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
+                    // let fc = Planets::get_fog_col(self.chunksys.read().planet_type as u32);
                     // gl::Uniform4f(
                     //     FOGCOL_LOC,
                     //     fc.0,
@@ -4939,7 +4933,7 @@ impl Game {
         let csysarc = self.chunksys.clone();
 
         //Uncomment to do automata (just snow updating grass simulation for now)
-        //csysarc.write().unwrap().do_automata(&carc);
+        //csysarc.write().do_automata(&carc);
 
         let handle = thread::spawn(move || {
             Game::chunk_thread_function(&rctarc, carc, csysarc);
@@ -4969,7 +4963,7 @@ impl Game {
         self.drops.drops.clear();
 
         self.non_static_model_entities.clear();
-        self.chunksys.write().unwrap().exit();
+        self.chunksys.write().exit();
     }
 
     pub fn start_chunks_with_radius(&mut self, newradius: u8, seed: u32, nt: usize) {
@@ -4986,9 +4980,9 @@ impl Game {
         self.drops.drops.clear();
         self.non_static_model_entities.clear();
 
-        self.chunksys.write().unwrap().reset(newradius, seed, nt);
+        self.chunksys.write().reset(newradius, seed, nt);
 
-        self.chunksys.write().unwrap().voxel_models = Some(self.voxel_models.clone());
+        self.chunksys.write().voxel_models = Some(self.voxel_models.clone());
 
         //self.drops.csys = self.chunksys.clone();
 
@@ -5070,7 +5064,7 @@ impl Game {
         &mut self,
     ) -> std::thread::JoinHandle<()> {
         // let _csys = self.chunksys.clone();
-        // let _campos = self.camera.lock().unwrap().position.clone();
+        // let _campos = self.camera.lock().position.clone();
         // let _shader = self.shader0.clone();
 
         let threadhandle = thread::spawn(move || {
@@ -5082,7 +5076,7 @@ impl Game {
         // while !threadhandle.is_finished() {
 
         //     //self.draw();
-        //     self.window.read().unwrap()
+        //     self.window.read()
         //     let current_time = unsafe { glfwGetTime() as f32 };
         //     self.delta_time = current_time - self.prev_time;
 
@@ -5157,7 +5151,7 @@ impl Game {
         //             }
 
         //             //TEMPORARILY DISABLED UNTIL WE CAN DO A LIGHT UPDATE WITHOUT STUTTERING THE MAIN FUCKING THREAD DUMBASS
-        //             //let c = csys_arc.read().unwrap();
+        //             //let c = csys_arc.read();
         //             // for i in implicated {
         //             //     QUEUE_THESE.push(i);
         //             //     //c.queue_rerender_with_key(i, true, true);
@@ -5171,7 +5165,7 @@ impl Game {
 
         let mut lightstuff = true;
         while lightstuff {
-            let csys_arc = csys_arc.read().unwrap();
+            let csys_arc = csys_arc.read();
 
             match csys_arc.light_rebuild_requests.pop() {
                 Some(index) => {
@@ -5186,7 +5180,7 @@ impl Game {
 
         let mut userstuff = true;
         while userstuff {
-            let csys_arc = csys_arc.read().unwrap();
+            let csys_arc = csys_arc.read();
 
             match csys_arc.user_rebuild_requests.pop() {
                 Some(index) => {
@@ -5208,7 +5202,7 @@ impl Game {
         }
         let mut genstuff = true;
         while genstuff {
-            let csys_arc = csys_arc.read().unwrap();
+            let csys_arc = csys_arc.read();
 
             match csys_arc.gen_rebuild_requests.pop() {
                 Some(index) => {
@@ -5243,7 +5237,7 @@ impl Game {
                 match AUTOMATA_QUEUED_CHANGES.pop() {
                     Some(comm) => {
                         println!("Poppin one");
-                                let csys_arc = csys_arc.read().unwrap();
+                                let csys_arc = csys_arc.read();
 
                                 if (csys_arc.blockat(comm.spot) & Blocks::block_id_bits()) == comm.expectedhere {
     
@@ -5262,7 +5256,7 @@ impl Game {
                     None => {}
                 }
             }
-            let csys_arc = csys_arc.read().unwrap();
+            let csys_arc = csys_arc.read();
 
             match csys_arc.background_rebuild_requests.pop() {
                 Some(index) => {
@@ -5311,7 +5305,7 @@ impl Game {
             }
         }
 
-        let camlock = cam_arc.lock().unwrap();
+        let camlock = cam_arc.lock();
         let vec3 = camlock.position;
         drop(camlock);
 
@@ -5339,7 +5333,7 @@ impl Game {
 
                 let mut neededspots: Vec<IVec2> = Vec::new();
 
-                let cam_lock = cam_arc.lock().unwrap();
+                let cam_lock = cam_arc.lock();
                 let user_cpos = IVec2 {
                     x: (cam_lock.position.x / 15.0).floor() as i32,
                     y: (cam_lock.position.z / 15.0).floor() as i32,
@@ -5347,14 +5341,14 @@ impl Game {
                 drop(cam_lock);
 
                 let radius = {
-                    let x = csys_arc.read().unwrap().radius;
+                    let x = csys_arc.read().radius;
                     x.clone()
                 };
 
                 for i in -(radius as i32)..(radius as i32) {
                     for k in -(radius as i32)..(radius as i32) {
 
-                        let csys_arc = csys_arc.read().unwrap();
+                        let csys_arc = csys_arc.read();
 
                         let tcarc = csys_arc.takencare.clone();
                         let this_spot = IVec2 {
@@ -5369,14 +5363,14 @@ impl Game {
 
                 let mut sorted_chunk_facades: Vec<ChunkFacade> = Vec::new();
                 {
-                    let csyschunks = csys_arc.read().unwrap().chunks.clone();
+                    let csyschunks = csys_arc.read().chunks.clone();
 
                     for carc in &csyschunks {
                         match carc.try_lock() {
-                            Ok(cf) => {
+                            Some(cf) => {
                                 sorted_chunk_facades.push(*cf);
                             }
-                            Err(_) => {}
+                            None => {}
                         }
                     }
                 }
@@ -5404,7 +5398,7 @@ impl Game {
                 });
 
                 for (index, ns) in neededspots.iter().enumerate() {
-                    let csys_arc = csys_arc.read().unwrap();
+                    let csys_arc = csys_arc.read();
                     csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns);
                     
                     match csys_arc.user_rebuild_requests.pop() {
@@ -5473,7 +5467,7 @@ impl Game {
                 static mut LASTCAM: Lazy<Camera> = Lazy::new(|| Camera::default());
 
                 let mut cam_clone = {
-                    let c =  self.camera.lock().unwrap();
+                    let c =  self.camera.lock();
                     c.clone()
                 };
 
@@ -5497,7 +5491,7 @@ impl Game {
                 cam_clone.recalculate();
 
                 {
-                    let mut c =  self.camera.lock().unwrap();
+                    let mut c =  self.camera.lock();
                     (*c) = cam_clone;
                 }
 
@@ -5528,7 +5522,7 @@ impl Game {
         while let Some(current) = stack.pop() {
             // Check if the block at the current position is already deleted
 
-            let chunksys = chunksys.read().unwrap();
+            let chunksys = chunksys.read();
 
             if chunksys.blockat(current) != 0 {
                 // Set the block at the current position
@@ -5548,7 +5542,7 @@ impl Game {
     pub fn cast_break_ray(&mut self) {
         
         let cl = {
-            let cl = self.camera.lock().unwrap();
+            let cl = self.camera.lock();
             cl.clone()
         };
         match raycast_voxel_with_bob(
@@ -5559,7 +5553,7 @@ impl Game {
             self.vars.walkbobtimer,
         ) {
             Some((tip, block_hit)) => {
-                let blockbits = self.chunksys.read().unwrap().blockat(block_hit);
+                let blockbits = self.chunksys.read().blockat(block_hit);
                 let blockat = blockbits & Blocks::block_id_bits();
                 if blockat == 16 {
                     let mut set: HashSet<IVec2> = HashSet::new();
@@ -5567,7 +5561,7 @@ impl Game {
                     for key in set {
                         self.chunksys
                             .read()
-                            .unwrap()
+
                             .queue_rerender_with_key(key, true, false);
                     }
                     #[cfg(feature = "glfw")]
@@ -5595,10 +5589,10 @@ impl Game {
 
                         self.netconn.send(&message);
                     } else {
-                        self.chunksys.read().unwrap().set_block(block_hit, 0, true);
+                        self.chunksys.read().set_block(block_hit, 0, true);
                         self.chunksys
                             .read()
-                            .unwrap()
+                        
                             .set_block_and_queue_rerender(other_half, 0, true, true, false);
                     }
                 } else {
@@ -5619,7 +5613,7 @@ impl Game {
                     } else {
                         self.chunksys
                             .read()
-                            .unwrap()
+                        
                             .set_block_and_queue_rerender(block_hit, 0, true, true, false);
                     }
                 }
@@ -5647,14 +5641,14 @@ impl Game {
     #[cfg(feature = "glfw")]
     pub fn cast_place_ray(&mut self) {
         let slot_selected = self.hud.bumped_slot;
-        let slot = self.inventory.read().unwrap().inv[slot_selected];
+        let slot = self.inventory.read().inv[slot_selected];
 
         let mut updateinv = false;
         let mut openedcraft = false;
 
         if true {
             let cl = {
-                let c = self.camera.lock().unwrap();
+                let c = self.camera.lock();
                 c.clone()
             };
 
@@ -5666,7 +5660,7 @@ impl Game {
                 self.vars.walkbobtimer,
             ) {
                 Some((tip, block_hit)) => {
-                    let mut blockbitshere = self.chunksys.read().unwrap().blockat(block_hit);
+                    let mut blockbitshere = self.chunksys.read().blockat(block_hit);
                     let blockidhere = blockbitshere & Blocks::block_id_bits();
 
                     if blockidhere == 19 {
@@ -5678,7 +5672,7 @@ impl Game {
                         } else {
                             otherhalf = block_hit + IVec3::new(0, 1, 0);
                         }
-                        let mut otherhalfbits = self.chunksys.read().unwrap().blockat(otherhalf);
+                        let mut otherhalfbits = self.chunksys.read().blockat(otherhalf);
 
                         DoorInfo::toggle_door_open_bit(&mut blockbitshere);
                         DoorInfo::toggle_door_open_bit(&mut otherhalfbits);
@@ -5698,12 +5692,12 @@ impl Game {
                             message.otherpos = otherhalf;
                             self.netconn.send(&message);
                         } else {
-                            self.chunksys.write().unwrap().set_block(
+                            self.chunksys.write().set_block(
                                 otherhalf,
                                 otherhalfbits,
                                 true,
                             );
-                            self.chunksys.write().unwrap().set_block_and_queue_rerender(
+                            self.chunksys.write().set_block_and_queue_rerender(
                                 block_hit,
                                 blockbitshere,
                                 true,
@@ -5714,7 +5708,7 @@ impl Game {
                     } else if blockidhere == 21 {
                         //RIGHT CLICKED A CHEST
 
-                        //let _csys = self.chunksys.write().unwrap();
+                        //let _csys = self.chunksys.write();
 
                         self.hud.current_chest = block_hit;
                         updateinv = true;
@@ -5726,7 +5720,7 @@ impl Game {
 
                         self.window
                             .write()
-                            .unwrap()
+                           
                             .set_cursor_mode(glfw::CursorMode::Normal);
                         openedcraft = true;
                     } else if slot.0 != 0 && slot.1 > 0 {
@@ -5766,7 +5760,7 @@ impl Game {
 
 
                         //Don't allow placing blocks where solid blocks or the player are
-                        let blockbitsatplacepoint = self.chunksys.read().unwrap().blockat(place_point);
+                        let blockbitsatplacepoint = self.chunksys.read().blockat(place_point);
                         let blockidatplacepoint = blockbitsatplacepoint & Blocks::block_id_bits();
 
                         if !Blocks::is_overwritable(blockidatplacepoint) {
@@ -5793,7 +5787,7 @@ impl Game {
                             let place_above = place_point + IVec3::new(0, 1, 0);
                             let place_below = place_point + IVec3::new(0, -1, 0);
 
-                            let csysread = self.chunksys.read().unwrap();
+                            let csysread = self.chunksys.read();
 
                             let condition1 = csysread.blockat(place_above) == 0;
                             let condition2 = csysread.blockat(place_below) != 0;
@@ -5831,7 +5825,7 @@ impl Game {
                                     right = place_point - neighbor_axes[direction as usize];
                                 }
 
-                                let csysread = self.chunksys.read().unwrap();
+                                let csysread = self.chunksys.read();
 
                                 let mut blockbitsright = csysread.blockat(right);
                                 let mut blockbitsleft = csysread.blockat(left);
@@ -5843,7 +5837,7 @@ impl Game {
                                     if neighdir == direction
                                         && DoorInfo::get_door_top_bit(blockbitsright) == 0
                                     {
-                                        let csysread = self.chunksys.read().unwrap();
+                                        let csysread = self.chunksys.read();
 
                                         let rightup = right + IVec3::new(0, 1, 0);
                                         let mut neightopbits = csysread.blockat(rightup);
@@ -5875,7 +5869,7 @@ impl Game {
                                         } else {
                                             self.chunksys
                                                 .read()
-                                                .unwrap()
+                                            
                                                 .set_block_and_queue_rerender(
                                                     right,
                                                     blockbitsright,
@@ -5885,7 +5879,7 @@ impl Game {
                                                 );
                                             self.chunksys
                                                 .read()
-                                                .unwrap()
+                                            
                                                 .set_block_and_queue_rerender(
                                                     rightup,
                                                     neightopbits,
@@ -5904,7 +5898,7 @@ impl Game {
                                     {
                                         let leftup = left + IVec3::new(0, 1, 0);
 
-                                        let csysread = self.chunksys.read().unwrap();
+                                        let csysread = self.chunksys.read();
 
                                         let mut neightopbits = csysread.blockat(leftup);
 
@@ -5935,7 +5929,7 @@ impl Game {
                                         } else {
                                             self.chunksys
                                                 .read()
-                                                .unwrap()
+                                               
                                                 .set_block_and_queue_rerender(
                                                     left,
                                                     blockbitsleft,
@@ -5945,7 +5939,7 @@ impl Game {
                                                 );
                                             self.chunksys
                                                 .read()
-                                                .unwrap()
+                                             
                                                 .set_block_and_queue_rerender(
                                                     leftup,
                                                     neightopbits,
@@ -5974,14 +5968,14 @@ impl Game {
 
                                     self.netconn.send(&message);
                                 } else {
-                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                    self.chunksys.read().set_block_and_queue_rerender(
                                         place_point,
                                         bottom_id,
                                         false,
                                         true,
                                         true
                                     );
-                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                    self.chunksys.read().set_block_and_queue_rerender(
                                         place_above,
                                         top_id,
                                         false,
@@ -6022,7 +6016,7 @@ impl Game {
 
                                 self.netconn.send(&message);
                             } else {
-                                self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                self.chunksys.read().set_block_and_queue_rerender(
                                     place_point,
                                     conveyor_id,
                                     false,
@@ -6062,7 +6056,7 @@ impl Game {
 
                                 self.netconn.send(&message);
                             } else {
-                                self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                self.chunksys.read().set_block_and_queue_rerender(
                                     place_point,
                                     ladder_id,
                                     false,
@@ -6102,7 +6096,7 @@ impl Game {
 
                                 self.netconn.send(&message);
                             } else {
-                                self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                self.chunksys.read().set_block_and_queue_rerender(
                                     place_point,
                                     chest_id,
                                     false,
@@ -6125,7 +6119,7 @@ impl Game {
                                     );
                                     self.netconn.send(&message);
                                 } else {
-                                    self.chunksys.read().unwrap().set_block_and_queue_rerender(
+                                    self.chunksys.read().set_block_and_queue_rerender(
                                         place_point,
                                         id,
                                         false,
@@ -6139,7 +6133,7 @@ impl Game {
                             if self.vars.in_multiplayer {
                                 if slot.1 == 1 {
                                     let mutslot =
-                                        &mut self.inventory.write().unwrap().inv[slot_selected];
+                                        &mut self.inventory.write().inv[slot_selected];
                                     mutslot.1 = 0;
                                     mutslot.0 = 0;
 
@@ -6154,7 +6148,7 @@ impl Game {
 
                                     self.netconn.send(&msg);
                                 } else {
-                                    let slot = &self.inventory.read().unwrap().inv[slot_selected];
+                                    let slot = &self.inventory.read().inv[slot_selected];
 
                                     let mut msg = Message::new(
                                         MessageType::ChestInvUpdate,
@@ -6170,12 +6164,12 @@ impl Game {
                             } else {
                                 if slot.1 == 1 {
                                     let mutslot =
-                                        &mut self.inventory.write().unwrap().inv[slot_selected];
+                                        &mut self.inventory.write().inv[slot_selected];
                                     mutslot.1 = 0;
                                     mutslot.0 = 0;
                                 } else {
                                     let mutslot =
-                                        &mut self.inventory.write().unwrap().inv[slot_selected];
+                                        &mut self.inventory.write().inv[slot_selected];
                                     mutslot.1 -= 1;
                                 }
                             }
@@ -6205,7 +6199,7 @@ impl Game {
                 //REDUCE THE INV ITEM:
                 if self.vars.in_multiplayer {
                     if slot.1 == 1 {
-                        let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                        let mutslot = &mut self.inventory.write().inv[slot_selected];
                         mutslot.1 = 0;
                         mutslot.0 = 0;
 
@@ -6220,7 +6214,7 @@ impl Game {
 
                         self.netconn.send(&msg);
                     } else {
-                        let slot = &self.inventory.read().unwrap().inv[slot_selected];
+                        let slot = &self.inventory.read().inv[slot_selected];
 
                         let mut msg = Message::new(
                             MessageType::ChestInvUpdate,
@@ -6235,11 +6229,11 @@ impl Game {
                     }
                 } else {
                     if slot.1 == 1 {
-                        let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                        let mutslot = &mut self.inventory.write().inv[slot_selected];
                         mutslot.1 = 0;
                         mutslot.0 = 0;
                     } else {
-                        let mutslot = &mut self.inventory.write().unwrap().inv[slot_selected];
+                        let mutslot = &mut self.inventory.write().inv[slot_selected];
                         mutslot.1 -= 1;
                     }
                 }
@@ -6252,7 +6246,7 @@ impl Game {
 
             self.window
                 .write()
-                .unwrap()
+           
                 .set_cursor_mode(glfw::CursorMode::Normal);
             self.set_mouse_focused(false);
         }
@@ -6271,7 +6265,7 @@ impl Game {
                     if a == Action::Press {
                         let mut updateinv = false;
                         {
-                            let csys = self.chunksys.write().unwrap();
+                            let csys = self.chunksys.write();
                             unsafe {
                                 match MOUSED_SLOT {
                                     SlotIndexType::ChestSlot(e) => {
@@ -6350,7 +6344,7 @@ impl Game {
                                     }
                                     SlotIndexType::InvSlot(e) => {
                                         let slot =
-                                            &mut self.inventory.write().unwrap().inv[e as usize];
+                                            &mut self.inventory.write().inv[e as usize];
 
                                         //IF This slot has an item id the same as our mouse slot
                                         if slot.0 == self.mouse_slot.0 {
@@ -6485,7 +6479,7 @@ impl Game {
             println!("This called");
 
             static mut CURR_NT: usize = 0;
-            self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
+            self.camera.lock().position = Vec3::new(0.0, 100.0, 0.0);
 
             unsafe {
                 self.vars.hostile_world = (CURR_NT % 2) == 0;
@@ -6495,16 +6489,16 @@ impl Game {
 
                 info!(
                     "Now noise type is {}",
-                    self.chunksys.read().unwrap().planet_type
+                    self.chunksys.read().planet_type
                 );
             }
         }
 
         // self.chunksys.load_world_from_file(String::from("saves/world1"));
         // self.vars.hostile_world = false;
-        // let seed = *self.chunksys.currentseed.read().unwrap();
+        // let seed = *self.chunksys.currentseed.read();
         // self.start_chunks_with_radius(10, seed, 0);
-        // self.camera.lock().unwrap().position = Vec3::new(0.0, 100.0, 0.0);
+        // self.camera.lock().position = Vec3::new(0.0, 100.0, 0.0);
     }
 
     #[cfg(feature = "glfw")]
@@ -6518,7 +6512,7 @@ impl Game {
                         self.vars.menu_open = false;
                         self.window
                             .write()
-                            .unwrap()
+                         
                             .set_cursor_mode(glfw::CursorMode::Disabled);
                         self.set_mouse_focused(true);
                         unsafe {
@@ -6530,7 +6524,7 @@ impl Game {
                         self.crafting_open = false;
                         self.window
                             .write()
-                            .unwrap()
+                         
                             .set_cursor_mode(glfw::CursorMode::Disabled);
                         self.set_mouse_focused(true);
                         unsafe {
@@ -6542,7 +6536,7 @@ impl Game {
                         self.hud.chest_open = false;
                         self.window
                             .write()
-                            .unwrap()
+                         
                             .set_cursor_mode(glfw::CursorMode::Disabled);
                         self.set_mouse_focused(true);
                         unsafe {
@@ -6575,7 +6569,7 @@ impl Game {
 
                     self.window
                         .write()
-                        .unwrap()
+                       
                         .set_cursor_mode(glfw::CursorMode::Normal);
                     self.set_mouse_focused(false);
                 } else {
@@ -6645,7 +6639,7 @@ impl Game {
             // }
             // Key::L => {
             //     if action == Action::Press {
-            //         self.chunksys.read().unwrap().save_current_world_to_file(String::from("saves/world1"));
+            //         self.chunksys.read().save_current_world_to_file(String::from("saves/world1"));
             //     }
             // }
             // Key::Num8 => {
@@ -6663,29 +6657,29 @@ impl Game {
             // }
             // Key::B => {
             //     if self.vars.near_ship {
-            //         let mut camlock = self.camera.lock().unwrap();
+            //         let mut camlock = self.camera.lock();
             //         camlock.position = self.ship_pos + Vec3::new(5.0, 2.0, 0.0);
             //     }
             // }
             Key::Num0 => {
-                self.faders.write().unwrap()[FaderNames::FovFader as usize].up();
-                self.faders.write().unwrap()[FaderNames::FovFader as usize].top += 1.0;
-                self.faders.write().unwrap()[FaderNames::FovFader as usize].bottom += 1.0;
+                self.faders.write()[FaderNames::FovFader as usize].up();
+                self.faders.write()[FaderNames::FovFader as usize].top += 1.0;
+                self.faders.write()[FaderNames::FovFader as usize].bottom += 1.0;
             }
             Key::Num9 => {
-                self.faders.write().unwrap()[FaderNames::FovFader as usize].down();
-                self.faders.write().unwrap()[FaderNames::FovFader as usize].top -= 1.0;
-                self.faders.write().unwrap()[FaderNames::FovFader as usize].bottom -= 1.0;
+                self.faders.write()[FaderNames::FovFader as usize].down();
+                self.faders.write()[FaderNames::FovFader as usize].top -= 1.0;
+                self.faders.write()[FaderNames::FovFader as usize].bottom -= 1.0;
             }
             Key::P => {
                 if action == Action::Press
-                    && !self.faders.read().unwrap()[FaderNames::VisionsFader as usize].mode
+                    && !self.faders.read()[FaderNames::VisionsFader as usize].mode
                 {
                     let mut rng = StdRng::from_entropy();
                     self.current_vision =
                         Some(VisionType::Model(rng.gen_range(2..self.gltf_models.len())));
                     self.visions_timer = 0.0;
-                    self.faders.write().unwrap()[FaderNames::VisionsFader as usize].up();
+                    self.faders.write()[FaderNames::VisionsFader as usize].up();
                     #[cfg(feature = "audio")]
                     unsafe {
                         AUDIOPLAYER.play_in_head("assets/sfx/dreambell.mp3");
@@ -6700,7 +6694,7 @@ impl Game {
 
             // }
             Key::O => {
-                //self.faders.write().unwrap()[FaderNames::VisionsFader as usize].down();
+                //self.faders.write()[FaderNames::VisionsFader as usize].down();
             }
             _ => {}
         }

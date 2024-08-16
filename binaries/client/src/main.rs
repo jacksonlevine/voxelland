@@ -59,7 +59,7 @@ fn main() {
 
     unsafe {
         while !DECIDEDSPORMP {
-            if !wak_context.window.read().unwrap().should_close() {
+            if !wak_context.window.read().should_close() {
                 wak_context.run();
             } else {
                 return ();
@@ -73,7 +73,7 @@ fn main() {
     let gameh = Game::new(&wak_context.window, true, false, &wak_context.addressentered, &wak_context.serveraddress);
 
     while !gameh.is_finished() {
-        if !wak_context.window.read().unwrap().should_close() {
+        if !wak_context.window.read().should_close() {
             wak_context.run();
         } else {
             return ();
@@ -100,7 +100,7 @@ fn main() {
     let handle = wak_context.game.as_mut().unwrap().initialize_being_in_world();
 
     while !handle.is_finished() {
-        if !wak_context.window.read().unwrap().should_close() {
+        if !wak_context.window.read().should_close() {
             wak_context.run();
         } else {
             return ();
@@ -119,12 +119,12 @@ fn main() {
     
     wak_context.game.as_mut().unwrap().start_world();
     wak_context.game.as_mut().unwrap().set_mouse_focused(true);
-    wak_context.game.as_mut().unwrap().window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+    wak_context.game.as_mut().unwrap().window.write().set_cursor_mode(glfw::CursorMode::Disabled);
     unsafe {
         uncapkb.store(true, std::sync::atomic::Ordering::Relaxed);
     }
     
-    while !wak_context.window.read().unwrap().should_close() {
+    while !wak_context.window.read().should_close() {
         wak_context.run();
     }
 

@@ -1,4 +1,5 @@
 use std::{sync::*};
+use parking_lot::{Mutex, RwLock};
 
 use gl::types::{GLuint, GLvoid};
 use glam::{Mat4, Vec3};
@@ -31,7 +32,7 @@ impl Drop {
         let solid_pred: Box<dyn Fn(vec::IVec3) -> bool  + Send + Sync> = {
             let csys_arc = Arc::clone(&csys);
             Box::new(move |v: vec::IVec3| {
-                return csys_arc.read().unwrap().collision_predicate(v);
+                return csys_arc.read().collision_predicate(v);
             })
         };
 
@@ -221,7 +222,7 @@ impl Drops {
             let cc_center = drop.position;
             drop.coll_cage.update_readings(cc_center);
             
-            let campos = self.cam.lock().unwrap().position - Vec3::new(0.0, 1.0, 0.0);
+            let campos = self.cam.lock().position - Vec3::new(0.0, 1.0, 0.0);
             if (drop.position).distance(campos) < 4.0 {
                 let diff = campos - drop.position;
 

@@ -4,7 +4,8 @@ use glfw::{Action, Context, Glfw, GlfwReceiver, Key, Modifiers, PWindow, WindowE
 use once_cell::sync::Lazy;
 
 
-use std::{sync::{atomic::AtomicBool, Arc, Mutex, RwLock}, time::{Duration, Instant}};
+use std::{sync::{atomic::AtomicBool, Arc}, time::{Duration, Instant}};
+use parking_lot::{Mutex, RwLock};
 use imgui::*;
 use imgui::{Key as ImGuiKey};
 use imgui_opengl_renderer::Renderer;
@@ -240,7 +241,7 @@ impl WindowAndKeyContext {
 
                     self.imgui.io_mut().update_delta_time(Duration::from_secs_f32(self.delta_time));
             
-                    let (width, height) = self.window.read().unwrap().get_framebuffer_size();
+                    let (width, height) = self.window.read().get_framebuffer_size();
                     self.imgui.io_mut().display_size = [width as f32, height as f32];
                                         
                     // Start the ImGui frame
@@ -488,7 +489,7 @@ impl WindowAndKeyContext {
                                     let gamecurrentbuttons = g.currentbuttons.clone();
                                     
                                     
-                                    let (width, height) = self.window.read().unwrap().get_framebuffer_size();
+                                    let (width, height) = self.window.read().get_framebuffer_size();
                                     self.imgui.io_mut().display_size = [width as f32, height as f32];
                                     
                                     // Start the ImGui frame
@@ -589,7 +590,7 @@ impl WindowAndKeyContext {
                                         let cb = g.currentbuttons.clone();
             
                                         
-                                        let (width, height) = self.window.read().unwrap().get_framebuffer_size();
+                                        let (width, height) = self.window.read().get_framebuffer_size();
                                         self.imgui.io_mut().display_size = [width as f32, height as f32];
                                         
                                         // Start the ImGui frame
@@ -633,7 +634,7 @@ impl WindowAndKeyContext {
                                                     if CROUCHING {
                                                         ui.text_colored([1.0, 1.0, 0.0, 1.0], "Ctrl pressed.");
                                                     }
-                                                    for (index, recipeent) in CURRENT_AVAIL_RECIPES.lock().unwrap().iter_mut().enumerate() {
+                                                    for (index, recipeent) in CURRENT_AVAIL_RECIPES.lock().iter_mut().enumerate() {
       
                                                         let recipe = recipeent.recipe.clone();
                                                         ui.set_cursor_pos([pos_x, pos_y]);
@@ -753,7 +754,7 @@ impl WindowAndKeyContext {
                                                         
                                                         
                                                         if !gmenuopen && !gchestopen {
-                                                            self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+                                                            self.window.write().set_cursor_mode(glfw::CursorMode::Disabled);
                                                             self.game.as_mut().unwrap().set_mouse_focused(true);
                                                         }
                                                         
@@ -803,11 +804,11 @@ impl WindowAndKeyContext {
                                                 if key == Key::Escape {
                                                     if self.game.as_mut().unwrap().vars.menu_open {
                                                     
-                                                        self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Normal);
+                                                        self.window.write().set_cursor_mode(glfw::CursorMode::Normal);
                                                         self.game.as_mut().unwrap().set_mouse_focused(false);
                                                     } else {
                                                         self.game.as_mut().unwrap().vars.menu_open = false;
-                                                        self.window.write().unwrap().set_cursor_mode(glfw::CursorMode::Disabled);
+                                                        self.window.write().set_cursor_mode(glfw::CursorMode::Disabled);
                                                         self.game.as_mut().unwrap().set_mouse_focused(true);
                                                     }
                                                     
@@ -820,7 +821,7 @@ impl WindowAndKeyContext {
                                             match key {
                                                 Key::F11 => {
                                                     if action == Action::Press {
-                                                        let wind = self.window.write().unwrap();
+                                                        let wind = self.window.write();
                                                         toggle_fullscreen(wind.window_ptr())
                                                         
                                                     }
@@ -874,7 +875,7 @@ impl WindowAndKeyContext {
             
                         self.imgui.io_mut().update_delta_time(Duration::from_secs_f32(self.delta_time));
             
-                        let (width, height) = self.window.read().unwrap().get_framebuffer_size();
+                        let (width, height) = self.window.read().get_framebuffer_size();
                         self.imgui.io_mut().display_size = [width as f32, height as f32];
                         
                         // Start the ImGui frame
@@ -934,7 +935,7 @@ impl WindowAndKeyContext {
                                             *LAST_ENTERED_SERVERADDRESS = self.serveraddrbuffer.clone();
                                         }
                                         SAVE_LESA();
-                                        *(self.serveraddress.lock().unwrap()) = Some(self.serveraddrbuffer.clone());
+                                        *(self.serveraddress.lock()) = Some(self.serveraddrbuffer.clone());
                                         self.addressentered.store(true, std::sync::atomic::Ordering::Relaxed);
                                     }
                                     pos_y += button_height + 10.0; // Add some spacing between buttons
@@ -1041,7 +1042,7 @@ impl WindowAndKeyContext {
 
         
 
-        self.window.write().unwrap().swap_buffers();
+        self.window.write().swap_buffers();
     }
 
     fn set_mod(io: &mut imgui::Io, modifier: Modifiers) {

@@ -3,7 +3,8 @@ use std::net::{TcpStream, ToSocketAddrs};
 use std::io::{self, Read, Write};
 use tracing::info;
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc};
+use parking_lot::{Mutex, RwLock};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use bincode;
@@ -75,7 +76,7 @@ impl NetworkConnector {
 
         if let Some(stream) = &self.stream {
             let serialized_message = bincode::serialize(message).unwrap();
-            let mut stream_lock = stream.lock().unwrap();
+            let mut stream_lock = stream.lock();
             stream_lock.write_all(&serialized_message).unwrap();
         }
     }
@@ -83,7 +84,7 @@ impl NetworkConnector {
     pub fn sendto(message: &Message, stream: &Arc<Mutex<TcpStream>>) {
        // info!("Sending a {}", message.message_type);
         let serialized_message = bincode::serialize(message).unwrap();
-        let mut stream_lock = stream.lock().unwrap();
+        let mut stream_lock = stream.lock();
         let mut attempts = 0;
 
         loop {
@@ -215,10 +216,10 @@ impl NetworkConnector {
 
                             let data_available = {
                                 match stream.try_lock() {
-                                    Ok(stream_lock) => {
+                                    Some(stream_lock) => {
                                         stream_lock.peek(&mut temp_buffer).is_ok()
                                     }
-                                    Err(_e) => {
+                                    None => {
                                         false
                                     }
                                 }
@@ -226,7 +227,7 @@ impl NetworkConnector {
                             };
 
                             if data_available {
-                                let mut stream_lock = stream.lock().unwrap();
+                                let mut stream_lock = stream.lock();
 
 
 
@@ -305,7 +306,7 @@ impl NetworkConnector {
 
 
                                                         Game::static_load_chests_from_file(seed, &chestreg);
-                                                        //csys.write().unwrap().load_my_inv_from_file();
+                                                        //csys.write().load_my_inv_from_file();
                                                         hpcommqueue.push(comm);
                                                         recv_world_bool.store(true, std::sync::atomic::Ordering::Relaxed);
                                                         shouldsend.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -389,10 +390,10 @@ impl NetworkConnector {
                                             },
                                             MessageType::BlockSet => {
                                                 // if recv_m.info == 0 {
-                                                //     csys.read().unwrap().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
+                                                //     csys.read().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
                                                 //     recv_m.info, true, true);
                                                 // } else {
-                                                //     csys.read().unwrap().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
+                                                //     csys.read().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
                                                 //     recv_m.info, false, true);
                                                 // }
                                                 
@@ -401,10 +402,10 @@ impl NetworkConnector {
                                             },
                                             MessageType::MultiBlockSet => {
                                                 // if recv_m.info == 0 {
-                                                //     csys.read().unwrap().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
+                                                //     csys.read().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
                                                 //     recv_m.info, true, true);
                                                 // } else {
-                                                //     csys.read().unwrap().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
+                                                //     csys.read().set_block_and_queue_rerender(IVec3::new(recv_m.x as i32, recv_m.y as i32, recv_m.z as i32), 
                                                 //     recv_m.info, false, true);
                                                 // }
                                                 hpcommqueue.push(comm.clone());
@@ -509,7 +510,7 @@ impl NetworkConnector {
 
 
 
-                                                csys.write().unwrap().load_world_from_file(String::from("mp"));
+                                                csys.write().load_world_from_file(String::from("mp"));
 
                                                 thread::sleep(Duration::from_millis(200));
                                                 NetworkConnector::sendtolocked(&reqchest, &mut stream_lock);
@@ -535,7 +536,7 @@ impl NetworkConnector {
                                                 gknowncams.insert(
                                                     uuid.clone(), Vec3::ZERO
                                                 );
-                                                //*(my_uuid.write().unwrap()) = Some(uuid);
+                                                //*(my_uuid.write()) = Some(uuid);
 
 
                                                 

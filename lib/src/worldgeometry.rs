@@ -1,5 +1,4 @@
-use std::sync::Mutex;
-
+use parking_lot::{Mutex, RwLock};
 use tracing::info;
 use crate::shader::Shader;
 use gl;
@@ -224,7 +223,7 @@ impl WorldGeometry {
         //info!("BInding geomery"); //Ah yes praise the lord when this is commented out it means nothing is wrong 
         unsafe {
             if upload {
-                let datalock = data.0.lock().unwrap();
+                let datalock = data.0.lock();
                 gl::NamedBufferData(
                     vbo32,
                     (datalock.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
@@ -273,7 +272,7 @@ impl WorldGeometry {
                 if error != gl::NO_ERROR {
                     info!("OpenGL Error after u32 attrib binding: {}", error);
                 }
-                let data1lock = data.1.lock().unwrap();
+                let data1lock = data.1.lock();
                 gl::NamedBufferData(
                     vbo8,
                     (data1lock.len() * std::mem::size_of::<u8>()) as gl::types::GLsizeiptr,
@@ -342,7 +341,7 @@ impl WorldGeometry {
             }
             if upload {
 
-                let data2lock = data.2.lock().unwrap();
+                let data2lock = data.2.lock();
                 gl::NamedBufferData(
                     vbo8rgb,
                     (data2lock.len() * std::mem::size_of::<u16>()) as gl::types::GLsizeiptr,

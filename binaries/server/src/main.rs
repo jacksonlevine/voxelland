@@ -11,7 +11,8 @@ use std::fs::{File};
 use std::io::{ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc};
+use parking_lot::{Mutex, RwLock};
 
 use std::thread;
 use std::time::Duration;
@@ -75,7 +76,7 @@ fn handle_client(
         let mut should_break = false;
 
         let stream = {
-            let clients = clients.lock().unwrap();
+            let clients = clients.lock();
             match clients.get(&client_id) {
                 Some(c) => {
                     Some(c.stream.clone())
@@ -92,7 +93,7 @@ fn handle_client(
                 let mut numbytes2 = 0;
 
                 let mut message = {
-                    let mut mystream = stream.lock().unwrap();
+                    let mut mystream = stream.lock();
         
                     match mystream.read(&mut buffer) {
                         Ok(numbytes) => {
@@ -146,7 +147,7 @@ fn handle_client(
                         let udmmsg = Message::new(MessageType::Udm, Vec3::ZERO, 0.0, buffer.len() as u32);
         
                         {
-                            let mut mystream = stream.lock().unwrap();
+                            let mut mystream = stream.lock();
                             mystream.set_nonblocking(false);
                             mystream.write_all(&bincode::serialize(&udmmsg).unwrap()).unwrap();
                             println!("Wrote the header");
@@ -176,7 +177,7 @@ fn handle_client(
         
                         {
                             {
-                                let mut mystream = stream.lock().unwrap();
+                                let mut mystream = stream.lock();
                                 mystream.write_all(&bincode::serialize(&chestmsg).unwrap());
                             }
                             println!("Wrote the chest header");
@@ -184,7 +185,7 @@ fn handle_client(
                             thread::sleep(Duration::from_millis(20));
         
                             if buffer.len() > 0 {
-                                let mut mystream = stream.lock().unwrap();
+                                let mut mystream = stream.lock();
                                 mystream.write_all(&buffer);
                                 println!("Wrote the chest file buffer");
                             }
@@ -200,7 +201,7 @@ fn handle_client(
                         thread::sleep(Duration::from_millis(100));
         
                         {
-                            let mut mystream = stream.lock().unwrap();
+                            let mut mystream = stream.lock();
                             mystream.write_all(&bincode::serialize(&seedmsg).unwrap()).unwrap();
                         }
                     }
@@ -241,7 +242,7 @@ fn handle_client(
                                 queued_sql.push(QueuedSqlType::ChestInventoryUpdate(currchest, chestinv.inv.clone(), currseed));
                             }
                             SlotIndexType::InvSlot(e) => {
-                                let mut clientlock = clients.lock().unwrap();
+                                let mut clientlock = clients.lock();
                                 if let Some(cli) = clientlock.get_mut(&client_id) {
                                     let slot = &mut cli.inv.inv[e as usize];
                                     let wasthere = slot.clone();
@@ -263,7 +264,7 @@ fn handle_client(
                         let mut sendmobs = false;
         
                         {
-                            let mut clients = clients.lock().unwrap();
+                            let mut clients = clients.lock();
         
                             let client = clients.get_mut(&client_id).unwrap();
                             client.ready_for_player_messages = true;
@@ -288,11 +289,11 @@ fn handle_client(
 
                         let mut timeupdate = Message::new(MessageType::TimeUpdate, Vec3::ZERO, unsafe { WEATHERTYPE }, unsafe { SONGINDEX } as u32);
                         //println!("Songindex: {}", unsafe { SONGINDEX });
-                        let t = *tod.lock().unwrap();
+                        let t = *tod.lock();
                         timeupdate.infof = t;
     
                         {
-                            let mut mystream = stream.lock().unwrap();
+                            let mut mystream = stream.lock();
                             mystream.write_all(&bincode::serialize(&timeupdate).unwrap());
                         }
 
@@ -305,7 +306,7 @@ fn handle_client(
                                 knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
             
 
-                                let nlock = nsmes.lock().unwrap();
+                                let nlock = nsmes.lock();
                                 let mobmsgs: Vec<Message> = nlock.iter().map(|nsme| {
                                     let mut mobmsg = Message::new(MessageType::MobUpdate, nsme.1, nsme.2, nsme.0);
                                     mobmsg.info2 = nsme.3 as u32;
@@ -327,7 +328,7 @@ fn handle_client(
                                 mobmsg.inoculate_with_mobupdates(chunk.len(), chunk);
             
                                 {
-                                    let mut mystream = stream.lock().unwrap();
+                                    let mut mystream = stream.lock();
                                     match mystream.write_all(&bincode::serialize(&mobmsg).unwrap()) {
                                         Ok(_) => {
                                             //println!("Sent mob header");
@@ -349,7 +350,7 @@ fn handle_client(
                         let spot = IVec3::new(message.x as i32, message.y as i32, message.z as i32);
                         let block = message.info;
         
-                        let csys = csys.write().unwrap();
+                        let csys = csys.write();
                         csys.set_block(spot, block, true);
                         let currseed = unsafe { CURRSEED.load(Ordering::Relaxed) };
                         queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot, block));
@@ -363,7 +364,7 @@ fn handle_client(
                         let block = message.info;
                         let block2 = message.info2;
         
-                        let csys = csys.write().unwrap();
+                        let csys = csys.write();
                         csys.set_block(spot, block, true);
                         csys.set_block(spot2, block2, true);
         
@@ -375,7 +376,7 @@ fn handle_client(
                         println!("Recvd req takeoff");
                         let mut rng = StdRng::from_entropy();
                         let newseed: u32 = rng.gen();
-                        let mut csys = csys.write().unwrap();
+                        let mut csys = csys.write();
         
                         let pt = csys.planet_type.clone();
                         csys.reset(0, newseed, (pt + 1) as usize % 2);
@@ -389,7 +390,7 @@ fn handle_client(
                         // idmsg.goose = client_id.as_u64_pair();
         
                         // {
-                        //     let mut mystream = stream.lock().unwrap();
+                        //     let mut mystream = stream.lock();
                         //     mystream.write_all(&bincode::serialize(&idmsg).unwrap()).unwrap();
                         // }
                     }
@@ -398,7 +399,7 @@ fn handle_client(
                     }
                     MessageType::RequestPt => {
                         let currpt = {
-                            let csys = csys.read().unwrap();
+                            let csys = csys.read();
                             csys.planet_type
                         };
         
@@ -406,7 +407,7 @@ fn handle_client(
         
                         {
                             let ptmsg = Message::new(MessageType::Pt, Vec3::ZERO, 0.0, currpt as u32);
-                            let mut mystream = stream.lock().unwrap();
+                            let mut mystream = stream.lock();
                             mystream.write_all(&bincode::serialize(&ptmsg).unwrap());
                         }
         
@@ -417,7 +418,7 @@ fn handle_client(
                             let mut idmsg = Message::new(MessageType::YourId, Vec3::ZERO, 0.0, bincode::serialized_size(&client_id.as_u64_pair()).unwrap() as u32);
                             idmsg.goose = client_id.as_u64_pair();
         
-                            let mut mystream = stream.lock().unwrap();
+                            let mut mystream = stream.lock();
                             mystream.write_all(&bincode::serialize(&idmsg).unwrap());
                         }
         
@@ -429,15 +430,15 @@ fn handle_client(
                 }
 
                 {   
-                    let clients = clients.lock().unwrap();
+                    let clients = clients.lock();
                     let newmessageserial = bincode::serialize(&message).unwrap();
                     for (id, client) in clients.iter() {
                         if client.ready_for_player_messages {
                             if *id != client_id {
-                                let mut stream = client.stream.lock().unwrap();
+                                let mut stream = client.stream.lock();
                                 let _ = stream.write_all(&newmessageserial);
                             } else if message.message_type != MessageType::PlayerUpdate {
-                                let mut mystream = stream.lock().unwrap();
+                                let mut mystream = stream.lock();
                                 let _ = mystream.write_all(&newmessageserial[..numbytes2]);
                             }
                         }
@@ -456,7 +457,7 @@ fn handle_client(
         if should_break {
             println!("Removed {}", client_id);
             knowncams.remove(&client_id);
-            let mut locked_clients = clients.lock().unwrap();
+            let mut locked_clients = clients.lock();
             locked_clients.remove(&client_id);
             break;
         }
@@ -508,9 +509,9 @@ fn main() {
 
     let gamearc = Arc::new(RwLock::new(game));
 
-    let gamewrite = gamearc.write().unwrap();
+    let gamewrite = gamearc.write();
 
-    let mut csys = gamewrite.chunksys.write().unwrap();
+    let mut csys = gamewrite.chunksys.write();
 
     unsafe { CURRSEED.store(initialseed, Ordering::Relaxed) };
 
@@ -797,7 +798,7 @@ fn main() {
                     println!("New connection: {}", stream.peer_addr().unwrap());
                     let mut client_id = Uuid::new_v4();
                     let stream = Arc::new(Mutex::new(stream));
-                    stream.lock().unwrap().set_nonblocking(true);
+                    stream.lock().set_nonblocking(true);
 
                     let mut gotid = false;
 
@@ -807,7 +808,7 @@ fn main() {
                         let mut buffer = Vec::new();
                         buffer.resize(bincode::serialized_size(&Message::new(MessageType::BlockSet, Vec3::ZERO, 0.0, 0)).unwrap() as usize, 0);
 
-                        match stream.lock().unwrap().read_exact(&mut buffer) {
+                        match stream.lock().read_exact(&mut buffer) {
                             Ok(_bytes) => {
                                 match bincode::deserialize::<Message>(&buffer) {
                                     Ok(comm) => {
@@ -884,7 +885,7 @@ fn main() {
 
                         while !gotlock {
                             match clients.try_lock() {
-                                Ok(mut e) => {
+                                Some(mut e) => {
                                     
                                     e.insert(
                                         client_id,
@@ -901,7 +902,7 @@ fn main() {
                                     );
                                     gotlock = true;
                                 }
-                                Err(_e) => {
+                                None => {
                                 }
                             };
                         }
@@ -956,11 +957,11 @@ fn main() {
         glfw.poll_events();
 
 
-        gamearc.write().unwrap().update();
+        gamearc.write().update();
 
         //println!("Ran update");
 
-        let mut nblock = nsme_bare_arc.lock().unwrap();
+        let mut nblock = nsme_bare_arc.lock();
         
         
         *nblock = nsme.iter().map(|e| (*e.key(), e.position, e.rot.y, e.model_index, e.scale, e.sounding, e.hostile)).collect::<Vec<_>>();
@@ -978,8 +979,8 @@ fn main() {
             //         let rot = nsme.2;
             //         let modind = nsme.3;
     
-            //         for (uuid, client) in clients.lock().unwrap().iter() {
-            //             let mut stream = client.stream.lock().unwrap();
+            //         for (uuid, client) in clients.lock().iter() {
+            //             let mut stream = client.stream.lock();
             //             let mut mobmsg = Message::new(MessageType::MobUpdate, pos, rot, id);
             //             mobmsg.info2 = modind as u32;
     
@@ -994,9 +995,9 @@ fn main() {
 
                 println!("Spawning mobs");
 
-                if true {//chunksys.read().unwrap().planet_type == 1 {
+                if true {//chunksys.read().planet_type == 1 {
                     let mut rng = StdRng::from_entropy();
-                    let mut gamewrite = gamearc.write().unwrap();
+                    let mut gamewrite = gamearc.write();
                     gamewrite.create_non_static_model_entity(0, Vec3::new(-100.0, 300.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0,false);
                     
                     gamewrite.create_non_static_model_entity(4, Vec3::new(-100.0, 300.0, -450.0), 30.0, Vec3::new(0.0, 0.0, 0.0), 7.0, false);

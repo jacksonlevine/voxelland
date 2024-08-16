@@ -1,6 +1,6 @@
 
 use std::sync::*;
-
+use parking_lot::{Mutex, RwLock};
 use atomic::{AtomicI32, AtomicI8};
 use gl::types::{GLuint, GLvoid};
 use glam::Vec2;
@@ -237,7 +237,7 @@ impl Hud {
 
             let elements2 = self.chestelements.clone();
 
-            let winsize = self.window.read().unwrap().get_size();
+            let winsize = self.window.read().get_size();
             self.count = bindthisgeo( vbo, &elements1, vao1, self.bumped_slot as i32, winsize);
             self.chestcount = bindthisgeo( chestvbo, &elements2, vao2, -1, winsize);
             self.dirty = false;

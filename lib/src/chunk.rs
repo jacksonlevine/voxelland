@@ -6,7 +6,6 @@ use std::io::BufRead;
 use std::io::BufReader;
 use std::path::Path;
 
-use std::sync::RwLock;
 use std::thread;
 use std::time::Duration;
 
@@ -27,7 +26,9 @@ use rand::SeedableRng;
 use rusqlite::params;
 use rusqlite::Connection;
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
+
+use parking_lot::{Mutex, RwLock};
 
 use noise::{NoiseFn, Perlin};
 
@@ -195,19 +196,19 @@ impl ChunkGeo {
     }
 
     pub fn clear(&self) {
-        self.data32.lock().unwrap().clear();
-        self.data8.lock().unwrap().clear();
-        self.tdata32.lock().unwrap().clear();
-        self.tdata8.lock().unwrap().clear();
+        self.data32.lock().clear();
+        self.data8.lock().clear();
+        self.tdata32.lock().clear();
+        self.tdata8.lock().clear();
 
-        self.vdata.lock().unwrap().clear();
-        self.uvdata.lock().unwrap().clear();
+        self.vdata.lock().clear();
+        self.uvdata.lock().clear();
 
-        self.wvdata.lock().unwrap().clear();
-        self.wuvdata.lock().unwrap().clear();
+        self.wvdata.lock().clear();
+        self.wuvdata.lock().clear();
 
-        self.data8rgb.lock().unwrap().clear();
-        self.tdata8rgb.lock().unwrap().clear();
+        self.data8rgb.lock().clear();
+        self.tdata8rgb.lock().clear();
     }
     pub fn solids(&self) -> (&Mutex<Vec<u32>>, &Mutex<Vec<u8>>, &Mutex<Vec<u16>>) {
         return (&self.data32, &self.data8, &self.data8rgb);
@@ -425,7 +426,7 @@ impl ChunkSystem {
                 if let Some(seed) = parts.next() {
                     let s = seed.parse::<u32>().unwrap();
                     info!("Seed Is {}", s);
-                    *(self.perlin.write().unwrap()) = Perlin::new(s);
+                    *(self.perlin.write()) = Perlin::new(s);
 
                     unsafe {CURRSEED.store(s, std::sync::atomic::Ordering::Relaxed)}
 
@@ -438,6 +439,21 @@ impl ChunkSystem {
         let seed = unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)};
         let table_name = format!("userdatamap_{}", seed);
         info!("LOADING FROM TABLENAME {}", table_name);
+
+        conn.execute(
+            &format!(
+                "CREATE TABLE IF NOT EXISTS {} (
+                    x INTEGER,
+                    y INTEGER,
+                    z INTEGER,
+                    value INTEGER,
+                    PRIMARY KEY (x, y, z)
+                )",
+                table_name
+            ),
+            (),
+        )
+        .unwrap();
 
         // Query the userdatamap table
         let mut stmt = conn
@@ -509,10 +525,10 @@ impl ChunkSystem {
     
                 for chunk in &chunkslist {
                     let cclone = match chunk.try_lock() {
-                        Ok(c) => {
+                        Some(c) => {
                             Some(c.clone())
                         },
-                        Err(e) => {
+                        None => {
                             None
                         },
                     };
@@ -536,7 +552,7 @@ impl ChunkSystem {
                                             };
 
 
-                                            let combined = Self::_blockat(&nudm, &udm, &per.read().unwrap(), spot);
+                                            let combined = Self::_blockat(&nudm, &udm, &per.read(), spot);
                                             let block = combined & Blocks::block_id_bits();
                                             let flags = combined & Blocks::block_flag_bits();
                                             unsafe {
@@ -594,7 +610,7 @@ impl ChunkSystem {
         info!("After clearing chunks");
         self.geobank.clear();
         info!("After clearing geobank");
-        self.chunk_memories.lock().unwrap().memories.clear();
+        self.chunk_memories.lock().memories.clear();
         info!("After clearing memories");
         self.takencare.clear();
         info!("After clearing takencare");
@@ -614,7 +630,7 @@ impl ChunkSystem {
         info!("Start of reset func");
 
         self.radius = radius;
-        *(self.perlin.write().unwrap()) = Perlin::new(seed);
+        *(self.perlin.write()) = Perlin::new(seed);
         self.voxel_models = None;
         self.planet_type = noisetype as u8;
         unsafe {CURRSEED.store(seed, std::sync::atomic::Ordering::Relaxed)};
@@ -636,7 +652,7 @@ impl ChunkSystem {
                     self.geobank.push(Arc::new(ChunkGeo::new()));
                     self.chunk_memories
                         .lock()
-                        .unwrap()
+                 
                         .memories
                         .push(ChunkMemory::new(&self.geobank[self.geobank.len() - 1]));
                 }
@@ -704,7 +720,7 @@ impl ChunkSystem {
                     cs.geobank.push(Arc::new(ChunkGeo::new()));
                     cs.chunk_memories
                         .lock()
-                        .unwrap()
+                     
                         .memories
                         .push(ChunkMemory::new(&cs.geobank[cs.geobank.len() - 1]));
                 }
@@ -738,7 +754,7 @@ impl ChunkSystem {
 
         let mut neededspots = Vec::new();
 
-        let csys = csys.read().unwrap();
+        let csys = csys.read();
 
         for i in -(csys.radius as i32)..(csys.radius as i32) {
             for k in -(csys.radius as i32)..(csys.radius as i32) {
@@ -775,7 +791,7 @@ impl ChunkSystem {
 
         //             let bankarc = csys.geobank[ready.geo_index].clone();
 
-        //             let mut cmemlock = csys.chunk_memories.lock().unwrap();
+        //             let mut cmemlock = csys.chunk_memories.lock();
 
         //             cmemlock.memories[ready.geo_index].length = ready.newlength;
         //             cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
@@ -870,7 +886,7 @@ impl ChunkSystem {
 
             let mut implicated = HashSet::new();
             for i in Cube::get_neighbors() {
-                match self.lightmap.lock().unwrap().get(&(*i + spot)) {
+                match self.lightmap.lock().get(&(*i + spot)) {
                     Some(k) => {
                         for ray in &k.rays {
                             let chunkofthisraysorigin = ChunkSystem::spot_to_chunk_pos(&ray.origin);
@@ -942,7 +958,7 @@ impl ChunkSystem {
 
             let mut implicated = HashSet::new();
             for i in Cube::get_neighbors() {
-                match self.lightmap.lock().unwrap().get(&(*i + spot)) {
+                match self.lightmap.lock().get(&(*i + spot)) {
                     Some(k) => {
                         for ray in &k.rays {
                             let chunkofthisraysorigin = ChunkSystem::spot_to_chunk_pos(&ray.origin);
@@ -1048,20 +1064,20 @@ unsafe {
         if !tc.contains_key(&cpos) {
             let chunkgeoarc = self.geobank[index].clone();
 
-            if tc.contains_key(&chunkgeoarc.pos.lock().unwrap()) {
-                tc.remove(&chunkgeoarc.pos.lock().unwrap());
+            if tc.contains_key(&chunkgeoarc.pos.lock()) {
+                tc.remove(&chunkgeoarc.pos.lock());
             }
 
-            // let mut chunkgeolock = chunkgeoarc.geos[num as usize].lock().unwrap();
+            // let mut chunkgeolock = chunkgeoarc.geos[num as usize].lock();
             // chunkgeolock.pos = cpos;
             // drop(chunkgeolock);
 
             // if num == 0 { num = 1; } else { num = 0; }
 
-            chunkgeoarc.pos.lock().unwrap().clone_from(&cpos);
-            let lo = chunkgeoarc.pos.lock().unwrap();
+            chunkgeoarc.pos.lock().clone_from(&cpos);
+            let lo = chunkgeoarc.pos.lock();
 
-            let mut chunklock = self.chunks[index].lock().unwrap();
+            let mut chunklock = self.chunks[index].lock();
 
             chunklock.pos = cpos;
 
@@ -1072,7 +1088,7 @@ unsafe {
             //#[cfg(feature="structures")]
             self.generate_chunk(&lo);
 
-            let hashadlock = self.hashadinitiallightpass.lock().unwrap();
+            let hashadlock = self.hashadinitiallightpass.lock();
             let mut light = false;
             if !hashadlock.contains_key(&cpos) {
                 light = true;
@@ -1083,7 +1099,7 @@ unsafe {
             info!("This path");
             let ind = tc.get(&cpos).unwrap().geo_index;
 
-            let hashadlock = self.hashadinitiallightpass.lock().unwrap();
+            let hashadlock = self.hashadinitiallightpass.lock();
             let mut light = false;
             if !hashadlock.contains_key(&cpos) {
                 light = true;
@@ -1100,7 +1116,7 @@ unsafe {
         stack.push(origin);
 
         let lmarc = self.lightmap.clone();
-        let mut lmlock = lmarc.lock().unwrap();
+        let mut lmlock = lmarc.lock();
 
         while !stack.is_empty() {
             let spot = stack.pop().unwrap();
@@ -1151,7 +1167,7 @@ unsafe {
 
         let lmarc = self.lightmap.clone();
 
-        let mut lmlock = lmarc.lock().unwrap();
+        let mut lmlock = lmarc.lock();
 
         while !stack.is_empty() {
             //info!("Stack size is now {}", stack.len());
@@ -1320,7 +1336,7 @@ unsafe {
         //info!("Doing lightpass on chunk!");
 
         let hashadarc = self.hashadinitiallightpass.clone();
-        let mut hashadlock = hashadarc.lock().unwrap();
+        let mut hashadlock = hashadarc.lock();
 
         hashadlock.insert(pos, true);
 
@@ -1339,7 +1355,7 @@ unsafe {
             for z in 0..CW {
                 for y in 0..CH {
                     let blockcoord = IVec3::new(pos.x * CW + x, y, pos.y * CW + z);
-                    let lmlock = lmarc.lock().unwrap();
+                    let lmlock = lmarc.lock();
                     match lmlock.get(&blockcoord) {
                         Some(k) => {
                             for ray in &k.rays {
@@ -1398,7 +1414,7 @@ unsafe {
     pub fn rebuild_index(&self, index: usize, user_power: bool, light: bool) {
         //info!("Rebuilding!");
         let chunkarc = self.chunks[index].clone();
-        let mut chunklock = chunkarc.lock().unwrap();
+        let mut chunklock = chunkarc.lock();
         chunklock.used = true;
 
         let chunklock = chunklock.clone();
@@ -1419,20 +1435,20 @@ unsafe {
 
         let mut memo: HashMap<vec::IVec3, u32> = HashMap::new();
 
-        let mut data32 = geobankarc.data32.lock().unwrap();
-        let mut data8 = geobankarc.data8.lock().unwrap();
-        let mut tdata32 = geobankarc.tdata32.lock().unwrap();
-        let mut tdata8 = geobankarc.tdata8.lock().unwrap();
+        let mut data32 = geobankarc.data32.lock();
+        let mut data8 = geobankarc.data8.lock();
+        let mut tdata32 = geobankarc.tdata32.lock();
+        let mut tdata8 = geobankarc.tdata8.lock();
 
-        let mut vdata = geobankarc.vdata.lock().unwrap();
-        let mut uvdata = geobankarc.uvdata.lock().unwrap();
+        let mut vdata = geobankarc.vdata.lock();
+        let mut uvdata = geobankarc.uvdata.lock();
 
 
-        let mut wvdata = geobankarc.wvdata.lock().unwrap();
-        let mut wuvdata = geobankarc.wuvdata.lock().unwrap();
+        let mut wvdata = geobankarc.wvdata.lock();
+        let mut wuvdata = geobankarc.wuvdata.lock();
 
-        let mut data8rgb = geobankarc.data8rgb.lock().unwrap();
-        let mut tdata8rgb = geobankarc.tdata8rgb.lock().unwrap();
+        let mut data8rgb = geobankarc.data8rgb.lock();
+        let mut tdata8rgb = geobankarc.tdata8rgb.lock();
 
         let mut weatherstoptops: HashMap<vec::IVec2, i32> = HashMap::new();
         let mut tops: HashMap<vec::IVec2, i32> = HashMap::new();
@@ -1538,7 +1554,7 @@ unsafe {
 
                             let _blocklightval = 0.0;
 
-                            let lmlock = self.lightmap.lock().unwrap();
+                            let lmlock = self.lightmap.lock();
                             let blocklighthere = match lmlock.get(&spot) {
                                 Some(k) => k.sum(),
                                 None => LightColor::ZERO,
@@ -1578,7 +1594,7 @@ unsafe {
 
                             let _blocklightval = 0.0;
 
-                            let lmlock = self.lightmap.lock().unwrap();
+                            let lmlock = self.lightmap.lock();
                             let blocklighthere = match lmlock.get(&spot) {
                                 Some(k) => k.sum(),
                                 None => LightColor::ZERO,
@@ -1614,7 +1630,7 @@ unsafe {
 
                             let _blocklightval = 0.0;
 
-                            let lmlock = self.lightmap.lock().unwrap();
+                            let lmlock = self.lightmap.lock();
                             let blocklighthere = match lmlock.get(&spot) {
                                 Some(k) => k.sum(),
                                 None => LightColor::ZERO,
@@ -1650,7 +1666,7 @@ unsafe {
 
                             let _blocklightval = 0.0;
 
-                            let lmlock = self.lightmap.lock().unwrap();
+                            let lmlock = self.lightmap.lock();
                             let blocklighthere = match lmlock.get(&spot) {
                                 Some(k) => k.sum(),
                                 None => LightColor::ZERO,
@@ -1684,7 +1700,7 @@ unsafe {
 
                             let _blocklightval = 0.0;
 
-                            let lmlock = self.lightmap.lock().unwrap();
+                            let lmlock = self.lightmap.lock();
                             let blocklighthere = match lmlock.get(&spot) {
                                 Some(k) => k.sum(),
                                 None => LightColor::ZERO,
@@ -1721,7 +1737,7 @@ unsafe {
 
                             let _blocklightval = 0.0;
 
-                            let lmlock = self.lightmap.lock().unwrap();
+                            let lmlock = self.lightmap.lock();
                             let blocklighthere = match lmlock.get(&spot) {
                                 Some(k) => k.sum(),
                                 None => LightColor::ZERO,
@@ -1763,7 +1779,7 @@ unsafe {
                                         && neigh_block != 2
                                         && Blocks::is_transparent(neigh_block);
 
-                                    let lmlock = self.lightmap.lock().unwrap();
+                                    let lmlock = self.lightmap.lock();
 
                                     let blocklighthere = match lmlock.get(&neighspot) {
                                         Some(k) => k.sum(),
@@ -1868,7 +1884,7 @@ unsafe {
                                         None => false,
                                     };
 
-                                    let lmlock = self.lightmap.lock().unwrap();
+                                    let lmlock = self.lightmap.lock();
 
                                     let blocklighthere = match lmlock.get(&neighspot) {
                                         Some(k) => k.sum(),
@@ -2004,7 +2020,7 @@ unsafe {
 
 
 
-                    let lmlock = self.lightmap.lock().unwrap();
+                    let lmlock = self.lightmap.lock();
                     let blocklighthere = match lmlock.get(&(spoint + IVec3::new(0, 1, 0))) {
                         Some(k) => k.sum(),
                         None => LightColor::ZERO,
@@ -2335,7 +2351,7 @@ unsafe {
     }
 
     pub fn biome_noise(&self, spot: vec::IVec2) -> f64 {
-        return Self::_biome_noise(&self.perlin.read().unwrap(), spot);
+        return Self::_biome_noise(&self.perlin.read(), spot);
     }
 
     pub fn _biome_noise(perlin: &Perlin, spot: vec::IVec2) -> f64 {
@@ -2355,7 +2371,7 @@ unsafe {
         noise1
     }
     pub fn ore_noise(&self, spot: vec::IVec3) -> f64 {
-        return Self::_ore_noise(&self.perlin.read().unwrap(), spot);
+        return Self::_ore_noise(&self.perlin.read(), spot);
     }
 
     pub fn _ore_noise(perlin: &Perlin, spot: vec::IVec3) -> f64 {
@@ -2373,7 +2389,7 @@ unsafe {
         noise1 * ((60.0 - spot.y as f64).max(0.0) / 7.0)
     }
     pub fn feature_noise(&self, spot: vec::IVec2) -> f64 {
-        return Self::_feature_noise(&self.perlin.read().unwrap(), spot);
+        return Self::_feature_noise(&self.perlin.read(), spot);
     }
 
     pub fn _feature_noise(perlin: &Perlin, spot: vec::IVec2) -> f64 {
@@ -2394,7 +2410,7 @@ unsafe {
     }
 
     pub fn cave_noise(&self, spot: vec::IVec3) -> f64 {
-        return Self::_cave_noise(&self.perlin.read().unwrap(), spot);
+        return Self::_cave_noise(&self.perlin.read(), spot);
     }
 
     pub fn _cave_noise(perlin: &Perlin, spot: vec::IVec3) -> f64 {
@@ -2413,7 +2429,7 @@ unsafe {
     }
 
     pub fn noise_func(&self, spot: vec::IVec3) -> f64 {
-        return Self::_noise_func(&self.perlin.read().unwrap(), spot);
+        return Self::_noise_func(&self.perlin.read(), spot);
     }
 
     pub fn _noise_func(perlin: &Perlin, spot: vec::IVec3) -> f64 {
@@ -2513,7 +2529,7 @@ unsafe {
 
     pub fn noise_func2(&self, spot: vec::IVec3) -> f64 {
 
-        let p2 = self.perlin.read().unwrap();
+        let p2 = self.perlin.read();
         let mut y = spot.y - 20;
 
         let noise1 = f64::max(
@@ -2586,7 +2602,7 @@ unsafe {
         // }
     }
     pub fn blockat(&self, spot: vec::IVec3) -> u32 {
-        Self::_blockat(&self.nonuserdatamap.clone(), &self.userdatamap.clone(), &self.perlin.read().unwrap(), spot)
+        Self::_blockat(&self.nonuserdatamap.clone(), &self.userdatamap.clone(), &self.perlin.read(), spot)
     }
     pub fn _blockat(nonuserdatamap: &Arc<DashMap<IVec3, u32>>, userdatamap: &Arc<DashMap<IVec3, u32>>, perlin: &Perlin, spot: vec::IVec3) -> u32 {
         // if self.headless {
@@ -2613,7 +2629,7 @@ unsafe {
     }
 
     pub fn natural_blockat(&self, spot: vec::IVec3) -> u32 {
-        return Self::_natural_blockat(&self.perlin.read().unwrap(), spot);
+        return Self::_natural_blockat(&self.perlin.read(), spot);
     }
 
     pub fn _natural_blockat(perlin: &Perlin, spot: vec::IVec3) -> u32 {

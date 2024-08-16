@@ -51,7 +51,7 @@ impl ChunkMemory {
             tlength: 0,
             vlength: 0,
             wvlength: 0,
-            pos: *geo.pos.lock().unwrap()
+            pos: *geo.pos.lock()
         };
         //info!("ChunkMemory: {} {} {} {} {} {} {} {} {}", cm.used, cm.vbo8, cm.vbo32, cm.tvbo8, cm.tvbo32, cm.length, cm.tlength, cm.pos.x, cm.pos.y);
 

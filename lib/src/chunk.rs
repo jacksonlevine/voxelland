@@ -43,6 +43,7 @@ use crate::cube::CubeSide;
 #[cfg(feature = "audio")]
 use crate::game::AUDIOPLAYER;
 
+use crate::game::CURRSEED;
 use crate::game::PLAYERCHUNKPOS;
 use crate::game::ROWLENGTH;
 use crate::game::WEATHERTYPE;
@@ -301,7 +302,7 @@ pub struct ChunkSystem {
     pub voxel_models: Option<Arc<Vec<JVoxModel>>>,
     pub chunk_memories: Mutex<ChunkRegistry>,
     pub planet_type: u8,
-    pub currentseed: RwLock<u32>,
+
     pub headless: bool,
     pub hashadinitiallightpass: Arc<Mutex<HashMap<vec::IVec2, bool>>>,
     pub lightmap: Arc<Mutex<HashMap<vec::IVec3, LightSegment>>>,
@@ -311,7 +312,7 @@ pub struct ChunkSystem {
 
 impl ChunkSystem {
     pub fn write_new_udm_entry(&self, spot: vec::IVec3, block: u32) {
-        let seed = self.currentseed.read().unwrap();
+        let seed = unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)};
         let table_name = format!("userdatamap_{}", seed);
 
         let conn = Connection::open("db").unwrap();
@@ -329,7 +330,7 @@ impl ChunkSystem {
     }
 
     pub fn save_current_world_to_file(&self, path: String) {
-        let seed = self.currentseed.read().unwrap();
+        let seed = unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)};
         let table_name = format!("userdatamap_{}", seed);
 
         let conn = Connection::open("db").unwrap();
@@ -374,7 +375,7 @@ impl ChunkSystem {
         // }
 
         let mut file = File::create(path.clone() + "/seed").unwrap();
-        writeln!(file, "{}", self.currentseed.read().unwrap()).unwrap();
+        writeln!(file, "{}", unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)}).unwrap();
 
         let mut file = File::create(path.clone() + "/pt").unwrap();
         writeln!(file, "{}", self.planet_type).unwrap();
@@ -431,14 +432,16 @@ impl ChunkSystem {
                     let s = seed.parse::<u32>().unwrap();
                     info!("Seed Is {}", s);
                     *(self.perlin.write().unwrap()) = Perlin::new(s);
-                    *self.currentseed.write().unwrap() = s;
+
+                    unsafe {CURRSEED.store(s, std::sync::atomic::Ordering::Relaxed)}
+
                 }
             }
         } else {
             info!("Seed2 doesnt exist");
         }
 
-        let seed = self.currentseed.read().unwrap();
+        let seed = unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)};
         let table_name = format!("userdatamap_{}", seed);
         info!("LOADING FROM TABLENAME {}", table_name);
 
@@ -620,7 +623,8 @@ impl ChunkSystem {
         *(self.perlin.write().unwrap()) = Perlin::new(seed);
         self.voxel_models = None;
         self.planet_type = noisetype as u8;
-        (*self.currentseed.write().unwrap()) = seed;
+        unsafe {CURRSEED.store(seed, std::sync::atomic::Ordering::Relaxed)};
+
         info!("After setting currentseed");
 
         if !self.headless {
@@ -674,7 +678,6 @@ impl ChunkSystem {
                 memories: Vec::new(),
             }),
             planet_type: noisetype as u8,
-            currentseed: RwLock::new(5654545),
             headless,
             hashadinitiallightpass: Arc::new(Mutex::new(HashMap::new())),
             lightmap: Arc::new(Mutex::new(HashMap::new())),

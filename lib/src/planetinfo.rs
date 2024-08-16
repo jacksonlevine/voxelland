@@ -30,7 +30,7 @@ impl Planets {
     pub fn get_fog_col(dim_id: u32) -> (f32, f32, f32, f32) {
         return match dim_id {
             0 => {
-                (0.7, 0.8, 1.0, 1.0)
+                (0.4, 0.75, 1.0, 1.0)
             }
             1 => {
                 (0.5, 0.0, 0.0, 1.0)

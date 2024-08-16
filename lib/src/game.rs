@@ -20,7 +20,7 @@ use rand::{Rng, SeedableRng};
 use rusqlite::{params, Connection};
 use uuid::Uuid;
 
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI8, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
@@ -106,6 +106,8 @@ pub static mut TIME_ON_CONVEYORS: f32 = 0.0;
 pub static mut ROOFOVERHEAD: Lazy<AtomicBool> = Lazy::new(|| AtomicBool::new(false));
 
 pub static mut HEADLESS: bool = false;
+
+pub static mut CURRSEED: Lazy<AtomicU32> = Lazy::new(|| AtomicU32::new(0));
 
 #[cfg(feature = "audio")]
 pub static mut AUDIOPLAYER: Lazy<AudioPlayer> = Lazy::new(|| AudioPlayer::new().unwrap());
@@ -246,13 +248,16 @@ pub struct GameVariables {
     pub in_climbable: bool,
     pub walkbobtimer: f32,
     pub musicvolume: f32,
-    pub soundsvolume: f32
+    pub soundsvolume: f32,
+    pub time_tfs_at_3: f32
 }
 
 pub enum VisionType {
     Model(usize),
     Vox(usize),
 }
+
+pub static mut GLCHUNKS: bool = true;
 
 
 
@@ -556,7 +561,7 @@ impl Game {
 
         let health = Arc::new(AtomicI8::new(20));
 
-        let camclone = cam.clone();
+        let cam_clone = cam.clone();
         let csysclone = chunksys.clone();
         if !headless {
             thread::spawn(move || {
@@ -564,7 +569,7 @@ impl Game {
                     let mut pos = Vec3::ZERO;
                     let mut hitblock = false;
 
-                    match camclone.try_lock() {
+                    match cam_clone.try_lock() {
                         Ok(camlock) => {
                             pos = camlock.position.clone();
                         }
@@ -607,7 +612,7 @@ impl Game {
             });
 
             //  let csysclone = chunksys.clone();
-            // let camclone = cam.clone();
+            // let cam_clone = cam.clone();
 
             // thread::spawn(move || {
             //     while unsafe { SHOULDRUN } {
@@ -897,7 +902,7 @@ impl Game {
                 first_mouse: true,
                 mouse_focused: false,
                 sensitivity: 0.25,
-                sky_color: Vec4::new(0.5, 0.7, 1.0, 1.0),
+                sky_color: Vec4::new(0.3, 0.65, 1.0, 1.0),
                 sky_bottom: Vec4::new(1.0, 1.0, 1.0, 1.0),
                 mouse_clicked: false,
                 right_mouse_clicked: false,
@@ -916,7 +921,8 @@ impl Game {
                 in_climbable: false,
                 walkbobtimer: 0.0,
                 musicvolume: 1.0,
-                soundsvolume: 1.0
+                soundsvolume: 1.0,
+                time_tfs_at_3: 0.0
             },
             controls: ControlsState::new(),
             faders: Arc::new(faders),
@@ -1229,7 +1235,7 @@ impl Game {
     pub fn save_one_chest_to_file(&self, key: IVec3) {
         let seed = {
             let c = self.chunksys.read().unwrap();
-            let s = c.currentseed.read().unwrap();
+            let s = unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)};
             s.clone()
         };
 
@@ -1278,7 +1284,7 @@ impl Game {
     pub fn save_current_chests_to_file(&self) {
         let seed = {
             let c = self.chunksys.read().unwrap();
-            let s = c.currentseed.read().unwrap();
+            let s = unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)};
             s.clone()
         };
 
@@ -1322,7 +1328,7 @@ impl Game {
     pub fn load_chests_from_file(&self) {
         let seed = {
             let c = self.chunksys.read().unwrap();
-            let s = c.currentseed.read().unwrap();
+            let s = unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)};
             s.clone()
         };
 
@@ -1478,11 +1484,15 @@ impl Game {
                         "Back to Previous Menu".to_string(),
                         "escapemenu".to_string(),
                     ),
+                    ("Key Bindings".to_string(), "bindingsmenu".to_string()),
                     ("SliderMouse Sensitivity".to_string(), "test".to_string()),
                     ("SliderMusic Volume".to_string(), "music".to_string()),
                     ("SliderSounds Volume".to_string(), "sounds".to_string()),
                 ];
                 self.vars.menu_open = true;
+            }
+            "bindingsmenu" => {
+                
             }
             "recipemenu" => {
                 self.currentbuttons = vec![(
@@ -1788,7 +1798,7 @@ impl Game {
             }
 
             // Set uniforms
-            let camclone = {
+            let cam_clone = {
                 let cam_lock = self.camera.lock().unwrap();
                 cam_lock.clone()
             };
@@ -1798,7 +1808,7 @@ impl Game {
                 gl::GetUniformLocation(self.cloudshader.shader_id, b"mvp\0".as_ptr() as *const i8),
                 1,
                 gl::FALSE,
-                camclone.mvp.to_cols_array().as_ptr(),
+                cam_clone.mvp.to_cols_array().as_ptr(),
             );
 
             gl::Uniform1f(
@@ -1835,9 +1845,9 @@ impl Game {
                     self.cloudshader.shader_id,
                     b"camDir\0".as_ptr() as *const i8,
                 ),
-                camclone.direction.x,
-                camclone.direction.y,
-                camclone.direction.z,
+                cam_clone.direction.x,
+                cam_clone.direction.y,
+                cam_clone.direction.z,
             );
 
             gl::Uniform3f(
@@ -1845,9 +1855,9 @@ impl Game {
                     self.cloudshader.shader_id,
                     b"camPos\0".as_ptr() as *const i8,
                 ),
-                camclone.position.x,
-                camclone.position.y,
-                camclone.position.z,
+                cam_clone.position.x,
+                cam_clone.position.y,
+                cam_clone.position.z,
             );
 
             gl::Uniform1f(
@@ -1985,7 +1995,7 @@ impl Game {
             }
 
             // Set uniforms
-            let camclone = {
+            let cam_clone = {
                 let cam_lock = self.camera.lock().unwrap();
                 cam_lock.clone()
             };
@@ -1995,7 +2005,7 @@ impl Game {
                 gl::GetUniformLocation(self.starshader.shader_id, b"mvp\0".as_ptr() as *const i8),
                 1,
                 gl::FALSE,
-                camclone.mvp.to_cols_array().as_ptr(),
+                cam_clone.mvp.to_cols_array().as_ptr(),
             );
 
             gl::Uniform1f(
@@ -2029,9 +2039,9 @@ impl Game {
                     self.starshader.shader_id,
                     b"camDir\0".as_ptr() as *const i8,
                 ),
-                camclone.direction.x,
-                camclone.direction.y,
-                camclone.direction.z,
+                cam_clone.direction.x,
+                cam_clone.direction.y,
+                cam_clone.direction.z,
             );
 
             gl::Uniform3f(
@@ -2039,9 +2049,9 @@ impl Game {
                     self.starshader.shader_id,
                     b"camPos\0".as_ptr() as *const i8,
                 ),
-                camclone.position.x,
-                camclone.position.y,
-                camclone.position.z,
+                cam_clone.position.x,
+                cam_clone.position.y,
+                cam_clone.position.z,
             );
 
             gl::Uniform1f(
@@ -3168,7 +3178,7 @@ impl Game {
 
 
             let mut morestuff = true;
-            while morestuff {
+            for _ in 0..5 {
                 match self.hp_server_command_queue.pop() {
                     Some(comm) => {
                         match comm.message_type {
@@ -3345,7 +3355,7 @@ impl Game {
             let mut morestuff = true;
             //while morestuff {
 
-            for _ in 0..10 {
+            for _ in 0..5 {
                 match self.server_command_queue.pop() {
                     Some(comm) => {
                         match comm.message_type {
@@ -3659,7 +3669,11 @@ impl Game {
                     self.update_server_received_modents();
                 }
                 if overlayfade <= 0.1 {
-                    self.update_movement_and_physics();
+
+                            self.update_movement_and_physics();
+
+                    
+                    
                 }
             }
         }
@@ -3672,20 +3686,20 @@ impl Game {
         static mut SPOTSET: bool = false;
 
         let camarc = self.camera.clone();
-        let mut camclone = {
+        let mut cam_clone = {
                 let camlock = camarc.lock().unwrap();
 
 
-                let camclone: Camera = camlock.clone();
-                camclone
+                let cam_clone: Camera = camlock.clone();
+                cam_clone
         }; 
 
 
         unsafe {
             if CROUCHING {
                 if !SPOTSET {
-                    let y = camclone.position.y.round();
-                    let mut hardspot = camclone.position.floor();
+                    let y = cam_clone.position.y.round();
+                    let mut hardspot = cam_clone.position.floor();
                     hardspot.y = y;
                     SPOTIFSHIFTING = hardspot + Vec3::new(0.5, 0.0, 0.5);
                     SPOTSET = true;
@@ -3700,7 +3714,7 @@ impl Game {
         match *self.my_uuid.read().unwrap() {
             Some(uuid) => match self.known_cameras.get_mut(&uuid) {
                 Some(mut pos) => {
-                    *pos = camclone.position;
+                    *pos = cam_clone.position;
                 }
                 None => {}
             },
@@ -3709,9 +3723,9 @@ impl Game {
 
         static mut wasinwater: bool = false;
 
-        let vel = camclone.velocity.clone();
+        let vel = cam_clone.velocity.clone();
 
-        let feetpos = camclone.position - Vec3::new(0.0, 1.0, 0.0);
+        let feetpos = cam_clone.position - Vec3::new(0.0, 1.0, 0.0);
 
         let underfeetpos = feetpos - Vec3::new(0.0, 1.0, 0.0);
 
@@ -3721,9 +3735,9 @@ impl Game {
             feetpos.z.floor() as i32,
         );
         let headposi = vec::IVec3::new(
-            camclone.position.x.floor() as i32,
-            camclone.position.y.floor() as i32,
-            camclone.position.z.floor() as i32,
+            cam_clone.position.x.floor() as i32,
+            cam_clone.position.y.floor() as i32,
+            cam_clone.position.z.floor() as i32,
         );
         let feetposi2 = vec::IVec3::new(
             feetpos.x.floor() as i32,
@@ -3759,8 +3773,8 @@ impl Game {
             46 => unsafe {
                 if !TRAMPOLINE {
                     TRAMPOLINE = true;
-                    let d = camclone.direction;
-                    camclone.velocity += Vec3::new(0.0, TRAMPOLINE_VELOCITY_FIGURE, 0.0) + d;
+                    let d = cam_clone.direction;
+                    cam_clone.velocity += Vec3::new(0.0, TRAMPOLINE_VELOCITY_FIGURE, 0.0) + d;
                     #[cfg(feature = "audio")]
                     AUDIOPLAYER.play(
                         "assets/sfx/boing.mp3",
@@ -3868,9 +3882,9 @@ impl Game {
         if self.inwater || self.vars.in_climbable {
             self.time_falling_scalar = 1.0;
             if !self.grounded {
-                camclone.velocity += Vec3::new(0.0, -2.0 * self.delta_time, 0.0);
-                if self.controls.shift {
-                    camclone.velocity += Vec3::new(0.0, -5.0 * self.delta_time, 0.0);
+                cam_clone.velocity += Vec3::new(0.0, -2.0 * self.delta_time, 0.0);
+                if unsafe {CROUCHING} {
+                    cam_clone.velocity += Vec3::new(0.0, -5.0 * self.delta_time, 0.0);
                 }
             }
 
@@ -3882,25 +3896,32 @@ impl Game {
                         7.0
                     }
                 };
-                camclone.velocity += Vec3::new(0.0, amount * self.delta_time, 0.0);
+                cam_clone.velocity += Vec3::new(0.0, amount * self.delta_time, 0.0);
             }
         } else {
             if !self.grounded && !self.jumping_up {
                 self.time_falling_scalar =
                     (self.time_falling_scalar + self.delta_time * 3.0).min(3.0);
+                
+                if self.time_falling_scalar == 3.0 {
+                    self.vars.time_tfs_at_3 += self.delta_time;
+                } else {
+                    self.vars.time_tfs_at_3 = 0.0;
+                }
+                    //println!("Time falscal: {}", self.time_falling_scalar);
             } else {
-                self.time_falling_scalar = 0.5;
+                self.time_falling_scalar = 1.0;
             }
 
             if !self.grounded && !self.jumping_up {
-                camclone.velocity +=
+                cam_clone.velocity +=
                     Vec3::new(0.0, -GRAV * self.time_falling_scalar * self.delta_time, 0.0);
             }
 
             if self.jumping_up {
-                if camclone.position.y < self.current_jump_y + self.allowable_jump_height {
-                    let curr_cam_y = camclone.position.y;
-                    camclone.velocity += Vec3::new(
+                if cam_clone.position.y < self.current_jump_y + self.allowable_jump_height {
+                    let curr_cam_y = cam_clone.position.y;
+                    cam_clone.velocity += Vec3::new(
                         0.0,
                         (((self.current_jump_y + self.allowable_jump_height + 0.3) - curr_cam_y)
                             * 15.0)
@@ -3914,7 +3935,7 @@ impl Game {
 
             if self.controls.up && self.grounded {
                 self.grounded = false;
-                self.current_jump_y = camclone.position.y;
+                self.current_jump_y = cam_clone.position.y;
                 self.jumping_up = true;
                 self.controls.up = false;
             }
@@ -3924,7 +3945,7 @@ impl Game {
         let mut proposed = {
             let mut camlock = self.camera.lock().unwrap();
 
-            (*camlock) = camclone;
+            (*camlock) = cam_clone;
 
             let mut proposed = unsafe {
                 if CROUCHING && self.grounded {
@@ -3934,7 +3955,7 @@ impl Game {
                 }
             };
 
-            camclone = (*camlock).clone();
+            cam_clone = (*camlock).clone();
             proposed
         };
         unsafe {
@@ -3968,6 +3989,7 @@ impl Game {
 
         let mut stepsoundqueued = false;
         let mut activate_jump_queued = false;
+        let mut falldamage = None;
 
         if self.coll_cage.colliding.len() > 0 {
             for side in &self.coll_cage.colliding {
@@ -3980,6 +4002,10 @@ impl Game {
                     self.grounded = true;
                     unsafe {
                         if wasngrounded {
+                            falldamage = Some(self.vars.time_tfs_at_3);
+                            
+                            
+                            self.vars.time_tfs_at_3 = 0.0;
                             activate_jump_queued = true;
                             stepsoundqueued = true;
                             wasngrounded = false;
@@ -3993,24 +4019,24 @@ impl Game {
             }
         }
 
-        camclone.position = Vec3::new(proposed.x, proposed.y, proposed.z);
+        cam_clone.position = Vec3::new(proposed.x, proposed.y, proposed.z);
 
-        let cc_center = camclone.position + Vec3::new(0.0, -1.0, 0.0);
+        let cc_center = cam_clone.position + Vec3::new(0.0, -1.0, 0.0);
         self.coll_cage.update_readings(cc_center);
 
         //let offset = self.coll_cage.get_smoothed_floor_y(camlock.position);
 
         //camlock.position.y = offset;
 
-        camclone.recalculate();
+        cam_clone.recalculate();
 
-        let pos = camclone.position.clone();
+        let pos = cam_clone.position.clone();
 
 
 
         {
             let mut camlock = self.camera.lock().unwrap();
-            *camlock = camclone;
+            *camlock = cam_clone;
         }
 
         #[cfg(feature = "audio")]
@@ -4021,7 +4047,48 @@ impl Game {
         if activate_jump_queued {
             self.activate_jump_block(pos);
         }
+
+        match falldamage {
+            Some(fd) => {
+                self.take_damage(fd as u8);
+            }
+            None => {
+
+            }
+        }
     }
+
+    pub fn take_damage(&mut self, amount: u8) {
+        let h = self.health.load(std::sync::atomic::Ordering::Relaxed);
+        let newamount = (h-amount as i8).max(0);
+        self.health.store(newamount, std::sync::atomic::Ordering::Relaxed);
+        if newamount <= 0 { //DEAD
+
+            let mut camlock = self.camera.lock().unwrap();
+            let campos = camlock.position.clone();
+
+            let mut inv = self.inventory.write().unwrap();
+            for i in 0..ROWLENGTH {
+                let amt = inv.inv[i as usize].1;
+                #[cfg(feature = "glfw")]
+                self.drops.add_drop(campos + Vec3::new(0.0, 2.0, 0.0), inv.inv[i as usize].0, amt);
+                
+                
+            }
+            inv.inv = STARTINGITEMS;
+
+
+            
+            unsafe {
+                camlock.position = SPAWNPOINT;
+            }
+            
+            drop(camlock);
+            self.health.store(20, std::sync::atomic::Ordering::Relaxed);
+        }
+        
+    }
+
 
     #[cfg(feature = "glfw")]
     pub fn draw_sky(&self, top: Vec4, bot: Vec4, amb: f32, pitch: f32) {
@@ -4079,15 +4146,15 @@ impl Game {
             let camlock = self.camera.lock().unwrap();
             let c = camlock.clone();
             drop(camlock);
-            let camclone = c;
+            let cam_clone = c;
             gl::Uniform1f(C_P_LOC, pitch);
             gl::Uniform3f(
                 C_D_LOC,
-                camclone.direction.x,
-                camclone.direction.y,
-                camclone.direction.z,
+                cam_clone.direction.x,
+                cam_clone.direction.y,
+                cam_clone.direction.z,
             );
-            drop(camclone);
+            drop(cam_clone);
 
             gl::Uniform4f(T_C_LOC, top.x, top.y, top.z, top.w);
             gl::Uniform4f(B_C_LOC, bot.x, bot.y, bot.z, bot.w);
@@ -4125,24 +4192,24 @@ impl Game {
 
         static mut BREAK_TIME: f32 = 0.0;
 
-        let camclone = {
+        let cam_clone = {
             let c = self.camera.lock().unwrap();
             c.clone()
         };
 
         unsafe {
-            if camclone.position != LAST_CAM_POS
-                || camclone.direction != LAST_CAM_DIR
+            if cam_clone.position != LAST_CAM_POS
+                || cam_clone.direction != LAST_CAM_DIR
                 || UPDATE_THE_BLOCK_OVERLAY
             {
                 UPDATE_THE_BLOCK_OVERLAY = false;
 
-                LAST_CAM_POS = camclone.position;
-                LAST_CAM_DIR = camclone.direction;
+                LAST_CAM_POS = cam_clone.position;
+                LAST_CAM_DIR = cam_clone.direction;
 
                 HIT_RESULT = raycast_voxel_with_bob(
-                    camclone.position,
-                    camclone.direction,
+                    cam_clone.position,
+                    cam_clone.direction,
                     &self.chunksys,
                     10.0,
                     self.vars.walkbobtimer,
@@ -4166,7 +4233,7 @@ impl Game {
                 Some((_head, hit)) => {
                     let hitvec3 = Vec3::new(hit.x as f32, hit.y as f32, hit.z as f32);
                     self.select_cube
-                        .draw_at(hitvec3, &camclone.mvp, self.vars.walkbobtimer);
+                        .draw_at(hitvec3, &cam_clone.mvp, self.vars.walkbobtimer);
                     let bprog = (BREAK_TIME / Blocks::get_break_time(BLOCK_TYPE)).clamp(0.0, 1.0);
 
                     let slot_selected = self.hud.bumped_slot;
@@ -4188,7 +4255,7 @@ impl Game {
                         self.block_overlay.draw_at(
                             hitvec3,
                             (bprog * 8.0).floor() as i8,
-                            &camclone.mvp,
+                            &cam_clone.mvp,
                             self.vars.walkbobtimer,
                         );
                         BREAK_TIME = BREAK_TIME + self.delta_time * modifier;
@@ -4207,7 +4274,7 @@ impl Game {
         }
         {
             let mut c = self.camera.lock().unwrap();
-            (*c) = camclone;
+            (*c) = cam_clone;
         }
     }
 
@@ -4242,12 +4309,17 @@ impl Game {
             gl::UseProgram(self.shader0.shader_id);
         }
 
+        if true { //unsafe { GLCHUNKS } {
+
+        
+
         let ugqarc = self
             .chunksys
             .read()
             .unwrap()
             .finished_user_geo_queue
             .clone();
+
 
         match ugqarc.pop() {
             Some(ready) => {
@@ -4489,6 +4561,15 @@ impl Game {
             None => {}
         }
 
+
+        }
+
+        let cam_clone = {
+            let cam_lock = self.camera.lock().unwrap();
+            cam_lock.clone()
+        };
+
+
         static mut C_POS_LOC: i32 = -1;
         static mut MVP_LOC: i32 = 0;
         static mut CAM_POS_LOC: i32 = 0;
@@ -4552,11 +4633,7 @@ impl Game {
                     b"planet_y\0".as_ptr() as *const i8,
                 );
             }
-            let cam_clone = {
-                let cam_lock = self.camera.lock().unwrap();
-                cam_lock.clone()
-            };
-            
+
 
             gl::UniformMatrix4fv(MVP_LOC, 1, gl::FALSE, cam_clone.mvp.to_cols_array().as_ptr());
             gl::Uniform3f(
@@ -4588,7 +4665,7 @@ impl Game {
             let fc = Planets::get_fog_col(self.chunksys.read().unwrap().planet_type as u32);
             gl::Uniform4f(FOGCOL_LOC, fc.0, fc.1, fc.2, fc.3);
 
-            drop(cam_clone);
+
         }
 
         let cs = self.chunksys.read().unwrap();
@@ -4727,32 +4804,29 @@ impl Game {
                             b"sunrise\0".as_ptr() as *const i8,
                         );
                     }
-                    let camclone = {
-                        let cam_lock = self.camera.lock().unwrap();
-                        cam_lock.clone()
-                    };
+
                     
 
                     gl::UniformMatrix4fv(
                         MVP_LOC,
                         1,
                         gl::FALSE,
-                        camclone.mvp.to_cols_array().as_ptr(),
+                        cam_clone.mvp.to_cols_array().as_ptr(),
                     );
                     gl::Uniform3f(
                         CAM_POS_LOC,
-                        camclone.position.x,
-                        camclone.position.y,
-                        camclone.position.z,
+                        cam_clone.position.x,
+                        cam_clone.position.y,
+                        cam_clone.position.z,
                     );
                     gl::Uniform1f(AMBIENT_BRIGHT_MULT_LOC, self.ambient_bright_mult);
                     gl::Uniform1f(VIEW_DISTANCE_LOC, 8.0);
                     gl::Uniform1f(UNDERWATER_LOC, 0.0);
                     gl::Uniform3f(
                         CAM_DIR_LOC,
-                        camclone.direction.x,
-                        camclone.direction.y,
-                        camclone.direction.z,
+                        cam_clone.direction.x,
+                        cam_clone.direction.y,
+                        cam_clone.direction.z,
                     );
 
                     gl::Uniform1f(
@@ -5398,39 +5472,39 @@ impl Game {
 
                 static mut LASTCAM: Lazy<Camera> = Lazy::new(|| Camera::default());
 
-                let mut camclone = {
+                let mut cam_clone = {
                     let c =  self.camera.lock().unwrap();
                     c.clone()
                 };
 
-                camclone.yaw += x_offset as f32;
-                camclone.pitch += y_offset as f32;
+                cam_clone.yaw += x_offset as f32;
+                cam_clone.pitch += y_offset as f32;
 
-                camclone.pitch = camclone.pitch.clamp(-89.0, 89.0);
+                cam_clone.pitch = cam_clone.pitch.clamp(-89.0, 89.0);
 
-                camclone.direction.x =
-                    camclone.yaw.to_radians().cos() as f32 * camclone.pitch.to_radians().cos() as f32;
-                camclone.direction.y = camclone.pitch.to_radians().sin();
-                camclone.direction.z =
-                    camclone.yaw.to_radians().sin() * camclone.pitch.to_radians().cos();
-                camclone.direction = camclone.direction.normalize();
+                cam_clone.direction.x =
+                    cam_clone.yaw.to_radians().cos() as f32 * cam_clone.pitch.to_radians().cos() as f32;
+                cam_clone.direction.y = cam_clone.pitch.to_radians().sin();
+                cam_clone.direction.z =
+                    cam_clone.yaw.to_radians().sin() * cam_clone.pitch.to_radians().cos();
+                cam_clone.direction = cam_clone.direction.normalize();
 
-                camclone.right = Vec3::new(0.0, 1.0, 0.0)
-                    .cross(camclone.direction)
+                cam_clone.right = Vec3::new(0.0, 1.0, 0.0)
+                    .cross(cam_clone.direction)
                     .normalize();
-                camclone.up = camclone.direction.cross(camclone.right).normalize();
+                cam_clone.up = cam_clone.direction.cross(cam_clone.right).normalize();
 
-                camclone.recalculate();
+                cam_clone.recalculate();
 
                 {
                     let mut c =  self.camera.lock().unwrap();
-                    (*c) = camclone;
+                    (*c) = cam_clone;
                 }
 
                 #[cfg(feature = "show_cam_pos")]
                 info!(
                     "Cam dir: {}, {}, {}",
-                    camclone.direction.x, camclone.direction.y, camclone.direction.z
+                    cam_clone.direction.x, cam_clone.direction.y, cam_clone.direction.z
                 );
             }
         }
@@ -6397,10 +6471,9 @@ impl Game {
                 thread::sleep(Duration::from_millis(500));
             }
 
-            let csysread = self.chunksys.read().unwrap();
-            let currseed = *(csysread.currentseed.read().unwrap());
-            let nt = csysread.planet_type;
-            drop(csysread);
+
+            let currseed = unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)};
+            let nt = 0;
 
             self.vars.hostile_world = (nt % 2) != 0;
 
@@ -6417,7 +6490,7 @@ impl Game {
             unsafe {
                 self.vars.hostile_world = (CURR_NT % 2) == 0;
                 CURR_NT = (CURR_NT + 1) % 2;
-                *self.chunksys.read().unwrap().currentseed.write().unwrap() = seed;
+                unsafe {CURRSEED.store(seed, Ordering::Relaxed)};
                 self.start_chunks_with_radius(10, seed, CURR_NT);
 
                 info!(
@@ -6543,6 +6616,15 @@ impl Game {
                     CROUCHING = false;
                 }
             },
+
+
+            // Key::H => {
+            //     if action == Action::Press || action == Action::Repeat {
+            //         unsafe {
+            //             GLCHUNKS = !GLCHUNKS;
+            //         }
+            //     } 
+            // }
             // Key::M => {
             //     if action == Action::Press {
             //         unsafe { WEATHERTYPE = WEATHERTYPE + 1.0 };

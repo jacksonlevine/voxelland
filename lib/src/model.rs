@@ -314,36 +314,7 @@ impl Game {
         }
     }
 
-    pub fn take_damage(&mut self, amount: u8) {
-        let h = self.health.load(std::sync::atomic::Ordering::Relaxed);
-        let newamount = (h-amount as i8).max(0);
-        self.health.store(newamount, std::sync::atomic::Ordering::Relaxed);
-        if newamount <= 0 { //DEAD
 
-            let mut camlock = self.camera.lock().unwrap();
-            let campos = camlock.position.clone();
-
-            let mut inv = self.inventory.write().unwrap();
-            for i in 0..5 {
-                let amt = inv.inv[i].1;
-                #[cfg(feature = "glfw")]
-                self.drops.add_drop(campos + Vec3::new(0.0, 2.0, 0.0), inv.inv[i].0, amt);
-                
-                
-            }
-            inv.inv = STARTINGITEMS;
-
-
-            
-            unsafe {
-                camlock.position = SPAWNPOINT;
-            }
-            
-            drop(camlock);
-            self.health.store(20, std::sync::atomic::Ordering::Relaxed);
-        }
-        
-    }
 
     pub fn update_non_static_model_entities(&mut self) {
 

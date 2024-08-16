@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 use crate::camera::Camera;
 use crate::chunk::ChunkSystem;
-use crate::game::{Game, PLAYERPOS, UPDATE_THE_BLOCK_OVERLAY};
+use crate::game::{Game, CURRSEED, PLAYERPOS, UPDATE_THE_BLOCK_OVERLAY};
 use crate::inventory::ChestInventory;
 use crate::modelentity::{direction_to_euler, ModelEntity};
 use crate::server_types::{self, Message, MessageType, MOB_BATCH_SIZE};
@@ -301,11 +301,7 @@ impl NetworkConnector {
                                                         let mut file = File::create("chestdb").unwrap();
                                                         file.write_all(&payload_buffer).unwrap();
 
-                                                        let seed = {
-                                                            let c = csys.read().unwrap();
-                                                            let s = c.currentseed.read().unwrap();
-                                                            s.clone()
-                                                        };
+                                                        let seed = unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)};
 
 
                                                         Game::static_load_chests_from_file(seed, &chestreg);

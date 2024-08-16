@@ -10,7 +10,7 @@ use std::fs::{File};
 
 use std::io::{ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
 use std::thread;
@@ -18,7 +18,7 @@ use std::time::Duration;
 use uuid::Uuid;
 use glam::Vec3;
 use voxelland::chunk::ChunkSystem;
-use voxelland::game::{Game, ROWLENGTH, SONGINDEX, STARTINGITEMS, WEATHERTYPE};
+use voxelland::game::{Game, CURRSEED, ROWLENGTH, SONGINDEX, STARTINGITEMS, WEATHERTYPE};
 use voxelland::vec::{self, IVec3};
 use voxelland::server_types::{self, *};
 use dashmap::DashMap;
@@ -193,11 +193,7 @@ fn handle_client(
                     MessageType::RequestSeed => {
                         println!("Recvd req seed");
         
-                        let currseed = {
-                            let csys = csys.read().unwrap();
-                            let s = csys.currentseed.read().unwrap().clone();
-                            s
-                        };
+                        let currseed = unsafe { CURRSEED.load(Ordering::Relaxed) };
         
                         let seedmsg = Message::new(MessageType::Seed, Vec3::ZERO, 0.0, currseed);
         
@@ -240,7 +236,7 @@ fn handle_client(
                                 }
                                
         
-                                let currseed = (*csys.read().unwrap().currentseed.read().unwrap()).clone();
+                                let currseed = unsafe { CURRSEED.load(Ordering::Relaxed) };
         
                                 queued_sql.push(QueuedSqlType::ChestInventoryUpdate(currchest, chestinv.inv.clone(), currseed));
                             }
@@ -355,7 +351,7 @@ fn handle_client(
         
                         let csys = csys.write().unwrap();
                         csys.set_block(spot, block, true);
-                        let currseed = (*csys.currentseed.read().unwrap()).clone();
+                        let currseed = unsafe { CURRSEED.load(Ordering::Relaxed) };
                         queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot, block));
                     }
                     MessageType::MultiBlockSet => {
@@ -371,7 +367,7 @@ fn handle_client(
                         csys.set_block(spot, block, true);
                         csys.set_block(spot2, block2, true);
         
-                        let currseed = (*csys.currentseed.read().unwrap()).clone();
+                        let currseed = unsafe { CURRSEED.load(Ordering::Relaxed) };
                         queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot, block));
                         queued_sql.push(QueuedSqlType::UserDataMap(currseed, spot2, block2));
                     }
@@ -516,13 +512,13 @@ fn main() {
 
     let mut csys = gamewrite.chunksys.write().unwrap();
 
-    *(csys.currentseed.write().unwrap()) = initialseed;
+    unsafe { CURRSEED.store(initialseed, Ordering::Relaxed) };
 
     let chestreg = gamewrite.chest_registry.clone();
 
     csys.load_world_from_file(format!("world/{}", initialseed));
 
-    *(csys.currentseed.write().unwrap()) = initialseed;
+    unsafe { CURRSEED.store(initialseed, Ordering::Relaxed) };
 
     
     Game::static_load_chests_from_file(initialseed, &chestreg);

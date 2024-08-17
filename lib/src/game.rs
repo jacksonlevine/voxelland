@@ -44,7 +44,7 @@ use crate::glyphface::GlyphFace;
 use crate::guisystem::GuiSystem;
 use crate::hud::{Hud, HudElement, SlotIndexType};
 use crate::inventory::*;
-use crate::keybinds::KEYBOARD_BINDINGS;
+use crate::keybinds::{KEYBOARD_BINDINGS, MOUSE_BINDINGS};
 use crate::modelentity::ModelEntity;
 use crate::network::NetworkConnector;
 use crate::planetinfo::Planets;
@@ -1512,6 +1512,12 @@ impl Game {
 
                 unsafe {
                     for (key, action) in KEYBOARD_BINDINGS.iter_mut() {
+                        self.currentbuttons.push((
+                            action.clone(), format!("{:?}", key)
+                        ));
+                    }
+
+                    for (key, action) in MOUSE_BINDINGS.iter_mut() {
                         self.currentbuttons.push((
                             action.clone(), format!("{:?}", key)
                         ));

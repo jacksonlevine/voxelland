@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+
 use once_cell::sync::Lazy;
 
 pub enum Rebindable {
@@ -45,3 +46,4 @@ pub static mut MOUSE_BINDINGS: Lazy<HashMap<glfw::MouseButton, String>> = Lazy::
 
     ])
 );
+

@@ -1,10 +1,11 @@
-use crate::{blockinfo::Blocks, game::{Game, CROUCHING, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, MOUSEX, MOUSEY, SHOWTOOLTIP, SINGLEPLAYER, SOUNDSVOLUME, TOOLTIPNAME}, keybinds::{AboutToRebind, ABOUTTOREBIND, KEYBOARD_BINDINGS, LISTENINGFORREBIND}, recipes::{RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, texture::Texture};
+use crate::{blockinfo::Blocks, game::{Game, CROUCHING, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, MOUSEX, MOUSEY, SHOWTOOLTIP, SINGLEPLAYER, SOUNDSVOLUME, TOOLTIPNAME}, keybinds::{AboutToRebind, ABOUTTOREBIND, KEYBOARD_BINDINGS, LISTENINGFORREBIND, MOUSE_BINDINGS}, recipes::{RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, texture::Texture};
 
-use glfw::{Action, Context, Glfw, GlfwReceiver, Key, Modifiers, PWindow, WindowEvent};
+use glfw::{ffi::glfwGetKeyName, get_key_name, Action, Context, Glfw, GlfwReceiver, Key, Modifiers, PWindow, WindowEvent};
+
 use once_cell::sync::Lazy;
 
 
-use std::{sync::{atomic::AtomicBool, Arc}, time::{Duration, Instant}};
+use std::{ffi::CStr, sync::{atomic::AtomicBool, Arc}, time::{Duration, Instant}};
 use parking_lot::{Mutex, RwLock};
 use imgui::*;
 use imgui::{Key as ImGuiKey};
@@ -539,7 +540,11 @@ impl WindowAndKeyContext {
                                                     
 
                                                         let pos_x = (available_width - (button_width * 2.0)) / 2.0;
-    
+
+                                                        ui.set_cursor_pos([pos_x, pos_y + 25.0]);
+                                                        if LISTENINGFORREBIND {
+                                                            ui.text_colored([1.0, 1.0, 0.0, 1.0], "Listening for new key binding...");
+                                                        }
     
                                                         ui.set_cursor_pos([pos_x, pos_y]);
     
@@ -558,17 +563,60 @@ impl WindowAndKeyContext {
                                                             }
     
                                                             ui.set_cursor_pos([pos_x + button_width, pos_y]);
+                                                            
 
-                                                            if ui.button_with_size(glfwkey, [button_width, button_height]) {
+                                                            // let name = if glfwkey.starts_with("Button") { glfwkey } else { 
+                                                            //     &glfw::get_key_name(None, Some(glfwkey.parse::<i32>().unwrap_or(0))).unwrap_or("Unknown key".into())
+                                                            // };
+                                                            let name = glfwkey;
+                                                            if !name.is_empty() {
+                                                                if ui.button_with_size(name, [button_width, button_height]) {
                                                                 
                                                                 unsafe {
                                                                     LISTENINGFORREBIND = true;
-                                                                    ABOUTTOREBIND = Some(AboutToRebind {
-                                                                        key: crate::keybinds::Rebindable::Key(glfwkey.parse::<i32>().unwrap()),
-                                                                        action: binding.clone()
-                                                                    });
+                                                                    if !glfwkey.starts_with("Button") {
+                                                                        ABOUTTOREBIND = Some(AboutToRebind {
+                                                                            key: crate::keybinds::Rebindable::Key(glfwkey.parse::<i32>().unwrap()),
+                                                                            action: binding.clone()
+                                                                        });
+                                                                    } else {
+                                                                        ABOUTTOREBIND = Some(AboutToRebind {
+                                                                            key: crate::keybinds::Rebindable::MouseButton(
+                                                                                match glfwkey.as_str() {
+                                                                                    "Button1" => {
+                                                                                        glfw::MouseButton::Button1
+                                                                                    }
+                                                                                    "Button2" => {
+                                                                                        glfw::MouseButton::Button2
+                                                                                    }
+                                                                                    "Button3" => {
+                                                                                        glfw::MouseButton::Button3
+                                                                                    }
+                                                                                    "Button4" => {
+                                                                                        glfw::MouseButton::Button4
+                                                                                    }
+                                                                                    "Button5" => {
+                                                                                        glfw::MouseButton::Button5
+                                                                                    }
+                                                                                    "Button6" => {
+                                                                                        glfw::MouseButton::Button6
+                                                                                    }
+                                                                                    "Button7" => {
+                                                                                        glfw::MouseButton::Button7
+                                                                                    }
+                                                                                    _ => {
+                                                                                        glfw::MouseButton::Button8
+                                                                                    }
+                                                                                }
+                                                                            ),
+                                                                            action: binding.clone()
+                                                                        });
+                                                                    }
+                                                                    
                                                                     uncapkb.store(true, std::sync::atomic::Ordering::Relaxed);
                                                                 } 
+                                                            }
+                                                            
                                                             }
                                                             
                                                         }
@@ -774,45 +822,79 @@ impl WindowAndKeyContext {
                                     match event {
                                         
                                         glfw::WindowEvent::MouseButton(mousebutton, action, _) => {
-                                            let index = match mousebutton {
-                                                glfw::MouseButton::Button1 => 0,
-                                                glfw::MouseButton::Button2 => 1,
-                                                glfw::MouseButton::Button3 => 2,
-                                                glfw::MouseButton::Button4 => 3,
-                                                glfw::MouseButton::Button5 => 4,
-                                                glfw::MouseButton::Button6 => 5,
-                                                glfw::MouseButton::Button7 => 6,
-                                                glfw::MouseButton::Button8 => 7,
-                                                _ => return,
-                                            };
-                                            io.mouse_down[index] = action == glfw::Action::Press;
 
-                                            // println!("Got a m.o.u.s.e. event");
-                                            //         println!("io.want_capture_mouse: {}, gmenuopen: {}", 
-                                            //         io.want_capture_mouse,
-                                            //         gmenuopen);
-            
-                                            if !io.want_capture_mouse && !gmenuopen {
-                                                if mousebutton == glfw::MouseButtonLeft {
-
+                                            if  unsafe { LISTENINGFORREBIND } {
+                                                    unsafe {
+                                                                
+                                                                match &ABOUTTOREBIND {
+                                                                    Some(atr) => {
                                                     
-
+                                                                        match atr.key {
+                                                                            crate::keybinds::Rebindable::Key(oldscan) => {
+                                                                                
+                                                                            },
+                                                                            crate::keybinds::Rebindable::MouseButton(mb) => {
+                                                                                if !MOUSE_BINDINGS.contains_key(&mousebutton) {
+                                                                                    MOUSE_BINDINGS.remove(&mb);
+                                                                                    MOUSE_BINDINGS.insert(mousebutton, atr.action.clone());
+                                                                                    g.button_command("bindingsmenu".into());
+                                                                                }
+                                                                                
+                                                                                LISTENINGFORREBIND = false;
+                                                                            },
+                                                                        }
+                                                                        
+                                                                    }
+                                                                    None => {
+                                                                        
+                                                                    }
+                                                                }
                                                     
-                                                    if !io.want_capture_mouse {
-                                                        
-                                                        
-                                                        if !gmenuopen && !gchestopen {
-                                                            self.window.write().set_cursor_mode(glfw::CursorMode::Disabled);
-                                                            g.set_mouse_focused(true);
+                                                    
+                                                            } 
+                                                
+                                                        } else {
+                                                            
+                                                                let index = match mousebutton {
+                                                                    glfw::MouseButton::Button1 => 0,
+                                                                    glfw::MouseButton::Button2 => 1,
+                                                                    glfw::MouseButton::Button3 => 2,
+                                                                    glfw::MouseButton::Button4 => 3,
+                                                                    glfw::MouseButton::Button5 => 4,
+                                                                    glfw::MouseButton::Button6 => 5,
+                                                                    glfw::MouseButton::Button7 => 6,
+                                                                    glfw::MouseButton::Button8 => 7,
+                                                                    _ => return,
+                                                                };
+                                                                io.mouse_down[index] = action == glfw::Action::Press;
+
+                                                                // println!("Got a m.o.u.s.e. event");
+                                                                //         println!("io.want_capture_mouse: {}, gmenuopen: {}", 
+                                                                //         io.want_capture_mouse,
+                                                                //         gmenuopen);
+                                
+                                                                if !io.want_capture_mouse && !gmenuopen {
+                                                                    if mousebutton == glfw::MouseButtonLeft {
+
+                                                                        
+
+                                                                        
+                                                                        if !io.want_capture_mouse {
+                                                                            
+                                                                            
+                                                                            if !gmenuopen && !gchestopen {
+                                                                                self.window.write().set_cursor_mode(glfw::CursorMode::Disabled);
+                                                                                g.set_mouse_focused(true);
+                                                                            }
+                                                                            
+                                                                        }
+                                                                        
+                                                                    }
+                                                                    #[cfg(feature = "glfw")]
+                                                                g
+                                                                        .mouse_button(mousebutton, action);
+                                                                }
                                                         }
-                                                        
-                                                    }
-                                                    
-                                                }
-                                                #[cfg(feature = "glfw")]
-                                               g
-                                                    .mouse_button(mousebutton, action);
-                                            }
                                                 
                                         }
                                         glfw::WindowEvent::FramebufferSize(wid, hei) => {
@@ -842,15 +924,19 @@ impl WindowAndKeyContext {
                                                 
                                                                     match atr.key {
                                                                         crate::keybinds::Rebindable::Key(oldscan) => {
-                                                                            KEYBOARD_BINDINGS.remove(&oldscan);
-                                                                            KEYBOARD_BINDINGS.insert(keyscan, atr.action.clone());
-                                                                            g.button_command("bindingsmenu".into());
+                                                                            if !KEYBOARD_BINDINGS.contains_key(&keyscan) {
+                                                                                KEYBOARD_BINDINGS.remove(&oldscan);
+                                                                                KEYBOARD_BINDINGS.insert(keyscan, atr.action.clone());
+                                                                                g.button_command("bindingsmenu".into());
+                                                                            }
+                                                                            
+                                                                            LISTENINGFORREBIND = false;
                                                                         },
                                                                         crate::keybinds::Rebindable::MouseButton(mb) => {
                                                 
                                                                         },
                                                                     }
-                                                                    LISTENINGFORREBIND = false;
+                                                                   
                                                                 }
                                                                 None => {
                                                                     
@@ -861,6 +947,9 @@ impl WindowAndKeyContext {
                                                         } 
                                                 
                                                         } else {
+
+
+
                                                             let pressed = action == glfw::Action::Press || action == glfw::Action::Repeat;
                                                             io.keys_down[scancode as usize] = pressed;
                                                             // println!("Got a kb event");

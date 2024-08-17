@@ -9,7 +9,7 @@ use glfw::ffi::glfwGetTime;
 use gltf::{accessor::{Dimensions}, image::Source, mesh::util::ReadIndices};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use uuid::Uuid;
-use crate::{planetinfo::Planets};
+use crate::{camera::Camera, planetinfo::Planets};
 use gltf::{animation::util::ReadOutputs};
 use crate::{collisioncage::{CollCage, Side}, game::*, modelentity::{AggroTarget, ModelEntity}, vec};
 use percent_encoding::percent_decode_str;
@@ -494,8 +494,9 @@ impl Game {
 
             
             let camclone = {
-                let cam_lock = self.camera.lock();
-                cam_lock.clone()
+                //let cam_lock = self.camera.lock();
+                //cam_lock.clone()
+                Camera::new()
             };
 
 

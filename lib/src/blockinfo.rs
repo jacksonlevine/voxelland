@@ -4,7 +4,7 @@ pub const BLOCK_DIRECTION_BITS: u32 = 0b0000_0000_0000_0011_0000_0000_0000_0000;
 pub struct Blocks {}
 
 
-static BREAKTIMES: [f32; 49] = [
+static BREAKTIMES: [f32; 50] = [
     0.1,
     0.5,
     0.7,
@@ -56,10 +56,11 @@ static BREAKTIMES: [f32; 49] = [
     0.5,
     0.5,
     1.0,
-    1.0
+    1.0,
+    0.3
 ];
 
-static TEXS: [[(u8, u8); 3]; 49] = [
+static TEXS: [[(u8, u8); 3]; 50] = [
             //sides   //bot   //top
             [(0, 0), (0, 0), (0, 0)],  // 0
             [(1, 0), (1, 0), (1, 0)],  // 1 sand
@@ -122,6 +123,7 @@ static TEXS: [[(u8, u8); 3]; 49] = [
             [(1,6),(1,6),(1,6)], // 47  metal plate block
 
             [(8,4),(4,0),(8,5)], // 48, snowy grass
+            [(9,4),(9,4),(9,4)], // 49, torch
         ];
 
 
@@ -181,6 +183,7 @@ impl Blocks {
             46 => {"Auto Trampoline"}
             47 => {"Metal Plate Block"}
             48 => {"Snowy Grass Block"}
+            49 => {"Torch"}
             _ => {
                 "Unknown Item"
             }
@@ -197,6 +200,8 @@ impl Blocks {
         static orange: LightColor = LightColor{x: 15, y:7, z:0};
         static teal: LightColor = LightColor{x: 2, y:15, z:12};
 
+        static torch: LightColor = LightColor{x: 10, y:8, z:1};
+        
         match id {
             18 => {
                 white
@@ -206,6 +211,9 @@ impl Blocks {
             }
             25 => {
                 purple
+            }
+            49 => {
+                torch
             }
             26 => {
                 yellow
@@ -247,8 +255,8 @@ impl Blocks {
         return OV.contains(&id);
     }
     pub fn is_transparent(id: u32) -> bool {
-        static TRANSPARENTS: [u32; 2] = [
-            2, 8,
+        static TRANSPARENTS: [u32; 3] = [
+            2, 8, 49
         ];
         return TRANSPARENTS.contains(&id);
     }
@@ -271,8 +279,8 @@ impl Blocks {
         return NP.contains(&id);
     }
     pub fn is_light(id: u32) -> bool {
-        static LIGHTS: [u32; 8] = [
-            18, 24, 25, 26, 27, 28, 29, 30
+        static LIGHTS: [u32; 9] = [
+            18, 24, 25, 26, 27, 28, 29, 30, 49
         ];
         return LIGHTS.contains(&id);
     }

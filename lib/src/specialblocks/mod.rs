@@ -6,3 +6,4 @@ pub mod chest;
 pub mod tallgrass;
 pub mod crafttable;
 pub mod conveyor;
+pub mod torch;

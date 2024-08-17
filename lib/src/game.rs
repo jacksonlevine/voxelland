@@ -44,7 +44,7 @@ use crate::glyphface::GlyphFace;
 use crate::guisystem::GuiSystem;
 use crate::hud::{Hud, HudElement, SlotIndexType};
 use crate::inventory::*;
-use crate::keybinds::{KEYBOARD_BINDINGS, MOUSE_BINDINGS};
+
 use crate::modelentity::ModelEntity;
 use crate::network::NetworkConnector;
 use crate::planetinfo::Planets;
@@ -55,7 +55,7 @@ use crate::selectcube::SelectCube;
 use crate::server_types::{Message, MessageType};
 use crate::shader::Shader;
 use crate::specialblocks::door::{self, DoorInfo};
-use crate::statics::MY_MULTIPLAYER_UUID;
+use crate::statics::{MISCSETTINGS, MY_MULTIPLAYER_UUID, SAVE_MISC};
 use crate::texture::Texture;
 use crate::textureface::{TextureFace};
 use crate::tools::{get_block_material, get_tools_target_material, Material};
@@ -79,7 +79,7 @@ pub static mut SPRINTING: bool = false;
 pub static mut WASFREEFALLING: bool = false;
 pub static mut FREEFALLING: bool = false;
 
-pub static mut SOUNDSVOLUME: f32 = 1.0;
+
 
 pub static mut STAMINA: i32 = 0;
 pub static mut UPDATE_THE_BLOCK_OVERLAY: bool = false;
@@ -131,7 +131,7 @@ pub fn wait_for_decide_singleplayer() {
 
 pub static STARTINGITEMS: [(u32, u32); ROWLENGTH as usize] = [
     (31, 1),
-    (0, 0),
+    (49, 10),
     (0, 0),
     (0, 0),
     (0, 0),
@@ -237,7 +237,7 @@ impl ControlsState {
 pub struct GameVariables {
     pub first_mouse: bool,
     pub mouse_focused: bool,
-    pub sensitivity: f32,
+
     pub sky_color: Vec4,
     pub sky_bottom: Vec4,
     pub mouse_clicked: bool,
@@ -256,8 +256,7 @@ pub struct GameVariables {
     pub main_menu: bool,
     pub in_climbable: bool,
     pub walkbobtimer: f32,
-    pub musicvolume: f32,
-    pub soundsvolume: f32,
+
     pub time_tfs_at_3: f32
 }
 
@@ -561,8 +560,10 @@ impl Game {
                 let isntladder = (bitshere & Blocks::block_id_bits()) != 20;
                 let isntbamboo = (bitshere & Blocks::block_id_bits()) != 22;
                 let isnttallgrass = (bitshere & Blocks::block_id_bits()) != 23;
+                let isnttorch = (bitshere & Blocks::block_id_bits()) != 49;
                 return isntopendoor
                     && isntladder
+                    && isnttorch
                     && isntbamboo
                     && isnttallgrass
                     && csys_arc.read().collision_predicate(v);
@@ -906,7 +907,7 @@ impl Game {
             vars: GameVariables {
                 first_mouse: true,
                 mouse_focused: false,
-                sensitivity: 0.25,
+    
                 sky_color: Vec4::new(0.3, 0.65, 1.0, 1.0),
                 sky_bottom: Vec4::new(1.0, 1.0, 1.0, 1.0),
                 mouse_clicked: false,
@@ -925,8 +926,7 @@ impl Game {
                 main_menu: false,
                 in_climbable: false,
                 walkbobtimer: 0.0,
-                musicvolume: 1.0,
-                soundsvolume: 1.0,
+
                 time_tfs_at_3: 0.0
             },
             controls: ControlsState::new(),
@@ -1511,13 +1511,13 @@ impl Game {
                 ];
 
                 unsafe {
-                    for (key, action) in KEYBOARD_BINDINGS.iter_mut() {
+                    for (key, action) in MISCSETTINGS.keybinds.iter_mut() {
                         self.currentbuttons.push((
                             action.clone(), format!("{:?}", key)
                         ));
                     }
 
-                    for (key, action) in MOUSE_BINDINGS.iter_mut() {
+                    for (key, action) in MISCSETTINGS.mousebinds.iter_mut() {
                         self.currentbuttons.push((
                             action.clone(), format!("{:?}", key)
                         ));
@@ -2805,15 +2805,17 @@ impl Game {
 
     #[cfg(feature = "audio")]
     pub fn update_music_volume(&mut self) {
+        use crate::statics::MISCSETTINGS;
+
         unsafe {
             static mut PASTVOLUME: f32 = 1.0;
-            if self.vars.musicvolume != PASTVOLUME {
+            if MISCSETTINGS.music_vol != PASTVOLUME {
 
 
                 for songname in SONGS {
                     match AUDIOPLAYER.headsinks.get(songname) {
                         Some(s) => {
-                            s.set_volume(self.vars.musicvolume);
+                            s.set_volume(MISCSETTINGS.music_vol);
                         },
                         None => {
 
@@ -2821,7 +2823,7 @@ impl Game {
                     }
                 }
 
-                PASTVOLUME = self.vars.musicvolume;
+                PASTVOLUME = MISCSETTINGS.music_vol;
             }
 
         }
@@ -3951,8 +3953,10 @@ impl Game {
                     FREEFALLING = false;
                     WASFREEFALLING = false;
 
+                    #[cfg(feature = "audio")]
                     AUDIOPLAYER.stop_head_sound("assets/sfx/freefall.mp3".to_string());
                     if self.inwater {
+                        #[cfg(feature = "audio")]
                         AUDIOPLAYER.play_in_head("assets/sfx/splash.mp3");
                     }
                 }
@@ -3994,7 +3998,7 @@ impl Game {
                     unsafe {
                         if !WASFREEFALLING {
                             WASFREEFALLING = true;
-
+                            #[cfg(feature = "audio")]
                             AUDIOPLAYER.play_in_head("assets/sfx/freefall.mp3");
                         }
                     }
@@ -4013,6 +4017,7 @@ impl Game {
                     if WASFREEFALLING {
 
                         WASFREEFALLING = false;
+                        #[cfg(feature = "audio")]
                         AUDIOPLAYER.stop_head_sound("assets/sfx/freefall.mp3".to_string());
                     }
                     
@@ -4160,6 +4165,7 @@ impl Game {
         match falldamage {
             Some(fd) => {
                 unsafe {
+                    #[cfg(feature = "audio")]
                     AUDIOPLAYER.play_in_head("assets/sfx/falldamage.mp3");
                 }
                 self.take_damage((fd*20.0) as u8);
@@ -4177,6 +4183,7 @@ impl Game {
         if newamount <= 0 { //DEAD
 
             unsafe {
+                #[cfg(feature = "audio")]
                 AUDIOPLAYER.play_in_head("assets/sfx/death.mp3");
             }
             let mut camlock = self.camera.lock();
@@ -5594,8 +5601,8 @@ impl Game {
             }
 
             unsafe {
-                let x_offset = (xpos - LASTX) * self.vars.sensitivity as f64;
-                let y_offset = (LASTY - ypos) * self.vars.sensitivity as f64;
+                let x_offset = (xpos - LASTX) * MISCSETTINGS.mouse_sense as f64;
+                let y_offset = (LASTY - ypos) * MISCSETTINGS.mouse_sense as f64;
 
                 LASTY = ypos;
                 LASTX = xpos;
@@ -5646,6 +5653,7 @@ impl Game {
             self.vars.mouse_focused = false;
             self.vars.first_mouse = true;
         }
+        SAVE_MISC();
     }
     pub fn delete_block_recursively(
         chunksys: &Arc<RwLock<ChunkSystem>>,
@@ -6396,10 +6404,10 @@ impl Game {
     }
     #[cfg(feature = "glfw")]
     pub fn mouse_button(&mut self, mb: MouseButton, a: Action) {
-        use crate::keybinds::MOUSE_BINDINGS;
+
 
         if self.hud.chest_open {
-            match unsafe { MOUSE_BINDINGS.get(&mb).unwrap_or(&"_".to_string()).as_str() } {
+            match unsafe { MISCSETTINGS.mousebinds.get(&format!("{:?}", mb)).unwrap_or(&"_".to_string()).as_str() } {
                 "Break/Attack" => {
                     //self.vars.mouse_clicked = a == Action::Press;
 
@@ -6572,7 +6580,7 @@ impl Game {
                 _ => {}
             }
         } else {
-            match unsafe { MOUSE_BINDINGS.get(&mb).unwrap_or(&"_".to_string()).as_str() } {
+            match unsafe { MISCSETTINGS.mousebinds.get(&format!("{:?}", mb)).unwrap_or(&"_".to_string()).as_str() } {
                 "Break/Attack" => {
                     self.vars.mouse_clicked = a == Action::Press;
                     // if self.vars.mouse_clicked {
@@ -6644,10 +6652,10 @@ impl Game {
 
     #[cfg(feature = "glfw")]
     pub fn keyboard(&mut self, key: Key, action: Action) {
-        use crate::keybinds::{ABOUTTOREBIND, KEYBOARD_BINDINGS, LISTENINGFORREBIND};
+        use crate::keybinds::{ABOUTTOREBIND, LISTENINGFORREBIND};
 
         {
-        match unsafe { KEYBOARD_BINDINGS.get(&key.get_scancode().unwrap_or(0)).unwrap_or(&"_".to_string()).as_str() } {
+        match unsafe { MISCSETTINGS.keybinds.get(&key.get_scancode().unwrap_or(0)).unwrap_or(&"_".to_string()).as_str() } {
             "Exit/Menu" => {
                 if action == Action::Press {
                     if !self.vars.menu_open && !self.hud.chest_open && !self.crafting_open {

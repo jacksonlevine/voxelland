@@ -53,6 +53,7 @@ use crate::specialblocks::crafttable::CraftTableInfo;
 use crate::specialblocks::door::DoorInfo;
 use crate::specialblocks::ladder::LadderInfo;
 use crate::specialblocks::tallgrass::TallGrassInfo;
+use crate::specialblocks::torch::TorchInfo;
 use crate::textureface::TextureFace;
 use crate::textureface::ONE_OVER_16;
 use crate::textureface::TEXTURE_WIDTH;
@@ -1659,6 +1660,42 @@ unsafe {
                             }
 
                             uvdata.extend_from_slice(&ConveyorInfo::get_conveyor_uvs());
+                        } else if block == 49 { 
+                            let direction = Blocks::get_direction_bits(flags);
+
+                            let modelindex: i32 = direction as i32;
+
+                            let _blocklightval = 0.0;
+
+                            let lmlock = self.lightmap.lock();
+                            let blocklighthere = match lmlock.get(&spot) {
+                                Some(k) => k.sum(),
+                                None => LightColor::ZERO,
+                            };
+
+                            let packedrgb = PackedVertex::pack_rgb(
+                                blocklighthere.x,
+                                blocklighthere.y,
+                                blocklighthere.z,
+                            );
+
+                            let prgb: u32 =
+                                0b0000_0000_0000_0000_0000_0000_0000_0000 | (packedrgb) as u32;
+                            drop(lmlock);
+
+                            for vert in
+                                TorchInfo::torch_model_from_index(modelindex as usize).chunks(5)
+                            {
+                                vdata.extend_from_slice(&[
+                                    vert[0] + spot.x as f32,
+                                    vert[1] + spot.y as f32,
+                                    vert[2] + spot.z as f32,
+                                    f32::from_bits(prgb),
+                                    vert[4],
+                                ])
+                            }
+
+                            uvdata.extend_from_slice(&TorchInfo::get_torch_uvs());
                         } else if block == 21 {
                             let direction = Blocks::get_direction_bits(flags);
 

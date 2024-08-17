@@ -1,4 +1,4 @@
-use crate::{blockinfo::Blocks, game::{Game, CROUCHING, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, MOUSEX, MOUSEY, SHOWTOOLTIP, SINGLEPLAYER, SOUNDSVOLUME, TOOLTIPNAME}, keybinds::{AboutToRebind, ABOUTTOREBIND, KEYBOARD_BINDINGS, LISTENINGFORREBIND, MOUSE_BINDINGS}, recipes::{RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, texture::Texture};
+use crate::{blockinfo::Blocks, game::{Game, CROUCHING, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, MOUSEX, MOUSEY, SHOWTOOLTIP, SINGLEPLAYER, TOOLTIPNAME}, keybinds::{AboutToRebind, ABOUTTOREBIND, LISTENINGFORREBIND}, recipes::{RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_MISC, LOAD_OR_INITIALIZE_STATICS, MISCSETTINGS, SAVE_LESA}, texture::Texture};
 
 use glfw::{ffi::glfwGetKeyName, get_key_name, Action, Context, Glfw, GlfwReceiver, Key, Modifiers, PWindow, WindowEvent};
 
@@ -92,7 +92,7 @@ impl WindowAndKeyContext {
         #[cfg(feature = "glfw")]
         restart_app_if_necessary(AppId::from(3114230));
 
-
+        
 
         unsafe {
             WINDOWHEIGHT = height as i32;
@@ -105,7 +105,7 @@ impl WindowAndKeyContext {
             .expect("Failed to create GLFW window.");
         gl::load_with(|s| window.get_proc_address(s) as *const _);
 
-
+        LOAD_MISC();
 
         window.set_key_polling(true);
         window.set_framebuffer_size_polling(true);
@@ -639,17 +639,17 @@ impl WindowAndKeyContext {
                                                         if buttonname.starts_with("Slider") {
                                                             let truncated_name = buttonname.split_at(6).1;
                                                             if buttonname == "SliderMouse Sensitivity" {
-                                                                if ui.slider(truncated_name, 0.1, 3.0, &mut g.vars.sensitivity) {
+                                                                if ui.slider(truncated_name, 0.1, 3.0, &mut MISCSETTINGS.mouse_sense) {
                                                                     //g.button_command(command);
                                                                 }
                                                             }
                                                             if buttonname == "SliderMusic Volume" {
-                                                                if ui.slider(truncated_name, 0.0, 1.0, &mut g.vars.musicvolume) {
+                                                                if ui.slider(truncated_name, 0.0, 1.0, &mut MISCSETTINGS.music_vol) {
                                                                     //g.button_command(command);
                                                                 }
                                                             }
                                                             if buttonname == "SliderSounds Volume" {
-                                                                if ui.slider(truncated_name, 0.0, 1.0, &mut SOUNDSVOLUME) {
+                                                                if ui.slider(truncated_name, 0.0, 1.0, &mut MISCSETTINGS.sound_vol) {
                                                                     //g.button_command(command);
                                                                 }
                                                             }
@@ -834,9 +834,9 @@ impl WindowAndKeyContext {
                                                                                 
                                                                             },
                                                                             crate::keybinds::Rebindable::MouseButton(mb) => {
-                                                                                if !MOUSE_BINDINGS.contains_key(&mousebutton) {
-                                                                                    MOUSE_BINDINGS.remove(&mb);
-                                                                                    MOUSE_BINDINGS.insert(mousebutton, atr.action.clone());
+                                                                                if !MISCSETTINGS.mousebinds.contains_key(&format!("{:?}", mousebutton)) {
+                                                                                    MISCSETTINGS.mousebinds.remove(&format!("{:?}", mb));
+                                                                                    MISCSETTINGS.mousebinds.insert(format!("{:?}", mousebutton), atr.action.clone());
                                                                                     g.button_command("bindingsmenu".into());
                                                                                 }
                                                                                 
@@ -924,9 +924,9 @@ impl WindowAndKeyContext {
                                                 
                                                                     match atr.key {
                                                                         crate::keybinds::Rebindable::Key(oldscan) => {
-                                                                            if !KEYBOARD_BINDINGS.contains_key(&keyscan) {
-                                                                                KEYBOARD_BINDINGS.remove(&oldscan);
-                                                                                KEYBOARD_BINDINGS.insert(keyscan, atr.action.clone());
+                                                                            if !MISCSETTINGS.keybinds.contains_key(&keyscan) {
+                                                                                MISCSETTINGS.keybinds.remove(&oldscan);
+                                                                                MISCSETTINGS.keybinds.insert(keyscan, atr.action.clone());
                                                                                 g.button_command("bindingsmenu".into());
                                                                             }
                                                                             

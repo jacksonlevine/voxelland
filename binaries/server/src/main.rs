@@ -298,9 +298,9 @@ fn handle_client(
                         }
 
 
-                        thread::sleep(Duration::from_millis(10));
+                        //thread::sleep(Duration::from_millis(10));
 
-                        if sendmobs
+                        if false //sendmobs
                         {
                             let mobmsgs = {
                                 knowncams.insert(client_id, Vec3::new(message.x, message.y, message.z));
@@ -344,6 +344,8 @@ fn handle_client(
             
                             }
                         }
+                    
+                    
                     }
                     MessageType::BlockSet => {
                         println!("Recvd block set");
@@ -961,12 +963,12 @@ fn main() {
 
         //println!("Ran update");
 
-        let mut nblock = nsme_bare_arc.lock();
+        // let mut nblock = nsme_bare_arc.lock();
         
         
-        *nblock = nsme.iter().map(|e| (*e.key(), e.position, e.rot.y, e.model_index, e.scale, e.sounding, e.hostile)).collect::<Vec<_>>();
+        // *nblock = nsme.iter().map(|e| (*e.key(), e.position, e.rot.y, e.model_index, e.scale, e.sounding, e.hostile)).collect::<Vec<_>>();
 
-        drop(nblock);
+        // drop(nblock);
 
         // thread::sleep(Duration::from_millis(50));
             // if !shutupmobmsgs.load(std::sync::atomic::Ordering::Relaxed) {
@@ -991,45 +993,48 @@ fn main() {
             // }
             
         
-            if mobspawnqueued.load(std::sync::atomic::Ordering::Relaxed) {
+            // if mobspawnqueued.load(std::sync::atomic::Ordering::Relaxed) {
 
-                println!("Spawning mobs");
+            //     println!("Spawning mobs");
 
-                if true {//chunksys.read().planet_type == 1 {
-                    let mut rng = StdRng::from_entropy();
-                    let mut gamewrite = gamearc.write();
-                    gamewrite.create_non_static_model_entity(0, Vec3::new(-100.0, 300.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0,false);
+            //     if true {//chunksys.read().planet_type == 1 {
+            //         let mut rng = StdRng::from_entropy();
+            //         let mut gamewrite = gamearc.write();
+            //         gamewrite.create_non_static_model_entity(0, Vec3::new(-100.0, 300.0, 350.0), 5.0, Vec3::new(0.0, 0.0, 0.0), 7.0,false);
                     
-                    gamewrite.create_non_static_model_entity(4, Vec3::new(-100.0, 300.0, -450.0), 30.0, Vec3::new(0.0, 0.0, 0.0), 7.0, false);
+            //         gamewrite.create_non_static_model_entity(4, Vec3::new(-100.0, 300.0, -450.0), 30.0, Vec3::new(0.0, 0.0, 0.0), 7.0, false);
 
 
                     
-                    for _i in 0..10 {
-                        if rng.gen_range(0..=3) <= 2 {
-                            gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1, false);
-                            gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1, false);
-                            gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1, false);
-                            gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1, false);
+            //         for _i in 0..10 {
+            //             if rng.gen_range(0..=3) <= 2 {
+            //                 gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1, false);
+            //                 gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1, false);
+            //                 gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1, false);
+            //                 gamewrite.create_non_static_model_entity(4, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 1.1, false);
                             
-                            gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 0.3, Vec3::new(0.0, 0.0, 0.0), 1.5, false);
-                            gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 0.3, Vec3::new(0.0, 0.0, 0.0), 1.5, false);
-                            gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 0.3, Vec3::new(0.0, 0.0, 0.0), 1.5, false);
-                            gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 0.3, Vec3::new(0.0, 0.0, 0.0), 1.5, false);
-                            gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 0.3, Vec3::new(0.0, 0.0, 0.0), 1.5, false);
-                            gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 0.3, Vec3::new(0.0, 0.0, 0.0), 1.5, false);
-                            gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 0.3, Vec3::new(0.0, 0.0, 0.0), 1.5, false);
-                            gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 0.3, Vec3::new(0.0, 0.0, 0.0), 1.5, false);
+            //                 gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 0.3, Vec3::new(0.0, 0.0, 0.0), 1.5, false);
+            //                 gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 0.3, Vec3::new(0.0, 0.0, 0.0), 1.5, false);
+            //                 gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 0.3, Vec3::new(0.0, 0.0, 0.0), 1.5, false);
+            //                 gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 0.3, Vec3::new(0.0, 0.0, 0.0), 1.5, false);
+            //                 gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 0.3, Vec3::new(0.0, 0.0, 0.0), 1.5, false);
+            //                 gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 0.3, Vec3::new(0.0, 0.0, 0.0), 1.5, false);
+            //                 gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 0.3, Vec3::new(0.0, 0.0, 0.0), 1.5, false);
+            //                 gamewrite.create_non_static_model_entity(6, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 0.3, Vec3::new(0.0, 0.0, 0.0), 1.5, false);
 
                             
-                            gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 3.0, true);
+            //                 gamewrite.create_non_static_model_entity(3, Vec3::new(rng.gen_range(-200.0..200.0),300.0,rng.gen_range(-200.0..200.0)), 1.0, Vec3::new(0.0, 0.0, 0.0), 3.0, true);
 
-                        }
-                    }
+            //             }
+            //         }
                     
-                }
-                mobspawnqueued.store(false, std::sync::atomic::Ordering::Relaxed);
+            //     }
+            //     mobspawnqueued.store(false, std::sync::atomic::Ordering::Relaxed);
 
 
-            }
+            // }
+    
+    
+    
     }
 }

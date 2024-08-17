@@ -8,7 +8,7 @@ use voxelland::inventory::{self, ChestInventory, Inventory};
 use std::collections::HashMap;
 use std::fs::{File};
 
-use std::io::{ErrorKind, Read, Write};
+use std::io::{self, ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc};
@@ -471,8 +471,34 @@ fn handle_client(
 
 fn main() {
     println!("Welcome to VoxelLand Server Version 0.1.0.");
-    println!("Hosting on port 4848.");
-    let listener = TcpListener::bind("0.0.0.0:4848").unwrap();
+    
+    // Ask the user for a port number
+    print!("Please enter a port number to host on. The port must be TCP forwarded to be accessible from the public, but will be available to the LAN regardless.\n
+    Enter port number here: ");
+    io::stdout().flush().unwrap();  // Ensure the prompt is printed before input
+
+    let mut port = String::new();
+    io::stdin().read_line(&mut port).unwrap();
+    
+    // Trim and parse the port number
+    let port = port.trim();
+    
+    // Check if the port number is valid
+    if port.parse::<u16>().is_err() {
+        println!("Invalid port number. Please enter a valid port number.");
+        return;
+    }
+    
+    // Format the address string
+    let address = format!("0.0.0.0:{}", port);
+
+    // Start the TCP listener on the specified port
+    let listener = TcpListener::bind(&address).expect("Failed to bind to address");
+
+    println!("Hosting on port {}.", port);
+
+
+    
     let clients: Arc<Mutex<HashMap<Uuid, Client>>> = Arc::new(Mutex::new(HashMap::new()));
     unsafe {
         PACKET_SIZE = bincode::serialized_size(&Message::new(MessageType::RequestSeed, Vec3::new(0.0, 0.0, 0.0), 0.0, 0)).unwrap() as usize;
@@ -490,7 +516,7 @@ fn main() {
     #[cfg(target_feature="glfw")]
     gl::load_with(|s| window.get_proc_address(s) as *const _);
 
-    let initialseed: u32 = 92927777;
+    let initialseed: u32 = 34481915;
     
 
     let gameh = Game::new(false, true, &Arc::new(AtomicBool::new(false)), &Arc::new(Mutex::new(None)));

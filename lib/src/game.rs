@@ -44,6 +44,7 @@ use crate::glyphface::GlyphFace;
 use crate::guisystem::GuiSystem;
 use crate::hud::{Hud, HudElement, SlotIndexType};
 use crate::inventory::*;
+use crate::keybinds::KEYBOARD_BINDINGS;
 use crate::modelentity::ModelEntity;
 use crate::network::NetworkConnector;
 use crate::planetinfo::Planets;
@@ -111,6 +112,9 @@ pub static mut TIME_ON_CONVEYORS: f32 = 0.0;
 pub static mut ROOFOVERHEAD: Lazy<AtomicBool> = Lazy::new(|| AtomicBool::new(false));
 
 pub static mut HEADLESS: bool = false;
+
+pub const SPRINTFOV: f32 = 83.0;
+pub const FALLFOV: f32 = 93.0;
 
 pub static mut CURRSEED: Lazy<AtomicU32> = Lazy::new(|| AtomicU32::new(0));
 
@@ -402,6 +406,7 @@ pub struct Game {
 }
 
 pub const ROWLENGTH: i32 = 8;
+
 
 enum FaderNames {
     FovFader = 0,
@@ -1490,7 +1495,30 @@ impl Game {
                 ];
                 self.vars.menu_open = true;
             }
+
             "bindingsmenu" => {
+
+                self.currentbuttons = vec![
+                    (
+                        "bindings".to_string(),
+                        "".to_string()
+                    ),
+                    (
+                        "Back to Previous Menu".to_string(),
+                        "settingsmenu".to_string(),
+                    ),
+
+                ];
+
+                unsafe {
+                    for (key, action) in KEYBOARD_BINDINGS.iter_mut() {
+                        self.currentbuttons.push((
+                            action.clone(), format!("{:?}", key)
+                        ));
+                    }
+                }
+                self.vars.menu_open = true;
+
                 
             }
             "recipemenu" => {
@@ -3507,17 +3535,26 @@ impl Game {
                     }
                 }
             }
-            if (self.controls.forward
+            if ((self.controls.forward
                 || self.controls.back
                 || self.controls.left
                 || self.controls.right)
-                && unsafe { SPRINTING }
+                && unsafe { SPRINTING }) || unsafe {FREEFALLING}
             {
-                if !self.faders.read()[FaderNames::FovFader as usize].mode {
-                    self.faders.write()[FaderNames::FovFader as usize].up();
+                if unsafe {FREEFALLING} {
+                    if !self.faders.read()[FaderNames::FovFader as usize].really {
+                    
+                        self.faders.write()[FaderNames::FovFader as usize].reallyup();
+                    }
+                } else {
+                    if !self.faders.read()[FaderNames::FovFader as usize].mode || self.faders.read()[FaderNames::FovFader as usize].really {
+                    
+                        self.faders.write()[FaderNames::FovFader as usize].up();
+                    }
                 }
+                
             } else {
-                if self.faders.read()[FaderNames::FovFader as usize].mode {
+                if self.faders.read()[FaderNames::FovFader as usize].mode  {
                     self.faders.write()[FaderNames::FovFader as usize].down();
                 }
             }
@@ -3907,6 +3944,7 @@ impl Game {
                 if WASFREEFALLING {
                     FREEFALLING = false;
                     WASFREEFALLING = false;
+
                     AUDIOPLAYER.stop_head_sound("assets/sfx/freefall.mp3".to_string());
                     if self.inwater {
                         AUDIOPLAYER.play_in_head("assets/sfx/splash.mp3");
@@ -3950,7 +3988,8 @@ impl Game {
                     unsafe {
                         if !WASFREEFALLING {
                             WASFREEFALLING = true;
-                            AUDIOPLAYER.play_in_head("assets/sfx/freefall.mp3")
+
+                            AUDIOPLAYER.play_in_head("assets/sfx/freefall.mp3");
                         }
                     }
                     
@@ -3966,6 +4005,7 @@ impl Game {
                 unsafe {
                     FREEFALLING = false;
                     if WASFREEFALLING {
+
                         WASFREEFALLING = false;
                         AUDIOPLAYER.stop_head_sound("assets/sfx/freefall.mp3".to_string());
                     }
@@ -6350,15 +6390,17 @@ impl Game {
     }
     #[cfg(feature = "glfw")]
     pub fn mouse_button(&mut self, mb: MouseButton, a: Action) {
+        use crate::keybinds::MOUSE_BINDINGS;
+
         if self.hud.chest_open {
-            match mb {
-                glfw::MouseButtonLeft => {
+            match unsafe { MOUSE_BINDINGS.get(&mb).unwrap_or(&"_".to_string()).as_str() } {
+                "Break/Attack" => {
                     //self.vars.mouse_clicked = a == Action::Press;
 
                     if a == Action::Press {
                         let mut updateinv = false;
                         {
-                            let csys = self.chunksys.write();
+                            //let csys = self.chunksys.write();
                             unsafe {
                                 match MOUSED_SLOT {
                                     SlotIndexType::ChestSlot(e) => {
@@ -6513,7 +6555,7 @@ impl Game {
                     //     self.cast_break_ray();
                     // }
                 }
-                glfw::MouseButtonRight => {
+                "Place/Use" => {
                     //self.vars.right_mouse_clicked = a == Action::Press;
                     // if !self.vars.ship_taken_off {
                     //     if self.vars.right_mouse_clicked {
@@ -6524,14 +6566,14 @@ impl Game {
                 _ => {}
             }
         } else {
-            match mb {
-                glfw::MouseButtonLeft => {
+            match unsafe { MOUSE_BINDINGS.get(&mb).unwrap_or(&"_".to_string()).as_str() } {
+                "Break/Attack" => {
                     self.vars.mouse_clicked = a == Action::Press;
                     // if self.vars.mouse_clicked {
                     //     self.cast_break_ray();
                     // }
                 }
-                glfw::MouseButtonRight => {
+                "Place/Use" => {
                     self.vars.right_mouse_clicked = a == Action::Press;
                     if !self.vars.ship_taken_off {
                         if self.vars.right_mouse_clicked {
@@ -6596,8 +6638,11 @@ impl Game {
 
     #[cfg(feature = "glfw")]
     pub fn keyboard(&mut self, key: Key, action: Action) {
-        match key {
-            Key::Escape => {
+        use crate::keybinds::{ABOUTTOREBIND, KEYBOARD_BINDINGS, LISTENINGFORREBIND};
+
+        {
+        match unsafe { KEYBOARD_BINDINGS.get(&key.get_scancode().unwrap_or(0)).unwrap_or(&"_".to_string()).as_str() } {
+            "Exit/Menu" => {
                 if action == Action::Press {
                     if !self.vars.menu_open && !self.hud.chest_open && !self.crafting_open {
                         self.button_command("escapemenu".to_string());
@@ -6638,21 +6683,21 @@ impl Game {
                     }
                 }
             }
-            Key::W => {
+            "Forward" => {
                 if action == Action::Press || action == Action::Repeat {
                     self.controls.forward = true;
                 } else {
                     self.controls.forward = false;
                 }
             }
-            Key::A => {
+            "Left" => {
                 if action == Action::Press || action == Action::Repeat {
                     self.controls.left = true;
                 } else {
                     self.controls.left = false;
                 }
             }
-            Key::C => {
+            "Craft" => {
                 if action == Action::Press {
                     unsafe {
                         ATSMALLTABLE = true;
@@ -6668,35 +6713,35 @@ impl Game {
                 } else {
                 }
             }
-            Key::S => {
+            "Backward" => {
                 if action == Action::Press || action == Action::Repeat {
                     self.controls.back = true;
                 } else {
                     self.controls.back = false;
                 }
             }
-            Key::D => {
+            "Right" => {
                 if action == Action::Press || action == Action::Repeat {
                     self.controls.right = true;
                 } else {
                     self.controls.right = false;
                 }
             }
-            Key::Space => {
+            "Jump/Swim/Climb Up" => {
                 if action == Action::Press || action == Action::Repeat {
                     self.controls.up = true;
                 } else {
                     self.controls.up = false;
                 }
             }
-            Key::LeftShift => {
+            "Sprint" => {
                 if action == Action::Press || action == Action::Repeat {
                     self.controls.shift = true;
                 } else {
                     self.controls.shift = false;
                 }
             }
-            Key::LeftControl => unsafe {
+            "Crouch" => unsafe {
                 if action == Action::Press || action == Action::Repeat {
                     CROUCHING = true;
                 } else {
@@ -6754,31 +6799,32 @@ impl Game {
             //         camlock.position = self.ship_pos + Vec3::new(5.0, 2.0, 0.0);
             //     }
             // }
-            Key::Num0 => {
+            "Fov Up" => {
                 self.faders.write()[FaderNames::FovFader as usize].up();
                 self.faders.write()[FaderNames::FovFader as usize].top += 1.0;
                 self.faders.write()[FaderNames::FovFader as usize].bottom += 1.0;
             }
-            Key::Num9 => {
+            "Fov Down" => {
                 self.faders.write()[FaderNames::FovFader as usize].down();
                 self.faders.write()[FaderNames::FovFader as usize].top -= 1.0;
                 self.faders.write()[FaderNames::FovFader as usize].bottom -= 1.0;
             }
-            Key::P => {
-                if action == Action::Press
-                    && !self.faders.read()[FaderNames::VisionsFader as usize].mode
-                {
-                    let mut rng = StdRng::from_entropy();
-                    self.current_vision =
-                        Some(VisionType::Model(rng.gen_range(2..self.gltf_models.len())));
-                    self.visions_timer = 0.0;
-                    self.faders.write()[FaderNames::VisionsFader as usize].up();
-                    #[cfg(feature = "audio")]
-                    unsafe {
-                        AUDIOPLAYER.play_in_head("assets/sfx/dreambell.mp3");
-                    }
-                }
-            }
+
+            // Key::P => { //VISION
+            //     if action == Action::Press
+            //         && !self.faders.read()[FaderNames::VisionsFader as usize].mode
+            //     {
+            //         let mut rng = StdRng::from_entropy();
+            //         self.current_vision =
+            //             Some(VisionType::Model(rng.gen_range(2..self.gltf_models.len())));
+            //         self.visions_timer = 0.0;
+            //         self.faders.write()[FaderNames::VisionsFader as usize].up();
+            //         #[cfg(feature = "audio")]
+            //         unsafe {
+            //             AUDIOPLAYER.play_in_head("assets/sfx/dreambell.mp3");
+            //         }
+            //     }
+            // }
 
             // Key::L => {
             //     if action == Action::Press {
@@ -6786,10 +6832,15 @@ impl Game {
             //     }
 
             // }
-            Key::O => {
-                //self.faders.write()[FaderNames::VisionsFader as usize].down();
-            }
+            // Key::O => {
+            //     //self.faders.write()[FaderNames::VisionsFader as usize].down();
+            // }
             _ => {}
         }
+    
+        }
+
+       
+    
     }
 }

@@ -1,4 +1,4 @@
-use crate::{blockinfo::Blocks, game::{Game, CROUCHING, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, MOUSEX, MOUSEY, SHOWTOOLTIP, SINGLEPLAYER, SOUNDSVOLUME, TOOLTIPNAME}, recipes::{RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, texture::Texture};
+use crate::{blockinfo::Blocks, game::{Game, CROUCHING, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, MOUSEX, MOUSEY, SHOWTOOLTIP, SINGLEPLAYER, SOUNDSVOLUME, TOOLTIPNAME}, keybinds::{AboutToRebind, ABOUTTOREBIND, KEYBOARD_BINDINGS, LISTENINGFORREBIND}, recipes::{RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_OR_INITIALIZE_STATICS, SAVE_LESA}, texture::Texture};
 
 use glfw::{Action, Context, Glfw, GlfwReceiver, Key, Modifiers, PWindow, WindowEvent};
 use once_cell::sync::Lazy;
@@ -384,7 +384,6 @@ impl WindowAndKeyContext {
                             glfw::WindowEvent::Scroll(x, y) => {
                                 io.mouse_wheel_h += x as f32;
                                 io.mouse_wheel += y as f32;
-        
                             }
                             _ => {}
                         }
@@ -528,53 +527,102 @@ impl WindowAndKeyContext {
                                             let mut pos_y = (available_height - (len as f32 * button_height) - 10.0 * (len as f32 - 1.0)) / 2.0;
             
 
+                                            if gamecurrentbuttons.len() > 0 {
 
-                                            
-                                            for (buttonname, command) in gamecurrentbuttons {
+                                                if gamecurrentbuttons[0].0 == "bindings" {
 
+                                                    
+                                                    
+                                                    for (index, (binding, glfwkey)) in gamecurrentbuttons.iter().skip(1).enumerate() {
+                                                        
+                                                        let button_width = 10.0 * 20.0;
+                                                    
 
+                                                        let pos_x = (available_width - (button_width * 2.0)) / 2.0;
+    
+    
+                                                        ui.set_cursor_pos([pos_x, pos_y]);
+    
+                                                        
 
+                                                        if index == 0 {
+                                                            if ui.button_with_size(binding, [button_width, button_height]) {
+                                                                g.button_command(glfwkey.to_string());
+                                                                unsafe {
+                                                                    uncapkb.store(true, std::sync::atomic::Ordering::Relaxed);
+                                                                } 
+                                                            }
+                                                        } else {
+                                                            if ui.button_with_size(binding, [button_width, button_height]) {
+                                                             
+                                                            }
+    
+                                                            ui.set_cursor_pos([pos_x + button_width, pos_y]);
 
-
-
-                                                let button_width = buttonname.len() as f32 * 20.0;
-                                            
-                                            
-            
-                                            
-            
-                                            let pos_x = (available_width - button_width) / 2.0;
-
-
-                                                ui.set_cursor_pos([pos_x, pos_y]);
-                                                if buttonname.starts_with("Slider") {
-                                                    let truncated_name = buttonname.split_at(6).1;
-                                                    if buttonname == "SliderMouse Sensitivity" {
-                                                        if ui.slider(truncated_name, 0.1, 3.0, &mut g.vars.sensitivity) {
-                                                            //g.button_command(command);
+                                                            if ui.button_with_size(glfwkey, [button_width, button_height]) {
+                                                                
+                                                                unsafe {
+                                                                    LISTENINGFORREBIND = true;
+                                                                    ABOUTTOREBIND = Some(AboutToRebind {
+                                                                        key: crate::keybinds::Rebindable::Key(glfwkey.parse::<i32>().unwrap()),
+                                                                        action: binding.clone()
+                                                                    });
+                                                                    uncapkb.store(true, std::sync::atomic::Ordering::Relaxed);
+                                                                } 
+                                                            }
+                                                            
                                                         }
-                                                    }
-                                                    if buttonname == "SliderMusic Volume" {
-                                                        if ui.slider(truncated_name, 0.0, 1.0, &mut g.vars.musicvolume) {
-                                                            //g.button_command(command);
-                                                        }
-                                                    }
-                                                    if buttonname == "SliderSounds Volume" {
-                                                        if ui.slider(truncated_name, 0.0, 1.0, &mut SOUNDSVOLUME) {
-                                                            //g.button_command(command);
-                                                        }
+    
+                                                        
+
+                                                        
+                                                        pos_y += button_height + 10.0; 
                                                     }
                                                 } else {
-                                                    if ui.button_with_size(buttonname, [button_width, button_height]) {
-                                                        g.button_command(command);
-                                                        unsafe {
-                                                            uncapkb.store(true, std::sync::atomic::Ordering::Relaxed);
-                                                        } 
+                                                    for (buttonname, command) in gamecurrentbuttons {
+
+                                                        let button_width = if buttonname.starts_with("Slider") { 15.0 * 20.0  } else  { buttonname.len() as f32 * 20.0 };
+                                                    
+
+                                                        let pos_x = (available_width - button_width) / 2.0;
+    
+    
+                                                        ui.set_cursor_pos([pos_x, pos_y]);
+                                                        if buttonname.starts_with("Slider") {
+                                                            let truncated_name = buttonname.split_at(6).1;
+                                                            if buttonname == "SliderMouse Sensitivity" {
+                                                                if ui.slider(truncated_name, 0.1, 3.0, &mut g.vars.sensitivity) {
+                                                                    //g.button_command(command);
+                                                                }
+                                                            }
+                                                            if buttonname == "SliderMusic Volume" {
+                                                                if ui.slider(truncated_name, 0.0, 1.0, &mut g.vars.musicvolume) {
+                                                                    //g.button_command(command);
+                                                                }
+                                                            }
+                                                            if buttonname == "SliderSounds Volume" {
+                                                                if ui.slider(truncated_name, 0.0, 1.0, &mut SOUNDSVOLUME) {
+                                                                    //g.button_command(command);
+                                                                }
+                                                            }
+                                                        } else {
+                                                            if ui.button_with_size(buttonname, [button_width, button_height]) {
+                                                                g.button_command(command);
+                                                                unsafe {
+                                                                    uncapkb.store(true, std::sync::atomic::Ordering::Relaxed);
+                                                                } 
+                                                            }
+                                                        }
+                                                        
+                                                        pos_y += button_height + 10.0; 
                                                     }
+                                            
                                                 }
-                                                
-                                                pos_y += button_height + 10.0; 
+                                                    
+                                               
                                             }
+                                            
+                                        
                                         });
 
                                         
@@ -755,16 +803,14 @@ impl WindowAndKeyContext {
                                                         
                                                         if !gmenuopen && !gchestopen {
                                                             self.window.write().set_cursor_mode(glfw::CursorMode::Disabled);
-                                                            self.game.as_mut().unwrap().set_mouse_focused(true);
+                                                            g.set_mouse_focused(true);
                                                         }
                                                         
                                                     }
                                                     
                                                 }
                                                 #[cfg(feature = "glfw")]
-                                                self.game
-                                                    .as_mut()
-                                                    .unwrap()
+                                               g
                                                     .mouse_button(mousebutton, action);
                                             }
                                                 
@@ -779,7 +825,7 @@ impl WindowAndKeyContext {
                                             }
                                         }
                                         glfw::WindowEvent::CursorPos(xpos, ypos) => {
-                                            let g = self.game.as_mut().unwrap();
+                                           
                                             g.cursor_pos(xpos, ypos);
                                             if !g.vars.mouse_focused {
                                                 io.mouse_pos = [xpos as f32, ypos as f32];
@@ -787,49 +833,79 @@ impl WindowAndKeyContext {
                                             
                                         }
                                         glfw::WindowEvent::Key(key, scancode, action, _modifiers) => {
-            
-                                            let pressed = action == glfw::Action::Press || action == glfw::Action::Repeat;
-                                            io.keys_down[scancode as usize] = pressed;
-                                            // println!("Got a kb event");
-                                            // println!("io.want_capture_keyboard: {}, io.want_text_input: {}, gmenuopen: {}", 
-                                            // io.want_capture_keyboard,
-                                            // io.want_text_input,
-                                            // gmenuopen);
-
-                                            if (!io.want_capture_keyboard && !io.want_text_input  ) && !gmenuopen {
+                                            if  unsafe { LISTENINGFORREBIND } {
+                                                unsafe {
+                                                            let keyscan = key.get_scancode().unwrap_or(0);
                                                 
-                                                #[cfg(feature = "glfw")]
-                                                self.game.as_mut().unwrap().keyboard(key, action);
+                                                            match &ABOUTTOREBIND {
+                                                                Some(atr) => {
+                                                
+                                                                    match atr.key {
+                                                                        crate::keybinds::Rebindable::Key(oldscan) => {
+                                                                            KEYBOARD_BINDINGS.remove(&oldscan);
+                                                                            KEYBOARD_BINDINGS.insert(keyscan, atr.action.clone());
+                                                                            g.button_command("bindingsmenu".into());
+                                                                        },
+                                                                        crate::keybinds::Rebindable::MouseButton(mb) => {
+                                                
+                                                                        },
+                                                                    }
+                                                                    LISTENINGFORREBIND = false;
+                                                                }
+                                                                None => {
+                                                                    
+                                                                }
+                                                            }
+                                                
+                                                
+                                                        } 
+                                                
+                                                        } else {
+                                                            let pressed = action == glfw::Action::Press || action == glfw::Action::Repeat;
+                                                            io.keys_down[scancode as usize] = pressed;
+                                                            // println!("Got a kb event");
+                                                            // println!("io.want_capture_keyboard: {}, io.want_text_input: {}, gmenuopen: {}", 
+                                                            // io.want_capture_keyboard,
+                                                            // io.want_text_input,
+                                                            // gmenuopen);
+
+                                                            if (!io.want_capture_keyboard && !io.want_text_input  ) && !gmenuopen {
+                                                                
+                                                                #[cfg(feature = "glfw")]
+                                                                g.keyboard(key, action);
+                            
+                                                                if key == Key::Escape {
+                                                                    if g.vars.menu_open {
+                                                                    
+                                                                        self.window.write().set_cursor_mode(glfw::CursorMode::Normal);
+                                                                        g.set_mouse_focused(false);
+                                                                    } else {
+                                                                        g.vars.menu_open = false;
+                                                                        self.window.write().set_cursor_mode(glfw::CursorMode::Disabled);
+                                                                        g.set_mouse_focused(true);
+                                                                    }
+                                                                    
+                                                                }
+                            
+                                                            } else {
+                                                                //println!()
+                                                            }
+                            
+                                                            match key {
+                                                                Key::F11 => {
+                                                                    if action == Action::Press {
+                                                                        let wind = self.window.write();
+                                                                        toggle_fullscreen(wind.window_ptr())
+                                                                        
+                                                                    }
+                                                                }
+                                                                _ => {
+                            
+                                                                }
+                                                            }
+                                                            
+                                                        }
             
-                                                if key == Key::Escape {
-                                                    if self.game.as_mut().unwrap().vars.menu_open {
-                                                    
-                                                        self.window.write().set_cursor_mode(glfw::CursorMode::Normal);
-                                                        self.game.as_mut().unwrap().set_mouse_focused(false);
-                                                    } else {
-                                                        self.game.as_mut().unwrap().vars.menu_open = false;
-                                                        self.window.write().set_cursor_mode(glfw::CursorMode::Disabled);
-                                                        self.game.as_mut().unwrap().set_mouse_focused(true);
-                                                    }
-                                                    
-                                                }
-            
-                                            } else {
-                                                //println!()
-                                            }
-            
-                                            match key {
-                                                Key::F11 => {
-                                                    if action == Action::Press {
-                                                        let wind = self.window.write();
-                                                        toggle_fullscreen(wind.window_ptr())
-                                                        
-                                                    }
-                                                }
-                                                _ => {
-            
-                                                }
-                                            }
                                             
                                         }
                                         glfw::WindowEvent::Scroll(x, y) => {
@@ -839,7 +915,7 @@ impl WindowAndKeyContext {
                                             
                                             if !gmenuopen {
                                                 #[cfg(feature = "glfw")]
-                                                self.game.as_mut().unwrap().scroll(y);
+                                                g.scroll(y);
                                             }
                                             
                                         }

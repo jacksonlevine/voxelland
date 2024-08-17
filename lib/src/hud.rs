@@ -417,6 +417,18 @@ impl Hud {
                 gl::DrawArrays(gl::TRIANGLES, 0, self.chestcount);
             }
 
+            // if self.inv_open {
+            //     gl::BindVertexArray(self.invvao);
+            //     gl::UseProgram(self.shader.shader_id);
+            //     let tex_loc = gl::GetAttribLocation(self.shader.shader_id, b"ourTexture\0".as_ptr() as *const i8);
+            //     gl::Uniform1i(tex_loc, 0);
+                
+            //     let moused_slot_loc = gl::GetUniformLocation(self.shader.shader_id, b"mousedSlot\0".as_ptr() as *const i8);
+
+            //     gl::Uniform1f(moused_slot_loc, HudElement::ass_slot_to_shader_float(&game::MOUSED_SLOT));
+            //     gl::DrawArrays(gl::TRIANGLES, 0, self.chestcount);
+            // }
+
             self.draw_health();
             
 

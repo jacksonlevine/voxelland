@@ -3952,6 +3952,8 @@ impl Game {
                 if WASFREEFALLING {
                     FREEFALLING = false;
                     WASFREEFALLING = false;
+                    self.vars.time_tfs_at_3 = 0.0;
+                    self.time_falling_scalar = 1.0;
 
                     #[cfg(feature = "audio")]
                     AUDIOPLAYER.stop_head_sound("assets/sfx/freefall.mp3".to_string());

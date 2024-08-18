@@ -227,7 +227,7 @@ pub struct ChunkFacade {
 }
 
 static CW: i32 = 15;
-static CH: i32 = 256;
+static CH: i32 = 255;
 
 pub struct ReadyMesh {
     pub geo_index: usize,

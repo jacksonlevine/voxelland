@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2021"
 resolver = "2"
 
+[features]
+steam = ["voxelland/steam"]
+
 [dependencies]
-voxelland = { path = "../../lib", features = ["audio", "glfw", "steam"] }
+voxelland = { path = "../../lib", features = ["audio", "glfw"] }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 vox-format = "0.1.0"

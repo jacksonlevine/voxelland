@@ -1,11 +1,12 @@
 use crate::{blockinfo::Blocks, game::{Game, CROUCHING, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, MOUSEX, MOUSEY, SHOWTOOLTIP, SINGLEPLAYER, TOOLTIPNAME}, keybinds::{AboutToRebind, ABOUTTOREBIND, LISTENINGFORREBIND}, recipes::{RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_MISC, LOAD_OR_INITIALIZE_STATICS, MISCSETTINGS, SAVE_LESA}, texture::Texture};
 
+use clipboard::ClipboardProvider;
 use glfw::{ffi::glfwGetKeyName, get_key_name, Action, Context, Glfw, GlfwReceiver, Key, Modifiers, PWindow, WindowEvent};
 
 use once_cell::sync::Lazy;
 
 
-use std::{ffi::CStr, sync::{atomic::AtomicBool, Arc}, time::{Duration, Instant}};
+use std::{f32::consts::E, ffi::CStr, sync::{atomic::AtomicBool, Arc}, thread, time::{Duration, Instant}};
 use parking_lot::{Mutex, RwLock};
 use imgui::*;
 use imgui::{Key as ImGuiKey};
@@ -16,7 +17,8 @@ pub static mut WINDOWHEIGHT: i32 = 0;
 
 pub static mut uncapkb: Lazy<Arc<AtomicBool>> = Lazy::new(|| Arc::new(AtomicBool::new(false)));
 
-
+pub static mut COPY: bool = false;
+pub static mut PASTE: bool = false;
 
 pub struct WindowAndKeyContext {
     pub width: u32,
@@ -38,6 +40,7 @@ pub struct WindowAndKeyContext {
     pub serveraddrbuffer: String,
 
     pub logo: Texture,
+    pub clipboard_context: ClipboardContext,
 
     #[cfg(feature = "glfw")]
     pub client: Arc<Client>,
@@ -81,18 +84,19 @@ fn toggle_fullscreen(window_ptr: *mut glfw::ffi::GLFWwindow) {
 
 use steamworks::{restart_app_if_necessary, AppId, Client, SingleClient};
 
+use clipboard::ClipboardContext;
 
 impl WindowAndKeyContext {
     pub fn new(windowname: &'static str, width: u32, height: u32) -> Self {
 
-
+        let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
 
         #[cfg(feature = "glfw")]
         let (client, single) = Client::init().unwrap();
         #[cfg(feature = "glfw")]
         restart_app_if_necessary(AppId::from(3114230));
 
-        
+
 
         unsafe {
             WINDOWHEIGHT = height as i32;
@@ -113,7 +117,9 @@ impl WindowAndKeyContext {
         window.set_cursor_pos_polling(true);
         window.set_scroll_polling(true);
         window.set_char_polling(true);
+        window.set_char_mods_polling(true);
         window.make_current();
+
 
         // Initialize ImGui
         let mut imgui = imgui::Context::create();
@@ -191,6 +197,7 @@ impl WindowAndKeyContext {
             serveraddress: Arc::new(Mutex::new(None)),
             serveraddrbuffer: String::with_capacity(128),
             logo: Texture::new("assets/Untitled3.png").unwrap(),
+            clipboard_context: ctx,
 
             #[cfg(feature = "glfw")]
             client: Arc::new(client),
@@ -1077,11 +1084,24 @@ impl WindowAndKeyContext {
             
                                     
             
-                                    if ui.button_with_size("Enter server address:", [button_width, button_height]) {
-            
+                                    if ui.button_with_size("Enter server address: (Click here to paste)", [button_width, button_height]) {
+
+                                            match self.clipboard_context.get_contents() {
+                                                Ok(contents) => {
+                                                    self.serveraddrbuffer = contents;
+                                                }
+                                                Err(_) => {
+                                                    
+                                                }
+                                            }
+
                                     }
+
+                                    
             
                                     ui.set_cursor_pos([pos_x, pos_y + 25.0]);
+
+
                                     
                                     ui.input_text("##serveraddress", &mut self.serveraddrbuffer)
                                     .flags(InputTextFlags::ALWAYS_OVERWRITE)
@@ -1146,9 +1166,53 @@ impl WindowAndKeyContext {
             
                                     
                                 }
+                                glfw::WindowEvent::CharModifiers(char, modifiers) => {
+                                    println!("{:?}", char);
+                                    
+                                }
                                 glfw::WindowEvent::Key(key, scancode, action, modifiers) => {
-                             
+
                                     let pressed = action == glfw::Action::Press || action == glfw::Action::Repeat;
+
+      
+
+                                    // Why won't this work, for Christ?
+                                    
+                                    
+                                    // if glfw::Modifiers::Control == modifiers && key == Key::V {
+                                    //     if pressed {
+                                    //         //println!("Ctrl+v");
+                                    //         PASTE = true;
+                                    //         // match self.clipboard_context.get_contents() {
+                                    //         //     Ok(contents) => {
+                                    //         //         self.serveraddrbuffer = contents;
+                                    //         //         println!("Set the contents! Booyah! Done!");
+                                    //         //     }
+                                    //         //     Err(e) => {
+                                    //         //         println!("Couldn't get clipboard contents. {e}");
+                                    //         //     }
+                                    //         // }
+                                    //     }
+                                        
+                                    // }
+
+                                    // if glfw::Modifiers::Control == modifiers && key == Key::C {
+                                    //     if pressed {
+                                    //         println!("Ctrl+c");
+                                    //         COPY = true;
+                                    //         // match self.clipboard_context.get_contents() {
+                                    //         //     Ok(contents) => {
+                                    //         //         self.serveraddrbuffer = contents;
+                                    //         //         println!("Set the contents! Booyah! Done!");
+                                    //         //     }
+                                    //         //     Err(e) => {
+                                    //         //         println!("Couldn't get clipboard contents. {e}");
+                                    //         //     }
+                                    //         // }
+                                    //     }
+                                        
+                                    // }
+
 
                                     if (key as usize) < 512 {
                                         io.keys_down[key as usize] = pressed;
@@ -1185,6 +1249,7 @@ impl WindowAndKeyContext {
             
                                 }   
                                 glfw::WindowEvent::Char(char) => {
+                                    println!("char");
                                     io.add_input_character(char);
                                 }
                                 glfw::WindowEvent::Scroll(x, y) => {

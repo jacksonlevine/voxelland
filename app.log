@@ -1,339 +1,50 @@
-[2m2024-08-18T18:06:05.760122Z[0m [32m INFO[0m [2mvoxelland::statics[0m[2m:[0m UUID file loaded, its d71c8c9f-db85-413c-93e3-7cf774b9f53c.
-[2m2024-08-18T18:06:05.760201Z[0m [32m INFO[0m [2mvoxelland::statics[0m[2m:[0m UUID file loaded.
-[2m2024-08-18T18:06:07.445745Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Visions camera direction: 0 0 1
-[2m2024-08-18T18:06:08.127505Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m gltf model count: 7
-[2m2024-08-18T18:06:08.127525Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_Normal.png
-[2m2024-08-18T18:06:08.129041Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.179091Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_BaseColor.png
-[2m2024-08-18T18:06:08.179706Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.219750Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_Roughness.png
-[2m2024-08-18T18:06:08.220704Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.248376Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_Normal.png
-[2m2024-08-18T18:06:08.249403Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.297958Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_BaseColor.png
-[2m2024-08-18T18:06:08.299355Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.346912Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_Roughness.png
-[2m2024-08-18T18:06:08.347777Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.367325Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_Normal.png
-[2m2024-08-18T18:06:08.368881Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.408524Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_BaseColor.png
-[2m2024-08-18T18:06:08.409226Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.439251Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_Roughness.png
-[2m2024-08-18T18:06:08.440086Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.458883Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_Normal.png
-[2m2024-08-18T18:06:08.459731Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.493988Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_BaseColor.png
-[2m2024-08-18T18:06:08.495200Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.534405Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_Roughness.png
-[2m2024-08-18T18:06:08.535090Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.553658Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: Tree01_Albedo_Light.png
-[2m2024-08-18T18:06:08.554714Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.585370Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: DiffuseBullyMan.png
-[2m2024-08-18T18:06:08.590978Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.780481Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: Image.png
-[2m2024-08-18T18:06:08.780652Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.781255Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading embedded image from buffer index: 0
-[2m2024-08-18T18:06:08.828445Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading embedded image from buffer index: 0
-[2m2024-08-18T18:06:08.859241Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading embedded image from buffer index: 0
-[2m2024-08-18T18:06:08.900974Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading embedded image from buffer index: 0
-[2m2024-08-18T18:06:08.909588Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: Untitled.png
-[2m2024-08-18T18:06:08.910085Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.919108Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketback.png
-[2m2024-08-18T18:06:08.919195Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.919309Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketface.png
-[2m2024-08-18T18:06:08.919344Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.919422Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketantennae.png
-[2m2024-08-18T18:06:08.919453Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.919528Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketleg.png
-[2m2024-08-18T18:06:08.919557Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:06:08.919632Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketbody.png
-[2m2024-08-18T18:06:08.919659Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-08-18T18:07:51.797397Z[0m [32m INFO[0m [2mvoxelland::statics[0m[2m:[0m UUID file created or overwritten.
-[2m2024-08-18T18:07:52.180895Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Connected to the server!
-[2m2024-08-18T18:07:52.183875Z[0m [32m INFO[0m [2mvoxelland_client[0m[2m:[0m gltf model count: 7
-[2m2024-08-18T18:07:52.336029Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m Receiving Udm:
-[2m2024-08-18T18:07:52.408718Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m Got the expected bytes for udm
-[2m2024-08-18T18:07:52.548249Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m Received seed: 34481915
-[2m2024-08-18T18:07:52.548805Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m File content: 34481915
-[2m2024-08-18T18:07:52.902899Z[0m [32m INFO[0m [2mvoxelland::chunk[0m[2m:[0m Seed Is 34481915
-[2m2024-08-18T18:07:52.902916Z[0m [32m INFO[0m [2mvoxelland::chunk[0m[2m:[0m LOADING FROM TABLENAME userdatamap_34481915
-[2m2024-08-18T18:07:53.103565Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m My uuid, I am being told, is d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:07:53.156309Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m Receiving ChestReg:
-[2m2024-08-18T18:07:53.196984Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m Got the expected bytes for chestreg
-[2m2024-08-18T18:08:50.645014Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:08:50.645021Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 49 at 39 94 14
-[2m2024-08-18T18:08:50.750759Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:08:51.965595Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:08:51.965603Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 49 at 40 94 8
-[2m2024-08-18T18:08:52.067258Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:08:52.979660Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 0 -1
-[2m2024-08-18T18:08:52.979668Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 49 at 33 94 10
-[2m2024-08-18T18:08:53.075808Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:08:54.673143Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:08:54.673150Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 49 at 21 83 3
-[2m2024-08-18T18:08:54.741057Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:11:19.468186Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:11:19.509469Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:11:22.842314Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:11:23.050822Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:11:23.535500Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:11:23.749088Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:11:28.577194Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:11:28.794185Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:11:29.457445Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:11:29.457476Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:11:29.496454Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:11:29.747994Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:11:30.537879Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:11:30.761029Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:11:33.606096Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:11:33.784777Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:11:41.742011Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:11:41.805091Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:11:42.409047Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:11:42.560756Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:11:46.343636Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:11:46.548148Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:11:54.346160Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:11:54.359833Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:11:54.412874Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:11:54.573357Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:11:54.746652Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:11:54.826445Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:11:55.080370Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:11:55.330033Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:01.962547Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:02.040989Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:04.190141Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:04.309796Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:07.217798Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:07.335162Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:07.817834Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:08.093341Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:09.044933Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:09.359337Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:12.486185Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:12.584382Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:18.927982Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:18.981463Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:19.102547Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:19.345214Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:21.529107Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:21.616938Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:23.089580Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:23.335075Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:27.464406Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:27.625720Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:27.691003Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:27.784720Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:27.827350Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:28.079917Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:35.000721Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:35.090487Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:35.988334Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 -1 0
-[2m2024-08-18T18:12:35.988341Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 21 113 3
-[2m2024-08-18T18:12:36.000819Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:36.101525Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:36.921101Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:37.108274Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:40.642698Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:40.891309Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:41.256004Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:41.395353Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:46.858235Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:46.858243Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 113 3
-[2m2024-08-18T18:12:47.000248Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:47.031870Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:47.031875Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 114 3
-[2m2024-08-18T18:12:47.146197Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:47.191899Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:47.191906Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 115 3
-[2m2024-08-18T18:12:47.271234Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:47.365270Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:47.365277Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 115 3
-[2m2024-08-18T18:12:47.398803Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:47.404602Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:47.498511Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:47.498518Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 115 3
-[2m2024-08-18T18:12:47.551139Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:47.645804Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:47.645811Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 116 3
-[2m2024-08-18T18:12:47.651569Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:47.702320Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:47.765672Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:47.765679Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 116 3
-[2m2024-08-18T18:12:47.854308Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:47.872187Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:47.872192Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 117 3
-[2m2024-08-18T18:12:47.961461Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:47.966257Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:47.966263Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 117 3
-[2m2024-08-18T18:12:48.072339Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:48.072346Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 118 3
-[2m2024-08-18T18:12:48.112849Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:48.208018Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:48.231996Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:48.232002Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 119 3
-[2m2024-08-18T18:12:48.352640Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:48.352648Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 120 3
-[2m2024-08-18T18:12:48.357575Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:48.485577Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:48.485584Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 120 3
-[2m2024-08-18T18:12:48.560726Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:48.605451Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:48.605457Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 121 3
-[2m2024-08-18T18:12:48.719633Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:48.726182Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:48.726186Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 122 3
-[2m2024-08-18T18:12:48.810879Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:48.859136Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 0 -1
-[2m2024-08-18T18:12:48.859142Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 124 2
-[2m2024-08-18T18:12:48.978928Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 0 -1
-[2m2024-08-18T18:12:48.978935Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 124 2
-[2m2024-08-18T18:12:53.073412Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:12:53.151572Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:56.075345Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:56.075352Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 123 3
-[2m2024-08-18T18:12:56.102018Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:56.102024Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 123 3
-[2m2024-08-18T18:12:56.178542Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:56.248950Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:56.248958Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 124 3
-[2m2024-08-18T18:12:56.282517Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:56.395645Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:56.395652Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 125 3
-[2m2024-08-18T18:12:56.424734Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:56.528398Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:56.528405Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 125 3
-[2m2024-08-18T18:12:56.626646Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:56.635628Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:56.635633Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 126 3
-[2m2024-08-18T18:12:56.742634Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:56.742642Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 127 3
-[2m2024-08-18T18:12:56.782491Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:56.862305Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:56.862312Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 128 3
-[2m2024-08-18T18:12:56.899922Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:56.982093Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:56.982100Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 128 3
-[2m2024-08-18T18:12:57.063133Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:57.102106Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:57.102111Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 129 3
-[2m2024-08-18T18:12:57.184174Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:57.222140Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:57.222148Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 130 3
-[2m2024-08-18T18:12:57.340201Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:57.355530Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:57.355535Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 131 3
-[2m2024-08-18T18:12:57.451378Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:12:57.476128Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:12:57.476135Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 132 3
-[2m2024-08-18T18:13:01.276717Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:01.417568Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:04.317997Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370389Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370428Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370463Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370497Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370531Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370565Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370598Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370632Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370666Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370699Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370733Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370766Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370799Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370833Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370867Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370900Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370934Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.370968Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.371001Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.371034Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.371067Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.371101Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.371135Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:04.393007Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:04.644697Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:04.744343Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:13:04.744349Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 132 3
-[2m2024-08-18T18:13:04.849412Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:04.897908Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:05.150299Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:05.291205Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:13:05.291212Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 133 3
-[2m2024-08-18T18:13:05.351129Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:05.414032Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:05.530984Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:13:05.530990Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 134 3
-[2m2024-08-18T18:13:05.617330Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:05.654603Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:05.691014Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:13:05.691020Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 135 3
-[2m2024-08-18T18:13:05.805428Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:05.838031Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:13:05.838037Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 136 3
-[2m2024-08-18T18:13:05.906843Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:05.961281Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:05.984374Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:13:05.984380Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 137 3
-[2m2024-08-18T18:13:06.104556Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:13:06.104563Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 137 3
-[2m2024-08-18T18:13:06.211869Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:13:06.211877Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 138 3
-[2m2024-08-18T18:13:06.214301Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:06.259905Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:06.318604Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:13:06.318611Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 138 3
-[2m2024-08-18T18:13:06.413795Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:06.437908Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:13:06.437914Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 139 3
-[2m2024-08-18T18:13:06.520331Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:06.544515Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:13:06.544521Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 139 3
-[2m2024-08-18T18:13:06.562224Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:06.664677Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:13:06.664684Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 139 3
-[2m2024-08-18T18:13:06.713716Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:06.771433Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:06.784574Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
-[2m2024-08-18T18:13:06.784578Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 1 at 22 140 3
-[2m2024-08-18T18:13:06.837538Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:06.837568Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:06.837592Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:06.837615Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:06.837638Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:06.837660Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:06.837685Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:06.837707Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:06.837731Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:06.837754Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:06.837777Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 1 1
-[2m2024-08-18T18:13:06.918464Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:07.018926Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:07.079534Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:07.171415Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:07.424966Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:07.674946Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:07.926844Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:08.178971Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:08.430598Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:08.631898Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:08.934415Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:09.136390Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:09.388430Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:09.640578Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:09.893531Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:10.145170Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:10.396949Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:10.655491Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:10.901394Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:11.153380Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:11.405100Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:11.657961Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:11.914615Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:12.166526Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:12.414782Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:12.665541Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-08-18T18:13:12.925279Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
+[2m2024-08-18T22:29:17.708220Z[0m [32m INFO[0m [2mvoxelland::statics[0m[2m:[0m UUID file loaded, its d71c8c9f-db85-413c-93e3-7cf774b9f53c.
+[2m2024-08-18T22:29:17.708297Z[0m [32m INFO[0m [2mvoxelland::statics[0m[2m:[0m UUID file loaded.
+[2m2024-08-18T22:31:00.194960Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Visions camera direction: 0 0 1
+[2m2024-08-18T22:31:00.869253Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m gltf model count: 7
+[2m2024-08-18T22:31:00.869271Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_Normal.png
+[2m2024-08-18T22:31:00.870396Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:00.909415Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_BaseColor.png
+[2m2024-08-18T22:31:00.910080Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:00.939342Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_Roughness.png
+[2m2024-08-18T22:31:00.940248Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:00.960789Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_Normal.png
+[2m2024-08-18T22:31:00.961618Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:00.997298Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_BaseColor.png
+[2m2024-08-18T22:31:00.998512Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:01.038992Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_Roughness.png
+[2m2024-08-18T22:31:01.039682Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:01.058969Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_Normal.png
+[2m2024-08-18T22:31:01.060299Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:01.107213Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_BaseColor.png
+[2m2024-08-18T22:31:01.107846Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:01.137441Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_Roughness.png
+[2m2024-08-18T22:31:01.138282Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:01.159425Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_Normal.png
+[2m2024-08-18T22:31:01.160257Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:01.196828Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_BaseColor.png
+[2m2024-08-18T22:31:01.198323Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:01.238597Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_Roughness.png
+[2m2024-08-18T22:31:01.239289Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:01.258180Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: Tree01_Albedo_Light.png
+[2m2024-08-18T22:31:01.259237Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:01.291396Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: DiffuseBullyMan.png
+[2m2024-08-18T22:31:01.297289Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:01.478959Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: Image.png
+[2m2024-08-18T22:31:01.479085Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:01.479629Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading embedded image from buffer index: 0
+[2m2024-08-18T22:31:01.532559Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading embedded image from buffer index: 0
+[2m2024-08-18T22:31:01.565866Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading embedded image from buffer index: 0
+[2m2024-08-18T22:31:01.610545Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading embedded image from buffer index: 0
+[2m2024-08-18T22:31:01.619841Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: Untitled.png
+[2m2024-08-18T22:31:01.620356Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:01.630351Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketback.png
+[2m2024-08-18T22:31:01.630471Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:01.630502Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketface.png
+[2m2024-08-18T22:31:01.630547Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:01.630580Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketantennae.png
+[2m2024-08-18T22:31:01.630613Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:01.630637Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketleg.png
+[2m2024-08-18T22:31:01.630666Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-18T22:31:01.630683Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketbody.png
+[2m2024-08-18T22:31:01.630713Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.

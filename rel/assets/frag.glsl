@@ -2,6 +2,7 @@
 in vec3 vertexColor;
 in vec2 TexCoord;
 in vec3 pos;
+in vec3 grassColor;
 
 out vec4 FragColor;
 uniform sampler2D ourTexture;
@@ -24,7 +25,8 @@ void main()
     //vec4(0.0, 0.0, 0.6, 1.0)
 
 
-    vec4 texColor = texture(ourTexture, TexCoord);
+    vec4 texColor = texture(ourTexture, TexCoord) + vec4(grassColor, 0.0);
+    texColor = min(texColor, vec4(1.0));
     FragColor = texColor * vec4(vertexColor, 1.0);
 
     vec3 west = vec3(0.0,0.0,-1.0);
@@ -37,6 +39,7 @@ void main()
 
     float distance = (distance(pos, camPos)/(viewDistance*5.0f))/5.0f;
 
+    
     if(underWater == 1.0) {
         fogColor = vec4(0.0, 0.0, 0.6, 1.0) * vec4(ambientBrightMult, ambientBrightMult, ambientBrightMult, 1.0);
         distance = distance * 10.0;
@@ -50,6 +53,7 @@ void main()
         discard;
     }
 
+    //Fresnel effect on semi-transparent stuff right here, I was wondering wtf this was I just remembered though
     if(FragColor.a < 1.0) {
         FragColor.a += distance*2.5f;
     }

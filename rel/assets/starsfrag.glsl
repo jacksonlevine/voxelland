@@ -84,7 +84,11 @@ void main() {
 
     FragColor = vec4(FragColor.xyz, FragColor.w*opacity);
 
+	
+
     float pn = pNoise(TexCoord * 10.0 + (vec2(0.0005, 0.0005) * time), 10);
-    float starIntensity = step(0.85, pn) * pn * 25.0; // Use a threshold to create sparsity
+    float starIntensity = step(0.95, pn) * pn * 25.0; // Use a threshold to create sparsity
     FragColor = vec4(1.0, 1.0, 1.0, mix(min(starIntensity * 0.3, 1.0), 0.0, ambientBrightMult));
+	
+	
 }

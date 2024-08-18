@@ -32,7 +32,7 @@ mat4 getRotationMatrix(float xrot, float yrot, float zrot) {
 
 void main() {
 
-    const vec2 TEXS[40] = vec2[40](
+    const vec2 TEXS[47] = vec2[47](
     vec2(0.0, 0.0),  // 0
     vec2(1.0, 0.0),  // 1 sand
     vec2(2.0, 0.0),  // 2 water
@@ -72,8 +72,20 @@ void main() {
     vec2(2.0, 5.0),  // 36 crude blade
     vec2(3.0, 5.0),  // 37 crude pick
     vec2(4.0, 5.0),  // 38 crude mattock
-    vec2(5.0, 5.0)   // 39 crude axe
+    vec2(5.0, 5.0),   // 39 crude axe
+
+    vec2(10.0, 4.0),  // 40 jumper blue
+    vec2(11.0, 4.0),  // 41 jumper yellow
+    vec2(10.0, 5.0),   // 42 trampoline block
+
+    vec2(0.0, 8.0),  // 43 rubbertree wood
+    vec2(1.0, 8.0),   // 44 rubbertree leaves
+
+    vec2(10.0, 6.0),   // 45 conveyor
+    vec2(11.0, 5.0)   // 46 autotrampoline
 );
+
+
 
     float pi = 3.1415926535897932384626433832795;
 

@@ -36,6 +36,9 @@ bytes = "1.6.1"
 steamworks = "0.11.0"
 parking_lot = { version = "0.12.3", features = ["deadlock_detection"]}
 atomic_float = "1.0.0"
+serde_json = "1.0.125"
+vectorize = "0.2.0"
+
 
 [features]
 default = []

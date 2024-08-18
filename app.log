@@ -1,95 +1,71 @@
-[2m2024-07-20T07:35:00.202227Z[0m [32m INFO[0m [2mvoxelland::statics[0m[2m:[0m UUID file loaded, its d71c8c9f-db85-413c-93e3-7cf774b9f53c.
-[2m2024-07-20T07:35:00.202322Z[0m [32m INFO[0m [2mvoxelland::statics[0m[2m:[0m UUID file loaded.
-[2m2024-07-20T07:35:01.273030Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Visions camera direction: 0 0 1
-[2m2024-07-20T07:35:01.943959Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m gltf model count: 7
-[2m2024-07-20T07:35:01.943975Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_Normal.png
-[2m2024-07-20T07:35:01.945306Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:01.986954Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_BaseColor.png
-[2m2024-07-20T07:35:01.987519Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.017490Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_Roughness.png
-[2m2024-07-20T07:35:02.018365Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.039756Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_Normal.png
-[2m2024-07-20T07:35:02.040715Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.077027Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_BaseColor.png
-[2m2024-07-20T07:35:02.078456Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.121476Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_Roughness.png
-[2m2024-07-20T07:35:02.122333Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.141792Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_Normal.png
-[2m2024-07-20T07:35:02.143310Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.181231Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_BaseColor.png
-[2m2024-07-20T07:35:02.182177Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.210770Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_Roughness.png
-[2m2024-07-20T07:35:02.211668Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.230605Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_Normal.png
-[2m2024-07-20T07:35:02.231417Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.265899Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_BaseColor.png
-[2m2024-07-20T07:35:02.267192Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.307352Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_Roughness.png
-[2m2024-07-20T07:35:02.308246Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.326053Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: Tree01_Albedo_Light.png
-[2m2024-07-20T07:35:02.327194Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.358663Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: DiffuseBullyMan.png
-[2m2024-07-20T07:35:02.364597Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.536858Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: Image.png
-[2m2024-07-20T07:35:02.537151Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.537789Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading embedded image from buffer index: 0
-[2m2024-07-20T07:35:02.585008Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading embedded image from buffer index: 0
-[2m2024-07-20T07:35:02.616706Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading embedded image from buffer index: 0
-[2m2024-07-20T07:35:02.658877Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading embedded image from buffer index: 0
-[2m2024-07-20T07:35:02.667946Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: Untitled.png
-[2m2024-07-20T07:35:02.668419Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.677722Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketback.png
-[2m2024-07-20T07:35:02.677816Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.677930Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketface.png
-[2m2024-07-20T07:35:02.678025Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.678067Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketantennae.png
-[2m2024-07-20T07:35:02.678114Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.678181Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketleg.png
-[2m2024-07-20T07:35:02.678219Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:02.678278Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketbody.png
-[2m2024-07-20T07:35:02.678363Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
-[2m2024-07-20T07:35:08.902339Z[0m [32m INFO[0m [2mvoxelland::statics[0m[2m:[0m UUID file created or overwritten.
-[2m2024-07-20T07:35:09.183712Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Connected to the server!
-[2m2024-07-20T07:35:09.208999Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m Receiving Udm:
-[2m2024-07-20T07:35:09.209204Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m Got the expected bytes for udm
-[2m2024-07-20T07:35:09.359622Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m Received seed: 23119232
-[2m2024-07-20T07:35:09.360000Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m File content: 23119232
-[2m2024-07-20T07:35:09.712448Z[0m [32m INFO[0m [2mvoxelland::chunk[0m[2m:[0m Seed Is 23119232
-[2m2024-07-20T07:35:09.712468Z[0m [32m INFO[0m [2mvoxelland::chunk[0m[2m:[0m LOADING FROM TABLENAME userdatamap_23119232
-[2m2024-07-20T07:35:09.914014Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m My uuid, I am being told, is d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-07-20T07:35:09.962560Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m Receiving ChestReg:
-[2m2024-07-20T07:35:09.992638Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m Got the expected bytes for chestreg
-[2m2024-07-20T07:35:10.568966Z[0m [32m INFO[0m [2mvoxelland_client[0m[2m:[0m gltf model count: 7
-[2m2024-07-20T07:35:29.910533Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 5 1
-[2m2024-07-20T07:35:29.957671Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-07-20T07:35:31.271042Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 5 1
-[2m2024-07-20T07:35:31.400851Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-07-20T07:35:32.738006Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 5 1
-[2m2024-07-20T07:35:32.768360Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-07-20T07:35:34.632069Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 5 1
-[2m2024-07-20T07:35:34.645453Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 5 1
-[2m2024-07-20T07:35:34.658036Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-07-20T07:35:34.708609Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-07-20T07:35:35.779338Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 5 1
-[2m2024-07-20T07:35:35.929648Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-07-20T07:35:36.979737Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 5 1
-[2m2024-07-20T07:35:37.025473Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-07-20T07:35:38.606747Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 5 1
-[2m2024-07-20T07:35:38.691142Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-07-20T07:35:39.726944Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 5 1
-[2m2024-07-20T07:35:39.787329Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-07-20T07:35:40.047237Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 5 1
-[2m2024-07-20T07:35:40.185273Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-07-20T07:35:41.474673Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 5 1
-[2m2024-07-20T07:35:41.503822Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-07-20T07:35:42.408264Z[0m [32m INFO[0m [2mvoxelland::drops[0m[2m:[0m Picked up 5 1
-[2m2024-07-20T07:35:42.450049Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m CIU incoming goose d71c8c9f-db85-413c-93e3-7cf774b9f53c
-[2m2024-07-20T07:35:59.947543Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Thread joined successfully!
-[2m2024-07-20T07:35:59.954642Z[0m [32m INFO[0m [2mvoxelland::chunk[0m[2m:[0m After deleting buffers
-[2m2024-07-20T07:35:59.954661Z[0m [32m INFO[0m [2mvoxelland::chunk[0m[2m:[0m After clearing chunks
-[2m2024-07-20T07:35:59.963250Z[0m [32m INFO[0m [2mvoxelland::chunk[0m[2m:[0m After clearing geobank
-[2m2024-07-20T07:35:59.963255Z[0m [32m INFO[0m [2mvoxelland::chunk[0m[2m:[0m After clearing memories
-[2m2024-07-20T07:35:59.963262Z[0m [32m INFO[0m [2mvoxelland::chunk[0m[2m:[0m After clearing takencare
-[2m2024-07-20T07:35:59.963263Z[0m [32m INFO[0m [2mvoxelland::chunk[0m[2m:[0m After that whole popping thing
-[2m2024-07-20T07:35:59.963707Z[0m [32m INFO[0m [2mvoxelland::chunk[0m[2m:[0m After clearing the next 3 things
-[2m2024-07-20T07:35:59.975724Z[0m [32m INFO[0m [2mvoxelland::network[0m[2m:[0m Connection closed by server
+[2m2024-08-17T19:39:59.310813Z[0m [32m INFO[0m [2mvoxelland::statics[0m[2m:[0m UUID file loaded, its d71c8c9f-db85-413c-93e3-7cf774b9f53c.
+[2m2024-08-17T19:39:59.310919Z[0m [32m INFO[0m [2mvoxelland::statics[0m[2m:[0m UUID file loaded.
+[2m2024-08-17T19:40:01.539711Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Visions camera direction: 0 0 1
+[2m2024-08-17T19:40:02.271947Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m gltf model count: 7
+[2m2024-08-17T19:40:02.271970Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_Normal.png
+[2m2024-08-17T19:40:02.273179Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:02.313023Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_BaseColor.png
+[2m2024-08-17T19:40:02.313691Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:02.345903Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_Roughness.png
+[2m2024-08-17T19:40:02.346799Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:02.365624Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_Normal.png
+[2m2024-08-17T19:40:02.366443Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:02.404584Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_BaseColor.png
+[2m2024-08-17T19:40:02.405986Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:02.449846Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_Roughness.png
+[2m2024-08-17T19:40:02.450730Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:02.468264Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_Normal.png
+[2m2024-08-17T19:40:02.469661Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:02.509408Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_BaseColor.png
+[2m2024-08-17T19:40:02.510011Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:02.543576Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_camera_Roughness.png
+[2m2024-08-17T19:40:02.544687Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:02.564062Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_Normal.png
+[2m2024-08-17T19:40:02.565010Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:02.605212Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_BaseColor.png
+[2m2024-08-17T19:40:02.606612Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:02.652270Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: camera_tripod_Roughness.png
+[2m2024-08-17T19:40:02.653053Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:02.671172Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: Tree01_Albedo_Light.png
+[2m2024-08-17T19:40:02.672399Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:02.707602Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: DiffuseBullyMan.png
+[2m2024-08-17T19:40:02.713607Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:02.892253Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: Image.png
+[2m2024-08-17T19:40:02.892375Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:02.892829Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading embedded image from buffer index: 0
+[2m2024-08-17T19:40:02.940102Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading embedded image from buffer index: 0
+[2m2024-08-17T19:40:02.970433Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading embedded image from buffer index: 0
+[2m2024-08-17T19:40:03.011465Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading embedded image from buffer index: 0
+[2m2024-08-17T19:40:03.020381Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: Untitled.png
+[2m2024-08-17T19:40:03.020973Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:03.030156Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketback.png
+[2m2024-08-17T19:40:03.030251Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:03.030281Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketface.png
+[2m2024-08-17T19:40:03.030315Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:03.030406Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketantennae.png
+[2m2024-08-17T19:40:03.030437Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:03.030510Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketleg.png
+[2m2024-08-17T19:40:03.030578Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:03.030661Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Loading external image: cricketbody.png
+[2m2024-08-17T19:40:03.030714Z[0m [32m INFO[0m [2mvoxelland::model[0m[2m:[0m Image loaded successfully.
+[2m2024-08-17T19:40:03.306344Z[0m [32m INFO[0m [2mvoxelland_client[0m[2m:[0m gltf model count: 7
+[2m2024-08-17T19:40:22.254616Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
+[2m2024-08-17T19:40:22.254622Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 49 at -15 83 75
+[2m2024-08-17T19:40:23.812566Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
+[2m2024-08-17T19:40:23.812573Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 49 at -7 81 80
+[2m2024-08-17T19:40:24.546151Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is -1 0 0
+[2m2024-08-17T19:40:24.546158Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 49 at -3 79 80
+[2m2024-08-17T19:40:25.413239Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
+[2m2024-08-17T19:40:25.413246Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 49 at 4 79 80
+[2m2024-08-17T19:40:33.789310Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
+[2m2024-08-17T19:40:33.789318Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 49 at 22 76 77
+[2m2024-08-17T19:40:34.696619Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
+[2m2024-08-17T19:40:34.696626Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 49 at 28 76 79
+[2m2024-08-17T19:40:35.776999Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
+[2m2024-08-17T19:40:35.777005Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 49 at 35 76 74
+[2m2024-08-17T19:40:41.139093Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
+[2m2024-08-17T19:40:41.139101Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 49 at 28 77 71
+[2m2024-08-17T19:40:42.472192Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
+[2m2024-08-17T19:40:42.472199Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 49 at 29 76 74
+[2m2024-08-17T19:40:43.339400Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Hit normal is 0 1 0
+[2m2024-08-17T19:40:43.339408Z[0m [32m INFO[0m [2mvoxelland::game[0m[2m:[0m Attempting to place 49 at 32 76 72

@@ -33,6 +33,7 @@ void main()
 
     float bright = min(16.0f, ambBright);
 
+
     blockColor = vec3(float(r)/16.0f, float(g)/16.0f, float(b)/16.0f);
 
     
@@ -40,6 +41,7 @@ void main()
     vertexColor = vec3(bright/16.0f, bright/16.0f, bright/16.0f) + blockColor;
     vertexColor = vec3(min(1.0, vertexColor.r), min(1.0, vertexColor.g), min(1.0, vertexColor.b));
     TexCoord = uv;
+    
     
     pos = position;
 

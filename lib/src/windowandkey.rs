@@ -42,9 +42,9 @@ pub struct WindowAndKeyContext {
     pub logo: Texture,
     pub clipboard_context: ClipboardContext,
 
-    #[cfg(feature = "glfw")]
+    #[cfg(feature = "steam")]
     pub client: Arc<Client>,
-    #[cfg(feature = "glfw")]
+    #[cfg(feature = "steam")]
     pub single: SingleClient
 }
 
@@ -91,9 +91,9 @@ impl WindowAndKeyContext {
 
         let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
 
-        #[cfg(feature = "glfw")]
+        #[cfg(feature = "steam")]
         let (client, single) = Client::init().unwrap();
-        #[cfg(feature = "glfw")]
+        #[cfg(feature = "steam")]
         restart_app_if_necessary(AppId::from(3114230));
 
 
@@ -199,9 +199,9 @@ impl WindowAndKeyContext {
             logo: Texture::new("assets/Untitled3.png").unwrap(),
             clipboard_context: ctx,
 
-            #[cfg(feature = "glfw")]
+            #[cfg(feature = "steam")]
             client: Arc::new(client),
-            #[cfg(feature = "glfw")]
+            #[cfg(feature = "steam")]
             single
         };
 
@@ -224,7 +224,7 @@ impl WindowAndKeyContext {
 
 
 
-        #[cfg(feature = "glfw")]
+        #[cfg(feature = "steam")]
         self.single.run_callbacks();
 
 

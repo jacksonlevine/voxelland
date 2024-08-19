@@ -3,20 +3,14 @@ use glam::{Mat4, Vec3};
 
 use crate::shader::Shader;
 
-
-
-
-
-
 pub struct BlockOverlay {
     shader: Shader,
     vbo: GLuint
 }
 
-
 impl BlockOverlay {
     pub fn new(texture: GLuint) -> BlockOverlay {
-        let shader = Shader::new("assets/bovert.glsl", "assets/bofrag.glsl");
+        let shader = Shader::new(path!("assets/bovert.glsl"), path!("assets/bofrag.glsl"));
         #[cfg(feature = "glfw")]
         unsafe {
             gl::BindVertexArray(shader.vao);
@@ -25,8 +19,6 @@ impl BlockOverlay {
         let mut vbo: GLuint = 0;
 
         let faces: [f32; 144] = [
-
-            
         -0.55, -0.5, 0.5, 0.0,
         -0.55, -0.5, -0.5, 1.0,
         -0.55, 0.5, -0.5, 2.0,

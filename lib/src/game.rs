@@ -147,17 +147,17 @@ pub static mut MOUSED_SLOT: SlotIndexType = SlotIndexType::None;
 pub static mut CROUCHING: bool = false;
 
 pub static mut SONGS: [&'static str; 11] = [
-    "assets/music/bee.mp3",
-    "assets/music/qv2.mp3",
-    "assets/music/song.mp3",
-    "assets/music/Farfromhome.mp3",
-    "assets/music/ifol.mp3",
-    "assets/music/NoFuture.mp3",
-    "assets/music/Respite.mp3",
-    "assets/music/SereneFacade.mp3",
-    "assets/music/Unease.mp3",
-    "assets/music/UnknownDanger.mp3",
-    "assets/music/empythree.mp3",
+    path!("assets/music/bee.mp3"),
+    path!("assets/music/qv2.mp3"),
+    path!("assets/music/song.mp3"),
+    path!("assets/music/Farfromhome.mp3"),
+    path!("assets/music/ifol.mp3"),
+    path!("assets/music/NoFuture.mp3"),
+    path!("assets/music/Respite.mp3"),
+    path!("assets/music/SereneFacade.mp3"),
+    path!("assets/music/Unease.mp3"),
+    path!("assets/music/UnknownDanger.mp3"),
+    path!("assets/music/empythree.mp3"),
 ];
 
 pub static mut SONGTIMER: f32 = 0.0;
@@ -464,9 +464,9 @@ impl Game {
             }
         }
 
-        let oldshader = Shader::new("assets/oldvert.glsl", "assets/oldfrag.glsl");
-        let shader0 = Shader::new("assets/vert.glsl", "assets/frag.glsl");
-        let skyshader = Shader::new("assets/skyvert.glsl", "assets/skyfrag.glsl");
+        let oldshader = Shader::new(path!("assets/oldvert.glsl"), path!("assets/oldfrag.glsl"));
+        let shader0 = Shader::new(path!("assets/vert.glsl"), path!("assets/frag.glsl"));
+        let skyshader = Shader::new(path!("assets/skyvert.glsl"), path!("assets/skyfrag.glsl"));
         let faders: RwLock<Vec<Fader>> = RwLock::new(Vec::new());
         let cam = Arc::new(Mutex::new(Camera::new()));
 
@@ -492,9 +492,9 @@ impl Game {
         }
 
         #[cfg(feature = "glfw")]
-        let tex = Texture::new("assets/world.png").unwrap();
+        let tex = Texture::new(path!("assets/world.png")).unwrap();
         #[cfg(feature = "glfw")]
-        let weathertex = Texture::new("assets/weather.png").unwrap();
+        let weathertex = Texture::new(path!("assets/weather.png")).unwrap();
 
         #[cfg(feature = "glfw")]
         {
@@ -516,24 +516,24 @@ impl Game {
 
         let mut csys = ChunkSystem::new(10, randseed, 0, headless);
         let voxel_models = vec![
-            JVoxModel::new("assets/voxelmodels/bush.vox"),
-            JVoxModel::new("assets/voxelmodels/tree1.vox"),
-            JVoxModel::new("assets/voxelmodels/tree2.vox"),
-            JVoxModel::new("assets/voxelmodels/rock1.vox"),
-            JVoxModel::new("assets/voxelmodels/rock2.vox"),
-            JVoxModel::new("assets/voxelmodels/tree3.vox"),
-            JVoxModel::new("assets/voxelmodels/tree4.vox"),
-            JVoxModel::new("assets/voxelmodels/tree5.vox"),
-            JVoxModel::new("assets/voxelmodels/bamboo1.vox"),
-            JVoxModel::new("assets/voxelmodels/bamboo2.vox"),
-            JVoxModel::new("assets/voxelmodels/tallgrass1.vox"),
-            JVoxModel::new("assets/voxelmodels/tallgrass2.vox"),
-            JVoxModel::new("assets/voxelmodels/tallgrass3.vox"),
-            JVoxModel::new("assets/voxelmodels/rubbertree.vox"),
+            JVoxModel::new(path!("assets/voxelmodels/bush.vox")),
+            JVoxModel::new(path!("assets/voxelmodels/tree1.vox")),
+            JVoxModel::new(path!("assets/voxelmodels/tree2.vox")),
+            JVoxModel::new(path!("assets/voxelmodels/rock1.vox")),
+            JVoxModel::new(path!("assets/voxelmodels/rock2.vox")),
+            JVoxModel::new(path!("assets/voxelmodels/tree3.vox")),
+            JVoxModel::new(path!("assets/voxelmodels/tree4.vox")),
+            JVoxModel::new(path!("assets/voxelmodels/tree5.vox")),
+            JVoxModel::new(path!("assets/voxelmodels/bamboo1.vox")),
+            JVoxModel::new(path!("assets/voxelmodels/bamboo2.vox")),
+            JVoxModel::new(path!("assets/voxelmodels/tallgrass1.vox")),
+            JVoxModel::new(path!("assets/voxelmodels/tallgrass2.vox")),
+            JVoxModel::new(path!("assets/voxelmodels/tallgrass3.vox")),
+            JVoxModel::new(path!("assets/voxelmodels/rubbertree.vox")),
             //0-13
-            JVoxModel::new("assets/voxelmodels/ptree.vox"),
-            JVoxModel::new("assets/voxelmodels/redrock.vox"),
-            JVoxModel::new("assets/voxelmodels/crystal1.vox"), //14 - 16
+            JVoxModel::new(path!("assets/voxelmodels/ptree.vox")),
+            JVoxModel::new(path!("assets/voxelmodels/redrock.vox")),
+            JVoxModel::new(path!("assets/voxelmodels/crystal1.vox")), //14 - 16
         ];
 
         //csys.load_world_from_file(String::from("saves/world1"));
@@ -898,9 +898,9 @@ impl Game {
             shader0,
             oldshader,
             skyshader,
-            modelshader: Shader::new("assets/mvert.glsl", "assets/mfrag.glsl"),
-            cloudshader: Shader::new("assets/cloudsvert.glsl", "assets/cloudsfrag.glsl"),
-            starshader: Shader::new("assets/starsvert.glsl", "assets/starsfrag.glsl"),
+            modelshader: Shader::new(path!("assets/mvert.glsl"),      path!("assets/mfrag.glsl")),
+            cloudshader: Shader::new(path!("assets/cloudsvert.glsl"), path!("assets/cloudsfrag.glsl")),
+            starshader:  Shader::new(path!("assets/starsvert.glsl"),  path!("assets/starsfrag.glsl")),
             camera: cam.clone(),
             run_chunk_thread: Arc::new(AtomicBool::new(true)),
             chunk_thread: None,
@@ -1024,15 +1024,15 @@ impl Game {
         };
         #[cfg(feature = "glfw")]
         if !headless {
-            g.load_model("assets/models/car/scene.gltf");
-            g.load_model("assets/models/car/scene.gltf");
-            //g.load_model("assets/models/ship/scene.gltf");
-            g.load_model("assets/models/monster1/scene.gltf");
-            g.load_model("assets/models/monster2/scene.gltf");
-            g.load_model("assets/models/cow/scene.glb");
-            g.load_model("assets/models/mountain/scene.gltf");
+            g.load_model(path!("assets/models/car/scene.gltf"));
+            g.load_model(path!("assets/models/car/scene.gltf"));
+            //g.load_model(path!("assets/models/ship/scene.gltf"));
+            g.load_model(path!("assets/models/monster1/scene.gltf"));
+            g.load_model(path!("assets/models/monster2/scene.gltf"));
+            g.load_model(path!("assets/models/cow/scene.glb"));
+            g.load_model(path!("assets/models/mountain/scene.gltf"));
 
-            g.load_model("assets/models/cricket/scene.gltf");
+            g.load_model(path!("assets/models/cricket/scene.gltf"));
 
             info!("gltf model count: {}", g.gltf_models.len());
 
@@ -1055,126 +1055,129 @@ impl Game {
                 AUDIOPLAYER.preload_series(
                     "grassstepseries",
                     vec![
-                        "assets/sfx/grassstep1.mp3",
-                        "assets/sfx/grassstep2.mp3",
-                        "assets/sfx/grassstep3.mp3",
-                        "assets/sfx/grassstep4.mp3",
-                        "assets/sfx/grassstep5.mp3",
-                        "assets/sfx/grassstep6.mp3",
+                        path!("assets/sfx/grassstep1.mp3"),
+                        path!("assets/sfx/grassstep2.mp3"),
+                        path!("assets/sfx/grassstep3.mp3"),
+                        path!("assets/sfx/grassstep4.mp3"),
+                        path!("assets/sfx/grassstep5.mp3"),
+                        path!("assets/sfx/grassstep6.mp3"),
                     ],
                 );
 
                 AUDIOPLAYER.preload_series(
                     "woodstepseries",
                     vec![
-                        "assets/sfx/woodstep1.mp3",
-                        "assets/sfx/woodstep2.mp3",
-                        "assets/sfx/woodstep3.mp3",
-                        "assets/sfx/woodstep4.mp3",
-                        "assets/sfx/woodstep5.mp3",
+                        path!("assets/sfx/woodstep1.mp3"),
+                        path!("assets/sfx/woodstep2.mp3"),
+                        path!("assets/sfx/woodstep3.mp3"),
+                        path!("assets/sfx/woodstep4.mp3"),
+                        path!("assets/sfx/woodstep5.mp3"),
                     ],
                 );
 
                 AUDIOPLAYER.preload_series(
                     "mulchstepseries",
                     vec![
-                        "assets/sfx/mulchstep1.mp3",
-                        "assets/sfx/mulchstep2.mp3",
-                        "assets/sfx/mulchstep3.mp3",
-                        "assets/sfx/mulchstep4.mp3",
+                        path!("assets/sfx/mulchstep1.mp3"),
+                        path!("assets/sfx/mulchstep2.mp3"),
+                        path!("assets/sfx/mulchstep3.mp3"),
+                        path!("assets/sfx/mulchstep4.mp3"),
                     ],
                 );
 
                 AUDIOPLAYER.preload_series(
                     "dirtstepseries",
                     vec![
-                        "assets/sfx/dirtstep1.mp3",
-                        "assets/sfx/dirtstep2.mp3",
-                        "assets/sfx/dirtstep3.mp3",
-                        "assets/sfx/dirtstep4.mp3",
+                        path!("assets/sfx/dirtstep1.mp3"),
+                        path!("assets/sfx/dirtstep2.mp3"),
+                        path!("assets/sfx/dirtstep3.mp3"),
+                        path!("assets/sfx/dirtstep4.mp3"),
                     ],
                 );
 
                 AUDIOPLAYER.preload_series(
                     "sandstepseries",
                     vec![
-                        "assets/sfx/sandstep1.mp3",
-                        "assets/sfx/sandstep2.mp3",
-                        "assets/sfx/sandstep3.mp3",
-                        "assets/sfx/sandstep4.mp3",
-                        "assets/sfx/sandstep5.mp3",
+                        path!("assets/sfx/sandstep1.mp3"),
+                        path!("assets/sfx/sandstep2.mp3"),
+                        path!("assets/sfx/sandstep3.mp3"),
+                        path!("assets/sfx/sandstep4.mp3"),
+                        path!("assets/sfx/sandstep5.mp3"),
                     ],
                 );
 
                 AUDIOPLAYER.preload_series(
                     "doorseries",
                     vec![
-                        "assets/sfx/door.mp3",
-                        "assets/sfx/door1.mp3",
-                        "assets/sfx/door2.mp3",
+                        path!("assets/sfx/door.mp3"),
+                        path!("assets/sfx/door1.mp3"),
+                        path!("assets/sfx/door2.mp3"),
                     ],
                 );
 
                 AUDIOPLAYER.preload_series(
                     "waterstepseries",
                     vec![
-                        "assets/sfx/water1.mp3",
-                        "assets/sfx/water2.mp3",
-                        "assets/sfx/water3.mp3",
-                        "assets/sfx/water4.mp3",
-                        "assets/sfx/water5.mp3",
+                        path!("assets/sfx/water1.mp3"),
+                        path!("assets/sfx/water2.mp3"),
+                        path!("assets/sfx/water3.mp3"),
+                        path!("assets/sfx/water4.mp3"),
+                        path!("assets/sfx/water5.mp3"),
                     ],
                 );
 
                 AUDIOPLAYER.preload_series(
                     "clickseries",
                     vec![
-                        "assets/sfx/click1.mp3",
-                        "assets/sfx/click2.mp3",
-                        "assets/sfx/click3.mp3",
-                        "assets/sfx/click4.mp3",
+                        path!("assets/sfx/click1.mp3"),
+                        path!("assets/sfx/click2.mp3"),
+                        path!("assets/sfx/click3.mp3"),
+                        path!("assets/sfx/click4.mp3"),
                     ],
                 );
 
                 AUDIOPLAYER.preload_series(
                     "stonestepseries",
                     vec![
-                        "assets/sfx/stonestep1.mp3",
-                        "assets/sfx/stonestep2.mp3",
-                        "assets/sfx/stonestep3.mp3",
-                        "assets/sfx/stonestep4.mp3",
+                        path!("assets/sfx/stonestep1.mp3"),
+                        path!("assets/sfx/stonestep2.mp3"),
+                        path!("assets/sfx/stonestep3.mp3"),
+                        path!("assets/sfx/stonestep4.mp3"),
                     ],
                 );
 
                 AUDIOPLAYER.preload_series(
                     "stoneplaceseries",
                     vec![
-                        "assets/sfx/stoneplace1.mp3",
-                        "assets/sfx/stoneplace2.mp3",
-                        "assets/sfx/stoneplace3.mp3",
+                        path!("assets/sfx/stoneplace1.mp3"),
+                        path!("assets/sfx/stoneplace2.mp3"),
+                        path!("assets/sfx/stoneplace3.mp3"),
                     ],
                 );
 
                 AUDIOPLAYER.preload_series(
                     "plantplaceseries",
                     vec![
-                        "assets/sfx/plantplace1.mp3",
-                        "assets/sfx/plantplace2.mp3",
-                        "assets/sfx/plantplace3.mp3",
+                        path!("assets/sfx/plantplace1.mp3"),
+                        path!("assets/sfx/plantplace2.mp3"),
+                        path!("assets/sfx/plantplace3.mp3"),
                     ],
                 );
 
                 AUDIOPLAYER.preload_series(
                     "glassplaceseries",
                     vec![
-                        "assets/sfx/glassplace1.mp3",
-                        "assets/sfx/glassplace2.mp3",
-                        "assets/sfx/glassplace3.mp3",
-                        "assets/sfx/glassplace4.mp3",
+                        path!("assets/sfx/glassplace1.mp3"),
+                        path!("assets/sfx/glassplace2.mp3"),
+                        path!("assets/sfx/glassplace3.mp3"),
+                        path!("assets/sfx/glassplace4.mp3"),
                     ],
                 );
 
-                AUDIOPLAYER.preload("assets/sfx/cricket1.mp3", "assets/sfx/cricket1.mp3");
+                AUDIOPLAYER.preload(
+                    path!("assets/sfx/cricket1.mp3"), 
+                    path!("assets/sfx/cricket1.mp3")
+                );
             }
         }
         thread::spawn(move || {
@@ -1607,11 +1610,11 @@ impl Game {
                 2.0 => {
                     if ROOFOVERHEAD.load(Ordering::Relaxed) {
                         if !INSIDE_RAIN_PLAYING {
-                            AUDIOPLAYER.stop_sound("assets/sfx/rainoutside.mp3");
+                            AUDIOPLAYER.stop_sound(path!("assets/sfx/rainoutside.mp3"));
                             //w.stop_sound("assets/sfx/raininside.mp3");
-                            AUDIOPLAYER.stop_sound("assets/sfx/snowoutside.mp3");
-                            AUDIOPLAYER.stop_sound("assets/sfx/snowinside.mp3");
-                            AUDIOPLAYER.play_in_head("assets/sfx/raininside.mp3");
+                            AUDIOPLAYER.stop_sound(  path!("assets/sfx/snowoutside.mp3" ));
+                            AUDIOPLAYER.stop_sound(  path!("assets/sfx/snowinside.mp3"  ));
+                            AUDIOPLAYER.play_in_head(path!("assets/sfx/raininside.mp3"  ));
                             TIMER = 0.0;
                             INSIDE_RAIN_PLAYING = true;
                             OUTSIDE_RAIN_PLAYING = false;
@@ -1621,10 +1624,10 @@ impl Game {
                     } else {
                         if !OUTSIDE_RAIN_PLAYING {
                             //w.stop_sound("assets/sfx/rainoutside.mp3");
-                            AUDIOPLAYER.stop_sound("assets/sfx/raininside.mp3");
-                            AUDIOPLAYER.stop_sound("assets/sfx/snowoutside.mp3");
-                            AUDIOPLAYER.stop_sound("assets/sfx/snowinside.mp3");
-                            AUDIOPLAYER.play_in_head("assets/sfx/rainoutside.mp3");
+                            AUDIOPLAYER.stop_sound(  path!("assets/sfx/raininside.mp3" ));
+                            AUDIOPLAYER.stop_sound(  path!("assets/sfx/snowoutside.mp3"));
+                            AUDIOPLAYER.stop_sound(  path!("assets/sfx/snowinside.mp3" ));
+                            AUDIOPLAYER.play_in_head(path!("assets/sfx/rainoutside.mp3"));
                             TIMER = 0.0;
                             OUTSIDE_RAIN_PLAYING = true;
                             INSIDE_RAIN_PLAYING = false;
@@ -1637,11 +1640,11 @@ impl Game {
                 1.0 => {
                     if ROOFOVERHEAD.load(Ordering::Relaxed) {
                         if !INSIDE_SNOW_PLAYING {
-                            AUDIOPLAYER.stop_sound("assets/sfx/rainoutside.mp3");
-                            AUDIOPLAYER.stop_sound("assets/sfx/raininside.mp3");
-                            AUDIOPLAYER.stop_sound("assets/sfx/snowoutside.mp3");
+                            AUDIOPLAYER.stop_sound(path!("assets/sfx/rainoutside.mp3"));
+                            AUDIOPLAYER.stop_sound(path!("assets/sfx/raininside.mp3" ));
+                            AUDIOPLAYER.stop_sound(path!("assets/sfx/snowoutside.mp3"));
                             // w.stop_sound("assets/sfx/snowinside.mp3");
-                            AUDIOPLAYER.play_in_head("assets/sfx/snowinside.mp3");
+                            AUDIOPLAYER.play_in_head(path!("assets/sfx/snowinside.mp3"));
                             TIMER = 0.0;
                             INSIDE_SNOW_PLAYING = true;
                             OUTSIDE_SNOW_PLAYING = false;
@@ -1650,12 +1653,12 @@ impl Game {
                         }
                     } else {
                         if !OUTSIDE_SNOW_PLAYING {
-                            AUDIOPLAYER.stop_sound("assets/sfx/rainoutside.mp3");
-                            AUDIOPLAYER.stop_sound("assets/sfx/raininside.mp3");
+                            AUDIOPLAYER.stop_sound(path!("assets/sfx/rainoutside.mp3"));
+                            AUDIOPLAYER.stop_sound(path!("assets/sfx/raininside.mp3" ));
                             //w.stop_sound("assets/sfx/snowoutside.mp3");
-                            AUDIOPLAYER.stop_sound("assets/sfx/snowinside.mp3");
+                            AUDIOPLAYER.stop_sound(path!("assets/sfx/snowinside.mp3" ));
 
-                            AUDIOPLAYER.play_in_head("assets/sfx/snowoutside.mp3");
+                            AUDIOPLAYER.play_in_head(path!("assets/sfx/snowoutside.mp3"));
                             TIMER = 0.0;
                             OUTSIDE_SNOW_PLAYING = true;
                             INSIDE_SNOW_PLAYING = false;
@@ -1665,10 +1668,10 @@ impl Game {
                     }
                 }
                 _ => {
-                    AUDIOPLAYER.stop_sound("assets/sfx/rainoutside.mp3");
-                    AUDIOPLAYER.stop_sound("assets/sfx/raininside.mp3");
-                    AUDIOPLAYER.stop_sound("assets/sfx/snowoutside.mp3");
-                    AUDIOPLAYER.stop_sound("assets/sfx/snowinside.mp3");
+                    AUDIOPLAYER.stop_sound(path!("assets/sfx/rainoutside.mp3"));
+                    AUDIOPLAYER.stop_sound(path!("assets/sfx/raininside.mp3" ));
+                    AUDIOPLAYER.stop_sound(path!("assets/sfx/snowoutside.mp3"));
+                    AUDIOPLAYER.stop_sound(path!("assets/sfx/snowinside.mp3" ));
                     OUTSIDE_RAIN_PLAYING = false;
                     INSIDE_RAIN_PLAYING = false;
                     OUTSIDE_SNOW_PLAYING = false;
@@ -2792,7 +2795,7 @@ impl Game {
                 #[cfg(feature = "audio")]
                 unsafe {
                     AUDIOPLAYER.play(
-                        "assets/sfx/boing.mp3",
+                        path!("assets/sfx/boing.mp3"),
                         &(camfootpos),
                         &Vec3::new(0.0, 0.0, 0.0),
                         0.5,
@@ -2835,7 +2838,7 @@ impl Game {
             #[cfg(feature = "audio")]
             unsafe {
                 AUDIOPLAYER.play(
-                    "assets/sfx/shiptakeoff.mp3",
+                    path!("assets/sfx/shiptakeoff.mp3"),
                     &self.ship_pos,
                     &Vec3::ZERO,
                     1.0,
@@ -3004,7 +3007,7 @@ impl Game {
             if ON_CONVEYORS {
                 if CONVEYOR_SOUND_TIMER <= 0.0 {
                     #[cfg(feature = "audio")]
-                    AUDIOPLAYER.play_in_head("assets/sfx/onconveyor.mp3");
+                    AUDIOPLAYER.play_in_head(path!("assets/sfx/onconveyor.mp3"));
 
                     CONVEYOR_SOUND_TIMER = 2.5;
                 } else {
@@ -3843,7 +3846,7 @@ impl Game {
                     cam_clone.velocity += Vec3::new(0.0, TRAMPOLINE_VELOCITY_FIGURE, 0.0) + d;
                     #[cfg(feature = "audio")]
                     AUDIOPLAYER.play(
-                        "assets/sfx/boing.mp3",
+                        path!("assets/sfx/boing.mp3"),
                         &(feetpos),
                         &Vec3::new(0.0, 0.0, 0.0),
                         0.5,
@@ -3955,11 +3958,11 @@ impl Game {
                     self.vars.time_tfs_at_3 = 0.0;
                     self.time_falling_scalar = 1.0;
 
-                    #[cfg(feature = "audio")]
-                    AUDIOPLAYER.stop_head_sound("assets/sfx/freefall.mp3".to_string());
+                    #[cfg(feature = "audio")] // TODO: why alloc?
+                    AUDIOPLAYER.stop_head_sound(path!("assets/sfx/freefall.mp3").to_string());
                     if self.inwater {
                         #[cfg(feature = "audio")]
-                        AUDIOPLAYER.play_in_head("assets/sfx/splash.mp3");
+                        AUDIOPLAYER.play_in_head(path!("assets/sfx/splash.mp3"));
                     }
                 }
                 
@@ -4001,7 +4004,7 @@ impl Game {
                         if !WASFREEFALLING {
                             WASFREEFALLING = true;
                             #[cfg(feature = "audio")]
-                            AUDIOPLAYER.play_in_head("assets/sfx/freefall.mp3");
+                            AUDIOPLAYER.play_in_head(path!("assets/sfx/freefall.mp3"));
                         }
                     }
                     
@@ -4020,7 +4023,7 @@ impl Game {
 
                         WASFREEFALLING = false;
                         #[cfg(feature = "audio")]
-                        AUDIOPLAYER.stop_head_sound("assets/sfx/freefall.mp3".to_string());
+                        AUDIOPLAYER.stop_head_sound(path!("assets/sfx/freefall.mp3").to_string());
                     }
                     
                 }
@@ -4168,7 +4171,7 @@ impl Game {
             Some(fd) => {
                 unsafe {
                     #[cfg(feature = "audio")]
-                    AUDIOPLAYER.play_in_head("assets/sfx/falldamage.mp3");
+                    AUDIOPLAYER.play_in_head(path!("assets/sfx/falldamage.mp3"));
                 }
                 self.take_damage((fd*20.0) as u8);
             }
@@ -4186,7 +4189,7 @@ impl Game {
 
             unsafe {
                 #[cfg(feature = "audio")]
-                AUDIOPLAYER.play_in_head("assets/sfx/death.mp3");
+                AUDIOPLAYER.play_in_head(path!("assets/sfx/death.mp3"));
             }
             let mut camlock = self.camera.lock();
             let campos = camlock.position.clone();

@@ -3,20 +3,14 @@ use glam::{Mat4, Vec3};
 
 use crate::shader::Shader;
 
-
-
-
-
-
 pub struct SelectCube {
     shader: Shader,
     vbo: GLuint
 }
 
-
 impl SelectCube {
     pub fn new() -> SelectCube {
-        let shader = Shader::new("assets/wfvert.glsl", "assets/wffrag.glsl");
+        let shader = Shader::new(path!("assets/wfvert.glsl"), path!("assets/wffrag.glsl"));
         #[cfg(feature = "glfw")]
         unsafe {
             gl::BindVertexArray(shader.vao);

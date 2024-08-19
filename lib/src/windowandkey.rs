@@ -196,7 +196,10 @@ impl WindowAndKeyContext {
             addressentered: Arc::new(AtomicBool::new(false)),
             serveraddress: Arc::new(Mutex::new(None)),
             serveraddrbuffer: String::with_capacity(128),
-            logo: Texture::new("assets/Untitled3.png").unwrap(),
+            logo: Texture::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/world.png")).unwrap_or_else(|err| {
+                eprintln!("Error: {err:?}, path: {}", concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/world.png"));
+                panic!("Error!!!!!!!!1111, {err:?}");
+            }),
             clipboard_context: ctx,
 
             #[cfg(feature = "steam")]

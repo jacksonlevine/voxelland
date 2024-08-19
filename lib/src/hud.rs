@@ -132,7 +132,7 @@ impl Hud {
         let mut vbo: GLuint = 0;
         let mut chestvbo: GLuint = 0;
         let mut healthvbo: GLuint = 0;
-        let shader = Shader::new("assets/menuvert.glsl", "assets/menufrag.glsl");
+        let shader = Shader::new(path!("assets/menuvert.glsl"), path!("assets/menufrag.glsl"));
         let mut chestvao: GLuint = 0;
         let mut healthvao: GLuint = 0;
         #[cfg(feature = "glfw")]

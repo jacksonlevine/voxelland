@@ -1,5 +1,7 @@
 #![warn(clippy::unused_imports)]
 
+#[macro_use]
+pub mod macros;
 pub mod blockinfo;
 pub mod camera;
 pub mod chunk;

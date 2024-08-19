@@ -11,6 +11,7 @@ pub struct Shader {
 }
 
 impl Shader {
+    #[track_caller]
     pub fn new(vertpath: &str, fragpath: &str) -> Shader {
         #[cfg(feature = "glfw")]
         let vertex_shader = Self::compile_shader(vertpath, gl::VERTEX_SHADER);
@@ -45,8 +46,9 @@ impl Shader {
             shader_id: 0,
             vao,
         }
-
     }
+
+    #[track_caller]
     #[cfg(feature = "glfw")]
     fn compile_shader(path: &str, shader_type: gl::types::GLenum) -> gl::types::GLuint {
         let mut file = File::open(path).unwrap();

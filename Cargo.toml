@@ -6,7 +6,11 @@ members = [
 ]
 
 [profile.release]
-# opt-level = 3  # Maximum optimization level
-# lto = true     # Enables Link Time Optimization
-# debug = true   # Includes debug information even in release builds
-# codegen-units = 1   # This may increase compilation time but can improve runtime performance
+opt-level = 2  # Maximum optimization level
+debug = true   # Includes debug information even in release builds
+
+[profile.deploy]
+inherits = "release"
+lto = true
+opt-level = 3
+codegen-units = 1

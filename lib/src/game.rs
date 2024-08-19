@@ -1683,6 +1683,46 @@ impl Game {
     }
 
     pub fn initialize_being_in_world(&mut self) -> JoinHandle<()> {
+       
+
+        if self.vars.in_multiplayer {
+            //ChunkSystem::initial_rebuild_on_main_thread(&self.chunksys.clone(), &self.shader0, &self.camera.lock().position);
+            while !self.netconn.received_world.load(Ordering::Relaxed) {
+                thread::sleep(Duration::from_millis(500));
+            }
+        }
+
+        
+
+        self.vars.hostile_world = (self.chunksys.read().planet_type % 2) != 0;
+
+        //self.audiop.play("assets/music/Farfromhome.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
+        //self.audiop.play("assets/sfx/shipland28sec.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
+
+        let ship_float_pos = self.auto_set_spawn_point();
+
+        self.ship_pos = ship_float_pos;
+        //self.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0), &self.chunksys, &self.camera));
+        // self.static_model_entities.push(ModelEntity::new(4, ship_float_pos, 1.5, Vec3::new(0.0, 0.0, 0.0), &self.chunksys, &self.camera));
+
+        unsafe {
+            SPAWNPOINT = ship_float_pos + Vec3::new(0.0, 4.0, 0.0);
+            self.camera.lock().position = SPAWNPOINT;
+        }
+
+        //self.static_model_entities.push(ModelEntity::new(5, Vec3::new(0.0, 25.0, 200.0), 140.0, Vec3::new(0.0, 0.0, 0.0), &self.chunksys, &self.camera));
+        //self.update_model_collisions(0);
+
+        self.currentbuttons = vec![("Loading...".to_string(), "loading".to_string())];
+        self.vars.menu_open = true;
+
+        let handle = self.rebuild_whole_world_while_showing_loading_screen();
+
+        handle
+    }
+
+
+    fn auto_set_spawn_point(&mut self) -> Vec3 {
         let mut ship_pos = vec::IVec3::new(20, 200, 0);
 
         // Function to decrement y until a block is found
@@ -1702,37 +1742,7 @@ impl Game {
         ship_pos.y = decided_pos_y;
 
         let ship_float_pos = Vec3::new(ship_pos.x as f32, ship_pos.y as f32, ship_pos.z as f32);
-
-        if self.vars.in_multiplayer {
-            //ChunkSystem::initial_rebuild_on_main_thread(&self.chunksys.clone(), &self.shader0, &self.camera.lock().position);
-            while !self.netconn.received_world.load(Ordering::Relaxed) {
-                thread::sleep(Duration::from_millis(500));
-            }
-        }
-
-        self.vars.hostile_world = (self.chunksys.read().planet_type % 2) != 0;
-
-        //self.audiop.play("assets/music/Farfromhome.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
-        //self.audiop.play("assets/sfx/shipland28sec.mp3", &ship_float_pos, &Vec3::new(0.0,0.0,0.0));
-
-        self.ship_pos = ship_float_pos;
-        //self.static_model_entities.push(ModelEntity::new(1, ship_float_pos, 0.07, Vec3::new(PI/2.0, 0.0, 0.0), &self.chunksys, &self.camera));
-        // self.static_model_entities.push(ModelEntity::new(4, ship_float_pos, 1.5, Vec3::new(0.0, 0.0, 0.0), &self.chunksys, &self.camera));
-
-        unsafe {
-            SPAWNPOINT = ship_float_pos + Vec3::new(5.0, 10.0, 0.0);
-            self.camera.lock().position = SPAWNPOINT;
-        }
-
-        //self.static_model_entities.push(ModelEntity::new(5, Vec3::new(0.0, 25.0, 200.0), 140.0, Vec3::new(0.0, 0.0, 0.0), &self.chunksys, &self.camera));
-        //self.update_model_collisions(0);
-
-        self.currentbuttons = vec![("Loading...".to_string(), "loading".to_string())];
-        self.vars.menu_open = true;
-
-        let handle = self.rebuild_whole_world_while_showing_loading_screen();
-
-        handle
+        ship_float_pos
     }
 
     #[cfg(feature = "glfw")]
@@ -3111,7 +3121,12 @@ impl Game {
 
 
         let mut todlock = self.timeofday.lock();
-        *todlock = (*todlock + self.delta_time) % self.daylength;
+
+        if !self.vars.menu_open || self.vars.in_multiplayer {
+            *todlock = (*todlock + self.delta_time) % self.daylength;
+        }
+        
+        
 
         let gaussian_value =
             Self::gaussian(*todlock, self.daylength / 2.0, self.daylength / 2.0) * 1.3;

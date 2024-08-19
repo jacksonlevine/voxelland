@@ -431,7 +431,7 @@ fn handle_client(
                     _ => {}
                 }
 
-                {   
+                {
                     let clients = clients.lock();
                     let newmessageserial = bincode::serialize(&message).unwrap();
                     for (id, client) in clients.iter() {
@@ -444,7 +444,6 @@ fn handle_client(
                                 let _ = mystream.write_all(&newmessageserial[..numbytes2]);
                             }
                         }
-                        
                     }
                 }
                 

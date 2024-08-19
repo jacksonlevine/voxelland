@@ -1,16 +1,36 @@
-use crate::{blockinfo::Blocks, game::{Game, CROUCHING, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, MOUSEX, MOUSEY, SHOWTOOLTIP, SINGLEPLAYER, TOOLTIPNAME}, keybinds::{AboutToRebind, ABOUTTOREBIND, LISTENINGFORREBIND}, recipes::{RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER}, statics::{LAST_ENTERED_SERVERADDRESS, LOAD_MISC, LOAD_OR_INITIALIZE_STATICS, MISCSETTINGS, SAVE_LESA}, texture::Texture};
+use crate::{
+    blockinfo::Blocks,
+    game::{
+        Game, CROUCHING, CURRENT_AVAIL_RECIPES, DECIDEDSPORMP, MOUSEX, MOUSEY, SHOWTOOLTIP,
+        SINGLEPLAYER, TOOLTIPNAME,
+    },
+    keybinds::{AboutToRebind, ABOUTTOREBIND, LISTENINGFORREBIND},
+    recipes::{RECIPES_DISABLED, RECIPE_COOLDOWN_TIMER},
+    statics::{
+        LAST_ENTERED_SERVERADDRESS, LOAD_MISC, LOAD_OR_INITIALIZE_STATICS, MISCSETTINGS, SAVE_LESA,
+    },
+    texture::Texture,
+};
 
 use clipboard::ClipboardProvider;
-use glfw::{ffi::glfwGetKeyName, get_key_name, Action, Context, Glfw, GlfwReceiver, Key, Modifiers, PWindow, WindowEvent};
+use glfw::{
+    ffi::glfwGetKeyName, get_key_name, Action, Context, Glfw, GlfwReceiver, Key, Modifiers,
+    PWindow, WindowEvent,
+};
 
 use once_cell::sync::Lazy;
 
-
-use std::{f32::consts::E, ffi::CStr, sync::{atomic::AtomicBool, Arc}, thread, time::{Duration, Instant}};
-use parking_lot::{Mutex, RwLock};
+use imgui::Key as ImGuiKey;
 use imgui::*;
-use imgui::{Key as ImGuiKey};
 use imgui_opengl_renderer::Renderer;
+use parking_lot::{Mutex, RwLock};
+use std::{
+    f32::consts::E,
+    ffi::CStr,
+    sync::{atomic::AtomicBool, Arc},
+    thread,
+    time::{Duration, Instant},
+};
 
 pub static mut WINDOWWIDTH: i32 = 0;
 pub static mut WINDOWHEIGHT: i32 = 0;
@@ -45,7 +65,7 @@ pub struct WindowAndKeyContext {
     #[cfg(feature = "steam")]
     pub client: Arc<Client>,
     #[cfg(feature = "steam")]
-    pub single: SingleClient
+    pub single: SingleClient,
 }
 
 fn toggle_fullscreen(window_ptr: *mut glfw::ffi::GLFWwindow) {
@@ -81,14 +101,12 @@ fn toggle_fullscreen(window_ptr: *mut glfw::ffi::GLFWwindow) {
     }
 }
 
-
 use steamworks::{restart_app_if_necessary, AppId, Client, SingleClient};
 
 use clipboard::ClipboardContext;
 
 impl WindowAndKeyContext {
     pub fn new(windowname: &'static str, width: u32, height: u32) -> Self {
-
         let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
 
         #[cfg(feature = "steam")]
@@ -96,13 +114,11 @@ impl WindowAndKeyContext {
         #[cfg(feature = "steam")]
         restart_app_if_necessary(AppId::from(3114230));
 
-
-
         unsafe {
             WINDOWHEIGHT = height as i32;
             WINDOWWIDTH = width as i32;
         }
-        
+
         let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
         let (mut window, events) = glfw
             .create_window(width, height, windowname, glfw::WindowMode::Windowed)
@@ -120,13 +136,11 @@ impl WindowAndKeyContext {
         window.set_char_mods_polling(true);
         window.make_current();
 
-
         // Initialize ImGui
         let mut imgui = imgui::Context::create();
         imgui.set_ini_filename(None);
 
         let scale_factor = 1.0;
-
 
         imgui.io_mut().font_global_scale = scale_factor;
         imgui.style_mut().scale_all_sizes(scale_factor);
@@ -152,7 +166,6 @@ impl WindowAndKeyContext {
             io.key_map[ImGuiKey::Escape as usize] = Key::Escape as u32;
         }
 
-
         let font_size = 16.0;
         imgui.fonts().add_font(&[FontSource::TtfData {
             data: include_bytes!("../../font.ttf"),
@@ -166,9 +179,7 @@ impl WindowAndKeyContext {
             }),
         }]);
 
-        
         let renderer = Renderer::new(&mut imgui, |s| window.get_proc_address(s) as *const _);
-
 
         unsafe {
             gl::Enable(gl::DEPTH_TEST);
@@ -179,8 +190,6 @@ impl WindowAndKeyContext {
             gl::CullFace(gl::BACK);
             gl::FrontFace(gl::CW);
         }
-
-   
 
         let mut wak = WindowAndKeyContext {
             width,
@@ -196,8 +205,15 @@ impl WindowAndKeyContext {
             addressentered: Arc::new(AtomicBool::new(false)),
             serveraddress: Arc::new(Mutex::new(None)),
             serveraddrbuffer: String::with_capacity(128),
-            logo: Texture::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/world.png")).unwrap_or_else(|err| {
-                eprintln!("Error: {err:?}, path: {}", concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/world.png"));
+            logo: Texture::new(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../assets/Untitled3.png"
+            ))
+            .unwrap_or_else(|err| {
+                eprintln!(
+                    "Error: {err:?}, path: {}",
+                    concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/Untitled3.png")
+                );
                 panic!("Error!!!!!!!!1111, {err:?}");
             }),
             clipboard_context: ctx,
@@ -205,7 +221,7 @@ impl WindowAndKeyContext {
             #[cfg(feature = "steam")]
             client: Arc::new(client),
             #[cfg(feature = "steam")]
-            single
+            single,
         };
 
         LOAD_OR_INITIALIZE_STATICS();
@@ -213,7 +229,6 @@ impl WindowAndKeyContext {
             wak.serveraddrbuffer = (*LAST_ENTERED_SERVERADDRESS).clone();
             wak.serveraddrbuffer.reserve(100);
         }
-        
 
         wak
     }
@@ -221,23 +236,17 @@ impl WindowAndKeyContext {
     
 
     pub fn run(&mut self) {
-        
         #[cfg(feature = "glfw")]
         self.glfw.poll_events();
 
-
-
         #[cfg(feature = "steam")]
         self.single.run_callbacks();
-
-
 
         let current_time = Instant::now();
         self.delta_time = current_time
             .duration_since(self.previous_time)
             .as_secs_f32();
         self.previous_time = current_time;
-
 
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
@@ -249,12 +258,13 @@ impl WindowAndKeyContext {
         unsafe {
             match DECIDEDSPORMP {
                 false => {
+                    self.imgui
+                        .io_mut()
+                        .update_delta_time(Duration::from_secs_f32(self.delta_time));
 
-                    self.imgui.io_mut().update_delta_time(Duration::from_secs_f32(self.delta_time));
-            
                     let (width, height) = self.window.read().get_framebuffer_size();
                     self.imgui.io_mut().display_size = [width as f32, height as f32];
-                                        
+
                     // Start the ImGui frame
                     let ui = self.imgui.frame();
 
@@ -266,7 +276,10 @@ impl WindowAndKeyContext {
                         | WindowFlags::NO_BACKGROUND;
 
                     let window_size = (950.0, 700.0);
-                    let window_pos = [width as f32 / 2.0 - (window_size.0 / 2.0), (height as f32 / 2.0 - (window_size.1 / 2.0)) + 75.0];
+                    let window_pos = [
+                        width as f32 / 2.0 - (window_size.0 / 2.0),
+                        (height as f32 / 2.0 - (window_size.1 / 2.0)) + 75.0,
+                    ];
 
                     ui.window("Transparent Window")
                         .size([window_size.0, window_size.1], Condition::Always)
@@ -301,7 +314,10 @@ impl WindowAndKeyContext {
                             imgui::Image::new(texture_id, scaled_size).build(&ui);
 
                             ui.set_cursor_pos([pos_x, pos_y - 50.0]);
-                            ui.text_colored([1.0, 0.0, 0.0, 1.0], "Welcome! Please choose an option.");
+                            ui.text_colored(
+                                [1.0, 0.0, 0.0, 1.0],
+                                "Welcome! Please choose an option.",
+                            );
 
                             ui.set_cursor_pos([pos_x, pos_y - 25.0]);
 
@@ -324,12 +340,9 @@ impl WindowAndKeyContext {
 
                     // Render the ImGui frame
                     self.guirenderer.render(&mut self.imgui);
-                            
+
                     let io = self.imgui.io_mut();
                     for (_, event) in glfw::flush_messages(&self.events) {
-        
-                        
-        
                         match event {
                             glfw::WindowEvent::MouseButton(mousebutton, action, _) => {
                                 let index = match mousebutton {
@@ -344,7 +357,6 @@ impl WindowAndKeyContext {
                                     _ => return,
                                 };
                                 io.mouse_down[index] = action == glfw::Action::Press;
-                                    
                             }
                             glfw::WindowEvent::FramebufferSize(wid, hei) => {
                                 self.width = wid as u32;
@@ -354,41 +366,54 @@ impl WindowAndKeyContext {
                                 }
                             }
                             glfw::WindowEvent::CursorPos(xpos, ypos) => {
-        
-                                    io.mouse_pos = [xpos as f32, ypos as f32];
-        
-                                
+                                io.mouse_pos = [xpos as f32, ypos as f32];
                             }
                             glfw::WindowEvent::Key(key, _scancode, action, _modifiers) => {
-        
-                                let pressed = action == glfw::Action::Press || action == glfw::Action::Repeat;
+                                let pressed =
+                                    action == glfw::Action::Press || action == glfw::Action::Repeat;
                                 io.keys_down[key as usize] = pressed;
-        
-                            if action == glfw::Action::Press {
-                                match key {
-                                    glfw::Key::LeftShift | glfw::Key::RightShift => io.key_shift = true,
-                                    glfw::Key::LeftControl | glfw::Key::RightControl => io.key_ctrl = true,
-                                    glfw::Key::LeftAlt | glfw::Key::RightAlt => io.key_alt = true,
-                                    glfw::Key::LeftSuper | glfw::Key::RightSuper => io.key_super = true,
-                                    glfw::Key::Backspace => {
-                                        io.keys_down[glfw::Key::Backspace as usize] = true;
-                                        io.add_input_character('\u{8}');
+
+                                if action == glfw::Action::Press {
+                                    match key {
+                                        glfw::Key::LeftShift | glfw::Key::RightShift => {
+                                            io.key_shift = true
+                                        }
+                                        glfw::Key::LeftControl | glfw::Key::RightControl => {
+                                            io.key_ctrl = true
+                                        }
+                                        glfw::Key::LeftAlt | glfw::Key::RightAlt => {
+                                            io.key_alt = true
+                                        }
+                                        glfw::Key::LeftSuper | glfw::Key::RightSuper => {
+                                            io.key_super = true
+                                        }
+                                        glfw::Key::Backspace => {
+                                            io.keys_down[glfw::Key::Backspace as usize] = true;
+                                            io.add_input_character('\u{8}');
+                                        }
+                                        _ => {}
                                     }
-                                    _ => {}
-                                }
-                            } else if action == glfw::Action::Release {
-                                match key {
-                                    glfw::Key::LeftShift | glfw::Key::RightShift => io.key_shift = false,
-                                    glfw::Key::LeftControl | glfw::Key::RightControl => io.key_ctrl = false,
-                                    glfw::Key::LeftAlt | glfw::Key::RightAlt => io.key_alt = false,
-                                    glfw::Key::LeftSuper | glfw::Key::RightSuper => io.key_super = false,
-                                    glfw::Key::Backspace => io.keys_down[glfw::Key::Backspace as usize] = false,
-                                    _ => {}
+                                } else if action == glfw::Action::Release {
+                                    match key {
+                                        glfw::Key::LeftShift | glfw::Key::RightShift => {
+                                            io.key_shift = false
+                                        }
+                                        glfw::Key::LeftControl | glfw::Key::RightControl => {
+                                            io.key_ctrl = false
+                                        }
+                                        glfw::Key::LeftAlt | glfw::Key::RightAlt => {
+                                            io.key_alt = false
+                                        }
+                                        glfw::Key::LeftSuper | glfw::Key::RightSuper => {
+                                            io.key_super = false
+                                        }
+                                        glfw::Key::Backspace => {
+                                            io.keys_down[glfw::Key::Backspace as usize] = false
+                                        }
+                                        _ => {}
+                                    }
                                 }
                             }
-        
-        
-                            }   
                             glfw::WindowEvent::Char(char) => {
                                 io.add_input_character(char);
                             }
@@ -399,15 +424,12 @@ impl WindowAndKeyContext {
                             _ => {}
                         }
                     }
-        
-
                 }
                 true => {
                     match self.game.as_mut() {
                         Some(g) => {
-            
                             let gmenuopen = g.vars.menu_open;
-            
+
                             let gcraftopen = g.crafting_open;
 
                             #[cfg(feature = "glfw")]
@@ -415,17 +437,13 @@ impl WindowAndKeyContext {
 
                             #[cfg(not(feature = "glfw"))]
                             let gchestopen = false;
-                            
-            
+
                             if g.vars.main_menu {
                                 main_menu = true;
                             } else {
-            
                                 if g.loadedworld.load(std::sync::atomic::Ordering::Relaxed) {
-            
-                                    
                                     g.update();
-                                    
+
                                     let state = self.glfw.get_joystick(glfw::JoystickId::Joystick1);
 
                                     static mut lastx: f64 = 0.0;
@@ -434,32 +452,25 @@ impl WindowAndKeyContext {
                                     static mut x: f64 = 0.0;
                                     static mut y: f64 = 0.0;
 
-                                    
                                     let axes = state.get_axes();
 
                                     if axes.len() >= 2 {
                                         unsafe {
                                             x += axes[0] as f64;
                                             y += axes[1] as f64;
-    
+
                                             if lastx != x || lasty != y {
                                                 lastx = x;
                                                 lasty = y;
                                                 g.cursor_pos(x, y);
                                             }
-    
-                                            
                                         }
                                     }
-                                    
-                                    
-            
-                                    
-            
-            
                                 }
 
-                                self.imgui.io_mut().update_delta_time(Duration::from_secs_f32(self.delta_time));
+                                self.imgui
+                                    .io_mut()
+                                    .update_delta_time(Duration::from_secs_f32(self.delta_time));
 
                                 if uncapkb.load(std::sync::atomic::Ordering::Relaxed) {
                                     self.imgui.io_mut().want_capture_keyboard = false;
@@ -467,11 +478,10 @@ impl WindowAndKeyContext {
                                     self.imgui.io_mut().want_capture_mouse = false;
                                     unsafe {
                                         uncapkb.store(false, std::sync::atomic::Ordering::Relaxed);
-                                    } 
+                                    }
                                 }
 
                                 if gchestopen {
-
                                     let ui = self.imgui.frame();
 
                                     let window_flags = WindowFlags::NO_DECORATION
@@ -480,48 +490,50 @@ impl WindowAndKeyContext {
                                         | WindowFlags::NO_SCROLLBAR
                                         | WindowFlags::NO_TITLE_BAR
                                         | WindowFlags::NO_INPUTS;
-                                    
+
                                     if SHOWTOOLTIP {
                                         ui.window("Mouse Tooltip Window")
-                                        .size([300.0, 50.0], Condition::Always)
-                                        .position([MOUSEX as f32, MOUSEY as f32], Condition::Always)
-                                        .flags(window_flags)
-                                        .build(|| {
-                                            ui.text(TOOLTIPNAME);
-                                        });
+                                            .size([300.0, 50.0], Condition::Always)
+                                            .position(
+                                                [MOUSEX as f32, MOUSEY as f32],
+                                                Condition::Always,
+                                            )
+                                            .flags(window_flags)
+                                            .build(|| {
+                                                ui.text(TOOLTIPNAME);
+                                            });
                                     }
 
                                     self.guirenderer.render(&mut self.imgui);
                                 }
-            
+
                                 if gmenuopen {
-            
                                     let gamecurrentbuttons = g.currentbuttons.clone();
-                                    
-                                    
+
                                     let (width, height) = self.window.read().get_framebuffer_size();
-                                    self.imgui.io_mut().display_size = [width as f32, height as f32];
-                                    
+                                    self.imgui.io_mut().display_size =
+                                        [width as f32, height as f32];
+
                                     // Start the ImGui frame
                                     let ui = self.imgui.frame();
-            
+
                                     let window_flags = WindowFlags::NO_DECORATION
                                         | WindowFlags::NO_MOVE
                                         | WindowFlags::NO_RESIZE
                                         | WindowFlags::NO_SCROLLBAR
                                         | WindowFlags::NO_TITLE_BAR
                                         | WindowFlags::NO_BACKGROUND;
-            
+
                                     let window_size = (900.0, 700.0);
-            
-                                    let window_pos = [width as f32 / 2.0 - (window_size.0/2.0), height as f32 / 2.0 - (window_size.1/2.0)];
-                                    
-                                    
+
+                                    let window_pos = [
+                                        width as f32 / 2.0 - (window_size.0 / 2.0),
+                                        height as f32 / 2.0 - (window_size.1 / 2.0),
+                                    ];
+
                                     // unsafe {
                                     //     uncapkb.store(false, std::sync::atomic::Ordering::Relaxed);
-                                    // } 
-
-                          
+                                    // }
 
                                     ui.window("Transparent Window")
                                         .size([window_size.0, window_size.1], Condition::Always)
@@ -578,7 +590,16 @@ impl WindowAndKeyContext {
                                                             // let name = if glfwkey.starts_with("Button") { glfwkey } else { 
                                                             //     &glfw::get_key_name(None, Some(glfwkey.parse::<i32>().unwrap_or(0))).unwrap_or("Unknown key".into())
                                                             // };
-                                                            let name = glfwkey;
+                                                            let mut name = glfwkey;
+
+                                                            let int = glfwkey.parse::<i32>().unwrap_or(1);
+
+                                                        
+
+                                                            // if !glfwkey.starts_with("Button") {
+                                                            //     name = &realname;
+                                                            // }
+                                                            
                                                             if !name.is_empty() {
                                                                 if ui.button_with_size(name, [button_width, button_height]) {
                                                                 
@@ -586,7 +607,7 @@ impl WindowAndKeyContext {
                                                                     LISTENINGFORREBIND = true;
                                                                     if !glfwkey.starts_with("Button") {
                                                                         ABOUTTOREBIND = Some(AboutToRebind {
-                                                                            key: crate::keybinds::Rebindable::Key(glfwkey.parse::<i32>().unwrap()),
+                                                                            key: crate::keybinds::Rebindable::Key(int),
                                                                             action: binding.clone()
                                                                         });
                                                                     } else {
@@ -639,13 +660,14 @@ impl WindowAndKeyContext {
                                                 } else {
                                                     for (buttonname, command) in gamecurrentbuttons {
 
-                                                        let button_width = if buttonname.starts_with("Slider") { 15.0 * 20.0  } else  { buttonname.len() as f32 * 20.0 };
+                                                        let button_width = if buttonname.starts_with("Slider") { 25.0 * 20.0  } else  { buttonname.len() as f32 * 20.0 };
                                                     
 
                                                         let pos_x = (available_width - button_width) / 2.0;
     
     
                                                         ui.set_cursor_pos([pos_x, pos_y]);
+                                                        ui.set_next_item_width(250.0);
                                                         if buttonname.starts_with("Slider") {
                                                             let truncated_name = buttonname.split_at(6).1;
                                                             if buttonname == "SliderMouse Sensitivity" {
@@ -683,33 +705,32 @@ impl WindowAndKeyContext {
                                         
                                         });
 
-                                        
-            
                                     // Render the ImGui frame
                                     self.guirenderer.render(&mut self.imgui);
                                 } else {
                                     if gcraftopen {
-            
-            
-            
-            
+                                        println!("Gcraft is open");
                                         let cb = g.currentbuttons.clone();
-            
-                                        
-                                        let (width, height) = self.window.read().get_framebuffer_size();
-                                        self.imgui.io_mut().display_size = [width as f32, height as f32];
-                                        
+
+                                        let (width, height) =
+                                            self.window.read().get_framebuffer_size();
+                                        self.imgui.io_mut().display_size =
+                                            [width as f32, height as f32];
+
                                         // Start the ImGui frame
                                         let ui = self.imgui.frame();
-            
+
                                         let window_flags = WindowFlags::NO_DECORATION
                                             | WindowFlags::NO_MOVE
                                             | WindowFlags::NO_RESIZE
                                             | WindowFlags::NO_TITLE_BAR;
-            
+
                                         let window_size = (700.0, 700.0);
-            
-                                        let window_pos = [width as f32 / 2.0 - (window_size.0/2.0), height as f32 / 2.0 - (window_size.1/2.0)];
+
+                                        let window_pos = [
+                                            width as f32 / 2.0 - (window_size.0 / 2.0),
+                                            height as f32 / 2.0 - (window_size.1 / 2.0),
+                                        ];
                                         let mut recipeindexscrafted = Vec::new();
 
                                         ui.window("Transparent Window")
@@ -720,13 +741,16 @@ impl WindowAndKeyContext {
                                                 let button_width = 200.0;
                                                 let button_height = 20.0;
                                                 let window_size = ui.window_size();
-            
+
                                                 let available_width = window_size[0];
                                                 let available_height = window_size[1];
-            
+
                                                 let pos_x = (available_width - button_width) / 2.0;
-                                                let mut pos_y = (available_height - (cb.len() as f32 * button_height) - 10.0 * (cb.len() as f32 - 1.0)) / 2.0;
-            
+                                                let mut pos_y = (available_height
+                                                    - (cb.len() as f32 * button_height)
+                                                    - 10.0 * (cb.len() as f32 - 1.0))
+                                                    / 2.0;
+
                                                 // for (buttonname, command) in cb {
                                                 //     ui.set_cursor_pos([pos_x, pos_y]);
                                                 //     if ui.button_with_size(buttonname, [button_width, button_height]) {
@@ -735,22 +759,38 @@ impl WindowAndKeyContext {
                                                 //     pos_y += button_height + 10.0; // Add some spacing between buttons
                                                 // }
                                                 unsafe {
-
-                                                    ui.text_colored([1.0, 1.0, 0.0, 1.0], "Hold ctrl to craft all of a recipe");
+                                                    ui.text_colored(
+                                                        [1.0, 1.0, 0.0, 1.0],
+                                                        "Hold ctrl to craft all of a recipe",
+                                                    );
                                                     if CROUCHING {
-                                                        ui.text_colored([1.0, 1.0, 0.0, 1.0], "Ctrl pressed.");
+                                                        ui.text_colored(
+                                                            [1.0, 1.0, 0.0, 1.0],
+                                                            "Ctrl pressed.",
+                                                        );
                                                     }
-                                                    for (index, recipeent) in CURRENT_AVAIL_RECIPES.lock().iter_mut().enumerate() {
-      
+                                                    for (index, recipeent) in CURRENT_AVAIL_RECIPES
+                                                        .lock()
+                                                        .iter_mut()
+                                                        .enumerate()
+                                                    {
                                                         let recipe = recipeent.recipe.clone();
                                                         ui.set_cursor_pos([pos_x, pos_y]);
-                                                        let str = format!("{}, {}", Blocks::get_name(recipe.1.0), recipe.1.1);
+                                                        let str = format!(
+                                                            "{}, {}",
+                                                            Blocks::get_name(recipe.1 .0),
+                                                            recipe.1 .1
+                                                        );
                                                         if RECIPES_DISABLED {
-                                                            ui.text_colored([0.0, 0.0, 1.0, 1.0], str);
-                                                           
-                
+                                                            ui.text_colored(
+                                                                [0.0, 0.0, 1.0, 1.0],
+                                                                str,
+                                                            );
                                                         } else {
-                                                            if ui.button_with_size(str, [button_width, button_height]) {
+                                                            if ui.button_with_size(
+                                                                str,
+                                                                [button_width, button_height],
+                                                            ) {
                                                                 recipeindexscrafted.push(index);
                                                                 //g.craft_recipe_index(index);
                                                                 recipeent.disabled = true;
@@ -758,85 +798,65 @@ impl WindowAndKeyContext {
                                                                     RECIPES_DISABLED = true;
                                                                 }
                                                             }
-                
                                                         }
-                                                        
+
                                                         let mut costs = String::from("Using ");
-            
-                                                        for (index, entry) in recipe.0.iter().enumerate() {
+
+                                                        for (index, entry) in
+                                                            recipe.0.iter().enumerate()
+                                                        {
                                                             costs += entry.1.to_string().as_str();
                                                             costs += " ";
                                                             costs += Blocks::get_name(entry.0);
-                                                            if index < (recipe.0.len()-1) {
+                                                            if index < (recipe.0.len() - 1) {
                                                                 costs += ", ";
                                                             } else {
                                                                 costs += ".";
                                                             }
                                                         }
-            
-            
-                                                        ui.text_colored([1.0, 0.0, 0.0, 1.0], costs);
-                                                        
-                                                        
-                                                        
-            
-                                                        pos_y += button_height + 10.0; // Add some spacing between buttons
+
+                                                        ui.text_colored(
+                                                            [1.0, 0.0, 0.0, 1.0],
+                                                            costs,
+                                                        );
+
+                                                        pos_y += button_height + 10.0;
+                                                        // Add some spacing between buttons
                                                     }
                                                 }
-
-                                                
-                                                
-                                                
                                             });
 
-                                            
+                                        for recipe in recipeindexscrafted {
+                                            g.craft_recipe_index(recipe, CROUCHING);
+                                        }
+                                        Game::update_avail_recipes(&g.inventory.clone());
 
-                                            for recipe in recipeindexscrafted {
-                                                g.craft_recipe_index(recipe, CROUCHING);
-                                            }
-                                            Game::update_avail_recipes(&g.inventory.clone());
-
-                                            unsafe {
-                                                if RECIPES_DISABLED {
-                                                    if RECIPE_COOLDOWN_TIMER < 0.5 {
-                                                        RECIPE_COOLDOWN_TIMER += self.delta_time;
-                                                    } else {
-                                                        RECIPES_DISABLED = false;
-                                                        RECIPE_COOLDOWN_TIMER = 0.0;
-                                                    }
-
+                                        unsafe {
+                                            if RECIPES_DISABLED {
+                                                if RECIPE_COOLDOWN_TIMER < 0.5 {
+                                                    RECIPE_COOLDOWN_TIMER += self.delta_time;
+                                                } else {
+                                                    RECIPES_DISABLED = false;
+                                                    RECIPE_COOLDOWN_TIMER = 0.0;
                                                 }
-                                                
                                             }
+                                        }
 
-                                            #[cfg(feature = "glfw")]
-                                            g.update_inventory();
+                                        #[cfg(feature = "glfw")]
+                                        g.update_inventory();
 
-
-            
-                                            // Render the ImGui frame
-                                            self.guirenderer.render(&mut self.imgui);
-            
-            
+                                        // Render the ImGui frame
+                                        self.guirenderer.render(&mut self.imgui);
                                     }
                                 }
-            
-                                
-            
-                                
+
                                 let io = self.imgui.io_mut();
                                 for (_, event) in glfw::flush_messages(&self.events) {
-            
-                                    
-            
                                     match event {
-                                        
                                         glfw::WindowEvent::MouseButton(mousebutton, action, _) => {
-
-                                            if  unsafe { LISTENINGFORREBIND } {
-                                                    unsafe {
-                                                                
-                                                                match &ABOUTTOREBIND {
+                                            if unsafe { LISTENINGFORREBIND } {
+                                                unsafe {
+                                                    match &ABOUTTOREBIND {
                                                                     Some(atr) => {
                                                     
                                                                         match atr.key {
@@ -859,53 +879,44 @@ impl WindowAndKeyContext {
                                                                         
                                                                     }
                                                                 }
-                                                    
-                                                    
-                                                            } 
-                                                
-                                                        } else {
-                                                            
-                                                                let index = match mousebutton {
-                                                                    glfw::MouseButton::Button1 => 0,
-                                                                    glfw::MouseButton::Button2 => 1,
-                                                                    glfw::MouseButton::Button3 => 2,
-                                                                    glfw::MouseButton::Button4 => 3,
-                                                                    glfw::MouseButton::Button5 => 4,
-                                                                    glfw::MouseButton::Button6 => 5,
-                                                                    glfw::MouseButton::Button7 => 6,
-                                                                    glfw::MouseButton::Button8 => 7,
-                                                                    _ => return,
-                                                                };
-                                                                io.mouse_down[index] = action == glfw::Action::Press;
+                                                }
+                                            } else {
+                                                let index = match mousebutton {
+                                                    glfw::MouseButton::Button1 => 0,
+                                                    glfw::MouseButton::Button2 => 1,
+                                                    glfw::MouseButton::Button3 => 2,
+                                                    glfw::MouseButton::Button4 => 3,
+                                                    glfw::MouseButton::Button5 => 4,
+                                                    glfw::MouseButton::Button6 => 5,
+                                                    glfw::MouseButton::Button7 => 6,
+                                                    glfw::MouseButton::Button8 => 7,
+                                                    _ => return,
+                                                };
+                                                io.mouse_down[index] =
+                                                    action == glfw::Action::Press;
 
-                                                                // println!("Got a m.o.u.s.e. event");
-                                                                //         println!("io.want_capture_mouse: {}, gmenuopen: {}", 
-                                                                //         io.want_capture_mouse,
-                                                                //         gmenuopen);
-                                
-                                                                if !io.want_capture_mouse && !gmenuopen {
-                                                                    if mousebutton == glfw::MouseButtonLeft {
+                                                // println!("Got a m.o.u.s.e. event");
+                                                //         println!("io.want_capture_mouse: {}, gmenuopen: {}",
+                                                //         io.want_capture_mouse,
+                                                //         gmenuopen);
 
-                                                                        
-
-                                                                        
-                                                                        if !io.want_capture_mouse {
-                                                                            
-                                                                            
-                                                                            if !gmenuopen && !gchestopen {
-                                                                                self.window.write().set_cursor_mode(glfw::CursorMode::Disabled);
-                                                                                g.set_mouse_focused(true);
-                                                                            }
-                                                                            
-                                                                        }
-                                                                        
-                                                                    }
-                                                                    #[cfg(feature = "glfw")]
-                                                                g
-                                                                        .mouse_button(mousebutton, action);
-                                                                }
+                                                if !io.want_capture_mouse && !gmenuopen {
+                                                    if mousebutton == glfw::MouseButtonLeft {
+                                                        if !io.want_capture_mouse {
+                                                            if !gmenuopen && !gchestopen {
+                                                                self.window
+                                                                    .write()
+                                                                    .set_cursor_mode(
+                                                                        glfw::CursorMode::Disabled,
+                                                                    );
+                                                                g.set_mouse_focused(true);
+                                                            }
                                                         }
-                                                
+                                                    }
+                                                    #[cfg(feature = "glfw")]
+                                                    g.mouse_button(mousebutton, action);
+                                                }
+                                            }
                                         }
                                         glfw::WindowEvent::FramebufferSize(wid, hei) => {
                                             self.width = wid as u32;
@@ -917,19 +928,22 @@ impl WindowAndKeyContext {
                                             }
                                         }
                                         glfw::WindowEvent::CursorPos(xpos, ypos) => {
-                                           
                                             g.cursor_pos(xpos, ypos);
                                             if !g.vars.mouse_focused {
                                                 io.mouse_pos = [xpos as f32, ypos as f32];
                                             }
-                                            
                                         }
-                                        glfw::WindowEvent::Key(key, scancode, action, _modifiers) => {
-                                            if  unsafe { LISTENINGFORREBIND } {
+                                        glfw::WindowEvent::Key(
+                                            key,
+                                            scancode,
+                                            action,
+                                            _modifiers,
+                                        ) => {
+                                            if unsafe { LISTENINGFORREBIND } {
                                                 unsafe {
-                                                            let keyscan = key.get_scancode().unwrap_or(0);
-                                                
-                                                            match &ABOUTTOREBIND {
+                                                    let keyscan = key.get_scancode().unwrap_or(0);
+
+                                                    match &ABOUTTOREBIND {
                                                                 Some(atr) => {
                                                 
                                                                     match atr.key {
@@ -952,121 +966,144 @@ impl WindowAndKeyContext {
                                                                     
                                                                 }
                                                             }
-                                                
-                                                
+                                                }
+                                            } else {
+                                                let pressed = action == glfw::Action::Press
+                                                    || action == glfw::Action::Repeat;
+                                                io.keys_down[scancode as usize] = pressed;
+                                                // println!("Got a kb event");
+                                                // println!("io.want_capture_keyboard: {}, io.want_text_input: {}, gmenuopen: {}",
+                                                // io.want_capture_keyboard,
+                                                // io.want_text_input,
+                                                // gmenuopen);
+
+                                                if gcraftopen
+                                                    && pressed
+                                                    && MISCSETTINGS
+                                                        .keybinds
+                                                        .get(&key.get_scancode().unwrap())
+                                                        .unwrap()
+                                                        == "Craft"
+                                                {
+                                                    println!("SHould close craft");
+                                                    // g.crafting_open = false;
+                                                    // self.window.write().set_cursor_mode(glfw::CursorMode::Disabled);
+                                                    // g.set_mouse_focused(true);
+
+                                                    g.crafting_open = false;
+
+                                                    self.window.write().set_cursor_mode(
+                                                        glfw::CursorMode::Disabled,
+                                                    );
+                                                    g.set_mouse_focused(true);
+                                                    unsafe {
+                                                        uncapkb.store(true, std::sync::atomic::Ordering::Relaxed);
+                                                    } 
+                                                   
+                                                } else {
+                                                    if gmenuopen
+                                                        && pressed
+                                                        && MISCSETTINGS
+                                                            .keybinds
+                                                            .get(&key.get_scancode().unwrap())
+                                                            .unwrap()
+                                                            == "Exit/Menu"
+                                                    {
+                                                        g.vars.menu_open = false;
+                                                        self.window.write().set_cursor_mode(
+                                                            glfw::CursorMode::Disabled,
+                                                        );
+                                                        g.set_mouse_focused(true);
+                                                        unsafe {
+                                                            uncapkb.store(true, std::sync::atomic::Ordering::Relaxed);
                                                         } 
-                                                
-                                                        } else {
+                                                    }
 
+                                                    if (!io.want_capture_keyboard
+                                                        && !io.want_text_input)
+                                                        && !gmenuopen
+                                                    {
+                                                        #[cfg(feature = "glfw")]
+                                                        g.keyboard(key, action);
 
-
-                                                            let pressed = action == glfw::Action::Press || action == glfw::Action::Repeat;
-                                                            io.keys_down[scancode as usize] = pressed;
-                                                            // println!("Got a kb event");
-                                                            // println!("io.want_capture_keyboard: {}, io.want_text_input: {}, gmenuopen: {}", 
-                                                            // io.want_capture_keyboard,
-                                                            // io.want_text_input,
-                                                            // gmenuopen);
-
-                                                            if (!io.want_capture_keyboard && !io.want_text_input  ) && !gmenuopen {
-                                                                
-                                                                #[cfg(feature = "glfw")]
-                                                                g.keyboard(key, action);
-                            
-                                                                if key == Key::Escape {
-                                                                    if g.vars.menu_open {
-                                                                    
-                                                                        self.window.write().set_cursor_mode(glfw::CursorMode::Normal);
-                                                                        g.set_mouse_focused(false);
-                                                                    } else {
-                                                                        g.vars.menu_open = false;
-                                                                        self.window.write().set_cursor_mode(glfw::CursorMode::Disabled);
-                                                                        g.set_mouse_focused(true);
-                                                                    }
-                                                                    
-                                                                }
-                            
+                                                        if key == Key::Escape {
+                                                            if g.vars.menu_open {
+                                                                self.window
+                                                                    .write()
+                                                                    .set_cursor_mode(
+                                                                        glfw::CursorMode::Normal,
+                                                                    );
+                                                                g.set_mouse_focused(false);
                                                             } else {
-                                                                //println!()
+                                                                g.vars.menu_open = false;
+                                                                self.window
+                                                                    .write()
+                                                                    .set_cursor_mode(
+                                                                        glfw::CursorMode::Disabled,
+                                                                    );
+                                                                g.set_mouse_focused(true);
                                                             }
-                            
-                                                            match key {
-                                                                Key::F11 => {
-                                                                    if action == Action::Press {
-                                                                        let wind = self.window.write();
-                                                                        toggle_fullscreen(wind.window_ptr())
-                                                                        
-                                                                    }
-                                                                }
-                                                                _ => {
-                            
-                                                                }
-                                                            }
-                                                            
                                                         }
-            
-                                            
+                                                    } else {
+                                                        //println!()
+                                                    }
+
+                                                    match key {
+                                                        Key::F11 => {
+                                                            if action == Action::Press {
+                                                                let wind = self.window.write();
+                                                                toggle_fullscreen(wind.window_ptr())
+                                                            }
+                                                        }
+                                                        _ => {}
+                                                    }
+                                                }
+                                            }
                                         }
                                         glfw::WindowEvent::Scroll(x, y) => {
-                                            
                                             io.mouse_wheel_h += x as f32;
                                             io.mouse_wheel += y as f32;
-                                            
+
                                             if !gmenuopen {
                                                 #[cfg(feature = "glfw")]
                                                 g.scroll(y);
                                             }
-                                            
                                         }
                                         _ => {}
                                     }
                                 }
-            
-            
-            
                             }
                         }
                         None => {
-            
-            
-            
-                                main_menu = true;
-            
-            
-            
-            
+                            main_menu = true;
                         }
                     }
-            
+
                     if main_menu && !SINGLEPLAYER {
-                        
-            
-            
-            
-            
-            
-            
-                            
-            
-                        self.imgui.io_mut().update_delta_time(Duration::from_secs_f32(self.delta_time));
-            
+                        self.imgui
+                            .io_mut()
+                            .update_delta_time(Duration::from_secs_f32(self.delta_time));
+
                         let (width, height) = self.window.read().get_framebuffer_size();
                         self.imgui.io_mut().display_size = [width as f32, height as f32];
-                        
+
                         // Start the ImGui frame
                         let ui = self.imgui.frame();
-            
+
                         let window_flags = WindowFlags::NO_DECORATION
                             | WindowFlags::NO_MOVE
                             | WindowFlags::NO_RESIZE
                             | WindowFlags::NO_SCROLLBAR
                             | WindowFlags::NO_TITLE_BAR
                             | WindowFlags::NO_BACKGROUND;
-            
+
                         let window_size = (700.0, 700.0);
-            
-                        let window_pos = [width as f32 / 2.0 - (window_size.0/2.0), height as f32 / 2.0 - (window_size.1/2.0)];
-            
+
+                        let window_pos = [
+                            width as f32 / 2.0 - (window_size.0 / 2.0),
+                            height as f32 / 2.0 - (window_size.1 / 2.0),
+                        ];
+
                         ui.window("Transparent Window")
                             .size([window_size.0, window_size.1], Condition::Always)
                             .position(window_pos, Condition::Always)
@@ -1075,71 +1112,57 @@ impl WindowAndKeyContext {
                                 let button_width = 500.0;
                                 let button_height = 20.0;
                                 let window_size = ui.window_size();
-            
+
                                 let available_width = window_size[0];
                                 let available_height = window_size[1];
-            
+
                                 let pos_x = (available_width - button_width) / 2.0;
-                                let mut pos_y = (available_height - (button_height) - 10.0 ) / 2.0;
-            
-            
-                                    ui.set_cursor_pos([pos_x, pos_y]);
-            
-                                    
-            
-                                    if ui.button_with_size("Enter server address: (Click here to paste)", [button_width, button_height]) {
+                                let mut pos_y = (available_height - (button_height) - 10.0) / 2.0;
 
-                                            match self.clipboard_context.get_contents() {
-                                                Ok(contents) => {
-                                                    self.serveraddrbuffer = contents;
-                                                }
-                                                Err(_) => {
-                                                    
-                                                }
-                                            }
+                                ui.set_cursor_pos([pos_x, pos_y]);
 
+                                if ui.button_with_size(
+                                    "Enter server address: (Click here to paste)",
+                                    [button_width, button_height],
+                                ) {
+                                    match self.clipboard_context.get_contents() {
+                                        Ok(contents) => {
+                                            self.serveraddrbuffer = contents;
+                                        }
+                                        Err(_) => {}
                                     }
+                                }
 
-                                    
-            
-                                    ui.set_cursor_pos([pos_x, pos_y + 25.0]);
+                                ui.set_cursor_pos([pos_x, pos_y + 25.0]);
 
-
-                                    
-                                    ui.input_text("##serveraddress", &mut self.serveraddrbuffer)
+                                ui.input_text("##serveraddress", &mut self.serveraddrbuffer)
                                     .flags(InputTextFlags::ALWAYS_OVERWRITE)
-                                    
                                     .build();
-            
-                                    ui.set_cursor_pos([pos_x, pos_y + 50.0]);
-            
-            
-                                    if ui.button_with_size("Connect", [button_width, button_height]) {
-                                        unsafe {
-                                            SINGLEPLAYER = false;
-                                            DECIDEDSPORMP = true;
-                                        }
-                                        unsafe {
-                                            *LAST_ENTERED_SERVERADDRESS = self.serveraddrbuffer.clone();
-                                        }
-                                        SAVE_LESA();
-                                        *(self.serveraddress.lock()) = Some(self.serveraddrbuffer.clone());
-                                        self.addressentered.store(true, std::sync::atomic::Ordering::Relaxed);
+
+                                ui.set_cursor_pos([pos_x, pos_y + 50.0]);
+
+                                if ui.button_with_size("Connect", [button_width, button_height]) {
+                                    unsafe {
+                                        SINGLEPLAYER = false;
+                                        DECIDEDSPORMP = true;
                                     }
-                                    pos_y += button_height + 10.0; // Add some spacing between buttons
-            
+                                    unsafe {
+                                        *LAST_ENTERED_SERVERADDRESS = self.serveraddrbuffer.clone();
+                                    }
+                                    SAVE_LESA();
+                                    *(self.serveraddress.lock()) =
+                                        Some(self.serveraddrbuffer.clone());
+                                    self.addressentered
+                                        .store(true, std::sync::atomic::Ordering::Relaxed);
+                                }
+                                pos_y += button_height + 10.0; // Add some spacing between buttons
                             });
-            
+
                         // Render the ImGui frame
                         self.guirenderer.render(&mut self.imgui);
-            
-                        
-            
+
                         let io = self.imgui.io_mut();
                         for (_, event) in glfw::flush_messages(&self.events) {
-            
-                            
-            
                             match event {
                                 glfw::WindowEvent::MouseButton(mousebutton, action, _) => {
                                     let index = match mousebutton {
@@ -1154,7 +1177,6 @@ impl WindowAndKeyContext {
                                         _ => return,
                                     };
                                     io.mouse_down[index] = action == glfw::Action::Press;
-                                        
                                 }
                                 glfw::WindowEvent::FramebufferSize(wid, hei) => {
                                     self.width = wid as u32;
@@ -1164,24 +1186,17 @@ impl WindowAndKeyContext {
                                     }
                                 }
                                 glfw::WindowEvent::CursorPos(xpos, ypos) => {
-            
-                                        io.mouse_pos = [xpos as f32, ypos as f32];
-            
-                                    
+                                    io.mouse_pos = [xpos as f32, ypos as f32];
                                 }
                                 glfw::WindowEvent::CharModifiers(char, modifiers) => {
                                     println!("{:?}", char);
-                                    
                                 }
                                 glfw::WindowEvent::Key(key, scancode, action, modifiers) => {
-
-                                    let pressed = action == glfw::Action::Press || action == glfw::Action::Repeat;
-
-      
+                                    let pressed = action == glfw::Action::Press
+                                        || action == glfw::Action::Repeat;
 
                                     // Why won't this work, for Christ?
-                                    
-                                    
+
                                     // if glfw::Modifiers::Control == modifiers && key == Key::V {
                                     //     if pressed {
                                     //         //println!("Ctrl+v");
@@ -1196,7 +1211,7 @@ impl WindowAndKeyContext {
                                     //         //     }
                                     //         // }
                                     //     }
-                                        
+
                                     // }
 
                                     // if glfw::Modifiers::Control == modifiers && key == Key::C {
@@ -1213,9 +1228,8 @@ impl WindowAndKeyContext {
                                     //         //     }
                                     //         // }
                                     //     }
-                                        
-                                    // }
 
+                                    // }
 
                                     if (key as usize) < 512 {
                                         io.keys_down[key as usize] = pressed;
@@ -1223,34 +1237,48 @@ impl WindowAndKeyContext {
                                         Self::set_mod(io, modifiers);
                                         io.keys_down[key as usize] = action != Action::Release;
                                     }
-                                    
 
-            
-                                if action == glfw::Action::Press {
-                                    match key {
-                                        glfw::Key::LeftShift | glfw::Key::RightShift => io.key_shift = true,
-                                        glfw::Key::LeftControl | glfw::Key::RightControl => io.key_ctrl = true,
-                                        glfw::Key::LeftAlt | glfw::Key::RightAlt => io.key_alt = true,
-                                        glfw::Key::LeftSuper | glfw::Key::RightSuper => io.key_super = true,
-                                        glfw::Key::Backspace => {
-                                            io.keys_down[glfw::Key::Backspace as usize] = true;
-                                            io.add_input_character('\x08');
+                                    if action == glfw::Action::Press {
+                                        match key {
+                                            glfw::Key::LeftShift | glfw::Key::RightShift => {
+                                                io.key_shift = true
+                                            }
+                                            glfw::Key::LeftControl | glfw::Key::RightControl => {
+                                                io.key_ctrl = true
+                                            }
+                                            glfw::Key::LeftAlt | glfw::Key::RightAlt => {
+                                                io.key_alt = true
+                                            }
+                                            glfw::Key::LeftSuper | glfw::Key::RightSuper => {
+                                                io.key_super = true
+                                            }
+                                            glfw::Key::Backspace => {
+                                                io.keys_down[glfw::Key::Backspace as usize] = true;
+                                                io.add_input_character('\x08');
+                                            }
+                                            _ => {}
                                         }
-                                        _ => {}
-                                    }
-                                } else if action == glfw::Action::Release {
-                                    match key {
-                                        glfw::Key::LeftShift | glfw::Key::RightShift => io.key_shift = false,
-                                        glfw::Key::LeftControl | glfw::Key::RightControl => io.key_ctrl = false,
-                                        glfw::Key::LeftAlt | glfw::Key::RightAlt => io.key_alt = false,
-                                        glfw::Key::LeftSuper | glfw::Key::RightSuper => io.key_super = false,
-                                        glfw::Key::Backspace => io.keys_down[glfw::Key::Backspace as usize] = false,
-                                        _ => {}
+                                    } else if action == glfw::Action::Release {
+                                        match key {
+                                            glfw::Key::LeftShift | glfw::Key::RightShift => {
+                                                io.key_shift = false
+                                            }
+                                            glfw::Key::LeftControl | glfw::Key::RightControl => {
+                                                io.key_ctrl = false
+                                            }
+                                            glfw::Key::LeftAlt | glfw::Key::RightAlt => {
+                                                io.key_alt = false
+                                            }
+                                            glfw::Key::LeftSuper | glfw::Key::RightSuper => {
+                                                io.key_super = false
+                                            }
+                                            glfw::Key::Backspace => {
+                                                io.keys_down[glfw::Key::Backspace as usize] = false
+                                            }
+                                            _ => {}
+                                        }
                                     }
                                 }
-            
-            
-                                }   
                                 glfw::WindowEvent::Char(char) => {
                                     println!("char");
                                     io.add_input_character(char);
@@ -1258,22 +1286,14 @@ impl WindowAndKeyContext {
                                 glfw::WindowEvent::Scroll(x, y) => {
                                     io.mouse_wheel_h += x as f32;
                                     io.mouse_wheel += y as f32;
-            
                                 }
                                 _ => {}
                             }
                         }
-            
-            
-                            
                     }
-            
-                    
                 }
             }
         }
-
-        
 
         self.window.write().swap_buffers();
     }

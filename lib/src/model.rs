@@ -494,9 +494,9 @@ impl Game {
 
             
             let camclone = {
-                //let cam_lock = self.camera.lock();
-                //cam_lock.clone()
-                Camera::new()
+                let cam_lock = self.camera.lock();
+                cam_lock.clone()
+                //Camera::new()
             };
 
 

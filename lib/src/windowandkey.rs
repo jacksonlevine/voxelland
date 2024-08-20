@@ -709,7 +709,7 @@ impl WindowAndKeyContext {
                                     self.guirenderer.render(&mut self.imgui);
                                 } else {
                                     if gcraftopen {
-                                        println!("Gcraft is open");
+                                        //println!("Gcraft is open");
                                         let cb = g.currentbuttons.clone();
 
                                         let (width, height) =

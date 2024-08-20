@@ -68,10 +68,13 @@ pub fn LOAD_MISC() {
         let mut file = File::open("misc").expect("Failed to open file");
         let mut json = String::new();
         file.read_to_string(&mut json).expect("Failed to read file");
-        let loaded_settings: MiscellaneousSettingsData = from_str(&json).expect("Failed to deserialize JSON");
-        
+        let mut loaded_settings: MiscellaneousSettingsData = from_str(&json).expect("Failed to deserialize JSON");
+        if !loaded_settings.keybinds.contains_key(&glfw::Key::B.get_scancode().unwrap()) {
+            loaded_settings.keybinds.insert(glfw::Key::B.get_scancode().unwrap(), "Build Mode Toggle".into());
+        }
         unsafe {
             *MISCSETTINGS = loaded_settings;
+            SAVE_MISC();
         }
     }
 }

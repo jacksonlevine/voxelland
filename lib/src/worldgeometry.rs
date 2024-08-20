@@ -96,7 +96,121 @@ impl WorldGeometry {
             // gl::VertexArrayAttribBinding(shader.vao, uv_attrib2 as GLuint, 1);
         }
     }
+    pub fn bind_old_geometry_diff_vao(
+        vbov: GLuint,
+        vbouv: GLuint,
+        vdata: &[f32],
+        uvdata: &[f32],
+        shader: &Shader,
+        vao: GLuint
+    ) {
+        unsafe {
+            // Upload vertex data to named buffer
+            gl::NamedBufferData(
+                vbov,
+                (vdata.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
+                vdata.as_ptr() as *const GLvoid,
+                gl::STATIC_DRAW,
+            );
+            let error = gl::GetError();
+            if error != gl::NO_ERROR {
+                info!("Bind world geom err (vbov): {}", error);
+            }
     
+            // Bind vertex buffer to the vertex array object
+            gl::VertexArrayVertexBuffer(vao, 0, vbov, 0, (5 * std::mem::size_of::<f32>()) as GLsizei);
+            let error = gl::GetError();
+            if error != gl::NO_ERROR {
+                info!("OpenGL Error after associating vbov with vao: {}", error);
+            }
+    
+            // Position attribute
+            let pos_attrib = gl::GetAttribLocation(shader.shader_id, b"position\0".as_ptr() as *const i8);
+            if pos_attrib == -1 {
+                info!("Error: position attribute not found in shader.");
+            } else {
+                gl::EnableVertexArrayAttrib(vao, pos_attrib as GLuint);
+                gl::VertexArrayAttribFormat(
+                    vao,
+                    pos_attrib as GLuint,
+                    3,
+                    gl::FLOAT,
+                    gl::FALSE,
+                    0,
+                );
+                gl::VertexArrayAttribBinding(vao, pos_attrib as GLuint, 0);
+            }
+    
+            // Block brightness attribute
+            let brightness_attrib = gl::GetAttribLocation(shader.shader_id, b"blockRgb\0".as_ptr() as *const i8);
+            if brightness_attrib == -1 {
+                info!("Error: blockRgb attribute not found in shader.");
+            } else {
+                gl::EnableVertexArrayAttrib(vao, brightness_attrib as GLuint);
+                gl::VertexArrayAttribIFormat(
+                    vao,
+                    brightness_attrib as GLuint,
+                    1,
+                    gl::UNSIGNED_INT,
+                    (3 * std::mem::size_of::<f32>()) as GLuint,
+                );
+                gl::VertexArrayAttribBinding(vao, brightness_attrib as GLuint, 0);
+            }
+    
+            // Ambient brightness attribute
+            let amb_brightness = gl::GetAttribLocation(shader.shader_id, b"ambientBright\0".as_ptr() as *const i8);
+            if amb_brightness == -1 {
+                info!("Error: ambientBright attribute not found in shader.");
+            } else {
+                gl::EnableVertexArrayAttrib(vao, amb_brightness as GLuint);
+                gl::VertexArrayAttribFormat(
+                    vao,
+                    amb_brightness as GLuint,
+                    1,
+                    gl::FLOAT,
+                    gl::FALSE,
+                    (4 * std::mem::size_of::<f32>()) as GLuint,
+                );
+                gl::VertexArrayAttribBinding(vao, amb_brightness as GLuint, 0);
+            }
+    
+            // Upload UV data to named buffer
+            gl::NamedBufferData(
+                vbouv,
+                (uvdata.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
+                uvdata.as_ptr() as *const GLvoid,
+                gl::STATIC_DRAW,
+            );
+            let error = gl::GetError();
+            if error != gl::NO_ERROR {
+                info!("Bind world geom err (vbouv): {}", error);
+            }
+    
+            // Bind UV buffer to the vertex array object
+            gl::VertexArrayVertexBuffer(vao, 1, vbouv, 0, (4 * std::mem::size_of::<f32>()) as GLsizei);
+            let error = gl::GetError();
+            if error != gl::NO_ERROR {
+                info!("OpenGL Error after associating vbouv with vao: {}", error);
+            }
+    
+            // UV attribute
+            let uv_attrib = gl::GetAttribLocation(shader.shader_id, b"uv\0".as_ptr() as *const i8);
+            if uv_attrib == -1 {
+                info!("Error: uv attribute not found in shader.");
+            } else {
+                gl::EnableVertexArrayAttrib(vao, uv_attrib as GLuint);
+                gl::VertexArrayAttribFormat(
+                    vao,
+                    uv_attrib as GLuint,
+                    2,
+                    gl::FLOAT,
+                    gl::FALSE,
+                    0,
+                );
+                gl::VertexArrayAttribBinding(vao, uv_attrib as GLuint, 1);
+            }
+        }
+    }
     pub fn bind_old_geometry(
         vbov: GLuint,
         vbouv: GLuint,

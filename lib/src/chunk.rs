@@ -226,8 +226,8 @@ pub struct ChunkFacade {
     pub pos: vec::IVec2,
 }
 
-static CW: i32 = 15;
-static CH: i32 = 255;
+pub static ChW: i32 = 15;
+pub static ChH: i32 = 255;
 
 pub struct ReadyMesh {
     pub geo_index: usize,
@@ -541,15 +541,15 @@ impl ChunkSystem {
 
 
 
-                                for i in 0..CW {
-                                    for k in 0..CW {
+                                for i in 0..ChW {
+                                    for k in 0..ChW {
                                         let hit_block = false;
-                                        for j in (0..CH).rev() {
+                                        for j in (0..ChH).rev() {
 
                                             let spot = vec::IVec3 {
-                                                x: ((c.pos.x)  * CW) + i,
+                                                x: ((c.pos.x)  * ChW) + i,
                                                 y: j,
-                                                z: (c.pos.y * CW) + k,
+                                                z: (c.pos.y * ChW) + k,
                                             };
 
 
@@ -734,8 +734,8 @@ impl ChunkSystem {
     }
     pub fn spot_to_chunk_pos(spot: &vec::IVec3) -> vec::IVec2 {
         return vec::IVec2 {
-            x: (spot.x as f32 / CW as f32).floor() as i32,
-            y: (spot.z as f32 / CW as f32).floor() as i32,
+            x: (spot.x as f32 / ChW as f32).floor() as i32,
+            y: (spot.z as f32 / ChW as f32).floor() as i32,
         };
     }
     pub fn initial_rebuild_on_main_thread(
@@ -749,8 +749,8 @@ impl ChunkSystem {
         // }
 
         let user_cpos = IVec2 {
-            x: (campos.x / CW as f32).floor() as i32,
-            y: (campos.z / CW as f32).floor() as i32,
+            x: (campos.x / ChW as f32).floor() as i32,
+            y: (campos.z / ChW as f32).floor() as i32,
         };
 
         let mut neededspots = Vec::new();
@@ -1352,10 +1352,10 @@ unsafe {
         let lmarc = self.lightmap.clone();
 
 
-        for x in 0..CW {
-            for z in 0..CW {
-                for y in 0..CH {
-                    let blockcoord = IVec3::new(pos.x * CW + x, y, pos.y * CW + z);
+        for x in 0..ChW {
+            for z in 0..ChW {
+                for y in 0..ChH {
+                    let blockcoord = IVec3::new(pos.x * ChW + x, y, pos.y * ChW + z);
                     let lmlock = lmarc.lock();
                     match lmlock.get(&blockcoord) {
                         Some(k) => {
@@ -1454,14 +1454,14 @@ unsafe {
         let mut weatherstoptops: HashMap<vec::IVec2, i32> = HashMap::new();
         let mut tops: HashMap<vec::IVec2, i32> = HashMap::new();
 
-        for i in 0..CW {
-            for k in 0..CW {
+        for i in 0..ChW {
+            for k in 0..ChW {
                 let mut hit_block = false;
-                for j in (0..CH).rev() {
+                for j in (0..ChH).rev() {
                     let spot = vec::IVec3 {
-                        x: (chunklock.pos.x * CW) + i,
+                        x: (chunklock.pos.x * ChW) + i,
                         y: j,
-                        z: (chunklock.pos.y * CW) + k,
+                        z: (chunklock.pos.y * ChW) + k,
                     };
                     let combined = self.blockatmemo(spot, &mut memo);
                     let block = combined & Blocks::block_id_bits();
@@ -2026,7 +2026,7 @@ unsafe {
                     }
                 };
                 
-                if ((i * CW) + k) % 17 == 0 && topy < 115 {
+                if ((i * ChW) + k) % 17 == 0 && topy < 115 {
                     
 
                     let mut rng = StdRng::from_entropy();
@@ -2037,16 +2037,16 @@ unsafe {
 
                     //spot xz top
                     let spoint: IVec3 = vec::IVec3 {
-                        x: (chunklock.pos.x * CW) + i,
+                        x: (chunklock.pos.x * ChW) + i,
                         y: topy,
-                        z: (chunklock.pos.y * CW) + k,
+                        z: (chunklock.pos.y * ChW) + k,
                     };
 
                     //spot xz top
                     let spo = Vec3 {
-                        x: (chunklock.pos.x * CW) as f32 + i as f32+ xzoff.x,
+                        x: (chunklock.pos.x * ChW) as f32 + i as f32+ xzoff.x,
                         y: topy as f32,
-                        z: (chunklock.pos.y * CW) as f32 + k as f32 + xzoff.y,
+                        z: (chunklock.pos.y * ChW) as f32 + k as f32 + xzoff.y,
                     };
 
 
@@ -2263,7 +2263,7 @@ unsafe {
                 )
             }
         }
-        
+
         if !implicated_provided {
             for c in implicated_chunks.iter() {
                 match self.takencare.get(&c) {
@@ -2333,10 +2333,10 @@ unsafe {
 
         //let mut index = 0;
 
-        for x in 0..CW {
-            for z in 0..CW {
-                for y in (0..CH - 40).rev() {
-                    let coord = IVec3::new(cpos.x * CW + x, y, cpos.y * CW + z);
+        for x in 0..ChW {
+            for z in 0..ChW {
+                for y in (0..ChH - 40).rev() {
+                    let coord = IVec3::new(cpos.x * ChW + x, y, cpos.y * ChW + z);
                     //if index == spot {
                     if dim_floors.contains(&self.natural_blockat(coord)) {
                         let featnoise = self.feature_noise(IVec2 {

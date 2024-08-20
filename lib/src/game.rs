@@ -22,10 +22,11 @@ use rusqlite::{params, Connection};
 use uuid::Uuid;
 
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI8, AtomicU32, Ordering};
-use std::sync::{Arc};
+use std::sync::Arc;
 
 use parking_lot::{deadlock, Mutex, RwLock};
 
+pub static mut SELECTCUBESPOT: IVec3 = IVec3 { x: 0, y: 0, z: 0 };
 use std::thread::{self, JoinHandle};
 
 #[cfg(feature = "audio")]
@@ -57,13 +58,12 @@ use crate::shader::Shader;
 use crate::specialblocks::door::{self, DoorInfo};
 use crate::statics::{MISCSETTINGS, MY_MULTIPLAYER_UUID, SAVE_MISC};
 use crate::texture::Texture;
-use crate::textureface::{TextureFace};
+use crate::textureface::TextureFace;
 use crate::tools::{get_block_material, get_tools_target_material, Material};
 use crate::vec::{self, IVec2, IVec3};
 use crate::voxmodel::JVoxModel;
 use crate::windowandkey::uncapkb;
 use crate::worldgeometry::WorldGeometry;
-
 
 static mut CONVEYOR_SOUND_TIMER: f32 = 0.0;
 
@@ -78,8 +78,6 @@ pub static mut TOOLTIPNAME: &'static str = "";
 pub static mut SPRINTING: bool = false;
 pub static mut WASFREEFALLING: bool = false;
 pub static mut FREEFALLING: bool = false;
-
-
 
 pub static mut STAMINA: i32 = 0;
 pub static mut UPDATE_THE_BLOCK_OVERLAY: bool = false;
@@ -139,6 +137,14 @@ pub static STARTINGITEMS: [(u32, u32); ROWLENGTH as usize] = [
     (0, 0),
     (0, 0),
 ];
+//USER BUILD PREVIEW
+
+pub static mut UBP_VDATA: Lazy<Vec<f32>> = Lazy::new(|| Vec::new());
+pub static mut UBP_UVDATA: Lazy<Vec<f32>> = Lazy::new(|| Vec::new());
+
+pub static mut UBP_VBO: GLuint = 0;
+pub static mut UBP_UVBO: GLuint = 0;
+pub static mut UBP_VAO: GLuint = 0;
 
 pub static mut SPAWNPOINT: Vec3 = Vec3::ZERO;
 
@@ -257,7 +263,7 @@ pub struct GameVariables {
     pub in_climbable: bool,
     pub walkbobtimer: f32,
 
-    pub time_tfs_at_3: f32
+    pub time_tfs_at_3: f32,
 }
 
 pub enum VisionType {
@@ -267,30 +273,35 @@ pub enum VisionType {
 
 pub static mut GLCHUNKS: bool = true;
 
-
-
-
-pub static mut PLAYERCHUNKPOS: Lazy<(AtomicI32, AtomicI32)> = Lazy::new(|| (AtomicI32::new(0), AtomicI32::new(0)));
-
+pub static mut PLAYERCHUNKPOS: Lazy<(AtomicI32, AtomicI32)> =
+    Lazy::new(|| (AtomicI32::new(0), AtomicI32::new(0)));
 
 pub struct PlayerCam {
     pos: (AtomicF32, AtomicF32, AtomicF32),
     dir: (AtomicF32, AtomicF32, AtomicF32),
     yaw: AtomicF32,
-    pitch: AtomicF32
+    pitch: AtomicF32,
 }
 
 pub struct PlayerCamSnapshot {
     pub pos: (f32, f32, f32),
     pub dir: (f32, f32, f32),
     pub yaw: f32,
-    pub pitch: f32
+    pub pitch: f32,
 }
 
 impl PlayerCam {
     pub fn snapshot(&self) -> PlayerCamSnapshot {
-        let pos = (self.pos.0.load(Ordering::Relaxed), self.pos.1.load(Ordering::Relaxed), self.pos.2.load(Ordering::Relaxed));
-        let dir = (self.dir.0.load(Ordering::Relaxed), self.dir.1.load(Ordering::Relaxed), self.dir.2.load(Ordering::Relaxed));
+        let pos = (
+            self.pos.0.load(Ordering::Relaxed),
+            self.pos.1.load(Ordering::Relaxed),
+            self.pos.2.load(Ordering::Relaxed),
+        );
+        let dir = (
+            self.dir.0.load(Ordering::Relaxed),
+            self.dir.1.load(Ordering::Relaxed),
+            self.dir.2.load(Ordering::Relaxed),
+        );
         let yaw = self.yaw.load(Ordering::Relaxed);
         let pitch = self.pitch.load(Ordering::Relaxed);
 
@@ -298,18 +309,24 @@ impl PlayerCam {
             pos,
             dir,
             yaw,
-            pitch
+            pitch,
         }
     }
 }
 
-pub static mut PLAYERPOS: Lazy<PlayerCam> = Lazy::new(|| {
-    PlayerCam {
-        pos: (AtomicF32::new(0.0), AtomicF32::new(0.0), AtomicF32::new(0.0)),
-        dir: (AtomicF32::new(0.0), AtomicF32::new(0.0), AtomicF32::new(0.0)),
-        yaw: AtomicF32::new(0.0),
-        pitch: AtomicF32::new(0.0)
-    }
+pub static mut PLAYERPOS: Lazy<PlayerCam> = Lazy::new(|| PlayerCam {
+    pos: (
+        AtomicF32::new(0.0),
+        AtomicF32::new(0.0),
+        AtomicF32::new(0.0),
+    ),
+    dir: (
+        AtomicF32::new(0.0),
+        AtomicF32::new(0.0),
+        AtomicF32::new(0.0),
+    ),
+    yaw: AtomicF32::new(0.0),
+    pitch: AtomicF32::new(0.0),
 });
 
 pub struct Game {
@@ -405,7 +422,6 @@ pub struct Game {
 }
 
 pub const ROWLENGTH: i32 = 8;
-
 
 enum FaderNames {
     FovFader = 0,
@@ -590,7 +606,7 @@ impl Game {
                     }
 
                     if pos != Vec3::ZERO {
-                      let r = csysclone.read();
+                        let r = csysclone.read();
                         while !hitblock && pos.y < 128.0 {
                             let ppos = vec::IVec3::new(
                                 pos.x.floor() as i32,
@@ -610,7 +626,6 @@ impl Game {
                                 ROOFOVERHEAD.store(false, Ordering::Relaxed)
                             }
                         }
-                     
                     }
 
                     thread::sleep(Duration::from_millis(250));
@@ -657,7 +672,7 @@ impl Game {
             yoffset: f32,
             rows: i32,
             start_slot: SlotIndexType,
-            rowlength: i32
+            rowlength: i32,
         ) {
             let tf = TextureFace::new(0, 14);
 
@@ -669,7 +684,9 @@ impl Game {
                         SlotIndexType::ChestSlot(ind) => {
                             SlotIndexType::ChestSlot(ind + i + (y * rowlength))
                         }
-                        SlotIndexType::InvSlot(ind) => SlotIndexType::InvSlot(ind + i + (y * rowlength)),
+                        SlotIndexType::InvSlot(ind) => {
+                            SlotIndexType::InvSlot(ind + i + (y * rowlength))
+                        }
                         SlotIndexType::None => SlotIndexType::None,
                     };
                     let invrowel = HudElement::new(
@@ -694,7 +711,9 @@ impl Game {
                         SlotIndexType::ChestSlot(ind) => {
                             SlotIndexType::ChestSlot(ind + i + (y * rowlength))
                         }
-                        SlotIndexType::InvSlot(ind) => SlotIndexType::InvSlot(ind + i + (y * rowlength)),
+                        SlotIndexType::InvSlot(ind) => {
+                            SlotIndexType::InvSlot(ind + i + (y * rowlength))
+                        }
                         SlotIndexType::None => SlotIndexType::None,
                     };
                     let invrowel = HudElement::new(
@@ -719,7 +738,9 @@ impl Game {
                         SlotIndexType::ChestSlot(ind) => {
                             SlotIndexType::ChestSlot(ind + i + (y * rowlength))
                         }
-                        SlotIndexType::InvSlot(ind) => SlotIndexType::InvSlot(ind + i + (y * rowlength)),
+                        SlotIndexType::InvSlot(ind) => {
+                            SlotIndexType::InvSlot(ind + i + (y * rowlength))
+                        }
                         SlotIndexType::None => SlotIndexType::None,
                     };
 
@@ -785,12 +806,23 @@ impl Game {
 
         //Bottom inv
         #[cfg(feature = "glfw")]
-        add_inventory_rows(&mut hud.elements, -0.9, 1, SlotIndexType::InvSlot(0), ROWLENGTH);
-
+        add_inventory_rows(
+            &mut hud.elements,
+            -0.9,
+            1,
+            SlotIndexType::InvSlot(0),
+            ROWLENGTH,
+        );
 
         //Chest rows
         #[cfg(feature = "glfw")]
-        add_inventory_rows(&mut hud.chestelements, 0.4, 4, SlotIndexType::ChestSlot(0), ROWLENGTH);
+        add_inventory_rows(
+            &mut hud.chestelements,
+            0.4,
+            4,
+            SlotIndexType::ChestSlot(0),
+            ROWLENGTH,
+        );
 
         //Crosshair
         let tf = TextureFace::new(0, 13);
@@ -850,9 +882,6 @@ impl Game {
         #[cfg(feature = "glfw")]
         hud.chestelements.push(invrowel);
 
-
-
-
         let inv = Arc::new(RwLock::new(Inventory {
             dirty: true,
             inv: STARTINGITEMS,
@@ -898,16 +927,22 @@ impl Game {
             shader0,
             oldshader,
             skyshader,
-            modelshader: Shader::new(path!("assets/mvert.glsl"),      path!("assets/mfrag.glsl")),
-            cloudshader: Shader::new(path!("assets/cloudsvert.glsl"), path!("assets/cloudsfrag.glsl")),
-            starshader:  Shader::new(path!("assets/starsvert.glsl"),  path!("assets/starsfrag.glsl")),
+            modelshader: Shader::new(path!("assets/mvert.glsl"), path!("assets/mfrag.glsl")),
+            cloudshader: Shader::new(
+                path!("assets/cloudsvert.glsl"),
+                path!("assets/cloudsfrag.glsl"),
+            ),
+            starshader: Shader::new(
+                path!("assets/starsvert.glsl"),
+                path!("assets/starsfrag.glsl"),
+            ),
             camera: cam.clone(),
             run_chunk_thread: Arc::new(AtomicBool::new(true)),
             chunk_thread: None,
             vars: GameVariables {
                 first_mouse: true,
                 mouse_focused: false,
-    
+
                 sky_color: Vec4::new(0.3, 0.65, 1.0, 1.0),
                 sky_bottom: Vec4::new(1.0, 1.0, 1.0, 1.0),
                 mouse_clicked: false,
@@ -927,7 +962,7 @@ impl Game {
                 in_climbable: false,
                 walkbobtimer: 0.0,
 
-                time_tfs_at_3: 0.0
+                time_tfs_at_3: 0.0,
             },
             controls: ControlsState::new(),
             faders: Arc::new(faders),
@@ -987,7 +1022,7 @@ impl Game {
                 &cam.clone(),
                 &pme.clone(),
                 &chest_registry,
-                &needtosend
+                &needtosend,
             ),
             server_command_queue: server_command_queue.clone(),
             hp_server_command_queue: server_command_hp_queue.clone(),
@@ -1020,7 +1055,7 @@ impl Game {
             crafting_open: false,
             stamina,
             weathertype: 0.0,
-            chest_registry
+            chest_registry,
         };
         #[cfg(feature = "glfw")]
         if !headless {
@@ -1175,8 +1210,8 @@ impl Game {
                 );
 
                 AUDIOPLAYER.preload(
-                    path!("assets/sfx/cricket1.mp3"), 
-                    path!("assets/sfx/cricket1.mp3")
+                    path!("assets/sfx/cricket1.mp3"),
+                    path!("assets/sfx/cricket1.mp3"),
                 );
             }
         }
@@ -1232,7 +1267,6 @@ impl Game {
                 if able {
                     CURRENT_AVAIL_RECIPES
                         .lock()
-       
                         .push(RecipeEntry::from_recipe(rec.clone()));
                 }
                 //let result = rec.1;
@@ -1243,7 +1277,7 @@ impl Game {
     pub fn save_one_chest_to_file(&self, key: IVec3) {
         let seed = {
             let c = self.chunksys.read();
-            let s = unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)};
+            let s = unsafe { CURRSEED.load(std::sync::atomic::Ordering::Relaxed) };
             s.clone()
         };
 
@@ -1288,11 +1322,10 @@ impl Game {
         };
     }
 
-    
     pub fn save_current_chests_to_file(&self) {
         let seed = {
             let c = self.chunksys.read();
-            let s = unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)};
+            let s = unsafe { CURRSEED.load(std::sync::atomic::Ordering::Relaxed) };
             s.clone()
         };
 
@@ -1336,7 +1369,7 @@ impl Game {
     pub fn load_chests_from_file(&self) {
         let seed = {
             let c = self.chunksys.read();
-            let s = unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)};
+            let s = unsafe { CURRSEED.load(std::sync::atomic::Ordering::Relaxed) };
             s.clone()
         };
 
@@ -1374,7 +1407,8 @@ impl Game {
                 let z: i32 = row.get(2)?;
                 let dirty: bool = row.get(3)?;
                 let inventory: Vec<u8> = row.get(4)?;
-                let inv: [(u32, u32); ROWLENGTH as usize * 4] = bincode::deserialize(&inventory).unwrap();
+                let inv: [(u32, u32); ROWLENGTH as usize * 4] =
+                    bincode::deserialize(&inventory).unwrap();
                 Ok((IVec3 { x, y, z }, ChestInventory { dirty, inv }))
             })
             .unwrap();
@@ -1385,8 +1419,10 @@ impl Game {
         }
     }
 
-    pub fn static_load_chests_from_file(seed: u32, chest_registry: &Arc<DashMap<IVec3, ChestInventory>>) {
-
+    pub fn static_load_chests_from_file(
+        seed: u32,
+        chest_registry: &Arc<DashMap<IVec3, ChestInventory>>,
+    ) {
         let table_name = format!("chest_registry_{}", seed);
 
         let conn = Connection::open("chestdb").unwrap();
@@ -1421,7 +1457,8 @@ impl Game {
                 let z: i32 = row.get(2)?;
                 let dirty: bool = row.get(3)?;
                 let inventory: Vec<u8> = row.get(4)?;
-                let inv: [(u32, u32); ROWLENGTH as usize * 4] = bincode::deserialize(&inventory).unwrap();
+                let inv: [(u32, u32); ROWLENGTH as usize * 4] =
+                    bincode::deserialize(&inventory).unwrap();
                 Ok((IVec3 { x, y, z }, ChestInventory { dirty, inv }))
             })
             .unwrap();
@@ -1444,13 +1481,7 @@ impl Game {
                 thread::sleep(Duration::from_millis(500));
             }
 
-            let address = self
-                .address
-                .lock()
-                .as_ref()
-                .unwrap()
-                .trim()
-                .to_string(); // Remove any trailing newline characters
+            let address = self.address.lock().as_ref().unwrap().trim().to_string(); // Remove any trailing newline characters
 
             self.netconn.connect(address); // Connect to the provided address
             info!("Connected to the server!");
@@ -1472,7 +1503,6 @@ impl Game {
                 #[cfg(feature = "glfw")]
                 self.window
                     .write()
-          
                     .set_cursor_mode(glfw::CursorMode::Disabled);
                 self.set_mouse_focused(true);
             }
@@ -1500,35 +1530,26 @@ impl Game {
             }
 
             "bindingsmenu" => {
-
                 self.currentbuttons = vec![
-                    (
-                        "bindings".to_string(),
-                        "".to_string()
-                    ),
+                    ("bindings".to_string(), "".to_string()),
                     (
                         "Back to Previous Menu".to_string(),
                         "settingsmenu".to_string(),
                     ),
-
                 ];
 
                 unsafe {
                     for (key, action) in MISCSETTINGS.keybinds.iter_mut() {
-                        self.currentbuttons.push((
-                            action.clone(), format!("{:?}", key)
-                        ));
+                        self.currentbuttons
+                            .push((action.clone(), format!("{:?}", key)));
                     }
 
                     for (key, action) in MISCSETTINGS.mousebinds.iter_mut() {
-                        self.currentbuttons.push((
-                            action.clone(), format!("{:?}", key)
-                        ));
+                        self.currentbuttons
+                            .push((action.clone(), format!("{:?}", key)));
                     }
                 }
                 self.vars.menu_open = true;
-
-                
             }
             "recipemenu" => {
                 self.currentbuttons = vec![(
@@ -1580,7 +1601,6 @@ impl Game {
                 ));
 
                 self.vars.menu_open = true;
-                
             }
             _ => {
                 info!("Unknown button command given");
@@ -1612,9 +1632,9 @@ impl Game {
                         if !INSIDE_RAIN_PLAYING {
                             AUDIOPLAYER.stop_sound(path!("assets/sfx/rainoutside.mp3"));
                             //w.stop_sound("assets/sfx/raininside.mp3");
-                            AUDIOPLAYER.stop_sound(  path!("assets/sfx/snowoutside.mp3" ));
-                            AUDIOPLAYER.stop_sound(  path!("assets/sfx/snowinside.mp3"  ));
-                            AUDIOPLAYER.play_in_head(path!("assets/sfx/raininside.mp3"  ));
+                            AUDIOPLAYER.stop_sound(path!("assets/sfx/snowoutside.mp3"));
+                            AUDIOPLAYER.stop_sound(path!("assets/sfx/snowinside.mp3"));
+                            AUDIOPLAYER.play_in_head(path!("assets/sfx/raininside.mp3"));
                             TIMER = 0.0;
                             INSIDE_RAIN_PLAYING = true;
                             OUTSIDE_RAIN_PLAYING = false;
@@ -1624,9 +1644,9 @@ impl Game {
                     } else {
                         if !OUTSIDE_RAIN_PLAYING {
                             //w.stop_sound("assets/sfx/rainoutside.mp3");
-                            AUDIOPLAYER.stop_sound(  path!("assets/sfx/raininside.mp3" ));
-                            AUDIOPLAYER.stop_sound(  path!("assets/sfx/snowoutside.mp3"));
-                            AUDIOPLAYER.stop_sound(  path!("assets/sfx/snowinside.mp3" ));
+                            AUDIOPLAYER.stop_sound(path!("assets/sfx/raininside.mp3"));
+                            AUDIOPLAYER.stop_sound(path!("assets/sfx/snowoutside.mp3"));
+                            AUDIOPLAYER.stop_sound(path!("assets/sfx/snowinside.mp3"));
                             AUDIOPLAYER.play_in_head(path!("assets/sfx/rainoutside.mp3"));
                             TIMER = 0.0;
                             OUTSIDE_RAIN_PLAYING = true;
@@ -1641,7 +1661,7 @@ impl Game {
                     if ROOFOVERHEAD.load(Ordering::Relaxed) {
                         if !INSIDE_SNOW_PLAYING {
                             AUDIOPLAYER.stop_sound(path!("assets/sfx/rainoutside.mp3"));
-                            AUDIOPLAYER.stop_sound(path!("assets/sfx/raininside.mp3" ));
+                            AUDIOPLAYER.stop_sound(path!("assets/sfx/raininside.mp3"));
                             AUDIOPLAYER.stop_sound(path!("assets/sfx/snowoutside.mp3"));
                             // w.stop_sound("assets/sfx/snowinside.mp3");
                             AUDIOPLAYER.play_in_head(path!("assets/sfx/snowinside.mp3"));
@@ -1654,9 +1674,9 @@ impl Game {
                     } else {
                         if !OUTSIDE_SNOW_PLAYING {
                             AUDIOPLAYER.stop_sound(path!("assets/sfx/rainoutside.mp3"));
-                            AUDIOPLAYER.stop_sound(path!("assets/sfx/raininside.mp3" ));
+                            AUDIOPLAYER.stop_sound(path!("assets/sfx/raininside.mp3"));
                             //w.stop_sound("assets/sfx/snowoutside.mp3");
-                            AUDIOPLAYER.stop_sound(path!("assets/sfx/snowinside.mp3" ));
+                            AUDIOPLAYER.stop_sound(path!("assets/sfx/snowinside.mp3"));
 
                             AUDIOPLAYER.play_in_head(path!("assets/sfx/snowoutside.mp3"));
                             TIMER = 0.0;
@@ -1669,9 +1689,9 @@ impl Game {
                 }
                 _ => {
                     AUDIOPLAYER.stop_sound(path!("assets/sfx/rainoutside.mp3"));
-                    AUDIOPLAYER.stop_sound(path!("assets/sfx/raininside.mp3" ));
+                    AUDIOPLAYER.stop_sound(path!("assets/sfx/raininside.mp3"));
                     AUDIOPLAYER.stop_sound(path!("assets/sfx/snowoutside.mp3"));
-                    AUDIOPLAYER.stop_sound(path!("assets/sfx/snowinside.mp3" ));
+                    AUDIOPLAYER.stop_sound(path!("assets/sfx/snowinside.mp3"));
                     OUTSIDE_RAIN_PLAYING = false;
                     INSIDE_RAIN_PLAYING = false;
                     OUTSIDE_SNOW_PLAYING = false;
@@ -1683,16 +1703,12 @@ impl Game {
     }
 
     pub fn initialize_being_in_world(&mut self) -> JoinHandle<()> {
-       
-
         if self.vars.in_multiplayer {
             //ChunkSystem::initial_rebuild_on_main_thread(&self.chunksys.clone(), &self.shader0, &self.camera.lock().position);
             while !self.netconn.received_world.load(Ordering::Relaxed) {
                 thread::sleep(Duration::from_millis(500));
             }
         }
-
-        
 
         self.vars.hostile_world = (self.chunksys.read().planet_type % 2) != 0;
 
@@ -1720,7 +1736,6 @@ impl Game {
 
         handle
     }
-
 
     fn auto_set_spawn_point(&mut self) -> Vec3 {
         let mut ship_pos = vec::IVec3::new(20, 200, 0);
@@ -1845,7 +1860,6 @@ impl Game {
                 let cam_lock = self.camera.lock();
                 cam_lock.clone()
             };
-            
 
             gl::UniformMatrix4fv(
                 gl::GetUniformLocation(self.cloudshader.shader_id, b"mvp\0".as_ptr() as *const i8),
@@ -2042,7 +2056,6 @@ impl Game {
                 let cam_lock = self.camera.lock();
                 cam_lock.clone()
             };
-            
 
             gl::UniformMatrix4fv(
                 gl::GetUniformLocation(self.starshader.shader_id, b"mvp\0".as_ptr() as *const i8),
@@ -2141,18 +2154,16 @@ impl Game {
     }
     #[cfg(feature = "glfw")]
     pub fn update_inventory(&mut self) {
-        for i in ROWLENGTH*4..ROWLENGTH*8 {
-            let realslotind = i - ROWLENGTH*4;
+        for i in ROWLENGTH * 4..ROWLENGTH * 8 {
+            let realslotind = i - ROWLENGTH * 4;
             let slot = self
-                
                 .chest_registry
                 .entry(self.hud.current_chest)
                 .or_insert(ChestInventory {
                     dirty: true,
-                    inv: [(0,0); (ROWLENGTH * 4) as usize],
+                    inv: [(0, 0); (ROWLENGTH * 4) as usize],
                 })
                 .inv[realslotind as usize];
-
 
             let idinslot = slot.0;
             let texcoords = Blocks::get_tex_coords(idinslot, crate::cube::CubeSide::LEFT);
@@ -2169,11 +2180,11 @@ impl Game {
                     let g1 = GlyphFace::new(count.as_bytes()[0]);
                     let g2 = GlyphFace::new(count.as_bytes()[1]);
 
-                    self.hud.chestelements[(ROWLENGTH*8 + realslotind * 2) as usize].uvs = [
+                    self.hud.chestelements[(ROWLENGTH * 8 + realslotind * 2) as usize].uvs = [
                         g1.blx, g1.bly, g1.brx, g1.bry, g1.trx, g1.tr_y, g1.trx, g1.tr_y, g1.tlx,
                         g1.tly, g1.blx, g1.bly,
                     ];
-                    self.hud.chestelements[(ROWLENGTH*8 + realslotind * 2 + 1) as usize].uvs = [
+                    self.hud.chestelements[(ROWLENGTH * 8 + realslotind * 2 + 1) as usize].uvs = [
                         g2.blx, g2.bly, g2.brx, g2.bry, g2.trx, g2.tr_y, g2.trx, g2.tr_y, g2.tlx,
                         g2.tly, g2.blx, g2.bly,
                     ];
@@ -2181,28 +2192,28 @@ impl Game {
 
                 if count.len() == 1 {
                     let g2 = GlyphFace::new(count.as_bytes()[0]);
-                    self.hud.chestelements[(ROWLENGTH*8 + realslotind * 2) as usize].uvs = [
+                    self.hud.chestelements[(ROWLENGTH * 8 + realslotind * 2) as usize].uvs = [
                         bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx,
                         bf.tly, bf.blx, bf.bly,
                     ];
-                    self.hud.chestelements[(ROWLENGTH*8 + realslotind * 2 + 1) as usize].uvs = [
+                    self.hud.chestelements[(ROWLENGTH * 8 + realslotind * 2 + 1) as usize].uvs = [
                         g2.blx, g2.bly, g2.brx, g2.bry, g2.trx, g2.tr_y, g2.trx, g2.tr_y, g2.tlx,
                         g2.tly, g2.blx, g2.bly,
                     ];
                 }
             } else {
-                self.hud.chestelements[(ROWLENGTH*8 + realslotind * 2) as usize].uvs = [
+                self.hud.chestelements[(ROWLENGTH * 8 + realslotind * 2) as usize].uvs = [
                     bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx,
                     bf.tly, bf.blx, bf.bly,
                 ];
-                self.hud.chestelements[(ROWLENGTH*8 + realslotind * 2 + 1) as usize].uvs = [
+                self.hud.chestelements[(ROWLENGTH * 8 + realslotind * 2 + 1) as usize].uvs = [
                     bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx,
                     bf.tly, bf.blx, bf.bly,
                 ];
             }
         }
 
-        for i in ROWLENGTH..(ROWLENGTH*2){
+        for i in ROWLENGTH..(ROWLENGTH * 2) {
             let realslotind = i - ROWLENGTH;
             let slot = self.inventory.read().inv[realslotind as usize];
             let idinslot = slot.0;
@@ -2220,11 +2231,11 @@ impl Game {
                     let g1 = GlyphFace::new(count.as_bytes()[0]);
                     let g2 = GlyphFace::new(count.as_bytes()[1]);
 
-                    self.hud.elements[(ROWLENGTH*2 + realslotind * 2) as usize].uvs = [
+                    self.hud.elements[(ROWLENGTH * 2 + realslotind * 2) as usize].uvs = [
                         g1.blx, g1.bly, g1.brx, g1.bry, g1.trx, g1.tr_y, g1.trx, g1.tr_y, g1.tlx,
                         g1.tly, g1.blx, g1.bly,
                     ];
-                    self.hud.elements[(ROWLENGTH*2 + realslotind * 2 + 1) as usize].uvs = [
+                    self.hud.elements[(ROWLENGTH * 2 + realslotind * 2 + 1) as usize].uvs = [
                         g2.blx, g2.bly, g2.brx, g2.bry, g2.trx, g2.tr_y, g2.trx, g2.tr_y, g2.tlx,
                         g2.tly, g2.blx, g2.bly,
                     ];
@@ -2232,21 +2243,21 @@ impl Game {
 
                 if count.len() == 1 {
                     let g2 = GlyphFace::new(count.as_bytes()[0]);
-                    self.hud.elements[(ROWLENGTH*2 + realslotind * 2) as usize].uvs = [
+                    self.hud.elements[(ROWLENGTH * 2 + realslotind * 2) as usize].uvs = [
                         bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx,
                         bf.tly, bf.blx, bf.bly,
                     ];
-                    self.hud.elements[(ROWLENGTH*2 + realslotind * 2 + 1) as usize].uvs = [
+                    self.hud.elements[(ROWLENGTH * 2 + realslotind * 2 + 1) as usize].uvs = [
                         g2.blx, g2.bly, g2.brx, g2.bry, g2.trx, g2.tr_y, g2.trx, g2.tr_y, g2.tlx,
                         g2.tly, g2.blx, g2.bly,
                     ];
                 }
             } else {
-                self.hud.elements[(ROWLENGTH*2 + realslotind * 2) as usize].uvs = [
+                self.hud.elements[(ROWLENGTH * 2 + realslotind * 2) as usize].uvs = [
                     bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx,
                     bf.tly, bf.blx, bf.bly,
                 ];
-                self.hud.elements[(ROWLENGTH*2 + realslotind * 2 + 1) as usize].uvs = [
+                self.hud.elements[(ROWLENGTH * 2 + realslotind * 2 + 1) as usize].uvs = [
                     bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx,
                     bf.tly, bf.blx, bf.bly,
                 ];
@@ -2258,7 +2269,7 @@ impl Game {
         let texcoords = Blocks::get_tex_coords(idinslot, crate::cube::CubeSide::LEFT);
         let tf = TextureFace::new(texcoords.0 as i8, texcoords.1 as i8);
         let bf = TextureFace::new(0, 0);
-        self.hud.chestelements[(ROWLENGTH*16) as usize].uvs = [
+        self.hud.chestelements[(ROWLENGTH * 16) as usize].uvs = [
             tf.blx, tf.bly, tf.brx, tf.bry, tf.trx, tf.tr_y, tf.trx, tf.tr_y, tf.tlx, tf.tly,
             tf.blx, tf.bly,
         ];
@@ -2269,11 +2280,11 @@ impl Game {
                 let g1 = GlyphFace::new(count.as_bytes()[0]);
                 let g2 = GlyphFace::new(count.as_bytes()[1]);
 
-                self.hud.chestelements[(ROWLENGTH*16) as usize + 1].uvs = [
+                self.hud.chestelements[(ROWLENGTH * 16) as usize + 1].uvs = [
                     g1.blx, g1.bly, g1.brx, g1.bry, g1.trx, g1.tr_y, g1.trx, g1.tr_y, g1.tlx,
                     g1.tly, g1.blx, g1.bly,
                 ];
-                self.hud.chestelements[(ROWLENGTH*16) as usize + 2].uvs = [
+                self.hud.chestelements[(ROWLENGTH * 16) as usize + 2].uvs = [
                     g2.blx, g2.bly, g2.brx, g2.bry, g2.trx, g2.tr_y, g2.trx, g2.tr_y, g2.tlx,
                     g2.tly, g2.blx, g2.bly,
                 ];
@@ -2283,11 +2294,11 @@ impl Game {
                 let g1 = GlyphFace::new(43);
                 let g2 = GlyphFace::new(43);
 
-                self.hud.chestelements[(ROWLENGTH*16) as usize + 1].uvs = [
+                self.hud.chestelements[(ROWLENGTH * 16) as usize + 1].uvs = [
                     g1.blx, g1.bly, g1.brx, g1.bry, g1.trx, g1.tr_y, g1.trx, g1.tr_y, g1.tlx,
                     g1.tly, g1.blx, g1.bly,
                 ];
-                self.hud.chestelements[(ROWLENGTH*16) as usize + 2].uvs = [
+                self.hud.chestelements[(ROWLENGTH * 16) as usize + 2].uvs = [
                     g2.blx, g2.bly, g2.brx, g2.bry, g2.trx, g2.tr_y, g2.trx, g2.tr_y, g2.tlx,
                     g2.tly, g2.blx, g2.bly,
                 ];
@@ -2295,21 +2306,21 @@ impl Game {
 
             if count.len() == 1 {
                 let g2 = GlyphFace::new(count.as_bytes()[0]);
-                self.hud.chestelements[(ROWLENGTH*16) as usize + 1].uvs = [
+                self.hud.chestelements[(ROWLENGTH * 16) as usize + 1].uvs = [
                     bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx,
                     bf.tly, bf.blx, bf.bly,
                 ];
-                self.hud.chestelements[(ROWLENGTH*16) as usize + 2].uvs = [
+                self.hud.chestelements[(ROWLENGTH * 16) as usize + 2].uvs = [
                     g2.blx, g2.bly, g2.brx, g2.bry, g2.trx, g2.tr_y, g2.trx, g2.tr_y, g2.tlx,
                     g2.tly, g2.blx, g2.bly,
                 ];
             }
         } else {
-            self.hud.chestelements[(ROWLENGTH*16) as usize + 1].uvs = [
+            self.hud.chestelements[(ROWLENGTH * 16) as usize + 1].uvs = [
                 bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx, bf.tly,
                 bf.blx, bf.bly,
             ];
-            self.hud.chestelements[(ROWLENGTH*16) as usize + 2].uvs = [
+            self.hud.chestelements[(ROWLENGTH * 16) as usize + 2].uvs = [
                 bf.blx, bf.bly, bf.brx, bf.bry, bf.trx, bf.tr_y, bf.trx, bf.tr_y, bf.tlx, bf.tly,
                 bf.blx, bf.bly,
             ];
@@ -2460,43 +2471,41 @@ impl Game {
 
             drop(invlock);
 
-
-
             let mut morepossible = true;
             fn craft_in_local_inv(recipe: &Recipe, inven: &mut Inventory, morepossible: &mut bool) {
                 let mut hasreqs = true;
                 for req in &recipe.0 {
                     let mut amt = 0;
-    
+
                     for i in 0..ROWLENGTH as usize {
                         let typehere = inven.inv[i].0;
                         if typehere == req.0 {
                             amt += inven.inv[i].1;
                         }
                     }
-    
+
                     if amt < req.1 {
                         hasreqs = false;
                         (*morepossible) = false;
                     }
                 }
-    
+
                 if hasreqs {
                     //Find an empty spot OR MATCHING RESULT ITEM SPOT in their imaginary inv that would exist if we were to subtract the necessary ingredients:
                     //Make an imaginary clone of their inventory:
                     let invclone = &mut inven.inv;
-    
+
                     //Subtract the ingredients
                     for req in &recipe.0 {
                         let mut amt = 0;
-    
+
                         for i in 0..ROWLENGTH as usize {
                             let typehere = invclone[i].0;
                             if typehere == req.0 {
                                 while invclone[i].1 > 0 && amt < req.1 {
                                     amt += 1;
                                     invclone[i].1 -= 1;
-    
+
                                     if invclone[i].1 == 0 {
                                         invclone[i].0 = 0;
                                     }
@@ -2507,11 +2516,11 @@ impl Game {
                             }
                         }
                     }
-    
+
                     //Find the predicted empty spot or matching item slot
                     let resultslot = {
                         let mut slot = None;
-    
+
                         for i in 0..ROWLENGTH as usize {
                             let typehere = invclone[i].0;
                             if (typehere == 0 || typehere == recipe.1 .0)
@@ -2521,33 +2530,28 @@ impl Game {
                                 break;
                             }
                         }
-    
+
                         slot
                     };
 
                     match resultslot {
                         Some(slot) => {
-                            invclone[slot].0 = recipe.1.0;
-                            invclone[slot].1 = invclone[slot].1 + recipe.1.1;
-                        },
+                            invclone[slot].0 = recipe.1 .0;
+                            invclone[slot].1 = invclone[slot].1 + recipe.1 .1;
+                        }
                         None => {
                             (*morepossible) = false;
-                        },
+                        }
                     }
                 }
             }
 
-            
-
             if all {
-
                 let mut newinv = originalinvinv.clone();
-
 
                 while morepossible {
                     craft_in_local_inv(recipe, &mut newinv, &mut morepossible);
                 }
-
 
                 if newinv != originalinvinv {
                     for i in 0..ROWLENGTH as usize {
@@ -2563,46 +2567,42 @@ impl Game {
                                 &self.needtosend,
                             );
                         }
-                        
                     }
                 }
-
-
-
             } else {
                 for req in &recipe.0 {
                     let mut amt = 0;
-    
+
                     for i in 0..ROWLENGTH as usize {
                         let typehere = originalinvinv.inv[i].0;
                         if typehere == req.0 {
                             amt += originalinvinv.inv[i].1;
                         }
                     }
-    
+
                     if amt < req.1 {
                         hasreqs = false;
                     }
                 }
-    
+
                 if hasreqs {
                     //Find an empty spot OR MATCHING RESULT ITEM SPOT in their imaginary inv that would exist if we were to subtract the necessary ingredients:
                     //Make an imaginary clone of their inventory:
                     let invlock = self.inventory.read();
                     let mut invclone = invlock.inv.clone();
                     drop(invlock);
-    
+
                     //Subtract the ingredients
                     for req in &recipe.0 {
                         let mut amt = 0;
-    
+
                         for i in 0..ROWLENGTH as usize {
                             let typehere = invclone[i].0;
                             if typehere == req.0 {
                                 while invclone[i].1 > 0 && amt < req.1 {
                                     amt += 1;
                                     invclone[i].1 -= 1;
-    
+
                                     if invclone[i].1 == 0 {
                                         invclone[i].0 = 0;
                                     }
@@ -2613,11 +2613,11 @@ impl Game {
                             }
                         }
                     }
-    
+
                     //Find the predicted empty spot or matching item slot
                     let resultslot = {
                         let mut slot = None;
-    
+
                         for i in 0..ROWLENGTH as usize {
                             let typehere = invclone[i].0;
                             if (typehere == 0 || typehere == recipe.1 .0)
@@ -2627,12 +2627,12 @@ impl Game {
                                 break;
                             }
                         }
-    
+
                         slot
                     };
-    
+
                     //drop(invlock);
-    
+
                     //Only execute the subtraction and addition of items if they will have that result slot available
                     match resultslot {
                         None => {}
@@ -2652,10 +2652,8 @@ impl Game {
                                         &self.needtosend,
                                     );
                                 }
-                                
                             }
 
-    
                             //Give them the resulting item
                             Game::set_in_inventory(
                                 &self.inventory.clone(),
@@ -2669,11 +2667,6 @@ impl Game {
                     }
                 }
             }
-
-            
-
-
-            
         }
     }
     #[cfg(feature = "audio")]
@@ -2746,7 +2739,6 @@ impl Game {
                 if !self.vars.in_multiplayer {
                     self.chunksys
                         .read()
-  
                         .set_block_and_queue_rerender_no_sound(spot, 41, false, true, true);
                 } else {
                     let mut message = Message::new(
@@ -2774,7 +2766,6 @@ impl Game {
                 if !self.vars.in_multiplayer {
                     self.chunksys
                         .read()
-
                         .set_block_and_queue_rerender_no_sound(spot, 40, false, true, true);
                 } else {
                     let mut message = Message::new(
@@ -2800,8 +2791,7 @@ impl Game {
             42 => {
                 let d = self.camera.lock().direction.clone();
 
-                self.camera.lock().velocity +=
-                    Vec3::new(0.0, TRAMPOLINE_VELOCITY_FIGURE, 0.0) + d;
+                self.camera.lock().velocity += Vec3::new(0.0, TRAMPOLINE_VELOCITY_FIGURE, 0.0) + d;
                 #[cfg(feature = "audio")]
                 unsafe {
                     AUDIOPLAYER.play(
@@ -2823,24 +2813,18 @@ impl Game {
         unsafe {
             static mut PASTVOLUME: f32 = 1.0;
             if MISCSETTINGS.music_vol != PASTVOLUME {
-
-
                 for songname in SONGS {
                     match AUDIOPLAYER.headsinks.get(songname) {
                         Some(s) => {
                             s.set_volume(MISCSETTINGS.music_vol);
-                        },
-                        None => {
-
-                        },
+                        }
+                        None => {}
                     }
                 }
 
                 PASTVOLUME = MISCSETTINGS.music_vol;
             }
-
         }
-        
     }
 
     pub fn takeoff_ship(&mut self) {
@@ -2967,7 +2951,6 @@ impl Game {
     }
 
     pub fn update(&mut self) {
-        
         #[cfg(feature = "glfw")]
         {
             let current_time = unsafe { glfwGetTime() as f32 };
@@ -2979,20 +2962,13 @@ impl Game {
         unsafe {
             static mut PREVTIME: Lazy<Instant> = Lazy::new(|| Instant::now());
             let delta_time = match Instant::now().checked_duration_since(*PREVTIME) {
-                Some(time) => {
-                    time
-                }
-                None => {
-                    Duration::from_secs_f32(0.0)
-                }
+                Some(time) => time,
+                None => Duration::from_secs_f32(0.0),
             };
             self.delta_time = delta_time.as_secs_f32().min(0.05);
             (*PREVTIME) = Instant::now();
         }
 
-
-        
-        
         let stam = self.stamina.load(Ordering::Relaxed);
 
         if unsafe { MOVING } {
@@ -3119,14 +3095,11 @@ impl Game {
             AMBIENTBRIGHTNESS = self.ambient_bright_mult;
         }
 
-
         let mut todlock = self.timeofday.lock();
 
         if !self.vars.menu_open || self.vars.in_multiplayer {
             *todlock = (*todlock + self.delta_time) % self.daylength;
         }
-        
-        
 
         let gaussian_value =
             Self::gaussian(*todlock, self.daylength / 2.0, self.daylength / 2.0) * 1.3;
@@ -3147,7 +3120,6 @@ impl Game {
 
         drop(fadersread);
 
-
         #[cfg(feature = "glfw")]
         if !self.headless {
             let (x, y) = self.window.read().get_cursor_pos();
@@ -3167,8 +3139,7 @@ impl Game {
                         unsafe {
                             MOUSED_SLOT = SlotIndexType::InvSlot(i as i32);
                             let inv = self.inventory.read();
-                                    TOOLTIPNAME = Blocks::get_name(inv.inv[i].0);
-                              
+                            TOOLTIPNAME = Blocks::get_name(inv.inv[i].0);
 
                             SHOWTOOLTIP = true;
                             isoverlappingany = true;
@@ -3176,7 +3147,7 @@ impl Game {
                     }
                 }
 
-                for i in 0..ROWLENGTH as usize*4 {
+                for i in 0..ROWLENGTH as usize * 4 {
                     let hudel = &self.hud.chestelements[i];
 
                     if hudel.overlaps(x, y) {
@@ -3227,7 +3198,6 @@ impl Game {
             //     None => {}
             // }
 
-
             let mut morestuff = true;
             for _ in 0..5 {
                 match self.hp_server_command_queue.pop() {
@@ -3241,7 +3211,7 @@ impl Game {
                                             comm.info,
                                             true,
                                             true,
-                                            false
+                                            false,
                                         );
                                     } else {
                                         self.chunksys.read().set_block_and_queue_rerender(
@@ -3249,40 +3219,26 @@ impl Game {
                                             comm.info,
                                             false,
                                             true,
-                                            false
+                                            false,
                                         );
                                     }
                                 } else {
                                     if comm.info == 0 {
-                                        self.chunksys
-                                            .read()
-                                           
-                                            .set_block_and_queue_rerender_no_sound(
-                                                IVec3::new(
-                                                    comm.x as i32,
-                                                    comm.y as i32,
-                                                    comm.z as i32,
-                                                ),
-                                                comm.info,
-                                                true,
-                                                true,
-                                                false
-                                            );
+                                        self.chunksys.read().set_block_and_queue_rerender_no_sound(
+                                            IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32),
+                                            comm.info,
+                                            true,
+                                            true,
+                                            false,
+                                        );
                                     } else {
-                                        self.chunksys
-                                            .read()
-                                       
-                                            .set_block_and_queue_rerender_no_sound(
-                                                IVec3::new(
-                                                    comm.x as i32,
-                                                    comm.y as i32,
-                                                    comm.z as i32,
-                                                ),
-                                                comm.info,
-                                                false,
-                                                true,
-                                                false
-                                            );
+                                        self.chunksys.read().set_block_and_queue_rerender_no_sound(
+                                            IVec3::new(comm.x as i32, comm.y as i32, comm.z as i32),
+                                            comm.info,
+                                            false,
+                                            true,
+                                            false,
+                                        );
                                     }
                                 }
 
@@ -3304,7 +3260,7 @@ impl Game {
                                     comm.info2,
                                     true,
                                     true,
-                                    false
+                                    false,
                                 );
                                 unsafe {
                                     UPDATE_THE_BLOCK_OVERLAY = true;
@@ -3349,7 +3305,7 @@ impl Game {
                                             .entry(currchest)
                                             .or_insert(ChestInventory {
                                                 dirty: false,
-                                                inv: [(0,0); ROWLENGTH as usize * 4],
+                                                inv: [(0, 0); ROWLENGTH as usize * 4],
                                             });
 
                                         let slot = &mut chestinv.inv[e as usize];
@@ -3370,8 +3326,7 @@ impl Game {
                                         match ud {
                                             Some(ud) => {
                                                 if uuid == ud {
-                                                    let playerinv =
-                                                        &mut self.inventory.write();
+                                                    let playerinv = &mut self.inventory.write();
                                                     let slot = &mut playerinv.inv[e as usize];
 
                                                     // let wasthere = slot.clone();
@@ -3443,7 +3398,7 @@ impl Game {
                                         comm.info,
                                         true,
                                         true,
-                                        false
+                                        false,
                                     );
                                 } else {
                                     self.chunksys.read().set_block_and_queue_rerender(
@@ -3451,14 +3406,13 @@ impl Game {
                                         comm.info,
                                         false,
                                         true,
-                                        false
+                                        false,
                                     );
                                 }
                             }
                             MessageType::MobUpdate => {
-
                                 //println!("Got mobupdate");
-                               // println!("MobUpdate: {}", comm);
+                                // println!("MobUpdate: {}", comm);
                                 let newpos = Vec3::new(comm.x, comm.y, comm.z);
                                 let id = comm.info;
                                 let modind = comm.info2;
@@ -3565,34 +3519,44 @@ impl Game {
                 || self.controls.back
                 || self.controls.left
                 || self.controls.right)
-                && unsafe { SPRINTING }) || unsafe {FREEFALLING}
+                && unsafe { SPRINTING })
+                || unsafe { FREEFALLING }
             {
-                if unsafe {FREEFALLING} {
+                if unsafe { FREEFALLING } {
                     if !self.faders.read()[FaderNames::FovFader as usize].really {
-                    
                         self.faders.write()[FaderNames::FovFader as usize].reallyup();
                     }
                 } else {
-                    if !self.faders.read()[FaderNames::FovFader as usize].mode || self.faders.read()[FaderNames::FovFader as usize].really {
-                    
+                    if !self.faders.read()[FaderNames::FovFader as usize].mode
+                        || self.faders.read()[FaderNames::FovFader as usize].really
+                    {
                         self.faders.write()[FaderNames::FovFader as usize].up();
                     }
                 }
-                
             } else {
-                if self.faders.read()[FaderNames::FovFader as usize].mode  {
+                if self.faders.read()[FaderNames::FovFader as usize].mode {
                     self.faders.write()[FaderNames::FovFader as usize].down();
                 }
             }
             self.draw();
 
-            if !self.vars.ship_taken_off {
-                self.draw_select_cube();
-            }
+            //if !self.vars.ship_taken_off {
+            let camclone = self.draw_select_cube();
+            //}
+
+            Self::draw_user_build_preview(
+                unsafe { &SELECTCUBESPOT },
+                &self.voxel_models[1],
+                &self.oldshader,
+                &camclone,
+                self.ambient_bright_mult,
+                self.vars.walkbobtimer,
+                &self.tex,
+            );
 
             self.guisys.draw_text(0);
 
-            let mvp = self.camera.lock().mvp;
+            let mvp = camclone.mvp;
 
             self.drops.update_and_draw_drops(&self.delta_time, &mvp);
 
@@ -3620,18 +3584,15 @@ impl Game {
                 AUDIOPLAYER.update();
             }
 
-            let camlock = self.camera.lock();
+            //let camlock = self.camera.lock();
 
-            let pos = camlock.position.clone();
-            let dir = camlock.direction.clone();
-            let right = camlock.right.clone();
-            let yaw = camlock.yaw.clone();
-            let pitch = camlock.pitch.clone();
+            let pos = camclone.position.clone();
+            let dir = camclone.direction.clone();
+            let right = camclone.right.clone();
+            let yaw = camclone.yaw.clone();
+            let pitch = camclone.pitch.clone();
 
-
-
-            
-            drop(camlock);
+            //drop(camlock);
             // unsafe {
             //     PLAYERCHUNKPOS.0.store(camchunkpos.x, Ordering::Relaxed);
             //     PLAYERCHUNKPOS.1.store(camchunkpos.y, Ordering::Relaxed);
@@ -3649,7 +3610,6 @@ impl Game {
                 PLAYERPOS.yaw.store(yaw, Ordering::Relaxed);
                 PLAYERPOS.pitch.store(pitch, Ordering::Relaxed);
             }
-            
 
             #[cfg(feature = "audio")]
             unsafe {
@@ -3704,14 +3664,6 @@ impl Game {
             }
         }
 
-
-
-
-
-
-
-
-
         if self.initial_timer < 1.5 {
             self.initial_timer += self.delta_time;
             //println!("Initial timer: {}", self.initial_timer);
@@ -3729,11 +3681,7 @@ impl Game {
                     self.update_server_received_modents();
                 }
                 if overlayfade <= 0.1 {
-
-                            self.update_movement_and_physics();
-
-                    
-                    
+                    self.update_movement_and_physics();
                 }
             }
         }
@@ -3741,15 +3689,12 @@ impl Game {
         //info!("Planet y off: {}", self.planet_y_offset);
     }
 
-    
-
     pub fn update_movement_and_physics(&mut self) {
-
         static mut NUDM: Lazy<Arc<DashMap<IVec3, u32>>> = Lazy::new(|| Arc::new(DashMap::new()));
         static mut UDM: Lazy<Arc<DashMap<IVec3, u32>>> = Lazy::new(|| Arc::new(DashMap::new()));
-        static mut PERL: Lazy<Arc<RwLock<Perlin>>> = Lazy::new(|| Arc::new(RwLock::new(Perlin::new(0))));
+        static mut PERL: Lazy<Arc<RwLock<Perlin>>> =
+            Lazy::new(|| Arc::new(RwLock::new(Perlin::new(0))));
         static mut hasbeenset: bool = false;
-
 
         unsafe {
             let cr = self.chunksys.read();
@@ -3766,13 +3711,11 @@ impl Game {
 
         let camarc = self.camera.clone();
         let mut cam_clone = {
-                let camlock = camarc.lock();
+            let camlock = camarc.lock();
 
-
-                let cam_clone: Camera = camlock.clone();
-                cam_clone
-        }; 
-
+            let cam_clone: Camera = camlock.clone();
+            cam_clone
+        };
 
         unsafe {
             if CROUCHING {
@@ -3830,18 +3773,20 @@ impl Game {
             underfeetpos.z.floor() as i32,
         );
 
-        
-       
-        
-
-        let blockfeetin = unsafe { ChunkSystem::_blockat(&NUDM, &UDM, &PERL.read(), feetposi) & Blocks::block_id_bits()};
+        let blockfeetin = unsafe {
+            ChunkSystem::_blockat(&NUDM, &UDM, &PERL.read(), feetposi) & Blocks::block_id_bits()
+        };
         let blockfeetinlower = unsafe {
-        ChunkSystem::_blockat(&NUDM, &UDM, &PERL.read(), feetposi2) & Blocks::block_id_bits()};
-        let blockbitsunderfeet = unsafe { ChunkSystem::_blockat(&NUDM, &UDM, &PERL.read(), underfeetposi) };
+            ChunkSystem::_blockat(&NUDM, &UDM, &PERL.read(), feetposi2) & Blocks::block_id_bits()
+        };
+        let blockbitsunderfeet =
+            unsafe { ChunkSystem::_blockat(&NUDM, &UDM, &PERL.read(), underfeetposi) };
         let blockunderfeet = blockbitsunderfeet & Blocks::block_id_bits();
-       // println!("BUF: {}", blockunderfeet);
+        // println!("BUF: {}", blockunderfeet);
 
-        let blockheadin = unsafe { ChunkSystem::_blockat(&NUDM, &UDM, &PERL.read(), headposi) & Blocks::block_id_bits() };
+        let blockheadin = unsafe {
+            ChunkSystem::_blockat(&NUDM, &UDM, &PERL.read(), headposi) & Blocks::block_id_bits()
+        };
 
         if blockheadin == 2 {
             self.headinwater = true;
@@ -3965,7 +3910,6 @@ impl Game {
         const GRAV: f32 = 9.8;
 
         if self.inwater || self.vars.in_climbable {
-
             unsafe {
                 if WASFREEFALLING {
                     FREEFALLING = false;
@@ -3980,12 +3924,11 @@ impl Game {
                         AUDIOPLAYER.play_in_head(path!("assets/sfx/splash.mp3"));
                     }
                 }
-                
             }
             self.time_falling_scalar = 1.0;
             if !self.grounded {
                 cam_clone.velocity += Vec3::new(0.0, -2.0 * self.delta_time, 0.0);
-                if unsafe {CROUCHING} {
+                if unsafe { CROUCHING } {
                     cam_clone.velocity += Vec3::new(0.0, -5.0 * self.delta_time, 0.0);
                 }
             }
@@ -4001,16 +3944,10 @@ impl Game {
                 cam_clone.velocity += Vec3::new(0.0, amount * self.delta_time, 0.0);
             }
         } else {
-
-
-
             if !self.grounded && !self.jumping_up {
                 self.time_falling_scalar =
                     (self.time_falling_scalar + self.delta_time * 3.0).min(3.0);
 
-
-                   
-                
                 if self.time_falling_scalar >= 3.0 {
                     unsafe {
                         FREEFALLING = true;
@@ -4022,25 +3959,21 @@ impl Game {
                             AUDIOPLAYER.play_in_head(path!("assets/sfx/freefall.mp3"));
                         }
                     }
-                    
-                    
+
                     self.vars.time_tfs_at_3 += self.delta_time;
                 } else {
                     self.vars.time_tfs_at_3 = 0.0;
-                    
                 }
-                    //println!("Time falscal: {}", self.time_falling_scalar);
+                //println!("Time falscal: {}", self.time_falling_scalar);
             } else {
                 self.time_falling_scalar = 1.0;
                 unsafe {
                     FREEFALLING = false;
                     if WASFREEFALLING {
-
                         WASFREEFALLING = false;
                         #[cfg(feature = "audio")]
                         AUDIOPLAYER.stop_head_sound(path!("assets/sfx/freefall.mp3").to_string());
                     }
-                    
                 }
             }
 
@@ -4071,7 +4004,6 @@ impl Game {
                 self.controls.up = false;
             }
         }
-
 
         let mut proposed = {
             let mut camlock = self.camera.lock();
@@ -4136,9 +4068,7 @@ impl Game {
                             if self.vars.time_tfs_at_3 > 0.0 {
                                 falldamage = Some(self.vars.time_tfs_at_3);
                             }
-                            
-                            
-                            
+
                             self.vars.time_tfs_at_3 = 0.0;
                             activate_jump_queued = true;
                             stepsoundqueued = true;
@@ -4166,8 +4096,6 @@ impl Game {
 
         let pos = cam_clone.position.clone();
 
-
-
         {
             let mut camlock = self.camera.lock();
             *camlock = cam_clone;
@@ -4188,19 +4116,19 @@ impl Game {
                     #[cfg(feature = "audio")]
                     AUDIOPLAYER.play_in_head(path!("assets/sfx/falldamage.mp3"));
                 }
-                self.take_damage((fd*20.0) as u8);
+                self.take_damage((fd * 20.0) as u8);
             }
-            None => {
-
-            }
+            None => {}
         }
     }
 
     pub fn take_damage(&mut self, amount: u8) {
         let h = self.health.load(std::sync::atomic::Ordering::Relaxed);
-        let newamount = (h-amount as i8).max(0);
-        self.health.store(newamount, std::sync::atomic::Ordering::Relaxed);
-        if newamount <= 0 { //DEAD
+        let newamount = (h - amount as i8).max(0);
+        self.health
+            .store(newamount, std::sync::atomic::Ordering::Relaxed);
+        if newamount <= 0 {
+            //DEAD
 
             unsafe {
                 #[cfg(feature = "audio")]
@@ -4213,25 +4141,23 @@ impl Game {
             for i in 0..ROWLENGTH {
                 let amt = inv.inv[i as usize].1;
                 #[cfg(feature = "glfw")]
-                self.drops.add_drop(campos + Vec3::new(0.0, 2.0, 0.0), inv.inv[i as usize].0, amt);
-                
-                
+                self.drops.add_drop(
+                    campos + Vec3::new(0.0, 2.0, 0.0),
+                    inv.inv[i as usize].0,
+                    amt,
+                );
             }
             inv.inv = STARTINGITEMS;
 
-
-            
             unsafe {
                 camlock.position = SPAWNPOINT;
                 camlock.velocity = Vec3::ZERO;
             }
-            
+
             drop(camlock);
             self.health.store(20, std::sync::atomic::Ordering::Relaxed);
         }
-        
     }
-
 
     #[cfg(feature = "glfw")]
     pub fn draw_sky(&self, top: Vec4, bot: Vec4, amb: f32, pitch: f32) {
@@ -4314,7 +4240,7 @@ impl Game {
         }
     }
     #[cfg(feature = "glfw")]
-    pub fn draw_select_cube(&mut self) {
+    pub fn draw_select_cube(&mut self) -> Camera {
         static mut LAST_CAM_POS: Vec3 = Vec3 {
             x: 0.0,
             y: 0.0,
@@ -4374,6 +4300,9 @@ impl Game {
 
             match HIT_RESULT {
                 Some((_head, hit)) => {
+                    unsafe {
+                        SELECTCUBESPOT = hit;
+                    }
                     let hitvec3 = Vec3::new(hit.x as f32, hit.y as f32, hit.z as f32);
                     self.select_cube
                         .draw_at(hitvec3, &cam_clone.mvp, self.vars.walkbobtimer);
@@ -4403,7 +4332,6 @@ impl Game {
                         );
                         BREAK_TIME = BREAK_TIME + self.delta_time * modifier;
                         if bprog >= 1.0 {
-
                             if !self.vars.ship_taken_off {
                                 self.cast_break_ray();
                                 //UPDATE_THE_OVERLAY = true;
@@ -4411,14 +4339,16 @@ impl Game {
                             BREAK_TIME = 0.0;
                         }
                     }
+                    //println!("DISWD");
                 }
                 None => {}
             }
         }
         {
             let mut c = self.camera.lock();
-            (*c) = cam_clone;
+            (*c) = cam_clone.clone();
         }
+        cam_clone
     }
 
     #[cfg(feature = "glfw")]
@@ -4452,266 +4382,255 @@ impl Game {
             gl::UseProgram(self.shader0.shader_id);
         }
 
-        if true { //unsafe { GLCHUNKS } {
+        if true {
+            //unsafe { GLCHUNKS } {
 
-        
+            let ugqarc = self.chunksys.read().finished_user_geo_queue.clone();
 
-        let ugqarc = self
-            .chunksys
-            .read()
-     
-            .finished_user_geo_queue
-            .clone();
+            match ugqarc.pop() {
+                Some(ready) => {
+                    //info!("Some user queue");
+                    // info!("Weird!");
 
+                    let bankarc = self.chunksys.read().geobank[ready.geo_index].clone();
 
-        match ugqarc.pop() {
-            Some(ready) => {
-                //info!("Some user queue");
-                // info!("Weird!");
+                    let cs = self.chunksys.read();
 
-                let bankarc = self.chunksys.read().geobank[ready.geo_index].clone();
+                    let mut cmemlock = cs.chunk_memories.lock();
 
-                let cs = self.chunksys.read();
+                    cmemlock.memories[ready.geo_index].length = ready.newlength;
+                    cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
+                    cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
+                    cmemlock.memories[ready.geo_index].wvlength = ready.newwvlength;
+                    cmemlock.memories[ready.geo_index].pos = ready.newpos;
+                    cmemlock.memories[ready.geo_index].used = true;
 
-                let mut cmemlock = cs.chunk_memories.lock();
+                    //info!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
+                    //info!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
+                    //if num == 0 { num = 1; } else { num = 0; }
+                    //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
+                    // if num == 0 {
+                    //     bankarc.num.store(1, Ordering::Relaxed);
+                    //     num = 1;
+                    // } else {
+                    //     bankarc.num.store(0, Ordering::Relaxed);
+                    //     num = 0;
+                    // };
 
-                cmemlock.memories[ready.geo_index].length = ready.newlength;
-                cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
-                cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
-                cmemlock.memories[ready.geo_index].wvlength = ready.newwvlength;
-                cmemlock.memories[ready.geo_index].pos = ready.newpos;
-                cmemlock.memories[ready.geo_index].used = true;
+                    let v32 = cmemlock.memories[ready.geo_index].vbo32;
+                    let v8 = cmemlock.memories[ready.geo_index].vbo8;
+                    let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
+                    let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
+                    let vv = cmemlock.memories[ready.geo_index].vvbo;
+                    let uvv = cmemlock.memories[ready.geo_index].uvvbo;
 
-                //info!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
-                //info!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
-                //if num == 0 { num = 1; } else { num = 0; }
-                //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
-                // if num == 0 {
-                //     bankarc.num.store(1, Ordering::Relaxed);
-                //     num = 1;
-                // } else {
-                //     bankarc.num.store(0, Ordering::Relaxed);
-                //     num = 0;
-                // };
+                    let wvv = cmemlock.memories[ready.geo_index].wvvbo;
+                    let wuvv = cmemlock.memories[ready.geo_index].wuvvbo;
 
-                let v32 = cmemlock.memories[ready.geo_index].vbo32;
-                let v8 = cmemlock.memories[ready.geo_index].vbo8;
-                let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
-                let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
-                let vv = cmemlock.memories[ready.geo_index].vvbo;
-                let uvv = cmemlock.memories[ready.geo_index].uvvbo;
+                    let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
+                    let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
 
-                let wvv = cmemlock.memories[ready.geo_index].wvvbo;
-                let wuvv = cmemlock.memories[ready.geo_index].wuvvbo;
+                    WorldGeometry::bind_geometry(
+                        v32,
+                        v8,
+                        vbo8rgb,
+                        true,
+                        &self.shader0,
+                        bankarc.solids(),
+                    );
+                    WorldGeometry::bind_geometry(
+                        tv32,
+                        tv8,
+                        tvbo8rgb,
+                        true,
+                        &self.shader0,
+                        bankarc.transparents(),
+                    );
 
-                let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
-                let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
-
-                WorldGeometry::bind_geometry(
-                    v32,
-                    v8,
-                    vbo8rgb,
-                    true,
-                    &self.shader0,
-                    bankarc.solids(),
-                );
-                WorldGeometry::bind_geometry(
-                    tv32,
-                    tv8,
-                    tvbo8rgb,
-                    true,
-                    &self.shader0,
-                    bankarc.transparents(),
-                );
-
-                WorldGeometry::bind_old_geometry(
-                    vv,
-                    uvv,
-                    &bankarc.vdata.lock(),
-                    &bankarc.uvdata.lock(),
-                    &self.oldshader,
-                );
-                WorldGeometry::bind_old_geometry(
-                    wvv,
-                    wuvv,
-                    &bankarc.wvdata.lock(),
-                    &bankarc.wuvdata.lock(),
-                    &self.oldshader,
-                );
+                    WorldGeometry::bind_old_geometry(
+                        vv,
+                        uvv,
+                        &bankarc.vdata.lock(),
+                        &bankarc.uvdata.lock(),
+                        &self.oldshader,
+                    );
+                    WorldGeometry::bind_old_geometry(
+                        wvv,
+                        wuvv,
+                        &bankarc.wvdata.lock(),
+                        &bankarc.wuvdata.lock(),
+                        &self.oldshader,
+                    );
+                }
+                None => {}
             }
-            None => {}
-        }
 
-        let gqarc = self.chunksys.read().finished_geo_queue.clone();
+            let gqarc = self.chunksys.read().finished_geo_queue.clone();
 
-        match gqarc.pop() {
-            Some(ready) => {
-                //info!("Weird!");
+            match gqarc.pop() {
+                Some(ready) => {
+                    //info!("Weird!");
 
-                let bankarc = self.chunksys.read().geobank[ready.geo_index].clone();
+                    let bankarc = self.chunksys.read().geobank[ready.geo_index].clone();
 
-                let cs = self.chunksys.read();
+                    let cs = self.chunksys.read();
 
-                let mut cmemlock = cs.chunk_memories.lock();
+                    let mut cmemlock = cs.chunk_memories.lock();
 
-                cmemlock.memories[ready.geo_index].length = ready.newlength;
-                cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
-                cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
-                cmemlock.memories[ready.geo_index].wvlength = ready.newwvlength;
-                cmemlock.memories[ready.geo_index].pos = ready.newpos;
-                cmemlock.memories[ready.geo_index].used = true;
+                    cmemlock.memories[ready.geo_index].length = ready.newlength;
+                    cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
+                    cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
+                    cmemlock.memories[ready.geo_index].wvlength = ready.newwvlength;
+                    cmemlock.memories[ready.geo_index].pos = ready.newpos;
+                    cmemlock.memories[ready.geo_index].used = true;
 
-                //info!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
-                //info!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
-                //if num == 0 { num = 1; } else { num = 0; }
-                //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
-                // if num == 0 {
-                //     bankarc.num.store(1, Ordering::Relaxed);
-                //     num = 1;
-                // } else {
-                //     bankarc.num.store(0, Ordering::Relaxed);
-                //     num = 0;
-                // };
+                    //info!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
+                    //info!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
+                    //if num == 0 { num = 1; } else { num = 0; }
+                    //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
+                    // if num == 0 {
+                    //     bankarc.num.store(1, Ordering::Relaxed);
+                    //     num = 1;
+                    // } else {
+                    //     bankarc.num.store(0, Ordering::Relaxed);
+                    //     num = 0;
+                    // };
 
-                let v32 = cmemlock.memories[ready.geo_index].vbo32;
-                let v8 = cmemlock.memories[ready.geo_index].vbo8;
-                let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
-                let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
+                    let v32 = cmemlock.memories[ready.geo_index].vbo32;
+                    let v8 = cmemlock.memories[ready.geo_index].vbo8;
+                    let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
+                    let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
 
-                let vv = cmemlock.memories[ready.geo_index].vvbo;
-                let uvv = cmemlock.memories[ready.geo_index].uvvbo;
+                    let vv = cmemlock.memories[ready.geo_index].vvbo;
+                    let uvv = cmemlock.memories[ready.geo_index].uvvbo;
 
-                let wvv = cmemlock.memories[ready.geo_index].wvvbo;
-                let wuvv = cmemlock.memories[ready.geo_index].wuvvbo;
+                    let wvv = cmemlock.memories[ready.geo_index].wvvbo;
+                    let wuvv = cmemlock.memories[ready.geo_index].wuvvbo;
 
-                let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
-                let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
+                    let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
+                    let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
 
-                WorldGeometry::bind_geometry(
-                    v32,
-                    v8,
-                    vbo8rgb,
-                    true,
-                    &self.shader0,
-                    bankarc.solids(),
-                );
-                WorldGeometry::bind_geometry(
-                    tv32,
-                    tv8,
-                    tvbo8rgb,
-                    true,
-                    &self.shader0,
-                    bankarc.transparents(),
-                );
+                    WorldGeometry::bind_geometry(
+                        v32,
+                        v8,
+                        vbo8rgb,
+                        true,
+                        &self.shader0,
+                        bankarc.solids(),
+                    );
+                    WorldGeometry::bind_geometry(
+                        tv32,
+                        tv8,
+                        tvbo8rgb,
+                        true,
+                        &self.shader0,
+                        bankarc.transparents(),
+                    );
 
-                WorldGeometry::bind_old_geometry(
-                    vv,
-                    uvv,
-                    &bankarc.vdata.lock(),
-                    &bankarc.uvdata.lock(),
-                    &self.oldshader,
-                );
-                WorldGeometry::bind_old_geometry(
-                    wvv,
-                    wuvv,
-                    &bankarc.wvdata.lock(),
-                    &bankarc.wuvdata.lock(),
-                    &self.oldshader,
-                );
+                    WorldGeometry::bind_old_geometry(
+                        vv,
+                        uvv,
+                        &bankarc.vdata.lock(),
+                        &bankarc.uvdata.lock(),
+                        &self.oldshader,
+                    );
+                    WorldGeometry::bind_old_geometry(
+                        wvv,
+                        wuvv,
+                        &bankarc.wvdata.lock(),
+                        &bankarc.wuvdata.lock(),
+                        &self.oldshader,
+                    );
 
-                let mut userstuff = true;
-                while userstuff {
-                    match ugqarc.pop() {
-                        Some(ready) => {
-                            //info!("Some user queue");
-                            // info!("Weird!");
+                    let mut userstuff = true;
+                    while userstuff {
+                        match ugqarc.pop() {
+                            Some(ready) => {
+                                //info!("Some user queue");
+                                // info!("Weird!");
 
-                            let bankarc =
-                                self.chunksys.read().geobank[ready.geo_index].clone();
+                                let bankarc = self.chunksys.read().geobank[ready.geo_index].clone();
 
-                            //let mut cmemlock = self.chunksys.chunk_memories.lock();
+                                //let mut cmemlock = self.chunksys.chunk_memories.lock();
 
-                            cmemlock.memories[ready.geo_index].length = ready.newlength;
-                            cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
-                            cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
-                            cmemlock.memories[ready.geo_index].wvlength = ready.newwvlength;
-                            cmemlock.memories[ready.geo_index].pos = ready.newpos;
-                            cmemlock.memories[ready.geo_index].used = true;
+                                cmemlock.memories[ready.geo_index].length = ready.newlength;
+                                cmemlock.memories[ready.geo_index].tlength = ready.newtlength;
+                                cmemlock.memories[ready.geo_index].vlength = ready.newvlength;
+                                cmemlock.memories[ready.geo_index].wvlength = ready.newwvlength;
+                                cmemlock.memories[ready.geo_index].pos = ready.newpos;
+                                cmemlock.memories[ready.geo_index].used = true;
 
-                            //info!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
-                            //info!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
-                            //if num == 0 { num = 1; } else { num = 0; }
-                            //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
-                            // if num == 0 {
-                            //     bankarc.num.store(1, Ordering::Relaxed);
-                            //     num = 1;
-                            // } else {
-                            //     bankarc.num.store(0, Ordering::Relaxed);
-                            //     num = 0;
-                            // };
+                                //info!("Received update to {} {} {} {}", ready.newlength, ready.newtlength, ready.newpos.x, ready.newpos.y);
+                                //info!("New cmemlock values: {} {} {} {} {}", cmemlock.memories[ready.geo_index].length, cmemlock.memories[ready.geo_index].tlength, cmemlock.memories[ready.geo_index].pos.x, cmemlock.memories[ready.geo_index].pos.y, cmemlock.memories[ready.geo_index].used);
+                                //if num == 0 { num = 1; } else { num = 0; }
+                                //bankarc.num.store(num, std::sync::atomic::Ordering::Release);
+                                // if num == 0 {
+                                //     bankarc.num.store(1, Ordering::Relaxed);
+                                //     num = 1;
+                                // } else {
+                                //     bankarc.num.store(0, Ordering::Relaxed);
+                                //     num = 0;
+                                // };
 
-                            let v32 = cmemlock.memories[ready.geo_index].vbo32;
-                            let v8 = cmemlock.memories[ready.geo_index].vbo8;
-                            let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
-                            let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
-                            let vv = cmemlock.memories[ready.geo_index].vvbo;
-                            let uvv = cmemlock.memories[ready.geo_index].uvvbo;
+                                let v32 = cmemlock.memories[ready.geo_index].vbo32;
+                                let v8 = cmemlock.memories[ready.geo_index].vbo8;
+                                let tv32 = cmemlock.memories[ready.geo_index].tvbo32;
+                                let tv8 = cmemlock.memories[ready.geo_index].tvbo8;
+                                let vv = cmemlock.memories[ready.geo_index].vvbo;
+                                let uvv = cmemlock.memories[ready.geo_index].uvvbo;
 
-                            let wvv = cmemlock.memories[ready.geo_index].wvvbo;
-                            let wuvv = cmemlock.memories[ready.geo_index].wuvvbo;
+                                let wvv = cmemlock.memories[ready.geo_index].wvvbo;
+                                let wuvv = cmemlock.memories[ready.geo_index].wuvvbo;
 
-                            let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
-                            let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
+                                let vbo8rgb = cmemlock.memories[ready.geo_index].vbo8rgb;
+                                let tvbo8rgb = cmemlock.memories[ready.geo_index].tvbo8rgb;
 
-                            WorldGeometry::bind_geometry(
-                                v32,
-                                v8,
-                                vbo8rgb,
-                                true,
-                                &self.shader0,
-                                bankarc.solids(),
-                            );
-                            WorldGeometry::bind_geometry(
-                                tv32,
-                                tv8,
-                                tvbo8rgb,
-                                true,
-                                &self.shader0,
-                                bankarc.transparents(),
-                            );
+                                WorldGeometry::bind_geometry(
+                                    v32,
+                                    v8,
+                                    vbo8rgb,
+                                    true,
+                                    &self.shader0,
+                                    bankarc.solids(),
+                                );
+                                WorldGeometry::bind_geometry(
+                                    tv32,
+                                    tv8,
+                                    tvbo8rgb,
+                                    true,
+                                    &self.shader0,
+                                    bankarc.transparents(),
+                                );
 
-                            WorldGeometry::bind_old_geometry(
-                                vv,
-                                uvv,
-                                &bankarc.vdata.lock(),
-                                &bankarc.uvdata.lock(),
-                                &self.oldshader,
-                            );
-                            WorldGeometry::bind_old_geometry(
-                                wvv,
-                                wuvv,
-                                &bankarc.wvdata.lock(),
-                                &bankarc.wuvdata.lock(),
-                                &self.oldshader,
-                            );
-                        }
-                        None => {
-                            userstuff = false;
+                                WorldGeometry::bind_old_geometry(
+                                    vv,
+                                    uvv,
+                                    &bankarc.vdata.lock(),
+                                    &bankarc.uvdata.lock(),
+                                    &self.oldshader,
+                                );
+                                WorldGeometry::bind_old_geometry(
+                                    wvv,
+                                    wuvv,
+                                    &bankarc.wvdata.lock(),
+                                    &bankarc.wuvdata.lock(),
+                                    &self.oldshader,
+                                );
+                            }
+                            None => {
+                                userstuff = false;
+                            }
                         }
                     }
                 }
+                None => {}
             }
-            None => {}
-        }
-
-
         }
 
         let cam_clone = {
             let cam_lock = self.camera.lock();
             cam_lock.clone()
         };
-
 
         static mut C_POS_LOC: i32 = -1;
         static mut MVP_LOC: i32 = 0;
@@ -4777,8 +4696,12 @@ impl Game {
                 );
             }
 
-
-            gl::UniformMatrix4fv(MVP_LOC, 1, gl::FALSE, cam_clone.mvp.to_cols_array().as_ptr());
+            gl::UniformMatrix4fv(
+                MVP_LOC,
+                1,
+                gl::FALSE,
+                cam_clone.mvp.to_cols_array().as_ptr(),
+            );
             gl::Uniform3f(
                 CAM_POS_LOC,
                 cam_clone.position.x,
@@ -4807,8 +4730,6 @@ impl Game {
             );
             let fc = Planets::get_fog_col(self.chunksys.read().planet_type as u32);
             gl::Uniform4f(FOGCOL_LOC, fc.0, fc.1, fc.2, fc.3);
-
-
         }
 
         let cs = self.chunksys.read();
@@ -4948,8 +4869,6 @@ impl Game {
                         );
                     }
 
-                    
-
                     gl::UniformMatrix4fv(
                         MVP_LOC,
                         1,
@@ -5012,7 +4931,6 @@ impl Game {
                     //     fc.2,
                     //     fc.3
                     // );
-
                 }
 
                 unsafe {
@@ -5021,6 +4939,16 @@ impl Game {
                             self.oldshader.shader_id,
                             b"renderingweather\0".as_ptr() as *const i8,
                         ),
+                        0.0,
+                    );
+
+                    gl::Uniform3f(
+                        gl::GetUniformLocation(
+                            self.oldshader.shader_id,
+                            b"transformpos\0".as_ptr() as *const i8,
+                        ),
+                        0.0,
+                        0.0,
                         0.0,
                     );
                 }
@@ -5045,6 +4973,15 @@ impl Game {
                         &self.oldshader,
                     );
                     unsafe {
+                        gl::Uniform3f(
+                            gl::GetUniformLocation(
+                                self.oldshader.shader_id,
+                                b"transformpos\0".as_ptr() as *const i8,
+                            ),
+                            0.0,
+                            0.0,
+                            0.0,
+                        );
                         gl::Uniform1f(
                             gl::GetUniformLocation(
                                 self.oldshader.shader_id,
@@ -5087,8 +5024,6 @@ impl Game {
         let handle = thread::spawn(move || {
             Game::chunk_thread_function(&rctarc, carc, csysarc);
         });
-
-
 
         self.chunk_thread = Some(handle);
 
@@ -5248,17 +5183,8 @@ impl Game {
         csys_arc: &Arc<RwLock<ChunkSystem>>,
         last_user_c_pos: &mut vec::IVec2,
     ) {
-
-
         //info!("Starting over the CTIF");
         let _rng = StdRng::from_entropy();
-
-
-
-        
-
-
-
 
         // let mut lightcheckstuff = true;
 
@@ -5380,27 +5306,30 @@ impl Game {
 
         let mut backgroundstuff = true;
         while backgroundstuff {
-            
-
             unsafe {
                 match AUTOMATA_QUEUED_CHANGES.pop() {
                     Some(comm) => {
                         println!("Poppin one");
-                                let csys_arc = csys_arc.read();
+                        let csys_arc = csys_arc.read();
 
-                                if (csys_arc.blockat(comm.spot) & Blocks::block_id_bits()) == comm.expectedhere {
-    
-                                    println!("Settin");
-                                    csys_arc.set_block(comm.spot, comm.changeto, false);
-                                    csys_arc.queue_rerender_with_key(ChunkSystem::spot_to_chunk_pos(&comm.spot), false, false);
-                                    //csys_arc.rebuild_index(comm.geo_index, false, false);
-                                } else {
-                                    println!("Expected {} here but its {} for this change", comm.expectedhere, (csys_arc.blockat(comm.spot) & Blocks::block_id_bits()) );
-                                }
-
-                   
-    
-    
+                        if (csys_arc.blockat(comm.spot) & Blocks::block_id_bits())
+                            == comm.expectedhere
+                        {
+                            println!("Settin");
+                            csys_arc.set_block(comm.spot, comm.changeto, false);
+                            csys_arc.queue_rerender_with_key(
+                                ChunkSystem::spot_to_chunk_pos(&comm.spot),
+                                false,
+                                false,
+                            );
+                            //csys_arc.rebuild_index(comm.geo_index, false, false);
+                        } else {
+                            println!(
+                                "Expected {} here but its {} for this change",
+                                comm.expectedhere,
+                                (csys_arc.blockat(comm.spot) & Blocks::block_id_bits())
+                            );
+                        }
                     }
                     None => {}
                 }
@@ -5496,7 +5425,6 @@ impl Game {
 
                 for i in -(radius as i32)..(radius as i32) {
                     for k in -(radius as i32)..(radius as i32) {
-
                         let csys_arc = csys_arc.read();
 
                         let tcarc = csys_arc.takencare.clone();
@@ -5523,7 +5451,6 @@ impl Game {
                         }
                     }
                 }
-                    
 
                 let (unused_or_distant, used_and_close): (Vec<ChunkFacade>, Vec<ChunkFacade>) =
                     sorted_chunk_facades.drain(..).partition(|chunk| {
@@ -5549,7 +5476,7 @@ impl Game {
                 for (index, ns) in neededspots.iter().enumerate() {
                     let csys_arc = csys_arc.read();
                     csys_arc.move_and_rebuild(sorted_chunk_facades[index].geo_index, *ns);
-                    
+
                     match csys_arc.user_rebuild_requests.pop() {
                         Some(index) => {
                             csys_arc.rebuild_index(index, true, false);
@@ -5602,8 +5529,7 @@ impl Game {
                     }
                 }
             }
-            
-            
+
             Game::chunk_thread_inner_function(&cam_arc, &csys_arc, &mut last_user_c_pos);
         }
     }
@@ -5630,7 +5556,7 @@ impl Game {
                 static mut LASTCAM: Lazy<Camera> = Lazy::new(|| Camera::default());
 
                 let mut cam_clone = {
-                    let c =  self.camera.lock();
+                    let c = self.camera.lock();
                     c.clone()
                 };
 
@@ -5639,8 +5565,8 @@ impl Game {
 
                 cam_clone.pitch = cam_clone.pitch.clamp(-89.0, 89.0);
 
-                cam_clone.direction.x =
-                    cam_clone.yaw.to_radians().cos() as f32 * cam_clone.pitch.to_radians().cos() as f32;
+                cam_clone.direction.x = cam_clone.yaw.to_radians().cos() as f32
+                    * cam_clone.pitch.to_radians().cos() as f32;
                 cam_clone.direction.y = cam_clone.pitch.to_radians().sin();
                 cam_clone.direction.z =
                     cam_clone.yaw.to_radians().sin() * cam_clone.pitch.to_radians().cos();
@@ -5654,7 +5580,7 @@ impl Game {
                 cam_clone.recalculate();
 
                 {
-                    let mut c =  self.camera.lock();
+                    let mut c = self.camera.lock();
                     (*c) = cam_clone;
                 }
 
@@ -5704,7 +5630,6 @@ impl Game {
         }
     }
     pub fn cast_break_ray(&mut self) {
-        
         let cl = {
             let cl = self.camera.lock();
             cl.clone()
@@ -5725,7 +5650,6 @@ impl Game {
                     for key in set {
                         self.chunksys
                             .read()
-
                             .queue_rerender_with_key(key, true, false);
                     }
                     #[cfg(feature = "glfw")]
@@ -5756,7 +5680,6 @@ impl Game {
                         self.chunksys.read().set_block(block_hit, 0, true);
                         self.chunksys
                             .read()
-                        
                             .set_block_and_queue_rerender(other_half, 0, true, true, false);
                     }
                 } else {
@@ -5777,7 +5700,6 @@ impl Game {
                     } else {
                         self.chunksys
                             .read()
-                        
                             .set_block_and_queue_rerender(block_hit, 0, true, true, false);
                     }
                 }
@@ -5796,12 +5718,348 @@ impl Game {
         }
         let mut proposednewslot = self.hud.bumped_slot as i8 + invrowchange;
         if proposednewslot < 0 {
-            proposednewslot = ROWLENGTH as i8-1;
+            proposednewslot = ROWLENGTH as i8 - 1;
         }
         self.hud.bumped_slot = proposednewslot as usize % ROWLENGTH as usize;
         self.hud.dirty = true;
         self.hud.update();
     }
+
+    #[cfg(feature = "glfw")]
+    pub fn draw_user_build_preview(
+        spot: &IVec3,
+        vox: &JVoxModel,
+        oldshader: &Shader,
+        cam_clone: &Camera,
+        amb_bm: f32,
+        walkbobt: f32,
+        texture: &Texture,
+    ) {
+        use crate::{
+            chunk::ChW,
+            specialblocks::{
+                chest::*, conveyor::*, crafttable::*, door::*, ladder::*, tallgrass::*, torch::*,
+            },
+            textureface::ONE_OVER_16,
+        };
+
+        unsafe {
+            use glam::{I16Vec3, U16Vec3};
+
+            use crate::{
+                cube::CubeSide, packedvertex::PackedVertex,
+                specialblocks::crafttable::CraftTableInfo,
+            };
+
+            if UBP_VAO == 0 {
+                gl::GenVertexArrays(1, &mut UBP_VAO);
+
+                gl::BindVertexArray(UBP_VAO);
+                texture.add_to_unit(0);
+
+                gl::CreateBuffers(1, &mut UBP_VBO);
+                gl::CreateBuffers(1, &mut UBP_UVBO);
+            }
+
+            gl::BindVertexArray(UBP_VAO);
+
+            gl::UseProgram(oldshader.shader_id);
+
+            static mut LAST_MOD_IND: i32 = -99;
+
+            if LAST_MOD_IND != vox.idnumber {
+                println!("Lastmodind {LAST_MOD_IND} is not equal to {}", vox.idnumber);
+
+                //UBP_UVDATA.clear();
+                //UBP_VDATA.clear();
+
+                for i in &vox.model.models {
+                    let size = i.size;
+                    for v in &i.voxels {
+                        let rearr_point = IVec3::new(
+                            v.point.x as i32 - (size.x / 2) as i32,
+                            v.point.z as i32,
+                            v.point.y as i32 - (size.y / 2) as i32,
+                        );
+                        println!("{:?}", rearr_point);
+
+                        let doorbottomuvs = DoorInfo::get_door_uvs(TextureFace::new(11, 0));
+                        let doortopuvs = DoorInfo::get_door_uvs(TextureFace::new(11, 1));
+
+                        //let spot = rearr_point + *spot;
+                        let combined = v.color_index.0 as u32; //self.blockatmemo(spot, &mut memo);
+                        let block = combined & Blocks::block_id_bits();
+                        let flags = combined & Blocks::block_flag_bits();
+
+                        if block != 0 {
+                            let isgrass = if block == 3 { 1u8 } else { 0u8 };
+
+                            {
+                                let blocklighthere = U16Vec3::new(5, 5, 5);
+
+                                let texcoord = Blocks::get_tex_coords(block, CubeSide::LEFT);
+
+                                let blocklighthere = U16Vec3::new(5, 5, 5);
+
+                                let packedrgb = PackedVertex::pack_rgb(
+                                    blocklighthere.x,
+                                    blocklighthere.y,
+                                    blocklighthere.z,
+                                );
+
+                                let prgb: u32 =
+                                    0b0000_0000_0000_0000_0000_0000_0000_0000 | (packedrgb) as u32;
+
+                                for vert in [
+                                    0.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 0.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 1.0 +rearr_point.z as f32, 0.0, 14.0,
+0.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+1.0 +rearr_point.x as f32, 1.0 +rearr_point.y as f32, 0.0 +rearr_point.z as f32, 0.0, 14.0,
+
+                                ].chunks(5)
+                                {
+                                    UBP_VDATA.extend_from_slice(&[
+                                        vert[0] as f32,
+                                        vert[1] as f32,
+                                        vert[2] as f32,
+                                        f32::from_bits(prgb),
+                                        vert[4],
+                                    ])
+                                }
+                                let tc = Vec2::new(
+                                    texcoord.0 as f32 * ONE_OVER_16,
+                                    (texcoord.1 as f32 * ONE_OVER_16),
+                                );
+                                UBP_UVDATA.extend_from_slice(&[
+                                    0.032546114176511765+tc.x, 0.999256021110341+tc.y, 0.0, 0.0,
+                            -0.00038831273559480906+tc.x, 0.966321587562561+tc.y, 0.0, 0.0,
+                            -0.00038831273559480906+tc.x, 0.999256021110341+tc.y, 0.0, 0.0,
+                            0.032546114176511765+tc.x, 0.9995140247046947+tc.y, 0.0, 0.0,
+                            -0.00038831273559480906+tc.x, 0.9665796048939228+tc.y, 0.0, 0.0,
+                            -0.00038831273559480906+tc.x, 0.9995140247046947+tc.y, 0.0, 0.0,
+                            0.03291086480021477+tc.x, 0.9997720420360565+tc.y, 0.0, 0.0,
+                            -2.3560685804113746e-05+tc.x, 0.9668375849723816+tc.y, 0.0, 0.0,
+                            -2.3560685804113746e-05+tc.x, 0.9997720420360565+tc.y, 0.0, 0.0,
+                            0.03291086480021477+tc.x, 1.000030018389225+tc.y, 0.0, 0.0,
+                            -2.3560685804113746e-05+tc.x, 0.9670955687761307+tc.y, 0.0, 0.0,
+                            -2.3560685804113746e-05+tc.x, 1.000030018389225+tc.y, 0.0, 0.0,
+                            0.03280412033200264+tc.x, 0.9994072914123535+tc.y, 0.0, 0.0,
+                            -0.0001303069293498993+tc.x, 0.9664728343486786+tc.y, 0.0, 0.0,
+                            -0.0001303069293498993+tc.x, 0.9994072914123535+tc.y, 0.0, 0.0,
+                            0.033017635345458984+tc.x, 0.9997720406099688+tc.y, 0.0, 0.0,
+                            8.318200707435608e-05+tc.x, 0.9668375849723816+tc.y, 0.0, 0.0,
+                            8.318200707435608e-05+tc.x, 0.9997720406099688+tc.y, 0.0, 0.0,
+                            0.032546114176511765+tc.x, 0.999256021110341+tc.y, 0.0, 0.0,
+                            0.032546114176511765+tc.x, 0.966321587562561+tc.y, 0.0, 0.0,
+                            -0.00038831273559480906+tc.x, 0.966321587562561+tc.y, 0.0, 0.0,
+                            0.032546114176511765+tc.x, 0.9995140247046947+tc.y, 0.0, 0.0,
+                            0.032546114176511765+tc.x, 0.9665796048939228+tc.y, 0.0, 0.0,
+                            -0.00038831273559480906+tc.x, 0.9665796048939228+tc.y, 0.0, 0.0,
+                            0.03291086480021477+tc.x, 0.9997720420360565+tc.y, 0.0, 0.0,
+                            0.03291086480021477+tc.x, 0.9668375849723816+tc.y, 0.0, 0.0,
+                            -2.3560685804113746e-05+tc.x, 0.9668375849723816+tc.y, 0.0, 0.0,
+                            0.03291086480021477+tc.x, 1.000030018389225+tc.y, 0.0, 0.0,
+                            0.03291086480021477+tc.x, 0.9670955687761307+tc.y, 0.0, 0.0,
+                            -2.3560685804113746e-05+tc.x, 0.9670955687761307+tc.y, 0.0, 0.0,
+                            0.03280412033200264+tc.x, 0.9994072914123535+tc.y, 0.0, 0.0,
+                            0.03280412033200264+tc.x, 0.9664728343486786+tc.y, 0.0, 0.0,
+                            -0.0001303069293498993+tc.x, 0.9664728343486786+tc.y, 0.0, 0.0,
+                            0.033017635345458984+tc.x, 0.9997720406099688+tc.y, 0.0, 0.0,
+                            0.033017635345458984+tc.x, 0.9668375849723816+tc.y, 0.0, 0.0,
+                            8.318200707435608e-05+tc.x, 0.9668375849723816+tc.y, 0.0, 0.0,
+
+                                ]);
+                            }
+                        }
+                    }
+                }
+
+                LAST_MOD_IND = vox.idnumber;
+
+                WorldGeometry::bind_old_geometry_diff_vao(
+                    UBP_VBO,
+                    UBP_UVBO,
+                    &UBP_VDATA,
+                    &UBP_UVDATA,
+                    &oldshader,
+                    UBP_VAO
+                );
+            } else {
+                //WorldGeometry::bind_old_geometry_no_upload(UBP_VBO, UBP_UVBO, &oldshader);
+                //WorldGeometry::bind_old_geometry(UBP_VBO, UBP_UVBO, &UBP_VDATA, &UBP_UVDATA, &oldshader);
+            }
+
+            static mut MVP_LOC: i32 = -1;
+            static mut CAM_POS_LOC: i32 = 0;
+            static mut AMBIENT_BRIGHT_MULT_LOC: i32 = 0;
+            static mut VIEW_DISTANCE_LOC: i32 = 0;
+            static mut UNDERWATER_LOC: i32 = 0;
+            static mut CAM_DIR_LOC: i32 = 0;
+            static mut SUNSET_LOC: i32 = 0;
+            static mut SUNRISE_LOC: i32 = 0;
+            static mut WALKBOB_LOC: i32 = 0;
+            unsafe {
+                if MVP_LOC == -1 {
+                    MVP_LOC =
+                        gl::GetUniformLocation(oldshader.shader_id, b"mvp\0".as_ptr() as *const i8);
+                    //info!("MVP LOC: {}", MVP_LOC);
+
+                    WALKBOB_LOC = gl::GetUniformLocation(
+                        oldshader.shader_id,
+                        b"walkbob\0".as_ptr() as *const i8,
+                    );
+
+                    CAM_POS_LOC = gl::GetUniformLocation(
+                        oldshader.shader_id,
+                        b"camPos\0".as_ptr() as *const i8,
+                    );
+                    AMBIENT_BRIGHT_MULT_LOC = gl::GetUniformLocation(
+                        oldshader.shader_id,
+                        b"ambientBrightMult\0".as_ptr() as *const i8,
+                    );
+                    VIEW_DISTANCE_LOC = gl::GetUniformLocation(
+                        oldshader.shader_id,
+                        b"viewDistance\0".as_ptr() as *const i8,
+                    );
+                    UNDERWATER_LOC = gl::GetUniformLocation(
+                        oldshader.shader_id,
+                        b"underWater\0".as_ptr() as *const i8,
+                    );
+                    CAM_DIR_LOC = gl::GetUniformLocation(
+                        oldshader.shader_id,
+                        b"camDir\0".as_ptr() as *const i8,
+                    );
+                    SUNSET_LOC = gl::GetUniformLocation(
+                        oldshader.shader_id,
+                        b"sunset\0".as_ptr() as *const i8,
+                    );
+                    SUNRISE_LOC = gl::GetUniformLocation(
+                        oldshader.shader_id,
+                        b"sunrise\0".as_ptr() as *const i8,
+                    );
+                }
+
+                gl::UniformMatrix4fv(
+                    MVP_LOC,
+                    1,
+                    gl::FALSE,
+                    cam_clone.mvp.to_cols_array().as_ptr(),
+                );
+                gl::Uniform3f(
+                    CAM_POS_LOC,
+                    cam_clone.position.x,
+                    cam_clone.position.y,
+                    cam_clone.position.z,
+                );
+                gl::Uniform1f(AMBIENT_BRIGHT_MULT_LOC, amb_bm);
+                gl::Uniform1f(VIEW_DISTANCE_LOC, 8.0);
+                gl::Uniform1f(UNDERWATER_LOC, 0.0);
+                gl::Uniform3f(
+                    CAM_DIR_LOC,
+                    cam_clone.direction.x,
+                    cam_clone.direction.y,
+                    cam_clone.direction.z,
+                );
+
+                gl::Uniform1f(
+                    gl::GetUniformLocation(oldshader.shader_id, b"time\0".as_ptr() as *const i8),
+                    glfwGetTime() as f32,
+                );
+                gl::Uniform1f(
+                    gl::GetUniformLocation(
+                        oldshader.shader_id,
+                        b"weathertype\0".as_ptr() as *const i8,
+                    ),
+                    WEATHERTYPE,
+                );
+
+                gl::Uniform1f(SUNSET_LOC, 0.0);
+                gl::Uniform1f(WALKBOB_LOC, walkbobt);
+                gl::Uniform1f(SUNRISE_LOC, 0.0);
+                gl::Uniform1i(
+                    gl::GetUniformLocation(
+                        oldshader.shader_id,
+                        b"ourTexture\0".as_ptr() as *const i8,
+                    ),
+                    0,
+                );
+                gl::Uniform1i(
+                    gl::GetUniformLocation(
+                        oldshader.shader_id,
+                        b"weatherTexture\0".as_ptr() as *const i8,
+                    ),
+                    2,
+                );
+
+                // let fc = Planets::get_fog_col(self.chunksys.read().planet_type as u32);
+                // gl::Uniform4f(
+                //     FOGCOL_LOC,
+                //     fc.0,
+                //     fc.1,
+                //     fc.2,
+                //     fc.3
+                // );
+            }
+
+            unsafe {
+                gl::Uniform1f(
+                    gl::GetUniformLocation(
+                        oldshader.shader_id,
+                        b"renderingweather\0".as_ptr() as *const i8,
+                    ),
+                    0.0,
+                );
+            }
+
+            gl::Uniform3f(
+                gl::GetUniformLocation(
+                    oldshader.shader_id,
+                    b"transformpos\0".as_ptr() as *const i8,
+                ),
+                spot.x as f32,
+                spot.y as f32 + 1.0,
+                spot.z as f32,
+            );
+
+            //println!("UVDATALEN: {}", UBP_VDATA.len() as f32 / 5.0);
+
+            gl::DrawArrays(gl::TRIANGLES, 0, (*UBP_VDATA).len() as i32 / 5);
+
+        }
+    }
+
     #[cfg(feature = "glfw")]
     pub fn cast_place_ray(&mut self) {
         let slot_selected = self.hud.bumped_slot;
@@ -5856,17 +6114,15 @@ impl Game {
                             message.otherpos = otherhalf;
                             self.netconn.send(&message);
                         } else {
-                            self.chunksys.write().set_block(
-                                otherhalf,
-                                otherhalfbits,
-                                true,
-                            );
+                            self.chunksys
+                                .write()
+                                .set_block(otherhalf, otherhalfbits, true);
                             self.chunksys.write().set_block_and_queue_rerender(
                                 block_hit,
                                 blockbitshere,
                                 true,
                                 true,
-                                true
+                                true,
                             );
                         }
                     } else if blockidhere == 21 {
@@ -5884,7 +6140,6 @@ impl Game {
 
                         self.window
                             .write()
-                           
                             .set_cursor_mode(glfw::CursorMode::Normal);
                         openedcraft = true;
                     } else if slot.0 != 0 && slot.1 > 0 {
@@ -5922,7 +6177,6 @@ impl Game {
                             id, place_point.x, place_point.y, place_point.z
                         );
 
-
                         //Don't allow placing blocks where solid blocks or the player are
                         let blockbitsatplacepoint = self.chunksys.read().blockat(place_point);
                         let blockidatplacepoint = blockbitsatplacepoint & Blocks::block_id_bits();
@@ -5931,12 +6185,17 @@ impl Game {
                             return ();
                         }
 
-                        let camblockspot = IVec3::new(cl.position.x.floor() as i32, cl.position.y.round() as i32, cl.position.z.floor() as i32);
+                        let camblockspot = IVec3::new(
+                            cl.position.x.floor() as i32,
+                            cl.position.y.round() as i32,
+                            cl.position.z.floor() as i32,
+                        );
 
-                        if place_point ==  camblockspot || place_point == camblockspot - IVec3::new(0, 1, 0){
+                        if place_point == camblockspot
+                            || place_point == camblockspot - IVec3::new(0, 1, 0)
+                        {
                             return ();
                         }
-                        
 
                         if id == 19 {
                             //Door shit
@@ -6031,26 +6290,20 @@ impl Game {
 
                                             self.netconn.send(&message);
                                         } else {
-                                            self.chunksys
-                                                .read()
-                                            
-                                                .set_block_and_queue_rerender(
-                                                    right,
-                                                    blockbitsright,
-                                                    false,
-                                                    true,
-                                                    true
-                                                );
-                                            self.chunksys
-                                                .read()
-                                            
-                                                .set_block_and_queue_rerender(
-                                                    rightup,
-                                                    neightopbits,
-                                                    false,
-                                                    true,
-                                                    true
-                                                );
+                                            self.chunksys.read().set_block_and_queue_rerender(
+                                                right,
+                                                blockbitsright,
+                                                false,
+                                                true,
+                                                true,
+                                            );
+                                            self.chunksys.read().set_block_and_queue_rerender(
+                                                rightup,
+                                                neightopbits,
+                                                false,
+                                                true,
+                                                true,
+                                            );
                                         }
                                     }
                                 }
@@ -6091,26 +6344,20 @@ impl Game {
 
                                             self.netconn.send(&message);
                                         } else {
-                                            self.chunksys
-                                                .read()
-                                               
-                                                .set_block_and_queue_rerender(
-                                                    left,
-                                                    blockbitsleft,
-                                                    false,
-                                                    true,
-                                                    true
-                                                );
-                                            self.chunksys
-                                                .read()
-                                             
-                                                .set_block_and_queue_rerender(
-                                                    leftup,
-                                                    neightopbits,
-                                                    false,
-                                                    true,
-                                                    true
-                                                );
+                                            self.chunksys.read().set_block_and_queue_rerender(
+                                                left,
+                                                blockbitsleft,
+                                                false,
+                                                true,
+                                                true,
+                                            );
+                                            self.chunksys.read().set_block_and_queue_rerender(
+                                                leftup,
+                                                neightopbits,
+                                                false,
+                                                true,
+                                                true,
+                                            );
                                         }
                                     }
                                 }
@@ -6137,14 +6384,14 @@ impl Game {
                                         bottom_id,
                                         false,
                                         true,
-                                        true
+                                        true,
                                     );
                                     self.chunksys.read().set_block_and_queue_rerender(
                                         place_above,
                                         top_id,
                                         false,
                                         true,
-                                        true
+                                        true,
                                     );
                                 }
                             }
@@ -6185,7 +6432,7 @@ impl Game {
                                     conveyor_id,
                                     false,
                                     true,
-                                    false
+                                    false,
                                 );
                             }
                         } else if id == 20 {
@@ -6225,7 +6472,7 @@ impl Game {
                                     ladder_id,
                                     false,
                                     true,
-                                    false
+                                    false,
                                 );
                             }
                         } else if id == 21 {
@@ -6265,7 +6512,7 @@ impl Game {
                                     chest_id,
                                     false,
                                     true,
-                                    false
+                                    false,
                                 );
                             }
                         } else {
@@ -6288,17 +6535,15 @@ impl Game {
                                         id,
                                         false,
                                         true,
-                                        false
+                                        false,
                                     );
                                 }
                             }
                         }
                         if !Blocks::is_non_placeable(slot.0) {
-                            
                             if self.vars.in_multiplayer {
                                 if slot.1 == 1 {
-                                    let mutslot =
-                                        &mut self.inventory.write().inv[slot_selected];
+                                    let mutslot = &mut self.inventory.write().inv[slot_selected];
                                     mutslot.1 = 0;
                                     mutslot.0 = 0;
 
@@ -6328,13 +6573,11 @@ impl Game {
                                 }
                             } else {
                                 if slot.1 == 1 {
-                                    let mutslot =
-                                        &mut self.inventory.write().inv[slot_selected];
+                                    let mutslot = &mut self.inventory.write().inv[slot_selected];
                                     mutslot.1 = 0;
                                     mutslot.0 = 0;
                                 } else {
-                                    let mutslot =
-                                        &mut self.inventory.write().inv[slot_selected];
+                                    let mutslot = &mut self.inventory.write().inv[slot_selected];
                                     mutslot.1 -= 1;
                                 }
                             }
@@ -6404,7 +6647,6 @@ impl Game {
                 }
             }
         } else {
-            
         }
 
         if updateinv {
@@ -6413,7 +6655,6 @@ impl Game {
 
             self.window
                 .write()
-           
                 .set_cursor_mode(glfw::CursorMode::Normal);
             self.set_mouse_focused(false);
         }
@@ -6424,10 +6665,14 @@ impl Game {
     }
     #[cfg(feature = "glfw")]
     pub fn mouse_button(&mut self, mb: MouseButton, a: Action) {
-
-
         if self.hud.chest_open {
-            match unsafe { MISCSETTINGS.mousebinds.get(&format!("{:?}", mb)).unwrap_or(&"_".to_string()).as_str() } {
+            match unsafe {
+                MISCSETTINGS
+                    .mousebinds
+                    .get(&format!("{:?}", mb))
+                    .unwrap_or(&"_".to_string())
+                    .as_str()
+            } {
                 "Break/Attack" => {
                     //self.vars.mouse_clicked = a == Action::Press;
 
@@ -6463,7 +6708,7 @@ impl Game {
                                                         msg.info2 = /*0 = CHEST, 1 = INV, 2 = NONE */0;
                                                         msg.infof =
                                                             (slot.1 + self.mouse_slot.1) as f32;
-                                                            msg.bo = false;
+                                                        msg.bo = false;
                                                         self.netconn.send(&msg);
                                                     } else {
                                                         slot.1 = slot.1 + self.mouse_slot.1;
@@ -6512,8 +6757,7 @@ impl Game {
                                         }
                                     }
                                     SlotIndexType::InvSlot(e) => {
-                                        let slot =
-                                            &mut self.inventory.write().inv[e as usize];
+                                        let slot = &mut self.inventory.write().inv[e as usize];
 
                                         //IF This slot has an item id the same as our mouse slot
                                         if slot.0 == self.mouse_slot.0 {
@@ -6600,7 +6844,13 @@ impl Game {
                 _ => {}
             }
         } else {
-            match unsafe { MISCSETTINGS.mousebinds.get(&format!("{:?}", mb)).unwrap_or(&"_".to_string()).as_str() } {
+            match unsafe {
+                MISCSETTINGS
+                    .mousebinds
+                    .get(&format!("{:?}", mb))
+                    .unwrap_or(&"_".to_string())
+                    .as_str()
+            } {
                 "Break/Attack" => {
                     self.vars.mouse_clicked = a == Action::Press;
                     // if self.vars.mouse_clicked {
@@ -6634,8 +6884,7 @@ impl Game {
                 thread::sleep(Duration::from_millis(500));
             }
 
-
-            let currseed = unsafe {CURRSEED.load(std::sync::atomic::Ordering::Relaxed)};
+            let currseed = unsafe { CURRSEED.load(std::sync::atomic::Ordering::Relaxed) };
             let nt = 0;
 
             self.vars.hostile_world = (nt % 2) != 0;
@@ -6653,13 +6902,10 @@ impl Game {
             unsafe {
                 self.vars.hostile_world = (CURR_NT % 2) == 0;
                 CURR_NT = (CURR_NT + 1) % 2;
-                unsafe {CURRSEED.store(seed, Ordering::Relaxed)};
+                unsafe { CURRSEED.store(seed, Ordering::Relaxed) };
                 self.start_chunks_with_radius(10, seed, CURR_NT);
 
-                info!(
-                    "Now noise type is {}",
-                    self.chunksys.read().planet_type
-                );
+                info!("Now noise type is {}", self.chunksys.read().planet_type);
             }
         }
 
@@ -6675,206 +6921,203 @@ impl Game {
         use crate::keybinds::{ABOUTTOREBIND, LISTENINGFORREBIND};
 
         {
-        match unsafe { MISCSETTINGS.keybinds.get(&key.get_scancode().unwrap_or(0)).unwrap_or(&"_".to_string()).as_str() } {
-            "Exit/Menu" => {
-                if action == Action::Press {
-                    if !self.vars.menu_open && !self.hud.chest_open && !self.crafting_open {
-                        self.button_command("escapemenu".to_string());
+            match unsafe {
+                MISCSETTINGS
+                    .keybinds
+                    .get(&key.get_scancode().unwrap_or(0))
+                    .unwrap_or(&"_".to_string())
+                    .as_str()
+            } {
+                "Exit/Menu" => {
+                    if action == Action::Press {
+                        if !self.vars.menu_open && !self.hud.chest_open && !self.crafting_open {
+                            self.button_command("escapemenu".to_string());
+                        } else {
+                            self.vars.menu_open = false;
+                            self.window
+                                .write()
+                                .set_cursor_mode(glfw::CursorMode::Disabled);
+                            self.set_mouse_focused(true);
+                            unsafe {
+                                uncapkb.store(true, Ordering::Relaxed);
+                            }
+                        }
+
+                        if self.crafting_open {
+                            self.crafting_open = false;
+                            self.window
+                                .write()
+                                .set_cursor_mode(glfw::CursorMode::Disabled);
+                            self.set_mouse_focused(true);
+                            unsafe {
+                                uncapkb.store(true, Ordering::Relaxed);
+                            }
+                        }
+
+                        if self.hud.chest_open {
+                            self.hud.chest_open = false;
+                            self.window
+                                .write()
+                                .set_cursor_mode(glfw::CursorMode::Disabled);
+                            self.set_mouse_focused(true);
+                            unsafe {
+                                uncapkb.store(true, Ordering::Relaxed);
+                            }
+                        }
+                    }
+                }
+                "Forward" => {
+                    if action == Action::Press || action == Action::Repeat {
+                        self.controls.forward = true;
                     } else {
-                        self.vars.menu_open = false;
+                        self.controls.forward = false;
+                    }
+                }
+                "Left" => {
+                    if action == Action::Press || action == Action::Repeat {
+                        self.controls.left = true;
+                    } else {
+                        self.controls.left = false;
+                    }
+                }
+                "Craft" => {
+                    if action == Action::Press {
+                        unsafe {
+                            ATSMALLTABLE = true;
+                        }
+                        Game::update_avail_recipes(&self.inventory);
+                        self.crafting_open = true;
+
                         self.window
                             .write()
-                         
-                            .set_cursor_mode(glfw::CursorMode::Disabled);
-                        self.set_mouse_focused(true);
-                        unsafe {
-                            uncapkb.store(true, Ordering::Relaxed);
-                        }
-                    }
-
-                    if self.crafting_open {
-                        self.crafting_open = false;
-                        self.window
-                            .write()
-                         
-                            .set_cursor_mode(glfw::CursorMode::Disabled);
-                        self.set_mouse_focused(true);
-                        unsafe {
-                            uncapkb.store(true, Ordering::Relaxed);
-                        }
-                    }
-
-                    if self.hud.chest_open {
-                        self.hud.chest_open = false;
-                        self.window
-                            .write()
-                         
-                            .set_cursor_mode(glfw::CursorMode::Disabled);
-                        self.set_mouse_focused(true);
-                        unsafe {
-                            uncapkb.store(true, Ordering::Relaxed);
-                        }
+                            .set_cursor_mode(glfw::CursorMode::Normal);
+                        self.set_mouse_focused(false);
+                    } else {
                     }
                 }
-            }
-            "Forward" => {
-                if action == Action::Press || action == Action::Repeat {
-                    self.controls.forward = true;
-                } else {
-                    self.controls.forward = false;
-                }
-            }
-            "Left" => {
-                if action == Action::Press || action == Action::Repeat {
-                    self.controls.left = true;
-                } else {
-                    self.controls.left = false;
-                }
-            }
-            "Craft" => {
-                if action == Action::Press {
-                    unsafe {
-                        ATSMALLTABLE = true;
+                "Backward" => {
+                    if action == Action::Press || action == Action::Repeat {
+                        self.controls.back = true;
+                    } else {
+                        self.controls.back = false;
                     }
-                    Game::update_avail_recipes(&self.inventory);
-                    self.crafting_open = true;
-
-                    self.window
-                        .write()
-                       
-                        .set_cursor_mode(glfw::CursorMode::Normal);
-                    self.set_mouse_focused(false);
-                } else {
                 }
-            }
-            "Backward" => {
-                if action == Action::Press || action == Action::Repeat {
-                    self.controls.back = true;
-                } else {
-                    self.controls.back = false;
+                "Right" => {
+                    if action == Action::Press || action == Action::Repeat {
+                        self.controls.right = true;
+                    } else {
+                        self.controls.right = false;
+                    }
                 }
-            }
-            "Right" => {
-                if action == Action::Press || action == Action::Repeat {
-                    self.controls.right = true;
-                } else {
-                    self.controls.right = false;
+                "Jump/Swim/Climb Up" => {
+                    if action == Action::Press || action == Action::Repeat {
+                        self.controls.up = true;
+                    } else {
+                        self.controls.up = false;
+                    }
                 }
-            }
-            "Jump/Swim/Climb Up" => {
-                if action == Action::Press || action == Action::Repeat {
-                    self.controls.up = true;
-                } else {
-                    self.controls.up = false;
+                "Sprint" => {
+                    if action == Action::Press || action == Action::Repeat {
+                        self.controls.shift = true;
+                    } else {
+                        self.controls.shift = false;
+                    }
                 }
-            }
-            "Sprint" => {
-                if action == Action::Press || action == Action::Repeat {
-                    self.controls.shift = true;
-                } else {
-                    self.controls.shift = false;
+                "Crouch" => unsafe {
+                    if action == Action::Press || action == Action::Repeat {
+                        CROUCHING = true;
+                    } else {
+                        CROUCHING = false;
+                    }
+                },
+
+                // Key::H => {
+                //     if action == Action::Press || action == Action::Repeat {
+                //         unsafe {
+                //             GLCHUNKS = !GLCHUNKS;
+                //         }
+                //     }
+                // }
+                // Key::M => {
+                //     if action == Action::Press {
+                //         unsafe { WEATHERTYPE = WEATHERTYPE + 1.0 };
+                //         if unsafe { WEATHERTYPE } > 2.0 {
+                //             unsafe { WEATHERTYPE = 0.0 };
+                //         }
+                //     }
+                // }
+                // Key::M => {
+                //     if action == Action::Press {
+                //         if self.vars.in_multiplayer {
+                //             self.netconn.send(&Message::new(MessageType::RequestTakeoff, Vec3::ZERO, 0.0, 0));
+                //         } else {
+                //             self.takeoff_ship();
+                //         }
+
+                //     }
+                // }
+                // Key::L => {
+                //     if action == Action::Press {
+                //         self.chunksys.read().save_current_world_to_file(String::from("saves/world1"));
+                //     }
+                // }
+                // Key::Num8 => {
+                //     self.vars.ship_going_down = false;
+                //     self.vars.ship_going_up = false;
+                // }
+                // Key::Num0 => {
+                //     self.vars.ship_going_down = true;
+                //     self.vars.ship_going_up = false;
+
+                // }
+                // Key::Num9 => {
+                //     self.vars.ship_going_down = false;
+                //     self.vars.ship_going_up = true;
+                // }
+                // Key::B => {
+                //     if self.vars.near_ship {
+                //         let mut camlock = self.camera.lock();
+                //         camlock.position = self.ship_pos + Vec3::new(5.0, 2.0, 0.0);
+                //     }
+                // }
+                "Fov Up" => {
+                    self.faders.write()[FaderNames::FovFader as usize].up();
+                    self.faders.write()[FaderNames::FovFader as usize].top += 1.0;
+                    self.faders.write()[FaderNames::FovFader as usize].bottom += 1.0;
                 }
-            }
-            "Crouch" => unsafe {
-                if action == Action::Press || action == Action::Repeat {
-                    CROUCHING = true;
-                } else {
-                    CROUCHING = false;
+                "Fov Down" => {
+                    self.faders.write()[FaderNames::FovFader as usize].down();
+                    self.faders.write()[FaderNames::FovFader as usize].top -= 1.0;
+                    self.faders.write()[FaderNames::FovFader as usize].bottom -= 1.0;
                 }
-            },
 
+                // Key::P => { //VISION
+                //     if action == Action::Press
+                //         && !self.faders.read()[FaderNames::VisionsFader as usize].mode
+                //     {
+                //         let mut rng = StdRng::from_entropy();
+                //         self.current_vision =
+                //             Some(VisionType::Model(rng.gen_range(2..self.gltf_models.len())));
+                //         self.visions_timer = 0.0;
+                //         self.faders.write()[FaderNames::VisionsFader as usize].up();
+                //         #[cfg(feature = "audio")]
+                //         unsafe {
+                //             AUDIOPLAYER.play_in_head("assets/sfx/dreambell.mp3");
+                //         }
+                //     }
+                // }
 
-            // Key::H => {
-            //     if action == Action::Press || action == Action::Repeat {
-            //         unsafe {
-            //             GLCHUNKS = !GLCHUNKS;
-            //         }
-            //     } 
-            // }
-            // Key::M => {
-            //     if action == Action::Press {
-            //         unsafe { WEATHERTYPE = WEATHERTYPE + 1.0 };
-            //         if unsafe { WEATHERTYPE } > 2.0 {
-            //             unsafe { WEATHERTYPE = 0.0 };
-            //         }
-            //     }
-            // }
-            // Key::M => {
-            //     if action == Action::Press {
-            //         if self.vars.in_multiplayer {
-            //             self.netconn.send(&Message::new(MessageType::RequestTakeoff, Vec3::ZERO, 0.0, 0));
-            //         } else {
-            //             self.takeoff_ship();
-            //         }
+                // Key::L => {
+                //     if action == Action::Press {
+                //         self.vars.menu_open = !self.vars.menu_open;
+                //     }
 
-            //     }
-            // }
-            // Key::L => {
-            //     if action == Action::Press {
-            //         self.chunksys.read().save_current_world_to_file(String::from("saves/world1"));
-            //     }
-            // }
-            // Key::Num8 => {
-            //     self.vars.ship_going_down = false;
-            //     self.vars.ship_going_up = false;
-            // }
-            // Key::Num0 => {
-            //     self.vars.ship_going_down = true;
-            //     self.vars.ship_going_up = false;
-
-            // }
-            // Key::Num9 => {
-            //     self.vars.ship_going_down = false;
-            //     self.vars.ship_going_up = true;
-            // }
-            // Key::B => {
-            //     if self.vars.near_ship {
-            //         let mut camlock = self.camera.lock();
-            //         camlock.position = self.ship_pos + Vec3::new(5.0, 2.0, 0.0);
-            //     }
-            // }
-            "Fov Up" => {
-                self.faders.write()[FaderNames::FovFader as usize].up();
-                self.faders.write()[FaderNames::FovFader as usize].top += 1.0;
-                self.faders.write()[FaderNames::FovFader as usize].bottom += 1.0;
+                // }
+                // Key::O => {
+                //     //self.faders.write()[FaderNames::VisionsFader as usize].down();
+                // }
+                _ => {}
             }
-            "Fov Down" => {
-                self.faders.write()[FaderNames::FovFader as usize].down();
-                self.faders.write()[FaderNames::FovFader as usize].top -= 1.0;
-                self.faders.write()[FaderNames::FovFader as usize].bottom -= 1.0;
-            }
-
-            // Key::P => { //VISION
-            //     if action == Action::Press
-            //         && !self.faders.read()[FaderNames::VisionsFader as usize].mode
-            //     {
-            //         let mut rng = StdRng::from_entropy();
-            //         self.current_vision =
-            //             Some(VisionType::Model(rng.gen_range(2..self.gltf_models.len())));
-            //         self.visions_timer = 0.0;
-            //         self.faders.write()[FaderNames::VisionsFader as usize].up();
-            //         #[cfg(feature = "audio")]
-            //         unsafe {
-            //             AUDIOPLAYER.play_in_head("assets/sfx/dreambell.mp3");
-            //         }
-            //     }
-            // }
-
-            // Key::L => {
-            //     if action == Action::Press {
-            //         self.vars.menu_open = !self.vars.menu_open;
-            //     }
-
-            // }
-            // Key::O => {
-            //     //self.faders.write()[FaderNames::VisionsFader as usize].down();
-            // }
-            _ => {}
         }
-    
-        }
-
-       
-    
     }
 }

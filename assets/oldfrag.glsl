@@ -3,6 +3,8 @@ in vec3 vertexColor;
 in vec2 TexCoord;
 in vec3 pos;
 
+in float transparencychange;
+
 out vec4 FragColor;
 uniform sampler2D ourTexture;
 uniform sampler2D weatherTexture;
@@ -97,6 +99,6 @@ void main()
 
     FragColor = mix(FragColor, fogColor, min(1, max(distance, 0)));
 
-
+    FragColor.a += transparencychange;
 
 }

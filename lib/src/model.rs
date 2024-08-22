@@ -295,9 +295,10 @@ impl Game {
                 if model.attacktimer < model.attackinterval {
                     model.attacktimer += self.delta_time;
                 } else {
-                    let camlock = self.camera.lock();
-                    let campos = camlock.position;
-                    drop(camlock);
+
+                    let campos: Vec3 = unsafe {
+                        PLAYERPOS.snapshot().pos.into()
+                    };
 
                     if model.position.distance(campos) < 1.0 {
                         tookdamage = true;
@@ -532,7 +533,7 @@ impl Game {
             .chain(nsme.iter().map(|arg0| ModelEntityType::NonStatic(arg0.value())))
             .chain(pme.iter().map(|arg0| ModelEntityType::NonStatic(arg0.value())))
                  {
-
+                //println!("Drawing a p");
                 let modelent = match modelt {
                     ModelEntityType::Static(entity) => {
                         entity
@@ -544,7 +545,7 @@ impl Game {
                     
                 let index = modelent.model_index;
                 if index < self.gltf_vaos.len() && index < self.gltf_textures.len() {
-                       
+                    //println!("Tis true");
                 let vaosetset = &self.gltf_vaos[index];
 
                 //info!("Doing Vaosetset {index}");
@@ -580,6 +581,7 @@ impl Game {
                                 ),
                                 modelent.scale,
                             );
+                            //println!("This models scale is {}", modelent.scale);
 
                             match modelt {
                                 ModelEntityType::Static(entity) => {
@@ -600,7 +602,7 @@ impl Game {
                                             b"pos\0".as_ptr() as *const i8,
                                         ),
                                         entity.position.x,
-                                        entity.position.y + self.planet_y_offset - 1.0,
+                                        entity.position.y + self.planet_y_offset - 1.5,
                                         entity.position.z
                                     );
                                 },
@@ -620,7 +622,7 @@ impl Game {
                                     b"lastpos\0".as_ptr() as *const i8,
                                 ),
                                 modelent.lastpos.x,
-                                modelent.lastpos.y  - 1.0,
+                                modelent.lastpos.y + self.planet_y_offset  - 1.5,
                                 modelent.lastpos.z
                             );
                             

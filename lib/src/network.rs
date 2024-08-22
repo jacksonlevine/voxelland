@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use crate::camera::Camera;
 use crate::chunk::ChunkSystem;
-use crate::game::{Game, CURRSEED, PLAYERPOS};
+use crate::game::{Game, CURRSEED, PLAYERPOS, PLAYERSCALE};
 use crate::inventory::ChestInventory;
 use crate::modelentity::{direction_to_euler, ModelEntity};
 use crate::server_types::{self, Message, MessageType, MOB_BATCH_SIZE};
@@ -160,7 +160,7 @@ impl NetworkConnector {
                     self.sendthread = Some(thread::spawn(move || {
                         let sr = sr2.clone();
                         let stream = stream2.clone();
-                        let cam = camclone.clone();
+                        //let cam = camclone.clone();
                         let shouldsend = shouldsend.clone();
                         while sr.load(std::sync::atomic::Ordering::Relaxed) {
                             if shouldsend.load(std::sync::atomic::Ordering::Relaxed) {
@@ -180,6 +180,7 @@ impl NetworkConnector {
                            
                                 let dir = direction_to_euler(c.dir.into());
                                 let mut message = Message::new(MessageType::PlayerUpdate, c.pos.into(), dir.y, 0);
+                                
                                 message.infof = c.pitch;
                                 message.info2 = c.yaw as u32;
 
@@ -358,7 +359,7 @@ impl NetworkConnector {
                                                 //let id = comm.info;
                                                 let _modind = comm.info2;
                                                 let rot = comm.rot;
-                                                let scale = 0.3;
+                                                let scale = PLAYERSCALE;
 
                                                 let pme: Arc<DashMap<Uuid, ModelEntity>> = pme.clone();
 

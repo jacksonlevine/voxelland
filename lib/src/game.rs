@@ -24,13 +24,15 @@ use uuid::Uuid;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI8, AtomicU32, Ordering};
 use std::sync::Arc;
 
-use parking_lot::{ Mutex, RwLock};
+use parking_lot::{Mutex, RwLock};
 
 pub static mut SELECTCUBESPOT: IVec3 = IVec3 { x: 0, y: 0, z: 0 };
 use std::thread::{self, JoinHandle};
 pub static mut MOUSE_ON_CUBE: bool = false;
 #[cfg(feature = "audio")]
 use crate::audio::{spawn_audio_thread, AudioPlayer};
+
+pub const PLAYERSCALE: f32 = 1.0;
 
 use crate::blockinfo::Blocks;
 use crate::blockoverlay::BlockOverlay;
@@ -1097,7 +1099,7 @@ impl Game {
 
             // info!("gltf model count: {}", g.gltf_models.len());
 
-            // g.create_model_vbos();
+            g.create_model_vbos();
         }
 
         let _aeclone = g.addressentered.clone();
@@ -3496,7 +3498,7 @@ impl Game {
                                 //let id = comm.info;
                                 let modind = 0;
                                 let rot = comm.rot;
-                                let scale = 0.3;
+                                let scale = PLAYERSCALE;
                                 //let sounding  = comm.bo;
 
                                 let pme: Arc<DashMap<Uuid, ModelEntity>> =
@@ -3521,7 +3523,7 @@ impl Game {
                                         info!("Received an update for a player {} that doesn't exist. Creating it...", uuid);
                                         self.insert_player_model_entity(
                                             uuid,
-                                            modind as usize,
+                                            0, //0 for player
                                             newpos,
                                             scale,
                                             Vec3::new(0.0, rot, 0.0),

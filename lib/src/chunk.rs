@@ -42,6 +42,7 @@ use crate::cube::CubeSide;
 #[cfg(feature = "audio")]
 use crate::game::AUDIOPLAYER;
 
+use crate::game::CHUNKDRAWINGHERE;
 use crate::game::CURRSEED;
 
 use crate::packedvertex::PackedVertex;
@@ -1060,6 +1061,8 @@ unsafe {
     }
     pub fn move_and_rebuild(&self, index: usize, cpos: vec::IVec2) {
         //info!("MBeing asked to move and rebuild to {} {}", cpos.x, cpos.y);
+
+
         let tc = self.takencare.clone();
 
         if !tc.contains_key(&cpos) {
@@ -1067,6 +1070,10 @@ unsafe {
 
             if tc.contains_key(&chunkgeoarc.pos.lock()) {
                 tc.remove(&chunkgeoarc.pos.lock());
+            }
+
+            unsafe {
+                CHUNKDRAWINGHERE.remove(&chunkgeoarc.pos.lock());
             }
 
             // let mut chunkgeolock = chunkgeoarc.geos[num as usize].lock();

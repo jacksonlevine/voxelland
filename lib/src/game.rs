@@ -26,6 +26,13 @@ use std::sync::Arc;
 
 use parking_lot::{Mutex, RwLock};
 
+pub const CHUNKFADEINTIME: f32 = 0.6;
+pub const CHUNKFADEIN_TIMEMULTIPLIER_TOGET1_WHENITSFULL: f32 = 1.0 / CHUNKFADEINTIME;
+
+
+pub static mut CHUNKDRAWINGHERE: Lazy<DashMap<IVec2, Instant>> = Lazy::new(|| DashMap::new() );
+
+
 pub static mut SELECTCUBESPOT: IVec3 = IVec3 { x: 0, y: 0, z: 0 };
 use std::thread::{self, JoinHandle};
 pub static mut MOUSE_ON_CUBE: bool = false;
@@ -4818,6 +4825,31 @@ impl Game {
                 unsafe {
                     gl::Uniform2f(C_POS_LOC, cfl.pos.x as f32, cfl.pos.y as f32);
 
+                    unsafe {
+                        if !CHUNKDRAWINGHERE.contains_key(&cfl.pos) {
+                            CHUNKDRAWINGHERE.insert(cfl.pos, Instant::now());
+                        }
+
+                        match CHUNKDRAWINGHERE.get(&cfl.pos) {
+                            Some(instant) => {
+                                let instant = instant.value();
+                                let timeelapsed = instant.elapsed();
+                                gl::Uniform1f(gl::GetUniformLocation(
+                                    self.shader0.shader_id,
+                                    b"elapsedFade\0".as_ptr() as *const i8,
+                                ), timeelapsed.as_secs_f32().min(CHUNKFADEINTIME) * CHUNKFADEIN_TIMEMULTIPLIER_TOGET1_WHENITSFULL);
+                            },
+                            None => {
+                                gl::Uniform1f(gl::GetUniformLocation(
+                                    self.shader0.shader_id,
+                                    b"elapsedFade\0".as_ptr() as *const i8,
+                                ), 0.0);
+                            },
+                        }
+                    }
+                    
+                    
+
                     let error = gl::GetError();
                     if error != gl::NO_ERROR {
                         info!("OpenGL Error after uniforming the chunk pos: {}", error);
@@ -4859,6 +4891,25 @@ impl Game {
                 );
                 unsafe {
                     gl::Uniform2f(C_POS_LOC, cfl.pos.x as f32, cfl.pos.y as f32);
+
+                    unsafe {
+                        match CHUNKDRAWINGHERE.get(&cfl.pos) {
+                            Some(instant) => {
+                                let instant = instant.value();
+                                let timeelapsed = instant.elapsed();
+                                gl::Uniform1f(gl::GetUniformLocation(
+                                    self.shader0.shader_id,
+                                    b"elapsedFade\0".as_ptr() as *const i8,
+                                ), timeelapsed.as_secs_f32().min(CHUNKFADEINTIME) * CHUNKFADEIN_TIMEMULTIPLIER_TOGET1_WHENITSFULL);
+                            },
+                            None => {
+                                gl::Uniform1f(gl::GetUniformLocation(
+                                    self.shader0.shader_id,
+                                    b"elapsedFade\0".as_ptr() as *const i8,
+                                ), 0.0);
+                            },
+                        }
+                    }
 
                     let error = gl::GetError();
                     if error != gl::NO_ERROR {
@@ -5072,8 +5123,8 @@ impl Game {
         }
         #[cfg(feature = "glfw")]
         self.draw_stars();
-        #[cfg(feature = "glfw")]
-        self.draw_clouds();
+        // #[cfg(feature = "glfw")]
+        // self.draw_clouds();
     }
 
     pub fn start_world(&mut self) {

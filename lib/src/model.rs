@@ -591,7 +591,7 @@ impl Game {
                                             b"pos\0".as_ptr() as *const i8,
                                         ),
                                         entity.position.x,
-                                        entity.position.y  - 1.0,
+                                        entity.position.y ,
                                         entity.position.z
                                     );
                                 },
@@ -602,7 +602,7 @@ impl Game {
                                             b"pos\0".as_ptr() as *const i8,
                                         ),
                                         entity.position.x,
-                                        entity.position.y + self.planet_y_offset - 1.5,
+                                        entity.position.y + self.planet_y_offset,
                                         entity.position.z
                                     );
                                 },
@@ -622,7 +622,7 @@ impl Game {
                                     b"lastpos\0".as_ptr() as *const i8,
                                 ),
                                 modelent.lastpos.x,
-                                modelent.lastpos.y + self.planet_y_offset  - 1.5,
+                                modelent.lastpos.y + self.planet_y_offset,
                                 modelent.lastpos.z
                             );
                             

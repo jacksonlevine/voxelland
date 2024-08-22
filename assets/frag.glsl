@@ -13,6 +13,7 @@ uniform float underWater;
 uniform vec3 camDir;
 
 uniform vec4 fogCol;
+uniform float elapsedFade;
 
 uniform float sunset;
 uniform float sunrise;
@@ -62,4 +63,6 @@ void main()
 
     FragColor = mix(FragColor, fogColor, min(1, max(distance, 0)));
     FragColor = FragColor - vec4(space/spacedist, space/spacedist, space/spacedist, 0.0);
+
+    FragColor.a *= elapsedFade;
 }

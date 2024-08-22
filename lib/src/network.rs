@@ -176,10 +176,10 @@ impl NetworkConnector {
                                 let c = unsafe {
                                     PLAYERPOS.snapshot()
                                 };
-
-                           
+                                
+                                
                                 let dir = direction_to_euler(c.dir.into());
-                                let mut message = Message::new(MessageType::PlayerUpdate, c.pos.into(), dir.y, 0);
+                                let mut message = Message::new(MessageType::PlayerUpdate, Into::<glam::Vec3>::into(c.pos) - Vec3::new(0.0, 1.25, 0.0), dir.y, 0);
                                 
                                 message.infof = c.pitch;
                                 message.info2 = c.yaw as u32;

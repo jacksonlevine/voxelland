@@ -13,3 +13,4 @@ chestdb
 db
 lesa
 app.log
+*.exe

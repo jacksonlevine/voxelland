@@ -24,7 +24,7 @@ use uuid::Uuid;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI8, AtomicU32, Ordering};
 use std::sync::Arc;
 
-use parking_lot::{deadlock, Mutex, RwLock};
+use parking_lot::{ Mutex, RwLock};
 
 pub static mut SELECTCUBESPOT: IVec3 = IVec3 { x: 0, y: 0, z: 0 };
 use std::thread::{self, JoinHandle};
@@ -1085,19 +1085,19 @@ impl Game {
         };
         #[cfg(feature = "glfw")]
         if !headless {
-            g.load_model(path!("assets/models/car/scene.gltf"));
-            g.load_model(path!("assets/models/car/scene.gltf"));
-            //g.load_model(path!("assets/models/ship/scene.gltf"));
-            g.load_model(path!("assets/models/monster1/scene.gltf"));
-            g.load_model(path!("assets/models/monster2/scene.gltf"));
-            g.load_model(path!("assets/models/cow/scene.glb"));
-            g.load_model(path!("assets/models/mountain/scene.gltf"));
+            g.load_model(path!("assets/models/player.glb"));
+            // g.load_model(path!("assets/models/car/scene.gltf"));
+            // //g.load_model(path!("assets/models/ship/scene.gltf"));
+            // g.load_model(path!("assets/models/monster1/scene.gltf"));
+            // g.load_model(path!("assets/models/monster2/scene.gltf"));
+            // g.load_model(path!("assets/models/cow/scene.glb"));
+            // g.load_model(path!("assets/models/mountain/scene.gltf"));
 
-            g.load_model(path!("assets/models/cricket/scene.gltf"));
+            // g.load_model(path!("assets/models/cricket/scene.gltf"));
 
-            info!("gltf model count: {}", g.gltf_models.len());
+            // info!("gltf model count: {}", g.gltf_models.len());
 
-            g.create_model_vbos();
+            // g.create_model_vbos();
         }
 
         let _aeclone = g.addressentered.clone();
@@ -5581,18 +5581,18 @@ impl Game {
         };
 
         while runcheck.load(Ordering::Relaxed) {
-            let deadlocks = deadlock::check_deadlock();
+            // let deadlocks = deadlock::check_deadlock();
 
-            if !deadlocks.is_empty() {
-                println!("{} deadlocks detected", deadlocks.len());
-                for (i, threads) in deadlocks.iter().enumerate() {
-                    println!("Deadlock #{}", i);
-                    for t in threads {
-                        println!("Thread Id {:#?}", t.thread_id());
-                        println!("{:#?}", t.backtrace());
-                    }
-                }
-            }
+            // if !deadlocks.is_empty() {
+            //     println!("{} deadlocks detected", deadlocks.len());
+            //     for (i, threads) in deadlocks.iter().enumerate() {
+            //         println!("Deadlock #{}", i);
+            //         for t in threads {
+            //             println!("Thread Id {:#?}", t.thread_id());
+            //             println!("{:#?}", t.backtrace());
+            //         }
+            //     }
+            // }
 
             Game::chunk_thread_inner_function(&cam_arc, &csys_arc, &mut last_user_c_pos);
         }

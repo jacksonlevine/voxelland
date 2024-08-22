@@ -1,18 +1,23 @@
 # Distant Garden
 
-## Building
-### Windows specific
-Place imgui and fmod libraries in the appropriate place.
-This does not need to be done for linux or MacOS 
 
 ### Just use cargo 
 
 Client:
-`cargo build -p voxelland-client`
+`cargo build -p voxelland-client --release`
 
 Server 
-`cargo build -p voxelland-server`
+`cargo build -p voxelland-server --release`
 
+Must use release mode, will not run fast enough in debug mode.
+
+For maximum optimizations:
+
+Client:
+`cargo build -p voxelland-client --profile deploy`
+
+Server 
+`cargo build -p voxelland-server --profile deploy`
 
 ### Dependencies
 Glfw for all platforms
